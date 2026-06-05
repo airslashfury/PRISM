@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell",
+      "Python ",
+      "Bash(docker compose logs *)",
+      "Bash(docker compose ps *)"
+    ]
+  },
+  "model": "sonnet"
+}

@@ -1,0 +1,5593 @@
+keystone:
+  ogp_prits_wfs:
+    name: OGP/PRITS PR-government GeoServer (pr_geodata)
+    type: wfs
+    url: http://geoserver2.pr.gov/geoserver/pr_geodata/wfs
+    version: 2.0.0
+    license: PR government (public; terms vary)
+    refresh: weekly
+    notes: 'Backbone - ~400 layers spanning boundaries, census geography, environmental,
+      infrastructure (Electricidad / Agua / Transportacion), dotaciones (health, schools,
+      public safety, government), and riesgos (flood, geologic). GIS-client endpoint,
+      not a browser URL. Run `make wfs-list` (prism/sync/wfs.py) to enumerate and
+      auto-seed `layers`.
+
+      '
+    layers:
+      pr_geodata:g01_conserv_critical_wildlife_areas:
+        title: g01_conserv_critical_wildlife_areas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9572558871477
+        - 17.875314615772552
+        - -65.2190372845008
+        - 18.512661781407957
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_bentica:
+        title: g01_conserv_especies_bentica
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95867494838164
+        - 17.775443907704286
+        - -65.16365412475398
+        - 18.518059144721946
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_finca_gabia_plantacion_cobana_negra:
+        title: g01_conserv_especies_finca_gabia_plantacion_cobana_negra
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.3766925832919
+        - 18.034797670813774
+        - -66.3761201562847
+        - 18.035295753775387
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_finca_gabia_reintro_especies_peligro:
+        title: g01_conserv_especies_finca_gabia_reintro_especies_peligro
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.3759918524564
+        - 18.03730601877277
+        - -66.37567675941881
+        - 18.03785541259364
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_habitat_criticos:
+        title: g01_conserv_especies_habitat_criticos
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.11102406755968
+        - 17.723510819973704
+        - -65.16682245645246
+        - 18.543988268976875
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_habitats:
+        title: g01_conserv_especies_habitats
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95707315736118
+        - 17.928462128707015
+        - -65.28425754055091
+        - 18.491546246387113
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_hnc_guaraguao_propuesto:
+        title: g01_conserv_especies_hnc_guaraguao_propuesto
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.77339113056166
+        - 18.096492260273394
+        - -66.03986532823264
+        - 18.42219632343327
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_hnc_lagartijo_del_seco_propuesto:
+        title: g01_conserv_especies_hnc_lagartijo_del_seco_propuesto
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21543736197181
+        - 17.87964948162644
+        - -66.1599146747731
+        - 18.012378015743543
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_hnc_mariposa_arlequin_propuesto_2009:
+        title: g01_conserv_especies_hnc_mariposa_arlequin_propuesto_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.99582027490601
+        - 18.474095461402666
+        - -66.87802221023402
+        - 18.501444314750458
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_hnc_sapo_concho_propuesto:
+        title: g01_conserv_especies_hnc_sapo_concho_propuesto
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.74831396114241
+        - 18.38760880886291
+        - -66.69617086954585
+        - 18.423218537484583
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_hnc_y_hnce_coqui_llanero:
+        title: g01_conserv_especies_hnc_y_hnce_coqui_llanero
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.23363450818788
+        - 18.41717935097261
+        - -66.18825770067019
+        - 18.438948314794686
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_hnc_y_hnce_mariquita_propuesto:
+        title: g01_conserv_especies_hnc_y_hnce_mariquita_propuesto
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95514254954387
+        - 17.90660918951883
+        - -65.5894852572724
+        - 18.26855891949796
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_hnce_guaraguao_de_bosque_propuesto:
+        title: g01_conserv_especies_hnce_guaraguao_de_bosque_propuesto
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.73207562192587
+        - 18.314731665716096
+        - -66.68462668040584
+        - 18.370559828394104
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_invertebrados:
+        title: g01_conserv_especies_invertebrados
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.97631694657157
+        - 17.810312287094906
+        - -65.16320881179836
+        - 18.579302125371818
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_invertebrados_lineas:
+        title: g01_conserv_especies_invertebrados_lineas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.17126915064136
+        - 17.97337472026574
+        - -65.65113948020971
+        - 18.477896005218472
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_mamiferos_marinos:
+        title: g01_conserv_especies_mamiferos_marinos
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.17346838431645
+        - 17.511310752636746
+        - -65.15761408994616
+        - 18.710125111373348
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_mamiferos_terrestres:
+        title: g01_conserv_especies_mamiferos_terrestres
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.11966066539739
+        - 18.265553985028223
+        - -65.74302745766613
+        - 18.4560296720055
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_pajaros:
+        title: g01_conserv_especies_pajaros
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95708296653471
+        - 17.872713033756828
+        - -65.22827536336574
+        - 18.492696323438487
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_peces:
+        title: g01_conserv_especies_peces
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.17346838431645
+        - 17.511310752636746
+        - -65.15761408994616
+        - 18.710125111373348
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_peces_lineas:
+        title: g01_conserv_especies_peces_lineas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.17126915064136
+        - 17.97337472026574
+        - -65.65113948020971
+        - 18.477896005218472
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_red_tail_hawk_territory:
+        title: g01_conserv_especies_red_tail_hawk_territory
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.74137439074646
+        - 18.307538691079397
+        - -66.67693329099208
+        - 18.368241760372694
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_reintro_especies_peligro_bosques_estatales:
+        title: g01_conserv_especies_reintro_especies_peligro_bosques_estatales
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19543417918692
+        - 17.9334531623402
+        - -66.0287490584214
+        - 18.45389772627611
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_especies_reptiles:
+        title: g01_conserv_especies_reptiles
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9601470996925
+        - 17.877182174777722
+        - -65.21980732710753
+        - 18.517937566171955
+        prism_category: conservacion_especies
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_finca_gabia:
+        title: g01_conserv_finca_gabia
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.38078975278113
+        - 18.03389725804653
+        - -66.37465550200888
+        - 18.040729210582494
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_fws_approved_pr_usvi_2014:
+        title: g01_conserv_fws_approved_pr_usvi_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.48940993262754
+        - 17.67369123681378
+        - -64.65845725776782
+        - 18.392582535717995
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_fws_approved_pr_usvi_2019:
+        title: g01_conserv_fws_approved_pr_usvi_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.49029210520688
+        - 17.671936788578705
+        - -64.65806054947969
+        - 18.393355297500673
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_fws_interest_pr_usvi_2015:
+        title: g01_conserv_fws_interest_pr_usvi_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.48941118861885
+        - 17.673694624763108
+        - -64.65845725920094
+        - 18.392582394060135
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_fws_interest_pr_usvi_2019:
+        title: g01_conserv_fws_interest_pr_usvi_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.49029217913922
+        - 17.67193763556591
+        - -64.65806054947969
+        - 18.393355297471693
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_gap_stewardship:
+        title: g01_conserv_gap_stewardship
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.73968241015272
+        - 18.021095189004146
+        - -66.06864336948493
+        - 18.416065680444383
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_linea_vegetacion_permanente_2007:
+        title: g01_conserv_linea_vegetacion_permanente_2007
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27207941299123
+        - 17.92401251505165
+        - -65.24281681066752
+        - 18.516838834889914
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_reserva_tres_palmas:
+        title: g01_conserv_reserva_tres_palmas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27363085698322
+        - 18.341695855404076
+        - -67.26131427306424
+        - 18.353349782580022
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_sist_cavernas_rio_camuy_2010:
+        title: g01_conserv_sist_cavernas_rio_camuy_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.85584081250971
+        - 18.230006475213287
+        - -66.78435351990558
+        - 18.376131799136243
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_yunque_federal:
+        title: g01_conserv_yunque_federal
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -65.89902915931104
+        - 18.24317663611573
+        - -65.70679774635482
+        - 18.34829980194939
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_conserv_yunque_proclama:
+        title: g01_conserv_yunque_proclama
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -65.91643228084388
+        - 18.230818801731477
+        - -65.69939402927767
+        - 18.34837329453319
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g01_zonas_de_vida_holdridge_fix_2007_18:
+        title: g01_zonas_de_vida_holdridge_fix_2007_18
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95445522385403
+        - 17.875456334760266
+        - -65.21954158959652
+        - 18.516958321062035
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g03_electorales_dist_representativos_2012:
+        title: g03_electorales_dist_representativos_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27208673039287
+        - 17.923670214143325
+        - -65.2427065320556
+        - 18.517083922256457
+        prism_category: electoral
+        domain: administrativo
+        priority: P2
+      pr_geodata:g03_electorales_dist_senatoriales_2012:
+        title: g03_electorales_dist_senatoriales_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27208673039287
+        - 17.923671033755397
+        - -65.2428391114616
+        - 18.517083884885754
+        prism_category: electoral
+        domain: administrativo
+        priority: P2
+      pr_geodata:g03_electorales_precintos_2004:
+        title: g03_electorales_precintos_2004
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203816532787
+        - 17.923813075588217
+        - -65.24284266775935
+        - 18.517170021195508
+        prism_category: electoral
+        domain: administrativo
+        priority: P2
+      pr_geodata:g03_electorales_unidades_electorales_2004:
+        title: g03_electorales_unidades_electorales_2004
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203530507664
+        - 17.923802603455545
+        - -65.24283859391379
+        - 18.517159860160767
+        prism_category: electoral
+        domain: administrativo
+        priority: P2
+      pr_geodata:g03_legales_barrios_2009:
+        title: g03_legales_barrios_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: limites
+        domain: administrativo
+        priority: P1
+      pr_geodata:g03_legales_barrios_2015:
+        title: g03_legales_barrios_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: limites
+        domain: administrativo
+        priority: P1
+      pr_geodata:g03_legales_barrios_2023:
+        title: g03_legales_barrios_2023
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9544258212573
+        - 17.875261337799955
+        - -65.2195907712537
+        - 18.517035388591633
+        prism_category: limites
+        domain: administrativo
+        priority: P0
+      pr_geodata:g03_legales_barrios_pueblo_2015:
+        title: g03_legales_barrios_pueblo_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.90912270501967
+        - 17.957660517938496
+        - -65.28911650845333
+        - 18.504202818931834
+        prism_category: limites
+        domain: administrativo
+        priority: P0
+      pr_geodata:g03_legales_isla_pr:
+        title: g03_legales_isla_pr
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: limites
+        domain: administrativo
+        priority: P0
+      pr_geodata:g03_legales_limites_lines_2015:
+        title: g03_legales_limites_lines_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: limites
+        domain: administrativo
+        priority: P1
+      pr_geodata:g03_legales_limites_lines_2023:
+        title: g03_legales_limites_lines_2023
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9544258212573
+        - 17.875261337799955
+        - -65.2195907712537
+        - 18.517035388591633
+        prism_category: limites
+        domain: administrativo
+        priority: P1
+      pr_geodata:g03_legales_municipios_2009:
+        title: g03_legales_municipios_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: limites
+        domain: administrativo
+        priority: P1
+      pr_geodata:g03_legales_municipios_2015:
+        title: g03_legales_municipios_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: limites
+        domain: administrativo
+        priority: P1
+      pr_geodata:g03_legales_municipios_2023:
+        title: g03_legales_municipios_2023
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9544258212573
+        - 17.875261337799955
+        - -65.2195907712537
+        - 18.517035388591633
+        prism_category: limites
+        domain: administrativo
+        priority: P0
+      pr_geodata:g03_legales_us_maritime_limits_boundaries:
+        title: g03_legales_us_maritime_limits_boundaries
+        crs:
+        - urn:ogc:def:crs:EPSG::4326
+        bbox_wgs84:
+        - -68.4818954467773
+        - 14.9281940460205
+        - -63.8888854980469
+        - 21.8542518615723
+        prism_category: limites
+        domain: administrativo
+        priority: P1
+      pr_geodata:g07_comercial_marinas:
+        title: g07_comercial_marinas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26061563519139
+        - 17.93972217885176
+        - -65.61970184804619
+        - 18.48892296640516
+        prism_category: comercial
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_industrial_urbanizaciones_industriales:
+        title: g07_industrial_urbanizaciones_industriales
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25361709678852
+        - 17.95159488703966
+        - -65.2966797280813
+        - 18.496807995200385
+        prism_category: industrial
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_agroturismo_2021:
+        title: g07_turismo_agroturismo_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16859533332052
+        - 17.97436416674145
+        - -65.70407738829414
+        - 18.45318799980658
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_atracciones:
+        title: g07_turismo_atracciones
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19455423662774
+        - 17.932475767293113
+        - -65.43727411776747
+        - 18.492597252470304
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_balnearios:
+        title: g07_turismo_balnearios
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25698044553445
+        - 17.88269381564902
+        - -65.31923944979285
+        - 18.51481299538142
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_campos_golf:
+        title: g07_turismo_campos_golf
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1868902946245
+        - 17.954627098995086
+        - -65.63581808479242
+        - 18.495855543483074
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_casinos_2010:
+        title: g07_turismo_casinos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16278873375582
+        - 17.96934824123046
+        - -65.76284786063155
+        - 18.502848096191673
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_comunitario_sostenible_2021:
+        title: g07_turismo_comunitario_sostenible_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.86991838982125
+        - 17.971326455193825
+        - -65.77154690358307
+        - 18.349050174428157
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_hospederias_endosadas_2021:
+        title: g07_turismo_hospederias_endosadas_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25908188887865
+        - 17.950312754585063
+        - -65.28800876009599
+        - 18.514249754471273
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_hospederias_verdes_2021:
+        title: g07_turismo_hospederias_verdes_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21311163591311
+        - 17.961847536064226
+        - -65.49042292023786
+        - 18.46755090778248
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_instalaciones_comp_turismo_2010:
+        title: g07_turismo_instalaciones_comp_turismo_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.15873720372532
+        - 18.007808669314382
+        - -65.3009439891874
+        - 18.497025940336155
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_mesones_2010:
+        title: g07_turismo_mesones_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19816848038964
+        - 17.951297260671243
+        - -65.63022096957192
+        - 18.514403115361034
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_nc_lugares_buceo_2010:
+        title: g07_turismo_nc_lugares_buceo_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26673409649523
+        - 17.81004772128448
+        - -65.23203951550832
+        - 18.528365402594094
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_nc_zonas_turisticas_2010:
+        title: g07_turismo_nc_zonas_turisticas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95008280687297
+        - 17.921474404309343
+        - -65.24292006681807
+        - 18.517145848360446
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_paradores_hoteles_2010:
+        title: g07_turismo_paradores_hoteles_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2660497816321
+        - 17.94832506666478
+        - -65.28776538699191
+        - 18.51458623549674
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_regiones_turisticas_2010:
+        title: g07_turismo_regiones_turisticas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203412130622
+        - 17.92380701994739
+        - -65.24284510451248
+        - 18.517159858992994
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_restaurantes_1999:
+        title: g07_turismo_restaurantes_1999
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21248881268033
+        - 17.951269831898117
+        - -65.46737086718525
+        - 18.514017140555517
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g07_turismo_zonas_interes_turistico_2010:
+        title: g07_turismo_zonas_interes_turistico_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27212868186706
+        - 17.910229810612318
+        - -65.52274829025241
+        - 18.513435999372177
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g09_contornos_mapa_base_crim:
+        title: g09_contornos_mapa_base_crim
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27176897952012
+        - 17.878572258007217
+        - -65.21998741758885
+        - 18.516893564184954
+        prism_category: topografia
+        domain: territorio
+        priority: P2
+      pr_geodata:g09_contornos_mapa_base_crim_contornos_generales:
+        title: g09_contornos_mapa_base_crim_contornos_generales
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2720501959386
+        - 17.877762379516394
+        - -65.21987749081762
+        - 18.516785028894464
+        prism_category: topografia
+        domain: territorio
+        priority: P2
+      pr_geodata:g09_contornos_usgs_topographic_contours:
+        title: g09_contornos_usgs_topographic_contours
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2719942575304
+        - 17.877856394779634
+        - -65.21965106365616
+        - 18.517045990471598
+        prism_category: topografia
+        domain: territorio
+        priority: P1
+      pr_geodata:g09_contornos_usgs_topographic_contours_depresiones:
+        title: g09_contornos_usgs_topographic_contours_depresiones
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25876880798305
+        - 17.949834362170687
+        - -65.22371890421005
+        - 18.514671547703784
+        prism_category: topografia
+        domain: territorio
+        priority: P1
+      pr_geodata:g09_contornos_usgs_topographic_contours_mona:
+        title: g09_contornos_usgs_topographic_contours_mona
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95132567369413
+        - 18.05227813006484
+        - -67.84315984231183
+        - 18.162105127698677
+        prism_category: topografia
+        domain: territorio
+        priority: P1
+      pr_geodata:g09_puntuales_alturas:
+        title: g09_puntuales_alturas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26457797420208
+        - 17.930322571933797
+        - -65.26459676789867
+        - 18.504590369547962
+        prism_category: topografia
+        domain: territorio
+        priority: P1
+      pr_geodata:g11_ambiental_canon_san_cristobal:
+        title: g11_ambiental_canon_san_cristobal
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.31669268026283
+        - 18.14524445289169
+        - -66.25425287242754
+        - 18.1871753764745
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_ambiental_cienaga_cucharillas:
+        title: g11_ambiental_cienaga_cucharillas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.1517980238756
+        - 18.431332475995095
+        - -66.12913548105382
+        - 18.450594045325047
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_ambiental_corredor_biologico_bosque_del_pueblo:
+        title: g11_ambiental_corredor_biologico_bosque_del_pueblo
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.96276739931561
+        - 17.984369289020503
+        - -66.60388684015358
+        - 18.1839557950628
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_2010:
+        title: g11_conserv_areas_naturales_protegidas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.11626834492154
+        - 17.7757504948452
+        - -65.218748280844
+        - 18.64574859114895
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_2014:
+        title: g11_conserv_areas_naturales_protegidas_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.11626946253241
+        - 17.775747802686116
+        - -65.2187500793753
+        - 18.645745483850295
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_clcc_pacat_2015:
+        title: g11_conserv_areas_naturales_protegidas_clcc_pacat_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.11626635685586
+        - 17.775739782852657
+        - -65.21864853590918
+        - 18.645740183553535
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_clcc_pacat_2016:
+        title: g11_conserv_areas_naturales_protegidas_clcc_pacat_2016
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.11626635685586
+        - 17.775739782852657
+        - -65.21864853590918
+        - 18.645740183553535
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_gap_2009:
+        title: g11_conserv_areas_naturales_protegidas_gap_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.11626834492154
+        - 17.7757504948452
+        - -65.218748280844
+        - 18.64574859114895
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_marinas_2019:
+        title: g11_conserv_areas_naturales_protegidas_marinas_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.11626637536473
+        - 17.77573978269126
+        - -65.30821642079414
+        - 18.645789804716262
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_terrestres_2019:
+        title: g11_conserv_areas_naturales_protegidas_terrestres_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95438477522417
+        - 17.875258937955063
+        - -65.21957706349376
+        - 18.512321101396118
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_zona_amort_carso_2019:
+        title: g11_conserv_areas_naturales_protegidas_zona_amort_carso_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95488616334013
+        - 17.874806238782995
+        - -65.87289578917454
+        - 18.51284005509068
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_naturales_protegidas_zonas_amort_pr_2019:
+        title: g11_conserv_areas_naturales_protegidas_zonas_amort_pr_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.11367809006495
+        - 17.929015188216184
+        - -65.43583821037103
+        - 18.48838151172707
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_areas_prioridad_conservacion_2008:
+        title: g11_conserv_areas_prioridad_conservacion_2008
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95728434518513
+        - 17.87524857433858
+        - -65.21965132079315
+        - 18.516284352135703
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_bosque_estatal_monte_choca:
+        title: g11_conserv_bosque_estatal_monte_choca
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.29792168314344
+        - 18.27892649012808
+        - -66.28588085910617
+        - 18.293663930778514
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_bosque_modelo_casa_pueblo_parcla_biodiversidad_2010:
+        title: g11_conserv_bosque_modelo_casa_pueblo_parcla_biodiversidad_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.67624441316548
+        - 18.179668889907877
+        - -66.67506859530944
+        - 18.180782514807852
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_bosques_auxiliares_2010:
+        title: g11_conserv_bosques_auxiliares_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21257005676944
+        - 18.017674655045912
+        - -65.2480565309713
+        - 18.44194931720623
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_fws_approved_pr_usvi_2019:
+        title: g11_conserv_fws_approved_pr_usvi_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.49029210520688
+        - 17.671936788578705
+        - -64.65806054947969
+        - 18.393355297500673
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_conserv_fws_interest_pr_usvi_2019:
+        title: g11_conserv_fws_interest_pr_usvi_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.49029217913922
+        - 17.67193763556591
+        - -64.65806054947969
+        - 18.393355297471693
+        prism_category: conservacion
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_empresas_pecuarias_2008:
+        title: g11_proteccion_empresas_pecuarias_2008
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1679855567518
+        - 17.969123102821296
+        - -65.44773884317839
+        - 18.509853436584702
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_epa_facility_registry_system_2011:
+        title: g11_proteccion_epa_facility_registry_system_2011
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.28950502086907
+        - 17.916537617633022
+        - -65.16346987745062
+        - 18.50911248089723
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_fincas_receptoras_2010:
+        title: g11_proteccion_fincas_receptoras_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.15664233216613
+        - 17.96122339189841
+        - -65.63249349482214
+        - 18.461783333250732
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_generadores_electricidad_2012:
+        title: g11_proteccion_generadores_electricidad_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26721152292863
+        - 17.932400321366824
+        - -65.25395252399933
+        - 18.51447987377938
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g11_proteccion_gomeras_2010:
+        title: g11_proteccion_gomeras_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24968540291697
+        - 17.949752276442123
+        - -65.28226474396848
+        - 18.504857767366538
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_lavanderias_2013:
+        title: g11_proteccion_lavanderias_2013
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18952198228313
+        - 17.972625965839917
+        - -65.64242552088588
+        - 18.503606498027832
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_monitoreo_agua_ebsj_2023:
+        title: g11_proteccion_monitoreo_agua_ebsj_2023
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26509434615858
+        - 17.94613085313259
+        - -65.30042744396346
+        - 18.493147231994705
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_tanques_almac_soterrados_2011:
+        title: g11_proteccion_tanques_almac_soterrados_2011
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25320179311781
+        - 17.951616087944455
+        - -65.2992082253541
+        - 18.5135831156788
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g11_proteccion_vertederos_2010:
+        title: g11_proteccion_vertederos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24618433535046
+        - 17.95345794244281
+        - -65.3207510305499
+        - 18.478293594475847
+        prism_category: ambiental
+        domain: ambiente
+        priority: P1
+      pr_geodata:g13_conserv_corredor_agricola_del_sur_2012:
+        title: g13_conserv_corredor_agricola_del_sur_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.98325965375608
+        - 17.942259794796573
+        - -65.95597692897744
+        - 18.172392334207018
+        prism_category: agricultura
+        domain: ambiente
+        priority: P1
+      pr_geodata:g13_conserv_valles_agricolas_regla_5_2014:
+        title: g13_conserv_valles_agricolas_regla_5_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18987695125999
+        - 17.951600017248268
+        - -65.81726517075778
+        - 18.478210235803033
+        prism_category: agricultura
+        domain: ambiente
+        priority: P1
+      pr_geodata:g13_estadisticas_regiones_usda_nass_2017:
+        title: g13_estadisticas_regiones_usda_nass_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: agricultura
+        domain: ambiente
+        priority: P1
+      pr_geodata:g13_fincas_autoridad_de_tierras_2010:
+        title: g13_fincas_autoridad_de_tierras_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16808773004486
+        - 17.92495464356635
+        - -65.43429294216777
+        - 18.489637906051264
+        prism_category: agricultura
+        domain: ambiente
+        priority: P1
+      pr_geodata:g13_reservas_agricolas_dep_agricultura_2010:
+        title: g13_reservas_agricolas_dep_agricultura_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.20901856749195
+        - 17.938213247230646
+        - -65.37743648679957
+        - 18.514954857725588
+        prism_category: agricultura
+        domain: ambiente
+        priority: P1
+      pr_geodata:g15_geologia_acuiferos_250k_renken:
+        title: g15_geologia_acuiferos_250k_renken
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26129655057528
+        - 17.67200443063295
+        - -64.70438162339266
+        - 18.497879270607104
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_calizas_y_carso_2016:
+        title: g15_geologia_calizas_y_carso_2016
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9555567766928
+        - 17.876619438565523
+        - -65.87295175340087
+        - 18.51665886270796
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_calizas_y_carso_depresiones_30m:
+        title: g15_geologia_calizas_y_carso_depresiones_30m
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.12061579770818
+        - 18.048672052970677
+        - -66.33424356294726
+        - 18.441661733248345
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_calizas_y_carso_depresiones_5_30m:
+        title: g15_geologia_calizas_y_carso_depresiones_5_30m
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.17478741873042
+        - 18.045472129932637
+        - -66.2619905457253
+        - 18.48073542541265
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_carso:
+        title: g15_geologia_carso
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.14806130445825
+        - 18.280974605053295
+        - -66.26241942196297
+        - 18.480746829428302
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_carso_limite:
+        title: g15_geologia_carso_limite
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203523244643
+        - 18.27230155170746
+        - -65.7611368637465
+        - 18.517210702776424
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_faults_normal:
+        title: g15_geologia_faults_normal
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.22511570395213
+        - 17.957706795464706
+        - -65.62043428483975
+        - 18.44705381017371
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_faults_thrust_concealed:
+        title: g15_geologia_faults_thrust_concealed
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.240966768744
+        - 17.964206040688218
+        - -65.62957003094037
+        - 18.404192969691238
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_gravity:
+        title: g15_geologia_gravity
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27042687078539
+        - 17.888925033374203
+        - -65.4973110738989
+        - 18.52130116817727
+        prism_category: gravedad_magnetica
+        domain: geologia
+        priority: P2
+      pr_geodata:g15_geologia_magnetic:
+        title: g15_geologia_magnetic
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1680931004029
+        - 17.947827236416316
+        - -65.72890344298995
+        - 18.58644084188473
+        prism_category: gravedad_magnetica
+        domain: geologia
+        priority: P2
+      pr_geodata:g15_geologia_mapping_units_100k_2005:
+        title: g15_geologia_mapping_units_100k_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27234811123174
+        - 17.924819023530418
+        - -65.57405544116939
+        - 18.51730415363791
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_mapping_units_20k_2018:
+        title: g15_geologia_mapping_units_20k_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95445588617383
+        - 17.875309248026
+        - -65.21958980421482
+        - 18.517174564468345
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_plataforma_insular:
+        title: g15_geologia_plataforma_insular
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.97632865484495
+        - 17.81031035835937
+        - -65.16320879947806
+        - 18.579303815160827
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_geologia_sismometros_2010:
+        title: g15_geologia_sismometros_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.902665578475
+        - 17.993648275813783
+        - -65.84917138389334
+        - 18.448328474873342
+        prism_category: sismometros
+        domain: geologia
+        priority: P2
+      pr_geodata:g15_geologia_sismometros_2021:
+        title: g15_geologia_sismometros_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -70.1499573989079
+        - 12.50556679330747
+        - -64.32566773834145
+        - 19.309404517000605
+        prism_category: sismometros
+        domain: geologia
+        priority: P2
+      pr_geodata:g15_geologia_terrane:
+        title: g15_geologia_terrane
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27234811123174
+        - 17.924819023530418
+        - -65.57405544116939
+        - 18.51730415363791
+        prism_category: geologia
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_riesgo_geol_areas_desalojo_tsunami_2003_2014:
+        title: g15_riesgo_geol_areas_desalojo_tsunami_2003_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27216481952007
+        - 17.877392065088717
+        - -65.21971446448467
+        - 18.5170357180636
+        prism_category: geologico
+        domain: riesgos
+        priority: P1
+      pr_geodata:g15_riesgo_geol_deslizamientos_1998:
+        title: g15_riesgo_geol_deslizamientos_1998
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203125969993
+        - 17.923796547814796
+        - -65.24284103259099
+        - 18.517149415630794
+        prism_category: geologico
+        domain: riesgos
+        priority: P0
+      pr_geodata:g15_riesgo_geol_landsld_monroe_plus_slop50pct:
+        title: g15_riesgo_geol_landsld_monroe_plus_slop50pct
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203412130622
+        - 17.88005002012543
+        - -65.22034478945044
+        - 18.51716605429242
+        prism_category: geologico
+        domain: riesgos
+        priority: P1
+      pr_geodata:g15_riesgo_geol_licuacion_metro_1999:
+        title: g15_riesgo_geol_licuacion_metro_1999
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.2646063314864
+        - 18.258155143487063
+        - -65.90130597650379
+        - 18.477036070160853
+        prism_category: geologico
+        domain: riesgos
+        priority: P0
+      pr_geodata:g15_riesgo_geol_sismos_1989_2001:
+        title: g15_riesgo_geol_sismos_1989_2001
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -69.03088394281332
+        - 16.996031385266534
+        - -63.467251474819086
+        - 20.016607724413408
+        prism_category: geologico
+        domain: riesgos
+        priority: P0
+      pr_geodata:g15_riesgo_geol_sismos_historicos:
+        title: g15_riesgo_geol_sismos_historicos
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -69.00350852469528
+        - 17.349352919174652
+        - -64.49404985774086
+        - 19.50423112968154
+        prism_category: geologico
+        domain: riesgos
+        priority: P0
+      pr_geodata:g15_suelos_soil_map_units_2012:
+        title: g15_suelos_soil_map_units_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9494682486699
+        - 17.907022011770838
+        - -65.21968896036856
+        - 18.51717396520252
+        prism_category: suelos
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_suelos_soil_map_units_2018:
+        title: g15_suelos_soil_map_units_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94946445890615
+        - 17.907012723843607
+        - -65.21968459390257
+        - 18.517163522293664
+        prism_category: suelos
+        domain: geologia
+        priority: P1
+      pr_geodata:g15_suelos_soil_map_units_prime_farmlands_2018:
+        title: g15_suelos_soil_map_units_prime_farmlands_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27204203449409
+        - 17.93189426387721
+        - -65.25534193017043
+        - 18.515108245578656
+        prism_category: suelos
+        domain: geologia
+        priority: P1
+      pr_geodata:g19_cuadriculas_crim_caducas:
+        title: g19_cuadriculas_crim_caducas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.37235858114624
+        - 17.869358731875582
+        - -65.24212557041434
+        - 18.622101140324315
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_crim_maptiles_2k:
+        title: g19_cuadriculas_crim_maptiles_2k
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95953549776608
+        - 17.870656835622178
+        - -65.20592442782329
+        - 18.527153991118936
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_fesm_opr_tile_lidar_2015:
+        title: g19_cuadriculas_fesm_opr_tile_lidar_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95538130200748
+        - 17.874320593178705
+        - -65.21861108893867
+        - 18.517906096650016
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_fesm_opr_tile_lidar_void_area_2015:
+        title: g19_cuadriculas_fesm_opr_tile_lidar_void_area_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.34834049812763
+        - 18.022564889702714
+        - -65.99400058393141
+        - 18.104364569076115
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_grid1000m:
+        title: g19_cuadriculas_grid1000m
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.99592976785983
+        - 17.872171077756082
+        - -65.2116555023188
+        - 18.519906603581525
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_grid100m:
+        title: g19_cuadriculas_grid100m
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.28195909248274
+        - 17.872786059579926
+        - -65.20491754991369
+        - 18.535277840120614
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_grid200m:
+        title: g19_cuadriculas_grid200m
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.28198103919023
+        - 17.872755810675514
+        - -65.20015020122855
+        - 18.539796339707564
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_grid400m:
+        title: g19_cuadriculas_grid400m
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.28197226037102
+        - 17.872767924203018
+        - -65.20205717009223
+        - 18.53798894190744
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_grid800m:
+        title: g19_cuadriculas_grid800m
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.28195470327745
+        - 17.872792095395017
+        - -65.20587099026149
+        - 18.534374138169465
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_ikonos_doqq_2002:
+        title: g19_cuadriculas_ikonos_doqq_2002
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.97277159631882
+        - 17.86874691016469
+        - -65.2452438737772
+        - 18.566158231165424
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_tiles_orthos_2007:
+        title: g19_cuadriculas_tiles_orthos_2007
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2823339508011
+        - 17.652226001161875
+        - -64.55383286922633
+        - 18.53146685766686
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_tiles_orthos_2010:
+        title: g19_cuadriculas_tiles_orthos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.30474899820636
+        - 17.865719114043753
+        - -65.23040906248367
+        - 18.547014096805515
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_usgs_grid_1x1deg:
+        title: g19_cuadriculas_usgs_grid_1x1deg
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01798514920237
+        - 16.99404513883732
+        - -64.98353670350338
+        - 19.006363087270206
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_usgs_grid_3_75min:
+        title: g19_cuadriculas_usgs_grid_3_75min
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00556188130444
+        - 17.868592225839397
+        - -65.18484386576165
+        - 18.626177291575935
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_usgs_grid_7_5minute:
+        title: g19_cuadriculas_usgs_grid_7_5minute
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00556630005593
+        - 17.868600978194305
+        - -65.12221009191924
+        - 18.626691805504283
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_cuadriculas_usgs_grid_polygon_all:
+        title: g19_cuadriculas_usgs_grid_polygon_all
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01798514920237
+        - 16.99404513883732
+        - -64.98353670350338
+        - 19.006363087270206
+        prism_category: cuadriculas
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_expansion_urbana_1980:
+        title: g19_expansion_urbana_1980
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26135942364407
+        - 17.95191753226262
+        - -65.63029693287301
+        - 18.50927348392634
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_expansion_urbana_1990:
+        title: g19_expansion_urbana_1990
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26138378653266
+        - 17.948979000280637
+        - -65.42662381312729
+        - 18.514393163954004
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_expansion_urbana_2000:
+        title: g19_expansion_urbana_2000
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26138400867698
+        - 17.877931838296934
+        - -65.29814972022514
+        - 18.514399384879503
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_imagenes_ikonos_cobertura_nubes_2002:
+        title: g19_imagenes_ikonos_cobertura_nubes_2002
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.02926676265598
+        - 17.952565912427264
+        - -65.2272937759729
+        - 18.490720053507214
+        prism_category: imagenes
+        domain: referencia
+        priority: P2
+      pr_geodata:g19_urbanizados_areas_edificadas_1990:
+        title: g19_urbanizados_areas_edificadas_1990
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25816512837011
+        - 17.943452719970093
+        - -65.62343123488188
+        - 18.51166393344367
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P1
+      pr_geodata:g19_urbanizados_centros_urbanos:
+        title: g19_urbanizados_centros_urbanos
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25510314340191
+        - 17.949336632007764
+        - -65.29664141646388
+        - 18.510884070524476
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P1
+      pr_geodata:g19_urbanizados_centros_urbanos_elevm:
+        title: g19_urbanizados_centros_urbanos_elevm
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25510314340191
+        - 17.949336632007764
+        - -65.29664141646388
+        - 18.510884070524476
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P1
+      pr_geodata:g19_uso_cubierta_aguas_buenas_2007:
+        title: g19_uso_cubierta_aguas_buenas_2007
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.17645542801577
+        - 18.204900615859668
+        - -66.06602023375153
+        - 18.30042737817055
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_uso_cubierta_ceiba_2007:
+        title: g19_uso_cubierta_ceiba_2007
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -65.68805392406276
+        - 18.198510187189026
+        - -65.57550519231599
+        - 18.284858806276596
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_uso_cubierta_florida_2007:
+        title: g19_uso_cubierta_florida_2007
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.58789425316452
+        - 18.3467940057938
+        - -66.54464963266399
+        - 18.41708415942927
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_uso_cubierta_land_cover_2006:
+        title: g19_uso_cubierta_land_cover_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95438347851145
+        - 17.87544419636777
+        - -65.21952500347948
+        - 18.51696033271081
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P1
+      pr_geodata:g19_uso_cubierta_land_use_pr_1977:
+        title: g19_uso_cubierta_land_use_pr_1977
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27202942213792
+        - 17.871364333402617
+        - -65.5225528211736
+        - 18.517325034982083
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_uso_cubierta_land_use_pr_parcial_1987:
+        title: g19_uso_cubierta_land_use_pr_parcial_1987
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.38221277670345
+        - 17.869191834564102
+        - -65.2190560516155
+        - 18.62467625889629
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_uso_cubierta_land_use_urban_rural_2007:
+        title: g19_uso_cubierta_land_use_urban_rural_2007
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95435677299821
+        - 17.87533586271001
+        - -65.21955859390644
+        - 18.517151748097238
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P1
+      pr_geodata:g19_uso_cubierta_naranjito_2008:
+        title: g19_uso_cubierta_naranjito_2008
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.28910902664006
+        - 18.254570201272486
+        - -66.20874333563998
+        - 18.334075671857203
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_uso_cubierta_tipos_bosques_2006:
+        title: g19_uso_cubierta_tipos_bosques_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27235956968858
+        - 17.91034500192787
+        - -65.571950828703
+        - 18.517517817478552
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g19_uso_cubierta_usos_sj_tren_urbano_2002:
+        title: g19_uso_cubierta_usos_sj_tren_urbano_2002
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.1362304560358
+        - 18.384650575740615
+        - -66.04110710512843
+        - 18.446258408006553
+        prism_category: uso_suelo
+        domain: territorio
+        priority: P2
+      pr_geodata:g23_agricultura_canal_riego_isabela:
+        title: g23_agricultura_canal_riego_isabela
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.15234520806152
+        - 18.440750709359595
+        - -66.98683113971735
+        - 18.506654224672648
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_areas_bosque_estatal_monte_choca_lago_eliodoro_blanco:
+        title: g23_areas_bosque_estatal_monte_choca_lago_eliodoro_blanco
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.29046735365927
+        - 18.28915891183803
+        - -66.28989724671143
+        - 18.28965879233186
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g23_areas_conserv_especies_finca_gabia_liberacion_sapo_concho:
+        title: g23_areas_conserv_especies_finca_gabia_liberacion_sapo_concho
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.376022387324
+        - 18.037342420222057
+        - -66.37560753998987
+        - 18.037883797260555
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g23_areas_conserv_laguna_guanica:
+        title: g23_areas_conserv_laguna_guanica
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.96056831435311
+        - 17.98933720598528
+        - -66.91699879926885
+        - 18.00893152706058
+        prism_category: conservacion
+        domain: ambiente
+        priority: P2
+      pr_geodata:g23_batimetria_lagos_2002:
+        title: g23_batimetria_lagos_2002
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.9302478296258
+        - 18.017097421683392
+        - -65.99856435908413
+        - 18.399312309643157
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_hidrografia_usgs_lagos_lagunas:
+        title: g23_hidrografia_usgs_lagos_lagunas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.20649516025549
+        - 17.96500385290949
+        - -65.25681938457542
+        - 18.48469147758622
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_humedales_prvi_wetlands_fws_2010:
+        title: g23_humedales_prvi_wetlands_fws_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.37664878102332
+        - 17.669706928654747
+        - -64.5394185595954
+        - 18.62473761276442
+        prism_category: humedales
+        domain: ambiente
+        priority: P1
+      pr_geodata:g23_lineales_cuerpos_agua_superficial:
+        title: g23_lineales_cuerpos_agua_superficial
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21474568617053
+        - 17.933140718959045
+        - -65.25682434422427
+        - 18.484698310921036
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_lineales_hidrografia_oficina_plan_de_aguas_2010:
+        title: g23_lineales_hidrografia_oficina_plan_de_aguas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203530507664
+        - 17.877441415875506
+        - -65.21983873919557
+        - 18.51716618962427
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_lineales_hidrografia_usgs_1998:
+        title: g23_lineales_hidrografia_usgs_1998
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203441724882
+        - 17.87904130408873
+        - -65.50771099463847
+        - 18.51722355469215
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_lineales_nombres_red_hidrografica_2005:
+        title: g23_lineales_nombres_red_hidrografica_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2698729733435
+        - 17.928478903971723
+        - -65.25834388883638
+        - 18.513504763188276
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_mapa_base_crim_ogp_hidrografia_2006:
+        title: g23_mapa_base_crim_ogp_hidrografia_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95445327105328
+        - 17.87548345962992
+        - -65.21958928961422
+        - 18.517035660522648
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P2
+      pr_geodata:g23_mapa_base_crim_ogp_hidrografia_areas_2006:
+        title: g23_mapa_base_crim_ogp_hidrografia_areas_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.37665113780525
+        - 17.86913427034877
+        - -65.20523702587809
+        - 18.62468258832481
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P2
+      pr_geodata:g23_mapa_base_hidrografia_2023:
+        title: g23_mapa_base_hidrografia_2023
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95445327105328
+        - 17.87548345962992
+        - -65.21958928961422
+        - 18.517035660522648
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_mapa_base_hidrografia_areas_2023:
+        title: g23_mapa_base_hidrografia_areas_2023
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.37665113780525
+        - 17.86913427034877
+        - -65.20523702587809
+        - 18.62468258832481
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_national_hydro_database_areas_2018:
+        title: g23_national_hydro_database_areas_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.59004299876874
+        - 17.813348468059708
+        - -65.11439631240144
+        - 18.627396339571508
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_national_hydro_database_flowline_2019:
+        title: g23_national_hydro_database_flowline_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203148301231
+        - 17.879121277500474
+        - -65.5266942088012
+        - 18.51721530507804
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_national_hydro_database_lines_2018:
+        title: g23_national_hydro_database_lines_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.17486169165312
+        - 17.880918211815906
+        - -65.52915185536628
+        - 18.511397553707695
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_national_hydro_database_point_2015:
+        title: g23_national_hydro_database_point_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.192548314628
+        - 17.890717080534777
+        - -65.52968975422942
+        - 18.492312694539663
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_national_hydro_database_point_event_2020:
+        title: g23_national_hydro_database_point_event_2020
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21197754093244
+        - 17.947548480291747
+        - -65.6341529954183
+        - 18.486028092772916
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_national_hydro_database_waterbodies_2021:
+        title: g23_national_hydro_database_waterbodies_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26224866379135
+        - 17.885768464127267
+        - -65.58318002316079
+        - 18.515037036733258
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_nhd_watershed_bounds_hu02_2019:
+        title: g23_nhd_watershed_bounds_hu02_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00735606569391
+        - 17.620204925121023
+        - -64.50382921765322
+        - 18.568046206014348
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_nhd_watershed_bounds_hu04_2019:
+        title: g23_nhd_watershed_bounds_hu04_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00735606569391
+        - 17.824472615369466
+        - -65.16614554768475
+        - 18.56806718855191
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_nhd_watershed_bounds_hu06_2019:
+        title: g23_nhd_watershed_bounds_hu06_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00735606569391
+        - 17.824472615369466
+        - -65.16614554768475
+        - 18.56806718855191
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_nhd_watershed_bounds_hu08_2019:
+        title: g23_nhd_watershed_bounds_hu08_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00735606569391
+        - 17.824472615369466
+        - -65.16614554768475
+        - 18.56806718855191
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_nhd_watershed_bounds_hu10_2020:
+        title: g23_nhd_watershed_bounds_hu10_2020
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00735606569391
+        - 17.824472615369466
+        - -65.16614554768475
+        - 18.56806718855191
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_nhd_watershed_bounds_hu12_2019:
+        title: g23_nhd_watershed_bounds_hu12_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00735606569391
+        - 17.824472615369466
+        - -65.16614554768475
+        - 18.56806718855191
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_nhd_watershed_bounds_lines_2019:
+        title: g23_nhd_watershed_bounds_lines_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00735606569391
+        - 17.620204925121023
+        - -64.50382921765322
+        - 18.568046206014348
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P1
+      pr_geodata:g23_puntuales_estaciones_de_muestreo_rio_abajo_2012:
+        title: g23_puntuales_estaciones_de_muestreo_rio_abajo_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.97838926898359
+        - 17.610412856182624
+        - -64.49953862235381
+        - 18.579534178552706
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P2
+      pr_geodata:g23_puntuales_manantiales_usgs_2013:
+        title: g23_puntuales_manantiales_usgs_2013
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94184572789831
+        - 17.94672606574299
+        - -65.46830985566064
+        - 18.477775545346432
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P2
+      pr_geodata:g23_puntuales_pozos_usgs_2018:
+        title: g23_puntuales_pozos_usgs_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94324958919955
+        - 17.88046348144011
+        - -65.24768712147765
+        - 18.510807617366368
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P2
+      pr_geodata:g23_puntuales_proyecto_rios_patrimoniales_2009:
+        title: g23_puntuales_proyecto_rios_patrimoniales_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.68443662210011
+        - 17.96751091383952
+        - -65.82458194444055
+        - 18.481540280359628
+        prism_category: hidrografia
+        domain: hidrografia
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_cross_section_seamless_2017:
+        title: g23_riesgo_inunda_cross_section_seamless_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24380754984458
+        - 17.93864324606208
+        - -65.2588049427268
+        - 18.49001476227448
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_erosion_30yr_risk_2017:
+        title: g23_riesgo_inunda_erosion_30yr_risk_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27175606130918
+        - 17.927940581042076
+        - -65.2432096147297
+        - 18.516954943108693
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_erosion_60yr_risk_2017:
+        title: g23_riesgo_inunda_erosion_60yr_risk_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27175606130918
+        - 17.927940581042076
+        - -65.2432096147297
+        - 18.516954943108693
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_erosion_maria_imagery_2017:
+        title: g23_riesgo_inunda_erosion_maria_imagery_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27189111273243
+        - 17.92826168721676
+        - -65.27658749848989
+        - 18.516716745944
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_erosion_modeled_2017:
+        title: g23_riesgo_inunda_erosion_modeled_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27183939454174
+        - 17.925578849313695
+        - -65.27218982124964
+        - 18.516991852495654
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_erosion_transects_2017:
+        title: g23_riesgo_inunda_erosion_transects_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27348190305246
+        - 17.92622544089676
+        - -65.24156480858997
+        - 18.518688771633833
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_firms_2005:
+        title: g23_riesgo_inunda_firms_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9580696560317
+        - 17.871997240204934
+        - -65.21742857578242
+        - 18.520874448527458
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_floodzone_0_2pct_seamless_2017:
+        title: g23_riesgo_inunda_floodzone_0_2pct_seamless_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27686523908946
+        - 17.906285969082656
+        - -65.21701724307715
+        - 18.521378642768113
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_floodzone_1pct_seamless_2017:
+        title: g23_riesgo_inunda_floodzone_1pct_seamless_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27681097243553
+        - 17.90348729180661
+        - -65.21701035703164
+        - 18.522367667043703
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_limwa_0_2pct_2017:
+        title: g23_riesgo_inunda_limwa_0_2pct_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27137854262449
+        - 17.925844538930292
+        - -65.27199125085097
+        - 18.515388518426978
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_limwa_1pct_2017:
+        title: g23_riesgo_inunda_limwa_1pct_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21605437623319
+        - 17.925921932440385
+        - -65.26624275071654
+        - 18.492418125528797
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_model_intrusion_marejada_cic_cat2:
+        title: g23_riesgo_inunda_model_intrusion_marejada_cic_cat2
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27205952816519
+        - 17.925600280581765
+        - -65.54782150344738
+        - 18.51686341157419
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_s_base_index_2005:
+        title: g23_riesgo_inunda_s_base_index_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.97337704842822
+        - 17.868859066685367
+        - -65.21659475006327
+        - 18.563677902216433
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_base_index_2009:
+        title: g23_riesgo_inunda_s_base_index_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.96537871578178
+        - 17.86892282617098
+        - -65.21124915244464
+        - 18.563918863203035
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_bfe_2005:
+        title: g23_riesgo_inunda_s_bfe_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21620949537831
+        - 17.940556151545632
+        - -65.63145059494724
+        - 18.490613156129232
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_bfe_2009:
+        title: g23_riesgo_inunda_s_bfe_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21621111842984
+        - 17.93977157636797
+        - -65.46117093901813
+        - 18.490952283185845
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_coastal_barriers_2005:
+        title: g23_riesgo_inunda_s_coastal_barriers_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2221634621991
+        - 17.903443828316938
+        - -65.21014162738413
+        - 18.519965979322627
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_coastal_barriers_2009:
+        title: g23_riesgo_inunda_s_coastal_barriers_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2221634621991
+        - 17.90342714778696
+        - -65.2075178208756
+        - 18.519966515689077
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_coastal_transect_lines_2009:
+        title: g23_riesgo_inunda_s_coastal_transect_lines_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27083007895308
+        - 17.92447870351198
+        - -65.26467645952565
+        - 18.5164317558488
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_firm_pan_2005:
+        title: g23_riesgo_inunda_s_firm_pan_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00444080732488
+        - 17.86859679605359
+        - -65.18528897040476
+        - 18.56391346279206
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_firm_pan_2009:
+        title: g23_riesgo_inunda_s_firm_pan_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00444080732488
+        - 17.86859679605359
+        - -65.18528897040476
+        - 18.56391346279206
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_fld_haz_ar_2005:
+        title: g23_riesgo_inunda_s_fld_haz_ar_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00406712977973
+        - 17.86859679605359
+        - -65.20962121498171
+        - 18.52235334209729
+        prism_category: inundacion
+        domain: riesgos
+        priority: P1
+      pr_geodata:g23_riesgo_inunda_s_fld_haz_ar_2009:
+        title: g23_riesgo_inunda_s_fld_haz_ar_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00406712977973
+        - 17.86859679605359
+        - -65.21701035703164
+        - 18.522349966705825
+        prism_category: inundacion
+        domain: riesgos
+        priority: P1
+      pr_geodata:g23_riesgo_inunda_s_fld_haz_ln_2005:
+        title: g23_riesgo_inunda_s_fld_haz_ln_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00406712977973
+        - 17.86859679605359
+        - -65.20962121498171
+        - 18.52235334209729
+        prism_category: inundacion
+        domain: riesgos
+        priority: P1
+      pr_geodata:g23_riesgo_inunda_s_fld_haz_ln_2009:
+        title: g23_riesgo_inunda_s_fld_haz_ln_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00406712977973
+        - 17.86859679605359
+        - -65.21701035703164
+        - 18.522349966705825
+        prism_category: inundacion
+        domain: riesgos
+        priority: P1
+      pr_geodata:g23_riesgo_inunda_s_gen_struct_2005:
+        title: g23_riesgo_inunda_s_gen_struct_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25077927626037
+        - 17.93868064804162
+        - -65.30791112441786
+        - 18.47874234042535
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_gen_struct_2009:
+        title: g23_riesgo_inunda_s_gen_struct_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25077927626037
+        - 17.939413975149055
+        - -65.44123098322417
+        - 18.47878425349915
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_label_ld_2005:
+        title: g23_riesgo_inunda_s_label_ld_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26734123073093
+        - 17.932279279167624
+        - -65.29784118984556
+        - 18.514290951281016
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_label_ld_2009:
+        title: g23_riesgo_inunda_s_label_ld_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.266880661649
+        - 17.932279005200037
+        - -65.29779575794095
+        - 18.514132366526862
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_label_pt_2005:
+        title: g23_riesgo_inunda_s_label_pt_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.29503512577914
+        - 17.913296109440136
+        - -65.22327265787011
+        - 18.529944175992636
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_label_pt_2009:
+        title: g23_riesgo_inunda_s_label_pt_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.28535757777635
+        - 17.913102955819586
+        - -65.22071745067078
+        - 18.525375719233818
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_perm_bmk_2005:
+        title: g23_riesgo_inunda_s_perm_bmk_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16402292912609
+        - 17.966760273822146
+        - -65.99211885870776
+        - 18.493978862664417
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_perm_bmk_2009:
+        title: g23_riesgo_inunda_s_perm_bmk_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16402292912609
+        - 17.966760273822146
+        - -65.99211885870776
+        - 18.493978862664417
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_pol_ar_2005:
+        title: g23_riesgo_inunda_s_pol_ar_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95728860386748
+        - 17.875344736211954
+        - -65.21966889361369
+        - 18.51716266466969
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_pol_ar_2009:
+        title: g23_riesgo_inunda_s_pol_ar_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9572873946165
+        - 17.875344736211954
+        - -65.2195852190932
+        - 18.517024076099485
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_pol_ln_2005:
+        title: g23_riesgo_inunda_s_pol_ln_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95728860386748
+        - 17.875344736211954
+        - -65.21966889361369
+        - 18.51716266466969
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_pol_ln_2009:
+        title: g23_riesgo_inunda_s_pol_ln_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9572873946165
+        - 17.875344736211954
+        - -65.2195852190932
+        - 18.517024076099485
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_quad_index_2005:
+        title: g23_riesgo_inunda_s_quad_index_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.97392836029984
+        - 17.868856243340943
+        - -65.21615916871441
+        - 18.626177425968073
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_quad_index_2009:
+        title: g23_riesgo_inunda_s_quad_index_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.97392836029984
+        - 17.868856243340943
+        - -65.21615916871441
+        - 18.626177425968073
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_river_cross_sections_2005:
+        title: g23_riesgo_inunda_s_river_cross_sections_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21659159173169
+        - 17.942506317602128
+        - -65.63210049023996
+        - 18.48368651831056
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_river_cross_sections_2009:
+        title: g23_riesgo_inunda_s_river_cross_sections_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21659106270762
+        - 17.941725736255297
+        - -65.46251522064264
+        - 18.483545801058796
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_shore_ln_2009:
+        title: g23_riesgo_inunda_s_shore_ln_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27215862448956
+        - 17.909383416875233
+        - -65.2195852190932
+        - 18.51702446299764
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_transport_ln_2005:
+        title: g23_riesgo_inunda_s_transport_ln_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2117430291282
+        - 17.96962499448662
+        - -65.68648163734284
+        - 18.4519516123697
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_wtr_ln_2005:
+        title: g23_riesgo_inunda_s_wtr_ln_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95728860386748
+        - 17.875344736211954
+        - -65.21966889361369
+        - 18.51716266466969
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_s_wtr_ln_2009:
+        title: g23_riesgo_inunda_s_wtr_ln_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.9572873946165
+        - 17.875344736211954
+        - -65.2195852190932
+        - 18.517024076099485
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g23_riesgo_inunda_shoreline_2017:
+        title: g23_riesgo_inunda_shoreline_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27213526287514
+        - 17.90937774326985
+        - -65.21962595056861
+        - 18.516997361152328
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_stream_2017:
+        title: g23_riesgo_inunda_stream_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24579061981103
+        - 17.939712481031744
+        - -65.25790725015317
+        - 18.48983214658967
+        prism_category: inundacion
+        domain: riesgos
+        priority: P0
+      pr_geodata:g23_riesgo_inunda_zonas_inun_hojas_2005:
+        title: g23_riesgo_inunda_zonas_inun_hojas_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25268653602002
+        - 17.869130286979885
+        - -65.20671976251768
+        - 18.529760394946557
+        prism_category: inundacion
+        domain: riesgos
+        priority: P2
+      pr_geodata:g25_asentamientos_sectores_2017:
+        title: g25_asentamientos_sectores_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26799963248061
+        - 17.9335671270798
+        - -65.2539799716265
+        - 18.514841081570033
+        prism_category: toponimos
+        domain: referencia
+        priority: P2
+      pr_geodata:g25_descriptiv_toponimos_topograficos:
+        title: g25_descriptiv_toponimos_topograficos
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.20695292990173
+        - 17.979561126759503
+        - -65.71439599422303
+        - 18.41949459555919
+        prism_category: toponimos
+        domain: referencia
+        priority: P2
+      pr_geodata:g27_batimetria_oceanica_contornos_2009:
+        title: g27_batimetria_oceanica_contornos_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01627743925114
+        - 17.18645582916014
+        - -65.00301119430723
+        - 18.997998026476285
+        prism_category: batimetria
+        domain: costero
+        priority: P2
+      pr_geodata:g27_batimetria_oceanica_contornos_areas_2009:
+        title: g27_batimetria_oceanica_contornos_areas_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00711014485651
+        - 17.184293930390414
+        - -64.99867505133928
+        - 18.998477375103715
+        prism_category: batimetria
+        domain: costero
+        priority: P2
+      pr_geodata:g27_batimetria_oceanica_puntos_2009:
+        title: g27_batimetria_oceanica_puntos_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.00810704232262
+        - 17.186296924220017
+        - -65.0054469255047
+        - 18.997669990023425
+        prism_category: batimetria
+        domain: costero
+        priority: P2
+      pr_geodata:g27_conserv_zona_costanera_2010:
+        title: g27_conserv_zona_costanera_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.09557764934904
+        - 17.790474350631936
+        - -65.1049691579172
+        - 18.64670556119835
+        prism_category: costero
+        domain: costero
+        priority: P1
+      pr_geodata:g27_embarcaciones_abandonadas_2009:
+        title: g27_embarcaciones_abandonadas_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.05234158541715
+        - 17.9316668145304
+        - -65.56908025943129
+        - 18.38950844227113
+        prism_category: costero
+        domain: costero
+        priority: P2
+      pr_geodata:g27_playas_bandera_azul_2010:
+        title: g27_playas_bandera_azul_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.19030699018569
+        - 18.384455082117785
+        - -65.72983015290154
+        - 18.467374401701953
+        prism_category: costero
+        domain: costero
+        priority: P2
+      pr_geodata:g27_playas_bandera_azul_2018:
+        title: g27_playas_bandera_azul_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.03378449969995
+        - 17.882668957612978
+        - -65.31249598870575
+        - 18.454490536004077
+        prism_category: costero
+        domain: costero
+        priority: P2
+      pr_geodata:g27_playas_publicas_2005:
+        title: g27_playas_publicas_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25701063657712
+        - 17.881687998069303
+        - -65.31229953719979
+        - 18.493361020185137
+        prism_category: costero
+        domain: costero
+        priority: P1
+      pr_geodata:g27_potential_inund_current_mhh_watr_00ft_2019:
+        title: g27_potential_inund_current_mhh_watr_00ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21476517884487
+        - 17.9101263613264
+        - -65.23345040253948
+        - 18.514980000585517
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_01ft_2019:
+        title: g27_potential_inund_current_mhh_watr_01ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94355266040385
+        - 17.88112219988937
+        - -65.22286279109137
+        - 18.515094003237508
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_02ft_2019:
+        title: g27_potential_inund_current_mhh_watr_02ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94367309737034
+        - 17.88106756588602
+        - -65.22279891445723
+        - 18.51649686752048
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_03ft_2019:
+        title: g27_potential_inund_current_mhh_watr_03ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94456828626102
+        - 17.88076424364185
+        - -65.22274409959408
+        - 18.516634314781587
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_04ft_2019:
+        title: g27_potential_inund_current_mhh_watr_04ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94828662600459
+        - 17.88035783785172
+        - -65.23322327450958
+        - 18.516655162528913
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_05ft_2019:
+        title: g27_potential_inund_current_mhh_watr_05ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94850180487659
+        - 17.928123517416388
+        - -65.2331691164213
+        - 18.51665537880411
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_06ft_2019:
+        title: g27_potential_inund_current_mhh_watr_06ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94868877549966
+        - 17.930017501969065
+        - -65.27179092956791
+        - 18.51666190784288
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_07ft_2019:
+        title: g27_potential_inund_current_mhh_watr_07ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2590327853893
+        - 17.932476324285563
+        - -65.27174681145308
+        - 18.5152533273191
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_08ft_2019:
+        title: g27_potential_inund_current_mhh_watr_08ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.91848497002323
+        - 17.929656993072978
+        - -65.28422557165003
+        - 18.515276039522657
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_09ft_2019:
+        title: g27_potential_inund_current_mhh_watr_09ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25056848653077
+        - 17.930306877493607
+        - -65.28403542044717
+        - 18.51530602024902
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_potential_inund_current_mhh_watr_10ft_2019:
+        title: g27_potential_inund_current_mhh_watr_10ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25056848653077
+        - 17.929490661707785
+        - -65.27844729954198
+        - 18.51530758063528
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_00ft_2019:
+        title: g27_sea_level_rise_inundation_extent_00ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_01ft_2019:
+        title: g27_sea_level_rise_inundation_extent_01ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_02ft_2019:
+        title: g27_sea_level_rise_inundation_extent_02ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_03ft_2019:
+        title: g27_sea_level_rise_inundation_extent_03ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_04ft_2019:
+        title: g27_sea_level_rise_inundation_extent_04ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_05ft_2019:
+        title: g27_sea_level_rise_inundation_extent_05ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_06ft_2019:
+        title: g27_sea_level_rise_inundation_extent_06ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_07ft_2019:
+        title: g27_sea_level_rise_inundation_extent_07ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_08ft_2019:
+        title: g27_sea_level_rise_inundation_extent_08ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_09ft_2019:
+        title: g27_sea_level_rise_inundation_extent_09ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_sea_level_rise_inundation_extent_10ft_2019:
+        title: g27_sea_level_rise_inundation_extent_10ft_2019
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.01268203887867
+        - 17.82083093656329
+        - -65.16529450373545
+        - 18.571039395765197
+        prism_category: marejada_slr
+        domain: riesgos
+        priority: P0
+      pr_geodata:g27_ubicacion_toponimos_marinos:
+        title: g27_ubicacion_toponimos_marinos
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.36703011641123
+        - 17.6744485524595
+        - -65.09981688480741
+        - 18.619688026326966
+        prism_category: costero
+        domain: costero
+        priority: P2
+      pr_geodata:g29_bienes_culturales_zonas_historicas_2010:
+        title: g29_bienes_culturales_zonas_historicas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.04876701480268
+        - 17.960485906566323
+        - -66.03332200642014
+        - 18.472047991055405
+        prism_category: patrimonio
+        domain: cultural
+        priority: P2
+      pr_geodata:g29_bienes_raices_propiedades_admin_terrenos_2014:
+        title: g29_bienes_raices_propiedades_admin_terrenos_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25243078938178
+        - 17.926433694726253
+        - -65.28693512393573
+        - 18.50139294651193
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_bienes_raices_propiedades_fideicomiso_conservacion_2010:
+        title: g29_bienes_raices_propiedades_fideicomiso_conservacion_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.20808722508112
+        - 17.943674025320806
+        - -65.51988336262895
+        - 18.48370920773124
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_bienes_raices_propiedades_pridco_2012:
+        title: g29_bienes_raices_propiedades_pridco_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25369676287659
+        - 17.928346958606042
+        - -65.29676765117361
+        - 18.49789361808827
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_bienes_raices_puertos_propiedades_2014:
+        title: g29_bienes_raices_puertos_propiedades_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.03235539685087
+        - 18.43998310046276
+        - -66.031410617732
+        - 18.441116088803565
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_bienes_raices_terrenos_dv_agencias_2010:
+        title: g29_bienes_raices_terrenos_dv_agencias_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1527927061751
+        - 17.96925258685887
+        - -65.44784928352516
+        - 18.47668262102842
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_bienes_raices_terrenos_excedentes_aep_2010:
+        title: g29_bienes_raices_terrenos_excedentes_aep_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.23057691718162
+        - 17.96703530376022
+        - -65.87868721789431
+        - 18.488609466432177
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_bienes_raices_terrenos_remanentes_aep_2010:
+        title: g29_bienes_raices_terrenos_remanentes_aep_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1340969639925
+        - 17.953471762047965
+        - -65.6475125220598
+        - 18.49870473823563
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_permisos_archivo_grafico_1974_2009:
+        title: g29_permisos_archivo_grafico_1974_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.39000298144238
+        - 15.880120696405928
+        - -58.630640159595934
+        - 24.100027464339146
+        prism_category: permisos
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_permisos_consultas_control_acceso_2004:
+        title: g29_permisos_consultas_control_acceso_2004
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26845589821009
+        - 17.927792307344596
+        - -65.26792399498216
+        - 18.51692931112083
+        prism_category: permisos
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_permisos_consultas_de_ubicacion_1955_2013:
+        title: g29_permisos_consultas_de_ubicacion_1955_2013
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203068150916
+        - 17.932782119698583
+        - -65.2729353163232
+        - 18.516675756276847
+        prism_category: permisos
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_permisos_permisos_arpe_1999_2010:
+        title: g29_permisos_permisos_arpe_1999_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26965475542904
+        - 17.92798696961566
+        - -65.24558463076659
+        - 18.516065842504872
+        prism_category: permisos
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_areas_planif_especial_bahia_jobos_2010:
+        title: g29_planes_areas_planif_especial_bahia_jobos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.2974906064349
+        - 17.77752372027306
+        - -66.13391184691858
+        - 17.974809803874034
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_areas_planif_especial_calif_restring_carso_2014:
+        title: g29_planes_areas_planif_especial_calif_restring_carso_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95440876172925
+        - 17.875261290270494
+        - -65.87337058911363
+        - 18.512388944389656
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_areas_planif_especial_guanica_2010:
+        title: g29_planes_areas_planif_especial_guanica_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.9814515705748
+        - 17.77598869340886
+        - -66.68526401782744
+        - 18.07879344015847
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_areas_planif_especial_suroeste_2010:
+        title: g29_planes_areas_planif_especial_suroeste_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2159555206433
+        - 17.925875094553746
+        - -66.7831679170506
+        - 18.169480312454024
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_areas_planif_especial_zona_carsica_2014:
+        title: g29_planes_areas_planif_especial_zona_carsica_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203244482573
+        - 18.27229210542222
+        - -65.76113483232832
+        - 18.517200257701596
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_cano_martin_pena_2010:
+        title: g29_planes_cano_martin_pena_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.05944621813153
+        - 18.422503208658455
+        - -66.04003970976376
+        - 18.43799590952594
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_miramar_2010:
+        title: g29_planes_miramar_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.08697863218073
+        - 18.448910140968227
+        - -66.07818768678278
+        - 18.457798407347116
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_peninsula_cantera_2010:
+        title: g29_planes_peninsula_cantera_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.04708774833925
+        - 18.428116735498136
+        - -66.0337138779747
+        - 18.440752972705738
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_plan_sectorial_uso_terrenos_isla_grande_2010:
+        title: g29_planes_plan_sectorial_uso_terrenos_isla_grande_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.09710078036201
+        - 18.44086833323999
+        - -66.07747686236996
+        - 18.45907614241741
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_plan_uso_terrenos_2015:
+        title: g29_planes_plan_uso_terrenos_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2721779835333
+        - 17.877512385179983
+        - -65.23061556003383
+        - 18.51703161889996
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_rio_piedras_2010:
+        title: g29_planes_rio_piedras_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.05655331426028
+        - 18.395042882000563
+        - -66.04294700325619
+        - 18.408110975261962
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_zona_historica_san_juan_2010:
+        title: g29_planes_zona_historica_san_juan_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.12511778719548
+        - 18.45888247146567
+        - -66.10668988319249
+        - 18.47198422010809
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_zonificacion_especial_condado_2010:
+        title: g29_planes_zonificacion_especial_condado_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.08768640649537
+        - 18.44842718015879
+        - -66.05877537072826
+        - 18.464970297327888
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_zonificacion_especial_el_yunque_2010:
+        title: g29_planes_zonificacion_especial_el_yunque_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -65.95216324384639
+        - 18.116283263055998
+        - -65.50113972222142
+        - 18.423430929089957
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_zonificacion_especial_entrada_isleta_vsj_2010:
+        title: g29_planes_zonificacion_especial_entrada_isleta_vsj_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.09042340091436
+        - 18.45950438694195
+        - -66.08515654058397
+        - 18.463142362366348
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_planes_zonificacion_especial_santurce_2010:
+        title: g29_planes_zonificacion_especial_santurce_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.08700578975431
+        - 18.435127753291837
+        - -66.03811973515302
+        - 18.457798407347116
+        prism_category: planificacion
+        domain: administrativo
+        priority: P2
+      pr_geodata:g29_turismo_zonas_aguadilla_isabela_2010:
+        title: g29_turismo_zonas_aguadilla_isabela_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16961624723118
+        - 18.458410254161784
+        - -66.9557902928875
+        - 18.513965613041176
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_aguirre_jobos_2010:
+        title: g29_turismo_zonas_aguirre_jobos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.30422830897182
+        - 17.91198969170564
+        - -66.159545166824
+        - 17.98564469647877
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_cabo_rojo_2010:
+        title: g29_turismo_zonas_cabo_rojo_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19075795359355
+        - 18.08621385314338
+        - -67.10216602278331
+        - 18.169265082667827
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_guanica_2010:
+        title: g29_turismo_zonas_guanica_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.98110397925224
+        - 17.92667214716714
+        - -66.85939875091881
+        - 17.99717511914994
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_hatillo_camuy_2010:
+        title: g29_turismo_zonas_hatillo_camuy_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.96390949997534
+        - 18.468152874814038
+        - -66.76731481061337
+        - 18.4929768944553
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_interes_aguadilla_isabela_2021:
+        title: g29_turismo_zonas_interes_aguadilla_isabela_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16922900519454
+        - 18.458900428810725
+        - -66.95598124594166
+        - 18.51271693099158
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_interes_arecibo_barceloneta_2021:
+        title: g29_turismo_zonas_interes_arecibo_barceloneta_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.70384163467902
+        - 18.45625919955482
+        - -66.53310350112947
+        - 18.494387876888887
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_interes_cabo_rojo_2021:
+        title: g29_turismo_zonas_interes_cabo_rojo_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2160844724146
+        - 17.930828675388543
+        - -67.14360307587376
+        - 18.168338142744958
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_interes_coamo_2021:
+        title: g29_turismo_zonas_interes_coamo_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.37884213823499
+        - 18.032585547420982
+        - -66.35611917273116
+        - 18.049707608786658
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_lares_2010:
+        title: g29_turismo_zonas_lares_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.90991069884937
+        - 18.294769935179687
+        - -66.824926588377
+        - 18.359939345309606
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g29_turismo_zonas_parguera_2010:
+        title: g29_turismo_zonas_parguera_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.10997170693662
+        - 17.942944130000583
+        - -66.97031870261748
+        - 17.989175848131616
+        prism_category: turismo
+        domain: comercial
+        priority: P2
+      pr_geodata:g31_asentamientos_comunidades_especiales_2006:
+        title: g31_asentamientos_comunidades_especiales_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2505809312498
+        - 17.937007977066248
+        - -65.29857240297078
+        - 18.507182811456694
+        prism_category: asentamientos
+        domain: social
+        priority: P2
+      pr_geodata:g31_asentamientos_delim_comunidades_especiales_2006:
+        title: g31_asentamientos_delim_comunidades_especiales_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25140136016184
+        - 17.929262871980274
+        - -65.29702914639456
+        - 18.509325664938817
+        prism_category: asentamientos
+        domain: social
+        priority: P2
+      pr_geodata:g31_bienes_culturales_arqueo_cuadriculas_crim_oech_2013:
+        title: g31_bienes_culturales_arqueo_cuadriculas_crim_oech_2013
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95953549776608
+        - 17.870656835622178
+        - -65.20592442782329
+        - 18.527153991118936
+        prism_category: patrimonio
+        domain: cultural
+        priority: P2
+      pr_geodata:g31_censo1990_blk:
+        title: g31_censo1990_blk
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95728747043029
+        - 17.875239005103072
+        - -65.21971297477322
+        - 18.517079360656627
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo1990_blkg:
+        title: g31_censo1990_blkg
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729100172026
+        - 17.875248859599758
+        - -65.21971734123888
+        - 18.51708980358692
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo1990_cons_metro_stat_areas:
+        title: g31_censo1990_cons_metro_stat_areas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729100172026
+        - 17.875248859599758
+        - -65.21971734123888
+        - 18.51708980358692
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo1990_metro_areas:
+        title: g31_censo1990_metro_areas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729100172026
+        - 17.875248859599758
+        - -65.21971734123888
+        - 18.51708980358692
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo1990_tracts:
+        title: g31_censo1990_tracts
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729100172026
+        - 17.875248859599758
+        - -65.21971734123888
+        - 18.51708980358692
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo2000_blk:
+        title: g31_censo2000_blk
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729100172026
+        - 17.875248859599758
+        - -65.21971734123888
+        - 18.51708980358692
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo2000_blkg:
+        title: g31_censo2000_blkg
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729096472924
+        - 17.87524885989242
+        - -65.21971734123888
+        - 18.51708980360184
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo2000_tract:
+        title: g31_censo2000_tract
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729096472924
+        - 17.87524885989242
+        - -65.21971734123888
+        - 18.51708980360184
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo2000_urban_rural:
+        title: g31_censo2000_urban_rural
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729203413428
+        - 17.87524857433858
+        - -65.21971710957565
+        - 18.517165749398494
+        prism_category: censo
+        domain: territorio
+        priority: P2
+      pr_geodata:g31_censo2010_blk:
+        title: g31_censo2010_blk
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729166176105
+        - 17.875237001544264
+        - -65.21963602512444
+        - 18.51716549999376
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_blkg:
+        title: g31_censo2010_blkg
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729166176105
+        - 17.875237001544264
+        - -65.21963602512444
+        - 18.51716549999376
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_communities:
+        title: g31_censo2010_communities
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.8680987584238
+        - 17.930929995951857
+        - -65.29931359928864
+        - 18.502871631850926
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_military_res:
+        title: g31_censo2010_military_res
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.13962790034319
+        - 17.982845699759768
+        - -65.26484261252371
+        - 18.509165736556085
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_places:
+        title: g31_censo2010_places
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25887281910032
+        - 17.8778695630071
+        - -65.28957821044665
+        - 18.51450300290191
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_statistical_areas:
+        title: g31_censo2010_statistical_areas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729166176105
+        - 17.875237001544264
+        - -65.52669652505006
+        - 18.5172039704681
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_sub_barrios:
+        title: g31_censo2010_sub_barrios
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19290435439426
+        - 17.911358104400403
+        - -65.62601904022526
+        - 18.483322450885154
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_tract:
+        title: g31_censo2010_tract
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95729166176105
+        - 17.875237001544264
+        - -65.21963602512444
+        - 18.51716549999376
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_urban_areas:
+        title: g31_censo2010_urban_areas
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27203441589337
+        - 17.926903489724925
+        - -65.423120832377
+        - 18.517209035861136
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2010_zcta_500_zip_codes:
+        title: g31_censo2010_zcta_500_zip_codes
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27214875439925
+        - 17.90922662202581
+        - -65.21947056663647
+        - 18.54097825014362
+        prism_category: censo
+        domain: territorio
+        priority: P1
+      pr_geodata:g31_censo2020_blk:
+        title: g31_censo2020_blk
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: censo
+        domain: territorio
+        priority: P0
+      pr_geodata:g31_censo2020_blkg:
+        title: g31_censo2020_blkg
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: censo
+        domain: territorio
+        priority: P0
+      pr_geodata:g31_censo2020_tract:
+        title: g31_censo2020_tract
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.95442578426629
+        - 17.875261479259397
+        - -65.2195907712537
+        - 18.517035388606416
+        prism_category: censo
+        domain: territorio
+        priority: P0
+      pr_geodata:g31_censo2020_voting_units:
+        title: g31_censo2020_voting_units
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2720316282727
+        - 17.923791855377647
+        - -65.24276705044365
+        - 18.51714915394563
+        prism_category: censo
+        domain: territorio
+        priority: P0
+      pr_geodata:g31_centros_religiosos_2010:
+        title: g31_centros_religiosos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.205510188245
+        - 18.0227011092022
+        - -65.63898474113944
+        - 18.480722797100576
+        prism_category: comunidades
+        domain: social
+        priority: P2
+      pr_geodata:g31_hogares_crea_2010:
+        title: g31_hogares_crea_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.17110825084558
+        - 17.963516004978356
+        - -65.64310159623031
+        - 18.4871414929867
+        prism_category: comunidades
+        domain: social
+        priority: P2
+      pr_geodata:g31_hogares_crea_parcelas_2010:
+        title: g31_hogares_crea_parcelas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.17148957917448
+        - 17.96325725308922
+        - -65.68223352978939
+        - 18.472381578299032
+        prism_category: comunidades
+        domain: social
+        priority: P2
+      pr_geodata:g31_mapa_base_cementerios_1998:
+        title: g31_mapa_base_cementerios_1998
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - 113655.71875
+        - 214702.125
+        - 321347.6875
+        - 273650.375
+        prism_category: comunidades
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_areas_para_banistas_2012:
+        title: g31_recreacion_areas_para_banistas_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.257510285486
+        - 17.881678093808095
+        - -65.31229496231869
+        - 18.493474708005813
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_bosque_estatal_monte_choca_areas_acampar_2012:
+        title: g31_recreacion_bosque_estatal_monte_choca_areas_acampar_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.29077371753704
+        - 18.284790006658774
+        - -66.28856500666068
+        - 18.28982150299943
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_bosque_estatal_monte_choca_centro_visit_2012:
+        title: g31_recreacion_bosque_estatal_monte_choca_centro_visit_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.29525832505831
+        - 18.285548194170357
+        - -66.29502807161192
+        - 18.285753901851734
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_bosque_estatal_monte_choca_veredas_2012:
+        title: g31_recreacion_bosque_estatal_monte_choca_veredas_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.29721952083275
+        - 18.280947147060488
+        - -66.28712735205177
+        - 18.291455132434923
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_bosque_modelo_casa_pueblo_vereda_2012:
+        title: g31_recreacion_bosque_modelo_casa_pueblo_vereda_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.67505927863552
+        - 18.180583056660502
+        - -66.67291846025768
+        - 18.181803055161065
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_bosque_nacional_el_yunque_veredas_2020:
+        title: g31_recreacion_bosque_nacional_el_yunque_veredas_2020
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -65.85836155429465
+        - 18.25531299500887
+        - -65.72850352505482
+        - 18.34123221838657
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_finca_gabia_veredas_2010:
+        title: g31_recreacion_finca_gabia_veredas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.37866290353311
+        - 18.035720286265093
+        - -66.37537350140668
+        - 18.038756587275632
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g31_recreacion_parques_nacionales_2010:
+        title: g31_recreacion_parques_nacionales_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.20430365303574
+        - 17.94765592024606
+        - -65.45159673153599
+        - 18.486611240399913
+        prism_category: recreacion
+        domain: social
+        priority: P2
+      pr_geodata:g33_bienes_culturales_arquitectura_oech_2010:
+        title: g33_bienes_culturales_arquitectura_oech_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.89394189852305
+        - 17.887634904894245
+        - -65.22120986775701
+        - 18.498200003187428
+        prism_category: patrimonio
+        domain: cultural
+        priority: P2
+      pr_geodata:g33_bienes_culturales_propiedades_elegibles_rnlh_miramar_2013:
+        title: g33_bienes_culturales_propiedades_elegibles_rnlh_miramar_2013
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.08695971793787
+        - 18.44957248676916
+        - -66.07833954950412
+        - 18.457752638096558
+        prism_category: patrimonio
+        domain: cultural
+        priority: P2
+      pr_geodata:g33_dotacional_aut_edificios_publicos_2010:
+        title: g33_dotacional_aut_edificios_publicos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25189416401352
+        - 17.952818755265547
+        - -65.44241858926712
+        - 18.505347405815286
+        prism_category: gobierno
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_dotacional_carceles_2010:
+        title: g33_dotacional_carceles_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.12633936581065
+        - 17.964271457351085
+        - -65.66154727302239
+        - 18.472460932017253
+        prism_category: gobierno
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_dotacional_centros_de_gobierno_aut_edificios_publicos_2010:
+        title: g33_dotacional_centros_de_gobierno_aut_edificios_publicos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19540808258773
+        - 17.95939406372726
+        - -65.64651762628677
+        - 18.499506347165127
+        prism_category: gobierno
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_dotacional_dependencias_dept_recursos_naturales_2010:
+        title: g33_dotacional_dependencias_dept_recursos_naturales_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94269273510788
+        - 17.88057946392393
+        - -65.28218094024814
+        - 18.47884702284879
+        prism_category: gobierno
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_dotacional_educacion_escuelas_2010:
+        title: g33_dotacional_educacion_escuelas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2661342069167
+        - 17.937530677316964
+        - -65.30159731502125
+        - 18.50545253997824
+        prism_category: educacion
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_dotacional_educacion_escuelas_2021:
+        title: g33_dotacional_educacion_escuelas_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25174957473489
+        - 17.944850831615508
+        - -65.30158938011161
+        - 18.505438331071808
+        prism_category: educacion
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_dotacional_plazas_publicas_2010:
+        title: g33_dotacional_plazas_publicas_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25144318959471
+        - 17.961213687664817
+        - -65.30114231282893
+        - 18.501592428452398
+        prism_category: gobierno
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_dotacional_salud_cdt_2009:
+        title: g33_dotacional_salud_cdt_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25267252792665
+        - 17.96520396336974
+        - -65.30227047362574
+        - 18.490052071392444
+        prism_category: salud
+        domain: dotaciones
+        priority: P0
+      pr_geodata:g33_dotacional_salud_hospitales_2010:
+        title: g33_dotacional_salud_hospitales_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.15368565454104
+        - 17.97049127827814
+        - -65.30196234666776
+        - 18.473470319772016
+        prism_category: salud
+        domain: dotaciones
+        priority: P0
+      pr_geodata:g33_mapa_base_building_centroids_1998:
+        title: g33_mapa_base_building_centroids_1998
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27197423250139
+        - 17.927720820682616
+        - -65.24541644455064
+        - 18.516165655174564
+        prism_category: edificios_referencia
+        domain: territorio
+        priority: P2
+      pr_geodata:g33_seguridad_policias_metro_2010:
+        title: g33_seguridad_policias_metro_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.18097130852738
+        - 18.338654015543778
+        - -65.98310737777604
+        - 18.467085568499606
+        prism_category: seguridad
+        domain: dotaciones
+        priority: P1
+      pr_geodata:g33_seguridad_refugios_2009:
+        title: g33_seguridad_refugios_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25083436781414
+        - 17.952045133248827
+        - -65.30161184273481
+        - 18.502609883176365
+        prism_category: seguridad
+        domain: dotaciones
+        priority: P0
+      pr_geodata:g33_seguridad_refugios_2010:
+        title: g33_seguridad_refugios_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25213596476426
+        - 17.95187761157266
+        - -65.29994290411878
+        - 18.50215207833755
+        prism_category: seguridad
+        domain: dotaciones
+        priority: P0
+      pr_geodata:g33_seguridad_refugios_2015:
+        title: g33_seguridad_refugios_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25243165540412
+        - 17.952080543737967
+        - -65.30112855447076
+        - 18.50248300820016
+        prism_category: seguridad
+        domain: dotaciones
+        priority: P0
+      pr_geodata:g33_seguridad_refugios_2023:
+        title: g33_seguridad_refugios_2023
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25002785246409
+        - 17.956736731508187
+        - -65.30130317456057
+        - 18.505080363684893
+        prism_category: seguridad
+        domain: dotaciones
+        priority: P0
+      pr_geodata:g33_vivienda_intervenciones_area_metro_dep_vivienda_2006:
+        title: g33_vivienda_intervenciones_area_metro_dep_vivienda_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.10129986424832
+        - 18.387755486494047
+        - -66.01313943754869
+        - 18.471662483877736
+        prism_category: vivienda
+        domain: social
+        priority: P2
+      pr_geodata:g33_vivienda_intervenciones_regionales_2006:
+        title: g33_vivienda_intervenciones_regionales_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.13524771268708
+        - 18.384265809661002
+        - -66.00902945773484
+        - 18.46521677454566
+        prism_category: vivienda
+        domain: social
+        priority: P2
+      pr_geodata:g33_vivienda_proyectos_estrategicos_2006:
+        title: g33_vivienda_proyectos_estrategicos_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.14726485002033
+        - 17.96303936061013
+        - -66.01082359994005
+        - 18.503967359856155
+        prism_category: vivienda
+        domain: social
+        priority: P2
+      pr_geodata:g33_vivienda_proyectos_rurales_2006:
+        title: g33_vivienda_proyectos_rurales_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.22523505195433
+        - 17.949891572619997
+        - -65.6371698677532
+        - 18.49363147515295
+        prism_category: vivienda
+        domain: social
+        priority: P2
+      pr_geodata:g33_vivienda_proyectos_urbanos_2006:
+        title: g33_vivienda_proyectos_urbanos_2006
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16694750324896
+        - 17.967417267264977
+        - -65.63655641134973
+        - 18.503567135150103
+        prism_category: vivienda
+        domain: social
+        priority: P2
+      pr_geodata:g33_vivienda_residenciales_2009:
+        title: g33_vivienda_residenciales_2009
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25424992590963
+        - 17.961276344995767
+        - -65.44184095028764
+        - 18.50399262740468
+        prism_category: vivienda
+        domain: social
+        priority: P2
+      pr_geodata:g33_vivienda_revitaliz_santurce_2005:
+        title: g33_vivienda_revitaliz_santurce_2005
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.08194285434267
+        - 18.434806460478335
+        - -66.05896677736595
+        - 18.454332913131832
+        prism_category: vivienda
+        domain: social
+        priority: P2
+      pr_geodata:g35_aerea_aerop_culebra_2016:
+        title: g35_aerea_aerop_culebra_2016
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -65.31109584902315
+        - 18.310155789946588
+        - -65.29795971291949
+        - 18.319338112378546
+        prism_category: aerea
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_aerea_aerop_isla_grande_2016:
+        title: g35_aerea_aerop_isla_grande_2016
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.1075468015275
+        - 18.44791713192589
+        - -66.0871151711909
+        - 18.460080931545722
+        prism_category: aerea
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_aerea_aerop_mercedita_2016:
+        title: g35_aerea_aerop_mercedita_2016
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.57578281532689
+        - 18.004257269911655
+        - -66.55024645458637
+        - 18.01309244594067
+        prism_category: aerea
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_aerea_aerop_patillas_2016:
+        title: g35_aerea_aerop_patillas_2016
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.02203581925558
+        - 17.98169161569826
+        - -66.01534878792735
+        - 17.983506176057325
+        prism_category: aerea
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_aerea_aeropuertos_helipuertos_faa_2021:
+        title: g35_aerea_aeropuertos_helipuertos_faa_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.14945090840187
+        - 17.972532849522835
+        - -65.2820528665604
+        - 18.496100755400583
+        prism_category: aerea
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_bienes_raices_tren_urbano_areas_de_impacto_2000:
+        title: g35_bienes_raices_tren_urbano_areas_de_impacto_2000
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.10826771732744
+        - 18.383518448460038
+        - -66.04641930328063
+        - 18.440858914469935
+        prism_category: bienes_raices
+        domain: administrativo
+        priority: P2
+      pr_geodata:g35_colectiva_rutas_porteadores_publicos_san_juan_metro_2010:
+        title: g35_colectiva_rutas_porteadores_publicos_san_juan_metro_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.7184169390462
+        - 18.110723705181748
+        - -65.62965173213922
+        - 18.471464529270822
+        prism_category: transporte_colectivo
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_colectiva_tren_urbano_alineacion_2000:
+        title: g35_colectiva_tren_urbano_alineacion_2000
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.15408300619414
+        - 18.390153049731225
+        - -66.05152664907538
+        - 18.438273827648406
+        prism_category: transporte_colectivo
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_colectiva_tren_urbano_detalle_2000:
+        title: g35_colectiva_tren_urbano_detalle_2000
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.15408490888338
+        - 18.388961717969956
+        - -66.0514420462221
+        - 18.438273827648406
+        prism_category: transporte_colectivo
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_colectiva_tren_urbano_estaciones_2000:
+        title: g35_colectiva_tren_urbano_estaciones_2000
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.15403800657684
+        - 18.389997979413803
+        - -66.05149438489127
+        - 18.437064537074395
+        prism_category: transporte_colectivo
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_colectiva_vestigios_ferrocarril_2010:
+        title: g35_colectiva_vestigios_ferrocarril_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24193592324009
+        - 17.943609351279733
+        - -65.47304221627431
+        - 18.498080681826078
+        prism_category: transporte_colectivo
+        domain: transporte
+        priority: P2
+      pr_geodata:g35_maritima_acuaexpreso_2010:
+        title: g35_maritima_acuaexpreso_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.11705657843191
+        - 18.430055028841828
+        - -66.06093930531289
+        - 18.462930254340847
+        prism_category: maritima
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_maritima_faros_2010:
+        title: g35_maritima_faros_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.84974798731695
+        - 17.888012050790298
+        - -65.22620642054933
+        - 18.498479902781106
+        prism_category: maritima
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_maritima_puerto_guayama_prop_2014:
+        title: g35_maritima_puerto_guayama_prop_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.17220498830362
+        - 17.930075492467413
+        - -66.14913558271215
+        - 17.94270300396309
+        prism_category: maritima
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_maritima_puerto_nuevo_2014:
+        title: g35_maritima_puerto_nuevo_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.10709289298941
+        - 18.423243799732585
+        - -66.08319232487452
+        - 18.44037030644255
+        prism_category: maritima
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_maritima_puerto_yabucoa_2014:
+        title: g35_maritima_puerto_yabucoa_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -65.84130648972437
+        - 18.045967099668154
+        - -65.82722414841098
+        - 18.058150888648182
+        prism_category: maritima
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_maritima_puertos_2010:
+        title: g35_maritima_puertos_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1626546331183
+        - 17.93601413132708
+        - -65.628385052904
+        - 18.48098393457265
+        prism_category: maritima
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_maritima_rutas_maritimas_1996:
+        title: g35_maritima_rutas_maritimas_1996
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -158.35698103213028
+        - 7.241649598073832
+        - -64.72132861918463
+        - 68.8626921609734
+        prism_category: maritima
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_viales_carreteras_estatales_2015:
+        title: g35_viales_carreteras_estatales_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2711368550873
+        - 17.932275791291882
+        - -65.25660151174827
+        - 18.514725604386214
+        prism_category: vial
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_viales_carreteras_estatales_2017:
+        title: g35_viales_carreteras_estatales_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2711326027603
+        - 17.93226988544965
+        - -65.25665157377858
+        - 18.51471825186213
+        prism_category: vial
+        domain: transporte
+        priority: P0
+      pr_geodata:g35_viales_carreteras_estatales_segmentadas_2015:
+        title: g35_viales_carreteras_estatales_segmentadas_2015
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26818282218
+        - 17.926491331790398
+        - -65.25659359003323
+        - 18.514717138861954
+        prism_category: vial
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_viales_carreteras_estatales_segmentadas_2021:
+        title: g35_viales_carreteras_estatales_segmentadas_2021
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26948236219002
+        - 17.93233019507854
+        - -65.26702935598426
+        - 18.514716483108497
+        prism_category: vial
+        domain: transporte
+        priority: P0
+      pr_geodata:g35_viales_mapa_base_tiger_rds_2006se:
+        title: g35_viales_mapa_base_tiger_rds_2006se
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.94887072629007
+        - 17.87826266632836
+        - -65.2247799288885
+        - 18.51623344216016
+        prism_category: vial
+        domain: transporte
+        priority: P1
+      pr_geodata:g35_viales_plazas_rampas_peaje_2018:
+        title: g35_viales_plazas_rampas_peaje_2018
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.77926650126253
+        - 17.983246816993013
+        - -65.65022048267893
+        - 18.4752550882688
+        prism_category: vial
+        domain: transporte
+        priority: P0
+      pr_geodata:g35_viales_puentes_2010:
+        title: g35_viales_puentes_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25108903260113
+        - 17.957484031383807
+        - -65.2984695416838
+        - 18.51176572795485
+        prism_category: vial
+        domain: transporte
+        priority: P0
+      pr_geodata:g37_agua_aaa_land_acquisition_2017:
+        title: g37_agua_aaa_land_acquisition_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25254466221152
+        - 17.93115180233213
+        - -65.28232085087377
+        - 18.499978076939076
+        prism_category: agua_admin
+        domain: agua
+        priority: P1
+      pr_geodata:g37_agua_aaa_offices_2017:
+        title: g37_agua_aaa_offices_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16716167261052
+        - 17.97077611547755
+        - -65.45625331343936
+        - 18.499585091822354
+        prism_category: agua_admin
+        domain: agua
+        priority: P1
+      pr_geodata:g37_agua_aaa_structure_poly_2017:
+        title: g37_agua_aaa_structure_poly_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.14778077318475
+        - 18.017658485068406
+        - -65.82724934684373
+        - 18.478380321183252
+        prism_category: agua_admin
+        domain: agua
+        priority: P1
+      pr_geodata:g37_agua_w_control_valve_2017:
+        title: g37_agua_w_control_valve_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2617298953046
+        - 17.953723142773566
+        - -65.30539832417205
+        - 18.51412344557628
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_hydrant_2017:
+        title: g37_agua_w_hydrant_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26431708795941
+        - 17.931648276911055
+        - -65.29869994049086
+        - 18.515481803394206
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_main_2017:
+        title: g37_agua_w_main_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27116859495958
+        - 17.929492284337957
+        - -65.25362574663288
+        - 18.516284609758916
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_network_structure_2017:
+        title: g37_agua_w_network_structure_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2202988503546
+        - 17.947770067866614
+        - -65.70499892011082
+        - 18.494923160719974
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_pump_station_2017:
+        title: g37_agua_w_pump_station_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24891793125963
+        - 17.962268363971113
+        - -65.28222836328814
+        - 18.496412064547137
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_sampling_point_2017:
+        title: g37_agua_w_sampling_point_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.21609726805461
+        - 17.93955966786753
+        - -65.85058910581752
+        - 18.51309116533877
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_service_line_2017:
+        title: g37_agua_w_service_line_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26555358781388
+        - 17.931593034314957
+        - -65.29869165574239
+        - 18.515573197691914
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_service_meter_2017:
+        title: g37_agua_w_service_meter_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26552059050424
+        - 17.95012351365096
+        - -65.63402052322142
+        - 18.515632055654056
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_system_measurement_2017:
+        title: g37_agua_w_system_measurement_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25140589486163
+        - 17.937767415898648
+        - -65.63864099340532
+        - 18.506014904288524
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_system_valve_2017:
+        title: g37_agua_w_system_valve_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26553856624821
+        - 17.931361383335265
+        - -65.253634221531
+        - 18.51547102924184
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_treatment_plant_2017:
+        title: g37_agua_w_treatment_plant_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1440618020495
+        - 17.9870079826759
+        - -65.28244195132858
+        - 18.478003138469788
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_w_well_2017:
+        title: g37_agua_w_well_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24808838603272
+        - 17.936785099051253
+        - -65.44909045313055
+        - 18.469673499863088
+        prism_category: agua_potable
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_catch_basin_2017:
+        title: g37_agua_ww_catch_basin_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16043994238392
+        - 18.240524647342642
+        - -66.02282340507074
+        - 18.468557798098345
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_control_valve_2017:
+        title: g37_agua_ww_control_valve_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18390226299252
+        - 17.93617021911757
+        - -65.27690859200062
+        - 18.463234800430463
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_force_main_2017:
+        title: g37_agua_ww_force_main_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27127185174191
+        - 17.934108414038466
+        - -65.27660200550552
+        - 18.508849428701975
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_gravity_main_2017:
+        title: g37_agua_ww_gravity_main_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26180199361681
+        - 17.929708953489843
+        - -65.29798515229197
+        - 18.509167385088695
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_lateral_2017:
+        title: g37_agua_ww_lateral_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25970901518295
+        - 17.948562241239124
+        - -65.2880001264807
+        - 18.504372481949023
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_manhole_2017:
+        title: g37_agua_ww_manhole_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26180199361681
+        - 17.929708953489843
+        - -65.29798515229197
+        - 18.509167385088695
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_network_structure_2017:
+        title: g37_agua_ww_network_structure_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19105844635081
+        - 17.917670584747576
+        - -65.28126199242102
+        - 18.511152680727573
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_outfall_2017:
+        title: g37_agua_ww_outfall_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.19099754970999
+        - 17.918678179242455
+        - -65.46429509120058
+        - 18.497120485221295
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_pump_station_2017:
+        title: g37_agua_ww_pump_station_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25835525537221
+        - 17.934143196042776
+        - -65.28240815478034
+        - 18.508600535532807
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_service_point_2017:
+        title: g37_agua_ww_service_point_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25970901518295
+        - 17.948562308132765
+        - -65.28801137127238
+        - 18.5043724866208
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_system_valve_2017:
+        title: g37_agua_ww_system_valve_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.23967896528735
+        - 18.00611414840434
+        - -65.29018336709666
+        - 18.468560332334278
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_treatment_plant_2017:
+        title: g37_agua_ww_treatment_plant_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18403170156733
+        - 17.93935036420658
+        - -65.27876824442441
+        - 18.506226352084994
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_agua_ww_vacuum_pit_2017:
+        title: g37_agua_ww_vacuum_pit_2017
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.23496870315805
+        - 18.29982185515763
+        - -65.28836850903872
+        - 18.448124761905547
+        prism_category: aguas_residuales
+        domain: agua
+        priority: P0
+      pr_geodata:g37_electric_base_de_subestaciones_2014:
+        title: g37_electric_base_de_subestaciones_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25625037477108
+        - 17.9435893632556
+        - -65.30120552629265
+        - 18.498552033109426
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_centros_de_transmision_2014:
+        title: g37_electric_centros_de_transmision_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.16213375629461
+        - 17.949753978030582
+        - -65.64497213558904
+        - 18.469783070479977
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_convertidores_2014:
+        title: g37_electric_convertidores_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.09202783591924
+        - 18.463511201303348
+        - -66.09174682890462
+        - 18.463633667373955
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_estructuras_transmision_2014:
+        title: g37_electric_estructuras_transmision_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2681607886091
+        - 17.939551016699284
+        - -65.29836409105435
+        - 18.51010257822071
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_fusibles_2014:
+        title: g37_electric_fusibles_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27109798777342
+        - 17.93045109885732
+        - -65.24564486935613
+        - 18.514430335220748
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_lineas_distribucion_2014:
+        title: g37_electric_lineas_distribucion_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27138172734107
+        - 17.929822382340777
+        - -65.24390706946953
+        - 18.515573810441253
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_lineas_transmision_2014:
+        title: g37_electric_lineas_transmision_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25646916010807
+        - 17.943087953449517
+        - -65.2981948238603
+        - 18.508685644768747
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_postes_2014:
+        title: g37_electric_postes_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.29389441033894
+        - 17.926024548436104
+        - -65.09798786704229
+        - 37.429792841548455
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_switches_2014:
+        title: g37_electric_switches_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25643940452234
+        - 17.936414050167993
+        - -65.29833740561462
+        - 18.513157765743635
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_switches_transmision_2014:
+        title: g37_electric_switches_transmision_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25601189606544
+        - 17.94634423521619
+        - -65.61320878226333
+        - 18.498682624688126
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_switching_units_2014:
+        title: g37_electric_switching_units_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24895458482167
+        - 17.9531946486576
+        - -65.27489971760937
+        - 18.51413807034946
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_electric_transformadores_2014:
+        title: g37_electric_transformadores_2014
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.27138172734107
+        - 17.92982242072506
+        - -65.24391328407594
+        - 18.515573808690487
+        prism_category: electric_grid
+        domain: electricidad
+        priority: P0
+      pr_geodata:g37_telecom_antenas_am_pr_usvi_2012:
+        title: g37_telecom_antenas_am_pr_usvi_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1717900540681
+        - 17.72079464636096
+        - -64.68613438948795
+        - 18.500614624714594
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_antenas_prtc_2010:
+        title: g37_telecom_antenas_prtc_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18038872677734
+        - 17.963026054217043
+        - -65.30087312838586
+        - 18.49589771448365
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_antenna_structure_registration_pr_2012:
+        title: g37_telecom_antenna_structure_registration_pr_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.26719703353834
+        - 17.646250188560014
+        - -64.67141391012308
+        - 18.50686080366222
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_broadband_radio_educ_broadb_serv_2012:
+        title: g37_telecom_broadband_radio_educ_broadb_serv_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18060950637275
+        - 17.729499916962357
+        - -64.68024428744745
+        - 18.483781998568407
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_cell_aggr_callsign_serv_area_bounds_2012:
+        title: g37_telecom_cell_aggr_callsign_serv_area_bounds_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.53261674714172
+        - 17.415398950404732
+        - -64.31181856641619
+        - 18.718381398505187
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_cellular_2010:
+        title: g37_telecom_cellular_2010
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24839971113356
+        - 17.716242950004577
+        - -64.61713995242
+        - 18.48006966163789
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_conductos_fibra_optica_act_2012:
+        title: g37_telecom_conductos_fibra_optica_act_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.15610937725373
+        - 17.970606343516437
+        - -65.79848047123774
+        - 18.48869981236723
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_fm_pr_2012:
+        title: g37_telecom_fm_pr_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18754740455408
+        - 17.717281546179994
+        - -64.67150586512929
+        - 18.486458111980014
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_land_mobile_broadcast_2012:
+        title: g37_telecom_land_mobile_broadcast_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.55581621962251
+        - 17.752580496526416
+        - -64.73100198580964
+        - 18.50083034237602
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_land_mobile_commercial_2012:
+        title: g37_telecom_land_mobile_commercial_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1989515390576
+        - 17.717405176489933
+        - -64.67697912751319
+        - 18.464741557044018
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_land_mobile_private_2012:
+        title: g37_telecom_land_mobile_private_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.2760092513062
+        - 17.68094800350062
+        - -64.5660188905564
+        - 18.506105050744807
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_microwave_2012:
+        title: g37_telecom_microwave_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.24858194108027
+        - 17.400799870727507
+        - -63.95978641502115
+        - 18.51934269834658
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_paging_2012:
+        title: g37_telecom_paging_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -66.08506503108607
+        - 17.71303128454795
+        - -64.68095357370609
+        - 18.455800182366968
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_proposed_row_optical_fiber_lease_act_2012:
+        title: g37_telecom_proposed_row_optical_fiber_lease_act_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.25321698505623
+        - 17.953770547459513
+        - -65.63637951362522
+        - 18.489738111502145
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_tv_contour_ntsc_digital_2012:
+        title: g37_telecom_tv_contour_ntsc_digital_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -68.22933472490789
+        - 16.908335484818295
+        - -63.92409625310262
+        - 19.402057172162273
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_tv_digital_2012:
+        title: g37_telecom_tv_digital_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.18983265380669
+        - 17.7461284063161
+        - -64.72145763478535
+        - 18.361555433796
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+      pr_geodata:g37_telecom_tv_ntsc_2012:
+        title: g37_telecom_tv_ntsc_2012
+        crs:
+        - urn:ogc:def:crs:EPSG::6566
+        bbox_wgs84:
+        - -67.1920471574274
+        - 17.691654049544333
+        - -64.67994688760461
+        - 18.48001669808709
+        prism_category: telecomunicaciones
+        domain: telecom
+        priority: P0
+    enumerated: '2026-06-02'
+    layer_count: 460
+complements:
+  census_tiger:
+    name: US Census TIGER/Line 2024 (FIPS 72)
+    type: download
+    url: https://www2.census.gov/geo/tiger/TIGER2024/
+    license: public domain
+    refresh: yearly
+    layers:
+    - municipios
+    - barrios
+    - tracts
+    - block_groups
+    - blocks
+  census_acs:
+    name: US Census ACS 5-year
+    type: api
+    url: https://api.census.gov/data
+    license: public domain
+    refresh: yearly
+  crim_parcels:
+    name: CRIM Catastro Digital (parcels + attributes)
+    type: arcgis_rest
+    url: https://www.satasgis.crimpr.net/crimgis/rest/services/
+    license: public
+    refresh: quarterly
+  usgs_3dep:
+    name: USGS 3DEP DEM + 2018 post-Maria lidar
+    type: download
+    url: https://apps.nationalmap.gov/lidar-explorer/
+    license: public domain
+    refresh: as-released
+  fema_nfhl:
+    name: FEMA National Flood Hazard Layer
+    type: download
+    url: https://hazards.fema.gov/femaportal/NFHL/searchResult/
+    license: public domain
+    refresh: quarterly
+  noaa_surge_slr:
+    name: NOAA SLOSH MOMs + Digital Coast sea-level rise
+    type: download
+    url: https://coast.noaa.gov/slrdata/
+    license: public domain
+    refresh: as-released
+  osm:
+    name: OpenStreetMap (Geofabrik PR extract)
+    type: download
+    url: https://download.geofabrik.de/north-america/us/puerto-rico-latest.osm.pbf
+    license: ODbL (attribution + share-alike)
+    refresh: weekly
+  hifld_next:
+    name: HIFLD Next (Data Rescue mirror - grid + critical facilities)
+    type: download
+    url: https://hifld.publicenvirodata.org/
+    license: public (mirror of former HIFLD Open)
+    refresh: as-released

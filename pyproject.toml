@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prism"
+version = "0.0.1"
+description = "Puerto Rico Infrastructure Simulation Model - open infrastructure-intelligence platform"
+requires-python = ">=3.11"
+dependencies = [
+  "geopandas>=0.14",
+  "shapely>=2.0",
+  "pyproj>=3.6",
+  "rasterio>=1.3",
+  "owslib>=0.29",
+  "requests>=2.31",
+  "pandas>=2.1",
+  "networkx>=3.2",
+  "SQLAlchemy>=2.0",
+  "GeoAlchemy2>=0.14",
+  "psycopg[binary]>=3.1",
+  "PyYAML>=6.0",
+  "python-dotenv>=1.0",
+  "typer>=0.9",
+  "rich>=13.7",
+  "anthropic>=0.39",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+prism-wfs = "prism.sync.wfs:app"
+
+[tool.setuptools.packages.find]
+include = ["prism*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Note: GDAL/OGR and GRASS GIS are system-level dependencies (install via OS package manager,
+# conda, or OSGeo4W on Windows) - they are not pip-installed here.

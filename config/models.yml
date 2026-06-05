@@ -1,0 +1,86 @@
+# PRISM — model tiering config
+# Which Claude tier handles which task, and when to escalate. Mirrors §5.1 of the plan.
+# Confirm exact model IDs + rates at https://platform.claude.com/docs/en/about-claude/models/overview
+# (IDs and prices rev often; rates below are per MILLION tokens, input/output, mid-2026.)
+
+models:
+  haiku:
+    id: claude-haiku-4-5            # confirm latest point release
+    rate_per_mtok: { input: 1, output: 5 }
+    role: fast, high-volume, structured
+  sonnet:
+    id: claude-sonnet-4-6           # confirm latest point release
+    rate_per_mtok: { input: 3, output: 15 }
+    role: balanced daily driver
+  opus:
+    id: claude-opus-4-x             # set to current flagship (e.g. 4.6/4.7/4.8) — confirm
+    rate_per_mtok: { input: 5, output: 25 }
+    role: hard reasoning, design, review
+
+defaults:
+  build_time: sonnet                # most coding
+  run_time: haiku                   # most in-product calls
+  fallback: sonnet                  # if a chosen tier is unavailable
+
+cost_levers:
+  prompt_caching: true              # ~90% off cached input — cache the shared schema + layer catalog
+  batch: true                       # ~50% off — use for ~400-layer tagging and bulk asset summaries
+  prefer_terse_output: true         # output costs ~5x input — keep model outputs tight
+
+# --- Build-time: Claude as the engineer ---
+build_routing:
+  scaffolding:               haiku
+  boilerplate_docstrings:    haiku
+  commit_messages:           haiku
+  etl_sync_mirror_load:      sonnet
+  postgis_loaders:           sonnet
+  graph_builders:            sonnet
+  visualization:             sonnet
+  tests:                     sonnet
+  architecture_design:       opus
+  objective_function_design: opus
+  asset_interface_design:    opus
+  hard_debugging:            opus
+  phase_gate_review:         opus
+
+# --- Run-time: PRISM calling Claude (Phase 7 / Phase 9) ---
+runtime_routing:
+  layer_classification:        haiku    # tag ~400 WFS layers into the schema
+  asset_summary:               haiku
+  metadata_extraction:         haiku
+  record_validation:           haiku
+  query_routing:               haiku
+  in_app_digest:               haiku    # window.cowork.askClaude-style calls
+  planning_report:             sonnet
+  tradeoff_comparison:         sonnet
+  risk_summary:                sonnet
+  flagship_report:             opus     # the "$500M -> where" analysis a partner reads
+  cross_domain_reasoning:      opus
+  hidden_dependency_discovery: opus
+
+# --- Escalation checkpoints (the handoffs) ---
+escalation:
+  bulk_to_narrative:
+    from: haiku
+    to: sonnet
+    when: a tagged/summarized result is selected for a written report
+  narrative_to_flagship:
+    from: sonnet
+    to: opus
+    when:
+      - output goes in front of engineers / planners / government
+      - reasoning spans multiple infrastructure domains
+      - model_confidence < 0.7
+      - asset_criticality == high
+  build_gate:
+    to: opus
+    when: a phase "Done when" gate — Opus verification pass before proceeding
+  fall_back_down:
+    when: a prompt pattern is proven; pin the routine high-volume version to the cheapest tier that holds quality
+
+# Machine-readable thresholds the runtime router (prism/llm.py) reads to auto-escalate.
+escalation_thresholds:
+  confidence_below: 0.7      # bump up a tier when model confidence is under this
+  criticalities: [high]      # bump up a tier for these asset criticalities
+  flagship_tier: opus        # tier used when an escalation trips
+  bulk_tier: haiku           # tier for high-volume passes

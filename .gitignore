@@ -1,0 +1,28 @@
+# mirrored data — never committed (mirror locally, versioned on disk)
+/data/
+
+# secrets / env
+.env
+*.local.env
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# geo scratch / sidecars
+*.gpkg-wal
+*.gpkg-shm
+
+# os / editor
+.DS_Store
+.vscode/
+*~

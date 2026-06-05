@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make help *)",
+      "PowerShell(winget --version 2>$null)",
+      "PowerShell(choco --version 2>$null)",
+      "PowerShell(scoop --version 2>$null)",
+      "Bash(cd \"/c/Users/Eric Ryan/PRISM/PRISM\" && grep -c \"pr_geodata:\" config/sources.yml)",
+      "Read(//c/c/Users/Eric Ryan/PRISM/PRISM/config/**)",
+      "Bash(python3 -c \"print\\('test'\\)\")",
+      "Bash(make init *)"
+    ]
+  }
+}

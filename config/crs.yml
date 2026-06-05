@@ -1,0 +1,6 @@
+# Coordinate reference systems
+working: "EPSG:32161"      # NAD83 / Puerto Rico & Virgin Is. (meters) - all analysis, distance, cost
+storage: native            # keep each source in its native CRS; reproject on load
+alt_modern: "EPSG:6566"    # NAD83(2011) / Puerto Rico & Virgin Is. - use if you prefer the newer datum
+notes: >
+  Reproject into the working CRS on load. Never mix CRSs in distance or cost-surface computations.
