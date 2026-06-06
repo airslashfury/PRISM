@@ -1488,7 +1488,7 @@
       "title": "HIFLD Transmission Lines",
       "domain": "electricidad",
       "priority": "P0",
-      "license": "public (former HIFLD Open — volunteer mirror)",
+      "license": "public (former HIFLD Open \u00e2\u20ac\u201d volunteer mirror)",
       "file": "C:\\Users\\Eric Ryan\\PRISM\\PRISM\\data\\raw\\hifld_next\\2026-06-03\\transmission_lines.geojson",
       "feature_count": 141,
       "size_bytes": 415456,
@@ -1741,6 +1741,159 @@
       "size_bytes": 567491,
       "sha256": "b0c9aeaab3dbb894488a67b5a0b96dff1245fa13ec4ecb46e03b6abe74364d23",
       "pulled_at": "2026-06-04T03:01:14.653311+00:00"
+    },
+    "derived:graph.entities": {
+      "source": "derived",
+      "title": "graph.entities",
+      "description": "9 entity types extracted from WFS + Census TIGER: substations, tx_lines, hospitals, health_centers, water_plants, barrios, municipios, road_segments, bridges",
+      "schema": "graph",
+      "table": "entities",
+      "row_count": 48801,
+      "inputs": [
+        "ogp_prits_wfs (113 layers)",
+        "census_tiger_2024 (5 files)",
+        "prism/graph/entities.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived from PR government + Census public data"
+    },
+    "derived:graph.relationships": {
+      "source": "derived",
+      "title": "graph.relationships",
+      "description": "6 relationship types: LOCATED_IN, CONNECTS_TO, FEEDS, POWERS, SERVES, CROSSES",
+      "schema": "graph",
+      "table": "relationships",
+      "row_count": 68272,
+      "inputs": [
+        "graph.entities",
+        "prism/graph/relationships.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived"
+    },
+    "derived:graph.road_edges": {
+      "source": "derived",
+      "title": "graph.road_edges",
+      "description": "pgRouting-compatible road topology edges (265K edges, 169K vertices)",
+      "schema": "graph",
+      "table": "road_edges",
+      "row_count": 265000,
+      "inputs": [
+        "graph.entities (road_segments)",
+        "prism/graph/topology.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived from OSM + PR government"
+    },
+    "derived:graph.road_vertices": {
+      "source": "derived",
+      "title": "graph.road_vertices",
+      "description": "Road topology vertices (169K nodes)",
+      "schema": "graph",
+      "table": "road_vertices",
+      "row_count": 169000,
+      "inputs": [
+        "graph.entities (road_segments)",
+        "prism/graph/topology.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived from OSM + PR government"
+    },
+    "derived:graph.tx_network": {
+      "source": "derived",
+      "title": "graph.tx_network",
+      "description": "ST_Node noded transmission network (74 components, 25 m snap tolerance)",
+      "schema": "graph",
+      "table": "tx_network",
+      "inputs": [
+        "graph.entities (tx_line, substation)",
+        "prism/graph/topology.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived from PR government"
+    },
+    "derived:resilience.spof_scores": {
+      "source": "derived",
+      "title": "resilience.spof_scores",
+      "description": "Betweenness centrality + articulation points on CONNECTS_TO undirected graph; 941 rows, 2 articulation points, top betweenness=0.2197",
+      "schema": "resilience",
+      "table": "spof_scores",
+      "row_count": 941,
+      "inputs": [
+        "graph.relationships (CONNECTS_TO)",
+        "prism/resilience/spof.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived"
+    },
+    "derived:resilience.cascade_scores": {
+      "source": "derived",
+      "title": "resilience.cascade_scores",
+      "description": "Downstream criticality per substation (hospital=10, water_plant=5, health_center=3, barrio=1); 315 substations, max cascade=276.41 (entity_id=877)",
+      "schema": "resilience",
+      "table": "cascade_scores",
+      "row_count": 315,
+      "inputs": [
+        "graph.relationships (POWERS)",
+        "graph.entities",
+        "prism/resilience/cascade.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived"
+    },
+    "derived:resilience.scenario_scores": {
+      "source": "derived",
+      "title": "resilience.scenario_scores",
+      "description": "Composite risk scores per substation per scenario (cat3, slr2ft, combined); 945 rows = 315 \u00d7 3 scenarios; formula: hazard \u00d7 cascade \u00d7 (1 + betweenness)",
+      "schema": "resilience",
+      "table": "scenario_scores",
+      "row_count": 945,
+      "inputs": [
+        "resilience.spof_scores",
+        "resilience.cascade_scores",
+        "pr_geodata flood/SLR layers",
+        "prism/resilience/score.py"
+      ],
+      "compute_date": "2026-06-04",
+      "code_commit": "1da1ca4",
+      "license": "derived"
+    },
+    "derived:optimize.intervention_catalog": {
+      "source": "derived",
+      "title": "optimize.intervention_catalog",
+      "description": "Phase 4 intervention catalog: 4 types \u00d7 top-50 substations = 200 entries; cost model from FEMA BRIC + PREPA post-Maria contracts; cat3 scenario",
+      "schema": "optimize",
+      "table": "intervention_catalog",
+      "row_count": 200,
+      "inputs": [
+        "resilience.scenario_scores",
+        "prism/optimize/catalog.py",
+        "prism/assets/transmission.py"
+      ],
+      "compute_date": "2026-06-05",
+      "code_commit": "1da1ca4",
+      "license": "derived"
+    },
+    "derived:optimize.portfolio_runs": {
+      "source": "derived",
+      "title": "optimize.portfolio_runs + portfolio_items",
+      "description": "Phase 4 greedy knapsack portfolio: 00M budget, cat3 scenario; 50 interventions, 68M spent, 560 composite-score pts uplift, 3.33 pts/ efficiency",
+      "schema": "optimize",
+      "table": "portfolio_runs",
+      "inputs": [
+        "optimize.intervention_catalog",
+        "prism/optimize/optimizer.py"
+      ],
+      "compute_date": "2026-06-05",
+      "code_commit": "1da1ca4",
+      "license": "derived"
     }
   }
 }

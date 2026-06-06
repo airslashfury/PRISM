@@ -41,6 +41,9 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: tests that require a live PostGIS connection",
+]
 
 # Note: GDAL/OGR and GRASS GIS are system-level dependencies (install via OS package manager,
 # conda, or OSGeo4W on Windows) - they are not pip-installed here.

@@ -93,14 +93,64 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | 0 — Data Sovereignty | **COMPLETE** | 2026-06-03 | Opus GO (conditional) |
 | 1 — Spatial Foundation | **COMPLETE** | 2026-06-04 | Opus GO |
 | 2 — Knowledge Graph | **COMPLETE** | 2026-06-04 | Opus GO |
-| 3 — Resilience Modeling | **ACTIVE** | — | Start here ↓ |
-| 4–5 — Optimization / Power | pending | — | |
+| 3 — Resilience Modeling | **COMPLETE** | 2026-06-04 | Opus GO |
+| 4 — Optimization / Power | **COMPLETE** | 2026-06-05 | Opus GO |
+| 5 — Economy / Property | **ACTIVE** | — | Start here ↓ |
 | 6 — Human Simulation | pending | — | |
 | 7 — Decision Intelligence | pending | — | |
 | 8 — Transportation | pending | — | |
 | 9 — Digital Twin | pending | — | |
 
-## Current state (2026-06-04)
+## Current state (2026-06-05)
+
+### Phase 4 — COMPLETE (2026-06-05, Opus GO)
+
+**What was built:**
+- `prism/assets/transmission.py` — implemented `construction_cost`, `maintenance_cost`, `failure_impact` for 4 intervention types (hardening, redundant_feed, elevation, relocation); cost table from FEMA BRIC + PREPA post-Maria contracts; `composite_after()` helper
+- `prism/optimize/schema.py` — `optimize` schema DDL: `intervention_catalog`, `portfolio_runs`, `portfolio_items`
+- `prism/optimize/catalog.py` — `build_catalog()` enumerates 4 types × top-N substations; wires `composite_score` into `objective_value()` via `disaster_vulnerability=-uplift`
+- `prism/optimize/optimizer.py` — `greedy_knapsack()` (sort by uplift/$M, one-per-substation, budget-respecting) + `run_portfolio()` + `Portfolio.summary()`
+- `prism/optimize/__main__.py` — CLI: `python -m prism.optimize [--budget] [--scenario] [--top-n] [--rebuild]`
+- `prism/viz/dashboard.py` + `prism/viz/__main__.py` — 4-panel matplotlib state dashboard (`python -m prism.viz` → `data/viz/phase3_dashboard.png`)
+- `tests/test_optimize.py` — 29 tests; `pytest` **80/81 passing** (1 skipped = pre-existing Phase 3 SLR skip)
+- `catalog/metadata.json` — provenance entries for all `graph.*`, `resilience.*`, `optimize.*` derived tables (145 total entries)
+
+**optimize schema live (2026-06-05):**
+- `intervention_catalog`: 200 rows (50 substations × 4 types, cat3 scenario)
+- `portfolio_runs`: 1 run — $500M budget, cat3, greedy knapsack
+- `portfolio_items`: 50 items — $168.2M spent (34% of budget), 560.39 pts uplift, 3.331 pts/$M
+
+**$500M portfolio top result:** PALO SECO SP TC — hardening, $3.4M cost, 42.05 pts uplift, 12.50 pts/$M
+
+**Phase 4 carry-forwards into Phase 5:**
+- **Optimizer degenerates to all-hardening:** hardening wins best uplift/$M for 100% of top-50 substations. The other 3 intervention types are enumerated but never selected. Root cause: betweenness values are small (max 0.22), so `redundant_feed`'s SPOF benefit is near-inert; elevation's 70% hazard reduction doesn't overcome its higher cost vs hardening's 50% at lower cost. Phase 5 should differentiate via real feeder routing + population-weighted cascade, or document hardening-first as intended.
+- **Budget non-binding:** $500M budget uses only 34% ($168M). Max spend is capped by 50 substations × $3.4M. To exercise the constraint, raise `top_n` (e.g. 200) or allow multi-intervention stacking. The greedy knapsack is correct but under-stressed.
+- **pgRouting swap deferred:** Docker image still `postgis/postgis:16-3.4`. Road-access cost computation not needed for greedy knapsack; swap to `pgrouting/pgrouting:16-3.4` for Phase 5 road feasibility routing.
+- **objective_score vs uplift_per_million:** `intervention_catalog.objective_score` (from `objective_value()`) is stored but greedy knapsack ranks by `uplift_per_million`. Reconcile when upgrading to LP/ILP in Phase 5.
+- **Name resolution gap at deep ranks:** substations beyond the top-100 show `eid=XXX` in portfolio output. Cosmetic only; fix in Phase 5 by pre-resolving all names.
+
+### Phase 3 — COMPLETE (2026-06-04, Opus GO)
+
+**What was built:**
+- `prism/resilience/schema.py` — `resilience` schema DDL: `spof_scores`, `cascade_scores`, `scenario_scores`
+- `prism/resilience/spof.py` — betweenness centrality + articulation points on CONNECTS_TO undirected graph
+- `prism/resilience/cascade.py` — downstream criticality scoring (hospital=10, water_plant=5, health_center=3, barrio=1), scaled by POWERS confidence
+- `prism/resilience/hazard.py` — flood zone + SLR + storm surge + terrain slope hazard overlay; `entity_ids` param restricts to substations only (avoids slow 48K-entity full scan)
+- `prism/resilience/score.py` — composite: `P(failure|event) × cascade_impact × (1 + betweenness)`; 3 named scenarios; `run_scenario()` + `load_scenario_results()`
+- `prism/resilience/__main__.py` — CLI: `python -m prism.resilience [--scenario cat3|slr2ft|combined] [--top N] [--show-only]`
+- `tests/test_resilience.py` — 17 tests; 16 pass, 1 validly skipped
+
+**resilience schema live (2026-06-04):**
+- `spof_scores`: 941 rows — 2 articulation points, top betweenness 0.2197
+- `cascade_scores`: 315 substations scored, max cascade impact 276.41 (entity_id=877)
+- `scenario_scores`: 945 rows (315 × 3 scenarios)
+- `pytest` **51/52 passing** (1 skipped = no substation points within SLR 2ft extent)
+
+**Cat-3 top result (PALO SECO SP TC, entity_id=915):** hazard=0.95, cascade=88.41, composite=84.10
+
+**Phase 3 carry-forwards (closed in Phase 4):**
+- SLR/surge inert for scored substations — root cause: coastal polygons vs inland substation points. NOT a code bug.
+- Provenance gap — CLOSED: `catalog/metadata.json` now has 145 entries covering all derived tables.
 
 ### Phase 0 — COMPLETE (Opus gate GO)
 - UV venv (`.venv/`), `uv pip install -e ".[dev]"`, PostGIS Docker healthy on :5432
@@ -176,15 +226,22 @@ GeoJSONs without this fix first** — doing so produces Infinity coordinates.
 - POWERS/FEEDS are spatial proxies (Voronoi/voltage-hierarchy, confidence 0.4–0.7) — not actual feeder routing. Carry confidence values into Phase 3 resilience rankings.
 - Bridge WFS source has all Infinity coordinates — needs re-pull from corrected WFS or alternative source before Phase 3 structural vulnerability analysis.
 
-## Start here (Phase 3 — Resilience Modeling)
+## Start here (Phase 5 — Economy / Property)
 
-**Goal:** quantify which infrastructure failures cause the greatest societal harm.
+**Goal:** add economic and property-impact dimensions to the optimization objective so that intervention costs and benefits are expressed in comparable dollar terms, not just dimensionless composite-score units.
 
-1. **SPOF analysis** — run `to_networkx(engine, rel_types=("CONNECTS_TO",))` → `nx.articulation_points()` + `betweenness_centrality()` to find single-points-of-failure in the power grid.
-2. **Failure cascades** — use `downstream_of()` to score each substation by affected population × service criticality (hospital > water plant > barrio).
-3. **Hazard overlay** — join `flood_zones`, `terrain_slope`, and NOAA SLR scenarios to score each asset's vulnerability (probability of failure given event).
-4. **Composite resilience score** — per-asset: `P(failure | event) × impact(failure)`. Store in `prism/resilience/`.
-5. **Verify**: a storm scenario returns a ranked list of "most at-risk" assets with quantified impact.
+1. **CRIM parcels** — pull from PR network/VPN (`python -m prism.mirror --only-complements`); load into PostGIS; spatial-join parcels to substations/barrios to get property-value exposure per asset.
+2. **Census ACS** — set `CENSUS_API_KEY` in `.env`, pull population + income data per barrio; link to `graph.entities (barrio)` via GEOID.
+3. **Economic impact model** — `prism/assets/transmission.py`: implement `population_benefit` and `economic_benefit` terms in `objective_value()`. Use barrio population × income-weighted downtime cost as the economic benefit of avoiding a failure.
+4. **Property impact** — `property_impact` term in `objective_value()`: relocation displaces parcels; quantify using CRIM assessed values.
+5. **Re-run optimizer** — with economic weights wired, rebuild the intervention catalog and re-run the portfolio. Verify that higher-cascade, economically-dense substations attract more expensive interventions (redundant_feed / relocation) when population benefit justifies the cost.
+6. **Make budget binding** — raise `top_n` to 200 so the $500M constraint actually bites and the knapsack is meaningfully constrained.
+7. **pgRouting swap** — switch Docker image to `pgrouting/pgrouting:16-3.4` for road-access cost computation in intervention feasibility (access cost adds to construction cost for remote substations).
 
-Phase 3 "Done when": given a storm scenario (e.g., Cat 3 hurricane, 2 ft SLR), a ranked list of vulnerable assets with downstream impact scores is returned.
-Run the Opus gate before proceeding to Phase 4.
+**Pre-conditions (from Phase 4 carry-forwards):**
+- CRIM parcels and Census ACS data not yet mirrored — pull before Phase 5 starts.
+- pgRouting image swap needed for road-access cost.
+- Consider: LP/ILP upgrade for the optimizer once budget is binding (scipy.optimize.milp).
+
+Phase 5 "Done when": the intervention portfolio uses dollar-denominated objective weights (population_benefit + economic_benefit + property_impact wired with real data); optimizer output shows that high-cascade dense-area substations attract higher-cost interventions when the economics justify it.
+Run the Opus gate before proceeding to Phase 6.
