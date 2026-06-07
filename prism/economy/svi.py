@@ -2,8 +2,8 @@
 Social Vulnerability Index (SVI) per Census tract.
 
 Without CENSUS_API_KEY: uses flood zone coverage + terrain slope as geographic proxy.
-With    CENSUS_API_KEY: augments with ACS poverty rate (B17001) for a more accurate
-social vulnerability measure.
+With    CENSUS_API_KEY: full 5-component formula using ACS B17001 (poverty),
+B01001 (age/elderly), B18101 (disability), plus the geographic proxies.
 
 svi_score ∈ [0, 1] — 1 = most vulnerable (percentile rank across PR tracts).
 
@@ -13,8 +13,11 @@ Proxy formula (no API key):
   svi_score   = percentile_rank(0.70 × flood_frac + 0.30 × slope_score)
 
 Full formula (with API key):
-  poverty_score = poverty_rate (from ACS B17001)
-  svi_raw  = 0.45 × poverty_score + 0.35 × flood_frac + 0.20 × slope_score
+  svi_raw = 0.30 × poverty_rate
+          + 0.15 × pct_elderly
+          + 0.10 × pct_disabled
+          + 0.30 × flood_frac
+          + 0.15 × slope_score
   svi_score = percentile_rank(svi_raw)
 
 load_svi_weights() returns entity_id → weighted_svi for substations, using
@@ -40,18 +43,20 @@ def compute_svi(engine: Engine, raw_dir: Path | None = None) -> int:
     Compute SVI scores for all tracts in economy.barrio_economics.
     Returns count of tracts updated.
     """
-    # 1. Ensure schema columns exist
     from prism.economy.schema import create_schema
     create_schema(engine)
 
-    # 2. Try per-tract poverty rate from Census API if key is set
     poverty_map = _fetch_poverty_if_key_available(raw_dir)
     if poverty_map:
         _apply_poverty_rate(engine, poverty_map)
         log.info("Applied per-tract poverty rate for %d tracts from ACS", len(poverty_map))
 
-    # 3. Compute geographic SVI in PostGIS and percentile-rank
-    n = _compute_geographic_svi(engine, has_poverty=bool(poverty_map))
+    ed_map = _fetch_elderly_disabled_if_key_available(raw_dir)
+    if ed_map:
+        _apply_elderly_disabled_rates(engine, ed_map)
+        log.info("Applied per-tract elderly/disability rates for %d tracts from ACS", len(ed_map))
+
+    n = _compute_geographic_svi(engine, has_acs=bool(poverty_map))
     log.info("SVI computed for %d tracts", n)
     return n
 
@@ -152,6 +157,110 @@ def _fetch_poverty_if_key_available(raw_dir: Path | None) -> dict[str, float]:
     return result
 
 
+def _fetch_elderly_disabled_if_key_available(raw_dir: Path | None) -> dict[str, dict]:
+    """Return {geoid: {pct_elderly, pct_disabled}} from ACS API if key is set, else {}."""
+    key = os.environ.get("CENSUS_API_KEY", "").strip()
+    if not key:
+        return {}
+
+    import json
+    import requests
+
+    if raw_dir is None:
+        raw_dir = Path("data/raw")
+
+    results: dict[str, dict] = {}
+
+    # ── elderly: B01001 age-by-sex table ─────────────────────────────────────
+    elderly_cache = raw_dir / "census_acs" / "acs5_2022_elderly_pr.json"
+    if elderly_cache.exists():
+        elderly_rows = json.loads(elderly_cache.read_text(encoding="utf-8"))
+    else:
+        # Total population + male 65+ groups (020–025) + female 65+ groups (044–049)
+        elderly_vars = (
+            "B01001_001E,"
+            "B01001_020E,B01001_021E,B01001_022E,B01001_023E,B01001_024E,B01001_025E,"
+            "B01001_044E,B01001_045E,B01001_046E,B01001_047E,B01001_048E,B01001_049E"
+        )
+        url = (
+            f"https://api.census.gov/data/2022/acs/acs5"
+            f"?get={elderly_vars}&for=tract:*&in=state:72&key={key}"
+        )
+        try:
+            resp = requests.get(url, timeout=60)
+            resp.raise_for_status()
+            elderly_rows = resp.json()
+            elderly_cache.parent.mkdir(parents=True, exist_ok=True)
+            elderly_cache.write_text(json.dumps(elderly_rows, indent=2), encoding="utf-8")
+        except Exception as exc:
+            log.warning("Census API elderly fetch failed: %s — skipping", exc)
+            elderly_rows = []
+
+    if elderly_rows:
+        header = elderly_rows[0]
+        idx = {col: i for i, col in enumerate(header)}
+        elderly_65plus_cols = [
+            c for c in header
+            if c.startswith("B01001_0") and c not in ("B01001_001E",)
+        ]
+        for row in elderly_rows[1:]:
+            geoid = f"{row[idx['state']]}{row[idx['county']]}{row[idx['tract']]}"
+            try:
+                total = float(row[idx["B01001_001E"]])
+                elderly_n = sum(
+                    float(row[idx[c]]) for c in elderly_65plus_cols
+                    if float(row[idx[c]]) > 0
+                )
+                pct = (elderly_n / total) if total > 0 else 0.0
+            except (TypeError, ValueError, KeyError):
+                pct = 0.185
+            results.setdefault(geoid, {})["pct_elderly"] = max(0.0, min(1.0, pct))
+
+    # ── disability: B18101 disability-by-sex-by-age table ────────────────────
+    # "with disability" cells: male: 003,005,007,009,011,013; female: 016,018,020,022,024,026
+    disability_cache = raw_dir / "census_acs" / "acs5_2022_disability_pr.json"
+    if disability_cache.exists():
+        disability_rows = json.loads(disability_cache.read_text(encoding="utf-8"))
+    else:
+        dis_vars = (
+            "B18101_001E,"
+            "B18101_003E,B18101_005E,B18101_007E,B18101_009E,B18101_011E,B18101_013E,"
+            "B18101_016E,B18101_018E,B18101_020E,B18101_022E,B18101_024E,B18101_026E"
+        )
+        url = (
+            f"https://api.census.gov/data/2022/acs/acs5"
+            f"?get={dis_vars}&for=tract:*&in=state:72&key={key}"
+        )
+        try:
+            resp = requests.get(url, timeout=60)
+            resp.raise_for_status()
+            disability_rows = resp.json()
+            disability_cache.parent.mkdir(parents=True, exist_ok=True)
+            disability_cache.write_text(json.dumps(disability_rows, indent=2), encoding="utf-8")
+        except Exception as exc:
+            log.warning("Census API disability fetch failed: %s — skipping", exc)
+            disability_rows = []
+
+    if disability_rows:
+        header = disability_rows[0]
+        idx = {col: i for i, col in enumerate(header)}
+        dis_cols = [c for c in header if c != "B18101_001E" and c.startswith("B18101_")]
+        for row in disability_rows[1:]:
+            geoid = f"{row[idx['state']]}{row[idx['county']]}{row[idx['tract']]}"
+            try:
+                total = float(row[idx["B18101_001E"]])
+                dis_n = sum(
+                    float(row[idx[c]]) for c in dis_cols
+                    if float(row[idx[c]]) > 0
+                )
+                pct = (dis_n / total) if total > 0 else 0.0
+            except (TypeError, ValueError, KeyError):
+                pct = 0.255
+            results.setdefault(geoid, {})["pct_disabled"] = max(0.0, min(1.0, pct))
+
+    return results
+
+
 def _apply_poverty_rate(engine: Engine, poverty_map: dict[str, float]) -> None:
     upd = text("""
         UPDATE economy.barrio_economics
@@ -163,14 +272,37 @@ def _apply_poverty_rate(engine: Engine, poverty_map: dict[str, float]) -> None:
             conn.execute(upd, {"geoid": geoid, "rate": rate})
 
 
-def _compute_geographic_svi(engine: Engine, *, has_poverty: bool) -> int:
+def _apply_elderly_disabled_rates(engine: Engine, ed_map: dict[str, dict]) -> None:
+    upd = text("""
+        UPDATE economy.barrio_economics
+        SET pct_elderly  = :elderly,
+            pct_disabled = :disabled
+        WHERE tract_geoid = :geoid
+    """)
+    with engine.begin() as conn:
+        for geoid, vals in ed_map.items():
+            conn.execute(upd, {
+                "geoid":    geoid,
+                "elderly":  vals.get("pct_elderly", 0.185),
+                "disabled": vals.get("pct_disabled", 0.255),
+            })
+
+
+def _compute_geographic_svi(engine: Engine, *, has_acs: bool) -> int:
     """
     Compute svi_score per tract: flood zone coverage + terrain slope (+poverty if available).
     Uses PERCENT_RANK so svi_score = 1.0 means the most vulnerable tract in PR.
     Returns rowcount updated.
     """
-    if has_poverty:
-        blend = "0.45 * be.poverty_rate + 0.35 * geo.flood_frac + 0.20 * geo.slope_score"
+    if has_acs:
+        # 5-component ACS-backed formula (weights sum to 1.0)
+        blend = (
+            "0.30 * be.poverty_rate"
+            " + 0.15 * be.pct_elderly"
+            " + 0.10 * be.pct_disabled"
+            " + 0.30 * geo.flood_frac"
+            " + 0.15 * geo.slope_score"
+        )
     else:
         blend = "0.70 * geo.flood_frac + 0.30 * geo.slope_score"
 

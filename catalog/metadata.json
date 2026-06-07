@@ -2008,6 +2008,62 @@
       "computed_by": "prism.report.narrative.generate_narrative()",
       "pulled_at": "2026-06-06",
       "license": "derived"
+    },
+    "derived:transport.road_access_cost": {
+      "source": "derived",
+      "phase": 8,
+      "schema": "transport",
+      "table": "road_access_cost",
+      "description": "Phase 8 pgRouting road access cost per barrio to nearest hospital/health_center. pgr_dijkstra at 40 km/h on OSM road network; batched 20 hospitals/call. 901 barrios total: 892 reachable, 9 isolated (Culebra, Vieques, Mona island barrios). Median 9.2 min, max 31.0 min (mountain barrios: Espino, Rubias, Bauta Abajo). Top-5 worst-access barrios injected into AI narrative prompts.",
+      "computed_by": "prism.transport.access.run_access_analysis()",
+      "row_count": 901,
+      "inputs": [
+        "graph.road_edges",
+        "graph.entities (hospitals)",
+        "graph.relationships (LOCATED_IN)"
+      ],
+      "generated": "2026-06-06",
+      "license": "derived from OSM (ODbL) + PR government GIS"
+    },
+    "derived:transport.bridge_inventory": {
+      "source": "derived",
+      "phase": 8,
+      "schema": "transport",
+      "table": "bridge_inventory",
+      "description": "Phase 8 bridge inventory from OSM Overpass API (Puerto Rico). 3168 bridge ways (bridge=yes or bridge=viaduct) with center-point geometry. SRID 32161. 2388 named (75%). Span data not available in OSM tags; BridgeAsset span_m defaults to 50m medium category. WFS source g35_viales_puentes_2010 unusable (all-Infinity coordinates). Loaded 2026-06-07 via Overpass API.",
+      "computed_by": "Overpass API + manual INSERT in prism.transport.schema",
+      "row_count": 3168,
+      "inputs": [
+        "OSM Overpass API overpass-api.de"
+      ],
+      "generated": "2026-06-07",
+      "license": "ODbL (OpenStreetMap contributors)"
+    },
+    "derived:sync.data_sources": {
+      "source": "derived",
+      "phase": 9,
+      "schema": "sync",
+      "table": "data_sources",
+      "description": "Phase 9 Digital Twin — registry of live data feeds with their last-sync timestamp, checksum, and row count. One row per priority sync source (WFS flood zones, storm surge, primary roads). Idempotent: re-running sync only updates rows when the feature count changes.",
+      "computed_by": "prism.sync.resync.run_sync() / upsert_source()",
+      "inputs": [
+        "OGP/PRITS WFS (pr_geodata) — resultType=hits feature counts"
+      ],
+      "generated": "2026-06-07",
+      "license": "derived from PR government GIS"
+    },
+    "derived:sync.sync_log": {
+      "source": "derived",
+      "phase": 9,
+      "schema": "sync",
+      "table": "sync_log",
+      "description": "Phase 9 Digital Twin — append-only audit log of every sync run. Records source_name, rows_updated, duration_s, status (ok/error/skipped), triggered_rescore flag, and run timestamp. Used by the dashboard diff panel and for diagnosing sync failures.",
+      "computed_by": "prism.sync.resync.log_run()",
+      "inputs": [
+        "sync.data_sources"
+      ],
+      "generated": "2026-06-07",
+      "license": "derived"
     }
   }
 }

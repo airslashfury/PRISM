@@ -173,6 +173,7 @@ def ilp_optimizer(
     catalog: list[Intervention],
     budget_usd: float,
     scenario_name: str = "cat3",
+    equity_weight: float | None = None,
 ) -> Portfolio:
     """
     ILP portfolio optimizer: maximise total net dollar benefit subject to budget
@@ -181,10 +182,11 @@ def ilp_optimizer(
     Uses scipy.optimize.milp (binary integer programming).  Falls back to
     greedy_knapsack if scipy.optimize.milp is unavailable or infeasible.
 
-    Ranking basis: net_benefit_usd = pop_benefit + econ_benefit - property_impact - cost
-    (absolute dollars, not per-million ratio).  This allows the optimizer to select
-    a more expensive intervention when its marginal net benefit exceeds the opportunity
-    cost of a cheaper alternative.
+    equity_weight=None  uses the pre-baked equity_adjusted_benefit_usd from the
+                        catalog (backward-compatible; reflects build-time weight).
+    equity_weight=float recomputes the equity-adjusted benefit at solve time from
+                        raw population_benefit_usd and weighted_svi, so two runs
+                        against the same catalog produce genuinely different results.
     """
     try:
         from scipy.optimize import milp, LinearConstraint, Bounds
@@ -198,16 +200,16 @@ def ilp_optimizer(
         return Portfolio(scenario_name=scenario_name, budget_usd=budget_usd, algorithm="ilp")
 
     n = len(eligible)
-    costs        = np.array([iv.cost_usd          for iv in eligible], dtype=float)
+    costs = np.array([iv.cost_usd for iv in eligible], dtype=float)
+
+    def _pop_benefit(iv: Intervention) -> float:
+        if equity_weight is not None:
+            return iv.population_benefit_usd * (1.0 + equity_weight * iv.weighted_svi)
+        return (iv.equity_adjusted_benefit_usd if iv.equity_adjusted_benefit_usd > 0
+                else iv.population_benefit_usd)
+
     net_benefits = np.array([
-        # Phase 6: use equity_adjusted_benefit_usd when available (non-zero);
-        # fall back to raw population_benefit_usd for backward compatibility with
-        # pre-Phase-6 catalog rows (equity_adjusted_benefit_usd = 0).
-        (iv.equity_adjusted_benefit_usd if iv.equity_adjusted_benefit_usd > 0
-         else iv.population_benefit_usd)
-        + iv.economic_benefit_usd
-        - iv.property_impact_usd
-        - iv.cost_usd
+        _pop_benefit(iv) + iv.economic_benefit_usd - iv.property_impact_usd - iv.cost_usd
         for iv in eligible
     ], dtype=float)
 
@@ -302,12 +304,14 @@ def run_portfolio(
     *,
     rebuild_catalog: bool = False,
     equity_weight: float = DEFAULT_EQUITY_WEIGHT,
+    include_transport: bool = False,
 ) -> Portfolio:
     """
     Full pipeline: build (or reload) catalog → ILP / greedy → persist.
 
     rebuild_catalog=False  reads existing catalog from DB (faster for reruns).
     equity_weight: 0.0 = pure VOLL (Phase 5); 1.0 = full equity boost (Phase 6 default).
+    include_transport: mix road/transport interventions into the portfolio.
     """
     create_schema(engine)
 
@@ -319,6 +323,16 @@ def run_portfolio(
             log.info("No catalog in DB; building now …")
             catalog = build_catalog(engine, scenario=scenario, top_n=top_n, equity_weight=equity_weight)
 
+    if include_transport:
+        from prism.optimize.catalog import build_transport_catalog
+        transport_catalog = load_catalog(engine, scenario="transport")
+        if not transport_catalog:
+            log.info("No transport catalog in DB; building now …")
+            transport_catalog = build_transport_catalog(engine, equity_weight=equity_weight)
+        if transport_catalog:
+            log.info("Merging %d transport interventions into portfolio", len(transport_catalog))
+            catalog = catalog + transport_catalog
+
     # Use ILP when economic data is present (net_benefit_per_million populated),
     # fall back to greedy when catalog has only resilience scores.
     has_economic = any(iv.population_benefit_usd > 0 for iv in catalog)
@@ -326,7 +340,8 @@ def run_portfolio(
     log.info("Running %s: budget=$%.0fM, %d candidates", algorithm, budget_usd / 1e6, len(catalog))
 
     if has_economic:
-        portfolio = ilp_optimizer(catalog, budget_usd, scenario_name=scenario)
+        portfolio = ilp_optimizer(catalog, budget_usd, scenario_name=scenario,
+                                  equity_weight=equity_weight)
     else:
         portfolio = greedy_knapsack(catalog, budget_usd, scenario_name=scenario)
 

@@ -264,11 +264,27 @@ Principles: **immutable raw mirror**, **everything reproducible from `sources.ym
 
 **Phase 9 — Puerto Rico Digital Twin.** A *continuously-updated* model of the island — an infrastructure laboratory where decisions can be tested before resources are committed. What makes "continuously updated" real rather than aspirational is the keystone (§4.0): a scheduled job re-syncs the ~400 OGP/PRITS WFS layers, diffs them against the versioned archive, reloads only what changed, and regenerates the resilience outputs — so the twin tracks the island as the government's own data evolves, with the federal complements refreshing on their own cadences alongside. The keystone is what makes the twin *live*. *Done when:* one scheduled job re-syncs from the WFS, updates PostGIS, and regenerates the core resilience map unattended.
 
+**Phase 10 — Rail Corridor Study (Greenfield Optimization).** The marquee transport application deferred from Phase 8: place new inter-city rail where no line exists yet, using a cost-surface-based greenfield routing engine. The engine builds a composite cost raster from the objective function (terrain slope, flood exposure, parcel displacement, SVI-weighted population benefit) and runs least-cost path search across it to produce ranked corridor alternatives. This is the capability that turns PRISM from an analysis tool into a *proposal generator* — not just "what is vulnerable" but "here is where to build, and here are three alternatives with full tradeoff accounting."
+
+Build tasks:
+- **Cost surface** (`prism/corridor/cost_surface.py`): rasterize terrain slope, flood zones, parcel impact, and SVI-weighted benefit into a composite cost grid at ~300 m resolution.
+- **Greenfield router** (`prism/corridor/router.py`): raster Dijkstra (scipy `ndimage`-based) or PostGIS dense-grid least-cost path; returns waypoint sequence and per-segment cost breakdown.
+- **Rail asset model** (`prism/assets/rail.py`): terrain-tiered construction cost (standard / elevated / tunnel), 30-yr maintenance NPV, passenger capacity, ridership model linked to barrio population.
+- **Corridor generator** (`prism/corridor/corridors.py`): produce ≥3 route alternatives for San Juan → Ponce and one additional (Arecibo or Mayagüez); score each on the full objective function.
+- **Intermodal links**: connect rail corridor endpoints to the existing graph (hospitals, ports, airports, barrios) via `graph.relationships`.
+- **Corridor CLI** (`python -m prism.corridor [--from CITY] [--to CITY] [--n N]`).
+- **Report integration**: extend `prism/report/narrative.py` with a corridor-comparison prompt (Sonnet/Opus).
+- **Dashboard panel**: map showing corridor alternatives with cost/impact/SVI annotations.
+- **Tests** (`tests/test_corridor.py`): cost surface construction, routing correctness, rail asset model, corridor generation.
+- **Catalog entries** for `corridor.*` tables.
+
+*Done when:* `python -m prism.corridor --from "San Juan" --to "Ponce"` produces ≥3 ranked route alternatives, each with a full objective-function breakdown, and an AI-written comparison narrative names the preferred route with tradeoffs explained in plain language.
+
 ```
 Phase 0 ─▶ 1 ─▶ 2 ─┬─▶ 3 (resilience) ─┐
                    └─▶ 4 (optimize) ────┼─▶ 5 (power) ─┐
                        6 (human sim) ───┤              ├─▶ 8 (transport)
-                                        └─▶ 7 (reports)┴─▶ 9 (digital twin)
+                                        └─▶ 7 (reports)┴─▶ 9 (digital twin) ─▶ 10 (rail corridor)
 ```
 
 ---

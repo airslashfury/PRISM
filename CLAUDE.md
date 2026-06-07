@@ -98,10 +98,132 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | 5 — Economy / Property | **COMPLETE** | 2026-06-05 | Opus GO |
 | 6 — Human Simulation | **COMPLETE** | 2026-06-06 | Opus GO (conditional) |
 | 7 — Decision Intelligence | **COMPLETE** | 2026-06-06 | Opus GO |
-| 8 — Transportation | **ACTIVE** | — | Start here ↓ |
-| 9 — Digital Twin | pending | — | |
+| 8 — Transportation | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
+| 9 — Digital Twin | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
+| 10 — Rail Corridor | **ACTIVE** | — | — |
 
-## Current state (2026-06-06)
+## Current state (2026-06-07)
+
+### Census ACS carry-forward — CLOSED (2026-06-07)
+
+**What changed:**
+- `prism/economy/svi.py` — added `_fetch_elderly_disabled_if_key_available()`: fetches B01001 (elderly, 65+ age groups) and B18101 (disability, with-disability cells) from Census ACS 5-yr 2022 API; cached to `data/raw/census_acs/acs5_2022_elderly_pr.json` and `acs5_2022_disability_pr.json`
+- `_apply_elderly_disabled_rates()` — bulk-updates `pct_elderly` and `pct_disabled` per tract
+- SVI formula upgraded from 3-component (poverty + flood + slope) to **5-component** (poverty 30% + elderly 15% + disabled 10% + flood 30% + slope 15%)
+- `economy.barrio_economics`: 981 tracts, all with real per-tract income ($24,599/yr avg, up from $21,058 statewide constant), poverty rate, elderly rate, and disability rate
+- Optimization catalog rebuilt with real SVI — $200M equity portfolio: 40 items; $500M portfolio: 46 items using relocation (ILP now correctly prefers relocation for highest-SVI substations)
+
+**Remaining open carry-forwards from Phases 0–9:**
+- CRIM parcels — `satasgis.crimpr.net` blocked outside PR; needs PR network/VPN
+- Bridge span data — OSM has no span lengths; bridge asset model defaults to 50 m medium tier
+- Multi-scenario auto-rescore — marejada trigger hardwired to cat3 only
+- `_test_*` rows in `sync.data_sources` — left by test suite, harmless
+- Checksum is count-based — doesn't detect in-place geometry edits at constant feature count
+- ~50% portfolio items show `eid=XXX` — name resolution gap
+
+### Phase 9 — COMPLETE (2026-06-07, Opus GO conditional)
+
+**What was built:**
+- `prism/sync/schema.py` — DDL: `sync.data_sources` (feed registry: source_name, url, last_fetched_at, checksum, row_count, status), `sync.sync_log` (audit: run_id, rows_updated, duration_s, status, triggered_rescore)
+- `prism/sync/resync.py` — WFS re-sync spine: `resultType=hits` checksum comparison; `run_sync()` + `sync_source()`; idempotent (second pass → all skipped); 3 priority sources: flood zones (24h), marejada (24h), roads (168h)
+- `prism/sync/trigger.py` — `should_trigger_rescore(results)` + `trigger_rescore(engine, scenario="cat3")`; flood/marejada sources marked `affects_resilience=True`
+- `prism/sync/__main__.py` — CLI: `python -m prism.sync [--source wfs|osm|noaa] [--dry-run] [--drop] [--show-only]`; `triggered_rescore` audit column updated in sync_log after rescore fires
+- `prism/viz/dashboard.py` — Phase 9 ACTIVE in tracker; `_panel_sync()` added (source registry table, last-sync timestamps, triggered_rescore column); 5-row grid, 20×32 in
+- `tests/test_sync.py` — 22 tests: schema DDL idempotency, checksum determinism/collision, upsert/get round-trip, `sync_source` skipped/updated paths, `run_sync` idempotency, trigger logic (5 cases), live `trigger_rescore` cat3 run, config sanity
+- `catalog/metadata.json` — 158 entries (added `derived:sync.data_sources`, `derived:sync.sync_log`)
+- `config/sources.yml` — `sync_sources` block added with `sync_interval_hours` per source
+
+**Phase 9 live state (2026-06-07):**
+- `sync.data_sources`: 3 rows — wfs_flood_zones_1pct (9,290 features), wfs_marejada (669), wfs_roads_primary (3,596)
+- `sync.sync_log`: 3 rows after first real run; wfs_flood_zones_1pct and wfs_marejada have `triggered_rescore=True`; second run: 0 updated / 3 skipped (idempotency confirmed)
+- Rescore trigger: live WFS fetch changed checksums vs. test-seeded values → cat3 fired; 315 substations re-scored, top composite=84.0983 (entity_id=915, unchanged from Phase 3)
+- Full test suite: **184 passed, 1 skipped** (pre-existing Phase 3 SLR geometry skip)
+- Dashboard: `data/viz/phase9_dashboard.png`, 5-row layout; Phase 9 ACTIVE in tracker; sync panel shows live source registry
+
+**Phase 9 carry-forwards (PRISM Phases 0–9 complete):**
+- **Checksum is count-based:** `sha256("{layer}:{feature_count}")[:16]` detects add/remove but not in-place geometry edits at constant feature count. Acceptable for the current sync cadence; document if Phase 10 needs content-level drift detection.
+- **Rescore hardwired to cat3:** marejada updates trigger cat3 only (not slr2ft/combined). Extend `trigger.py` if multi-scenario auto-rescore is needed.
+- **`_test_*` rows in sync.data_sources:** left by test suite (prefixed, harmless). Consider a dedicated test schema or teardown for a clean production registry.
+- **Open carry-forwards from earlier phases** (CENSUS_API_KEY, CRIM parcels, rail corridor study, pct_elderly/pct_disabled, bridge span data) remain deferred — documented in respective phase sections above.
+
+## Start here — Phase 10 ACTIVE
+
+Phases 0–9 complete. Phase 10 (Rail Corridor Study) is now active.
+
+**PRISM live state:**
+- **Data layer:** 3.62 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; 158 catalog entries
+- **Knowledge graph:** 48,801 nodes, 68,272 edges, 6 relationship types
+- **Resilience:** 315 substations scored across 3 scenarios; top composite 84.10 (PALO SECO SP TC)
+- **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with **real per-tract ACS data** (income, poverty, elderly, disability); 5-component SVI
+- **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (now selects relocation for high-SVI substations)
+- **Transport:** pgRouting road-access (892/901 barrios reachable; median 9.2 min); 3,168 bridges
+- **Decision intelligence:** AI narratives (Sonnet/Opus); scenario comparison with equity_flag
+- **Digital Twin:** WFS re-sync spine; auto rescore on hazard-layer change
+
+## Start here (Phase 10 — Rail Corridor Study)
+
+**Goal:** produce ranked, mapped inter-city rail corridor alternatives for Puerto Rico using a greenfield cost-surface routing engine — turning PRISM from an analysis tool into a *proposal generator*.
+
+**Pre-conditions:** Phases 0–9 complete; Census ACS carry-forward closed; real SVI in place.
+
+**Build tasks:**
+
+1. **Cost surface** — `prism/corridor/cost_surface.py`: rasterize terrain slope, flood zones, SVI-weighted population benefit, and parcel displacement cost into a composite cost grid at ~300 m resolution. Outputs a GeoTIFF stored in `data/derived/corridor/`.
+2. **Greenfield router** — `prism/corridor/router.py`: raster least-cost path using `scipy.ndimage` skeletonization or a sparse-graph Dijkstra over the cost raster; returns waypoint GeoDataFrame + per-segment cost breakdown (terrain, flood, parcel, benefit).
+3. **Rail asset model** — `prism/assets/rail.py`: pluggable `InfrastructureAsset` implementation. Construction cost tiered by terrain (standard $15M/km, elevated $40M/km, tunnel $120M/km); 30-yr maintenance NPV; passenger capacity model; ridership demand linked to barrio population via graph proximity.
+4. **Corridor generator** — `prism/corridor/corridors.py`: run the router for San Juan → Ponce (≥3 alternatives) and San Juan → Arecibo or Mayagüez (1 additional). Store results in `corridor.routes` and `corridor.route_segments`.
+5. **Intermodal links**: connect corridor endpoint stations to graph nodes (barrios, hospitals, ports, airports) via new `SERVES` relationships in `graph.relationships`.
+6. **Corridor CLI** — `python -m prism.corridor [--from CITY] [--to CITY] [--n N] [--show-only]`
+7. **Report integration** — extend `prism/report/narrative.py` with `_load_corridor_context()` and a corridor-comparison prompt (Sonnet / Opus for flagship).
+8. **Dashboard panel** — add corridor map to `prism/viz/dashboard.py` showing ranked alternatives with cost/impact/SVI annotations; Phase 10 ACTIVE in tracker.
+9. **Tests** — `tests/test_corridor.py`: cost surface build, routing correctness, rail asset model, corridor generation, CLI.
+10. **Catalog** — add `corridor.routes` and `corridor.route_segments` entries to `catalog/metadata.json`.
+
+**Schema (`prism/corridor/schema.py`):**
+```sql
+corridor.routes       (route_id, from_city, to_city, alternative_n, total_cost_usd, total_km,
+                        population_served, svi_weighted_pop, construction_cost_usd,
+                        maintenance_30yr_usd, flood_exposure_frac, objective_score, geom LINESTRING)
+corridor.route_segments (segment_id, route_id, seq, terrain_type, cost_per_km, km, geom)
+```
+
+Phase 10 "Done when": `python -m prism.corridor --from "San Juan" --to "Ponce"` completes without error; ≥3 route alternatives are stored in `corridor.routes`; each has a full objective-function breakdown (construction, maintenance, flood exposure, population served, SVI-weighted population); `prism/report` generates an AI comparison narrative naming the preferred route with plain-language tradeoffs.
+
+### Phase 8 — COMPLETE (2026-06-07, Opus GO conditional)
+
+**What was built:**
+- `prism/transport/schema.py` — DDL: `transport.road_access_cost`, `transport.bridge_inventory`
+- `prism/transport/access.py` — pgRouting `pgr_dijkstra` (batched, 20 hospitals/call) → travel time per barrio to nearest hospital/health_center at 40 km/h; now tracks `nearest_hosp_vid`/`nearest_hosp_name` per barrio (892/892 reachable barrios named)
+- `prism/transport/bridges.py` — reproducible OSM Overpass bridge downloader; `python -m prism.transport.bridges [--dry-run]`; registered in `config/sources.yml`
+- `prism/transport/__main__.py` — CLI: `python -m prism.transport [--drop] [--show-only] [--top N]`
+- `prism/assets/road.py` — full implementation: construction cost ($2M/km hardening, $3.5M/km new corridor), 30-yr NPV maintenance, lane-based capacity, failure impact (isolated population × detour)
+- `prism/assets/bridge.py` — new file: span-tiered construction cost ($3M flat / $250K/m / $350K/m), maintenance NPV, load rating, failure impact
+- `prism/assets/base.py` — added `AssetType.BRIDGE`
+- `prism/optimize/catalog.py` — `build_transport_catalog()`: VALT model ($10/min disaster-context × 2 events/yr × 15.37 NPV); single `_save_catalog()` (duplicate removed)
+- `prism/optimize/optimizer.py` — `ilp_optimizer(equity_weight=None)`: None uses pre-baked catalog values; explicit float recomputes at solve time from raw fields; `run_portfolio(include_transport=True)` merges transport catalog
+- `prism/optimize/__main__.py` — added `--equity-weight` and `--include-transport` flags
+- `prism/report/narrative.py` — `_load_road_access_context()` injects top-5 worst-access barrios into both single-run and comparison prompts
+- `prism/viz/dashboard.py` — Phase 8 road-access panel (horizontal bar, amber/red severity coloring, population annotations); 4-row layout, 20×26 in; phase tracker shows 0–8 COMPLETE
+- `docker/Dockerfile.postgis` + `docker/initdb/01_extensions.sql` — durable pgRouting install baked into custom image
+- `docker-compose.yml` — switched to custom build (`prism-postgis:16-3.4`) with pgRouting 3.8.0
+- `tests/test_transport.py` — 34 tests (schema, pgRouting, access computation, road/bridge assets, catalog)
+- `catalog/metadata.json` — 156 entries (added `derived:transport.road_access_cost` and `derived:transport.bridge_inventory`)
+
+**Phase 8 live state (2026-06-07):**
+- pgRouting 3.8.0 installed in `prism-postgis` container; Dockerfile bakes it for future recreation
+- `transport.road_access_cost`: 901 rows — 892 barrios reachable, 9 isolated (Culebra, Vieques, Mona island barrios); median 9.2 min, max 31.0 min; all 892 reachable barrios have `nearest_hosp_name` populated (Espino → CLINICA ESPANOLA INC, etc.)
+- `transport.bridge_inventory`: 3,168 rows (OSM Overpass 2026-06-07; 2,388 named, 780 unnamed; SRID 32161)
+- Transport catalog: 40 road_hardening + new_access_road interventions for barrios > 15 min travel time
+- Mixed portfolio: 39 power + 1 transport item (Espino road_hardening $5M) at $200M budget
+- Full test suite: **162 passed, 1 skipped** (1 skip = pre-existing Phase 3 SLR geometry; gate-pending skip now passes)
+- Dashboard: `data/viz/phase3_dashboard.png` with 6-panel layout; Phase 8 COMPLETE in tracker
+
+**Phase 8 carry-forwards into Phase 9:**
+- Bridge asset model fully implemented but never exercised in a portfolio run (no span data from OSM; default 50 m medium tier used)
+- Transport items compete at the margin only (PR road access good, max 31 min); transport catalog meaningful for post-disaster scenarios
+- Scope divergence: plan §7 Phase 8 exit criterion is "inter-city rail corridor study with ranked alternatives"; as-built is road-access resilience + pluggable road/bridge assets. Rail deferred; reconcile PRISM_Refined_Plan.md §7 or log rail as explicit deferred item.
+- `equity_weight` from `run_portfolio` passed directly to `ilp_optimizer` — default `None` uses pre-baked catalog values; explicit float recomputes at solve time; correct behavior
+- `pct_elderly` / `pct_disabled` schema columns still unpopulated (requires `CENSUS_API_KEY`)
 
 ### Phase 7 — COMPLETE (2026-06-06, Opus GO)
 
@@ -284,29 +406,25 @@ GeoJSONs without this fix first** — doing so produces Infinity coordinates.
 - POWERS/FEEDS are spatial proxies (Voronoi/voltage-hierarchy, confidence 0.4–0.7) — not actual feeder routing. Carry confidence values into Phase 3 resilience rankings.
 - Bridge WFS source has all Infinity coordinates — needs re-pull from corrected WFS or alternative source before Phase 3 structural vulnerability analysis.
 
-## Start here (Phase 8 — Transportation)
+## Start here (Phase 9 — Digital Twin)
 
-**Goal:** extend the optimization engine to roads and bridges, enabling multi-modal infrastructure planning. A decision-maker can evaluate whether investing in road hardening, bridge replacement, or new corridors is more cost-effective than power grid upgrades, and see the combined resilience impact on populations cut off after a disaster.
+**Goal:** close the loop between simulation and live infrastructure state. PRISM becomes queryable in near-real-time: a planner can ask "what is the current resilience state?" and receive an answer reflecting the latest sensor readings, grid topology changes, or storm conditions — not a static snapshot.
 
-**Dependency chain note:** Phase 8 requires pgRouting. Before starting:
-- `docker compose up -d --force-recreate` (swap running container from `postgis:16-3.4` to `pgrouting:16-3.4`)
-- `CREATE EXTENSION pgrouting;` in the `prism` database
-- Verify: `python -c "import psycopg2; ..."` or `\dx` in psql confirms pgrouting installed.
+**Architecture note:** Phase 9 connects the static PostGIS model to live/near-live data feeds. The simulation engine (Phases 1–8) stays immutable; Phase 9 adds a sync layer that updates scenario inputs and re-runs affected computations on a schedule.
 
 **Build tasks:**
 
-1. **Road-access cost model** — `prism/transport/access.py`: use pgRouting `pgr_dijkstra` on `graph.road_edges` to compute travel time from each substation to the nearest hospital/shelter. Penalize nodes in flood zones or above hazard slope threshold. Store result in `transport.road_access_cost`.
-2. **Transport asset models** — `prism/assets/road.py` + `prism/assets/bridge.py`: implement the four pluggable interfaces (`construction_cost`, `maintenance_cost`, `capacity`, `failure`) for road segments and bridges. Bridge cost table: FEMA BRIC + post-Maria PREPA/DTPW contracts.
-3. **Transport interventions in catalog** — extend `prism/optimize/catalog.py`: add `build_transport_catalog()` for road hardening, bridge replacement, new corridor. These compete in the same ILP knapsack as power interventions — budget is shared.
-4. **Transport schema** — `prism/transport/schema.py`: DDL for `transport.road_access_cost`, `transport.bridge_inventory`.
-5. **Narrative integration** — update `prism/report/narrative.py` to mention road-access cuts when the top-affected barrios have high travel times to hospitals.
-6. **Dashboard update** — add road-access panel to `prism/viz/dashboard.py` (choropleth: travel time to nearest hospital per barrio).
-7. **Tests** — `tests/test_transport.py`: coverage for pgRouting calls, bridge cost model, catalog extension.
+1. **Sync schema** — `prism/sync/schema.py`: DDL for `sync.data_sources` (feed name, url, last_fetched, checksum), `sync.sync_log` (run_id, source, rows_updated, duration, status).
+2. **WFS re-sync spine** — `prism/sync/wfs.py`: idempotent re-pull of priority WFS layers that change (flood extents, road closures, power outages). Compare checksums; only reload changed layers. Configurable via `config/sources.yml` `sync_interval_hours` field.
+3. **Scenario trigger** — `prism/sync/trigger.py`: when a sync updates a layer that feeds the resilience model (flood zones, hazard scores), automatically queue a resilience re-score for the affected substations. Uses `run_scenario()` from Phase 3.
+4. **Live dashboard** — `prism/viz/dashboard.py`: add a "last synced" timestamp and diff panel showing what changed in the last sync cycle (entities added/removed, score deltas).
+5. **Sync CLI** — `python -m prism.sync [--source wfs|osm|noaa] [--dry-run]` — runs one sync cycle, reports what changed.
+6. **Tests** — `tests/test_sync.py`: idempotency (double sync produces 0 updates), checksum comparison, trigger logic.
 
-**Pre-conditions (from Phase 7 carry-forwards):**
-- pgRouting container must be recreated before any SQL in this phase.
-- Bridge WFS source (`g35_viales_puentes_2010`) has Infinity coordinates — use OSM or manual inventory instead for bridge locations.
-- Phase 7 comparison pair at $200M budget should be generated before running Phase 8 portfolio so narratives show a real equity delta.
+**Pre-conditions — all closed before Phase 9 start (2026-06-07):**
+- `catalog/metadata.json` entries for `transport.road_access_cost` and `transport.bridge_inventory` added (156 total). ✓
+- `transport.bridge_inventory` populated — 3,168 OSM bridges via `prism/transport/bridges.py`. ✓
+- `nearest_hosp_name` populated for all 892 reachable barrios. ✓
 
-Phase 8 "Done when": `python -m prism.optimize --include-transport` produces a mixed power+transport portfolio; `transport.road_access_cost` is live with travel times per barrio; Phase 8 narrative mentions both power and road interventions.
-Run the Opus gate before proceeding to Phase 9.
+Phase 9 "Done when": `python -m prism.sync` completes one full cycle without error; at least one WFS layer is re-fetched and its checksum compared; if flood-zone data changes, a resilience re-score is triggered; `sync.sync_log` records the run.
+Run the Opus gate before declaring PRISM complete.

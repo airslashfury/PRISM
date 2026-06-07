@@ -52,9 +52,9 @@ def _panel_phases(ax: plt.Axes) -> None:
         ("4 — Optimization / Power",  "COMPLETE", "ILP portfolio · $500M budget · 105 interventions"),
         ("5 — Economy / Property",    "COMPLETE", "VOLL model · 294 substations · $2,389/person 30yr"),
         ("6 — Human Simulation",      "COMPLETE", "SVI · community resilience · equity portfolio"),
-        ("7 — Decision Intelligence", "ACTIVE",   "AI narratives · scenario comparison · report schema"),
-        ("8 — Transportation",        "pending",  "Rail / road routing"),
-        ("9 — Digital Twin",          "pending",  "Real-time sync"),
+        ("7 — Decision Intelligence", "COMPLETE", "AI narratives · scenario comparison · equity_flag"),
+        ("8 — Transportation",        "COMPLETE", "pgRouting · 892/901 barrios reachable · 3,168 bridges"),
+        ("9 — Digital Twin",          "ACTIVE",   "WFS re-sync spine · checksum diff · rescore trigger"),
     ]
 
     ax.set_xlim(0, 10)
@@ -248,6 +248,149 @@ def _panel_inventory(ax: plt.Axes, engine) -> None:
         y -= 0.065
 
 
+def _panel_road_access(ax: plt.Axes, engine) -> None:
+    """Bar chart: top-20 worst-access barrios by travel time to nearest hospital."""
+    ax.set_title("Road Access — Travel Time to Nearest Hospital (Top 20 Worst)", fontsize=11,
+                 fontweight="bold", color=C_DARK, pad=6)
+
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT barrio_name, travel_time_min, pop
+                FROM transport.road_access_cost
+                WHERE travel_time_min IS NOT NULL
+                ORDER BY travel_time_min DESC
+                LIMIT 20
+            """)).fetchall()
+            stats = conn.execute(text("""
+                SELECT
+                    COUNT(*) FILTER (WHERE travel_time_min IS NOT NULL),
+                    COUNT(*) FILTER (WHERE travel_time_min IS NULL),
+                    AVG(travel_time_min)
+                FROM transport.road_access_cost
+            """)).fetchone()
+    except Exception:
+        ax.text(0.5, 0.5, "Road access data not yet computed\n(run python -m prism.transport)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=10)
+        return
+
+    if not rows:
+        ax.text(0.5, 0.5, "No road access data\n(run python -m prism.transport)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=10)
+        return
+
+    names   = [(r[0] or f"eid=?")[:22] for r in rows]
+    times   = [r[1] for r in rows]
+    pops    = [r[2] for r in rows]
+
+    # Colour by severity: red > 60 min, amber 30-60, green < 30
+    colours = [C_RED if t > 60 else (C_AMBER if t > 30 else C_GREEN) for t in times]
+
+    y_pos = np.arange(len(names))
+    bars = ax.barh(y_pos, times, color=colours, alpha=0.85, height=0.7)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(names, fontsize=7.5)
+    ax.set_xlabel("Travel Time (minutes)", fontsize=8)
+    ax.axvline(30, color=C_AMBER, linewidth=1, linestyle="--", alpha=0.7, label="30 min")
+    ax.axvline(60, color=C_RED,   linewidth=1, linestyle="--", alpha=0.7, label="60 min")
+    ax.legend(fontsize=7, loc="lower right")
+
+    # Annotate population
+    for bar, pop in zip(bars, pops):
+        ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2,
+                f"pop {pop:,}", va="center", fontsize=6.5, color=C_DARK)
+
+    if stats:
+        ax.text(0.98, 0.99,
+                f"{stats[0]} reachable · {stats[1]} isolated · mean {stats[2]:.1f} min",
+                transform=ax.transAxes, fontsize=8, ha="right", va="top", color=C_GREY,
+                style="italic")
+
+
+def _panel_sync(ax: plt.Axes, engine) -> None:
+    """Phase 9 sync status: last-sync timestamp and per-source diff."""
+    ax.axis("off")
+    ax.set_title("Phase 9 — Digital Twin Sync Status", fontsize=11, fontweight="bold",
+                 color=C_DARK, pad=6)
+
+    try:
+        with engine.connect() as conn:
+            sources = conn.execute(text("""
+                SELECT source_name, source_type, last_fetched_at, last_checksum,
+                       row_count, status
+                FROM sync.data_sources
+                ORDER BY source_name
+            """)).fetchall()
+
+            last_runs = conn.execute(text("""
+                SELECT l.source_name, l.status, l.rows_updated, l.triggered_rescore,
+                       l.duration_s, l.run_at
+                FROM sync.sync_log l
+                INNER JOIN (
+                    SELECT source_name, MAX(run_at) AS latest
+                    FROM sync.sync_log
+                    GROUP BY source_name
+                ) t ON l.source_name = t.source_name AND l.run_at = t.latest
+                ORDER BY l.source_name
+            """)).fetchall()
+
+            total_runs = conn.execute(text(
+                "SELECT COUNT(*) FROM sync.sync_log"
+            )).scalar() or 0
+    except Exception:
+        ax.text(0.5, 0.5, "sync schema not yet created\n(run python -m prism.sync)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=10)
+        return
+
+    if not sources:
+        ax.text(0.5, 0.5, "No sync sources registered yet\n(run python -m prism.sync)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=10)
+        return
+
+    log_map = {r[0]: r for r in last_runs}
+
+    y = 0.93
+    ax.text(0.02, y, f"Registered sources: {len(sources)}  ·  Total sync runs: {total_runs}",
+            transform=ax.transAxes, fontsize=9, fontweight="bold", color=C_DARK, va="top")
+    y -= 0.12
+
+    col_heads = [("Source", 0.02), ("Type", 0.38), ("Last fetched", 0.46),
+                 ("Checksum", 0.63), ("Rows", 0.79), ("Status", 0.88)]
+    for label, x in col_heads:
+        ax.text(x, y, label, transform=ax.transAxes, fontsize=8,
+                fontweight="bold", color=C_DARK, va="top")
+    y -= 0.10
+
+    status_colours = {"updated": C_GREEN, "skipped": C_GREY, "error": C_RED, "pending": C_AMBER}
+
+    for row in sources:
+        sname, stype, fetched_at, checksum, row_count, status = row
+        lr = log_map.get(sname)
+
+        fetched_str = str(fetched_at)[:16] if fetched_at else "never"
+        checksum_str = (checksum or "—")[:14]
+        count_str = f"{row_count:,}" if row_count else "—"
+        colour = status_colours.get(status, C_GREY)
+
+        ax.text(0.02, y, sname[:36], transform=ax.transAxes, fontsize=7.5,
+                color=C_DARK, va="top")
+        ax.text(0.38, y, stype, transform=ax.transAxes, fontsize=7.5,
+                color=C_DARK, va="top")
+        ax.text(0.46, y, fetched_str, transform=ax.transAxes, fontsize=7.5,
+                color=C_DARK, va="top")
+        ax.text(0.63, y, checksum_str, transform=ax.transAxes, fontsize=7,
+                color=C_GREY, va="top", family="monospace")
+        ax.text(0.79, y, count_str, transform=ax.transAxes, fontsize=7.5,
+                color=C_DARK, va="top", ha="right")
+        ax.text(0.88, y, status, transform=ax.transAxes, fontsize=7.5,
+                color=colour, va="top", fontweight="bold")
+
+        if lr and lr[3]:  # triggered_rescore
+            ax.text(0.95, y, "↻ rescore", transform=ax.transAxes, fontsize=7,
+                    color=C_GREEN, va="top", style="italic")
+        y -= 0.10
+
+
 def _panel_narrative(ax: plt.Axes, engine) -> None:
     """Show the latest AI narrative from report.narratives."""
     import json as _json
@@ -328,31 +471,36 @@ def build_dashboard(out_path: str | Path | None = None, engine=None) -> Path:
     if engine is None:
         engine = _default_engine()
 
-    out_path = Path(out_path) if out_path else Path("data/viz/phase7_dashboard.png")
+    out_path = Path(out_path) if out_path else Path("data/viz/phase9_dashboard.png")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig = plt.figure(figsize=(20, 20), facecolor="white")
-    fig.suptitle("PRISM — Infrastructure Simulation Model  |  State Snapshot 2026-06-06",
+    fig = plt.figure(figsize=(20, 32), facecolor="white")
+    fig.suptitle("PRISM — Infrastructure Simulation Model  |  State Snapshot 2026-06-07",
                  fontsize=15, fontweight="bold", color=C_DARK, y=0.99)
 
     gs = gridspec.GridSpec(
-        3, 3,
+        5, 3,
         figure=fig,
         left=0.04, right=0.97,
-        top=0.96, bottom=0.04,
-        hspace=0.40, wspace=0.32,
+        top=0.97, bottom=0.02,
+        hspace=0.42, wspace=0.32,
+        height_ratios=[1, 1, 1, 0.65, 1],
     )
 
     ax_phases    = fig.add_subplot(gs[:2, 0])    # left col — top 2 rows
     ax_top20     = fig.add_subplot(gs[0, 1:])    # top-right 2 cols
-    ax_decomp    = fig.add_subplot(gs[1, 1])     # middle-centre
-    ax_inv       = fig.add_subplot(gs[1, 2])     # middle-right
-    ax_narrative = fig.add_subplot(gs[2, :])     # full bottom row
+    ax_decomp    = fig.add_subplot(gs[1, 1])     # row 2 centre
+    ax_inv       = fig.add_subplot(gs[1, 2])     # row 2 right
+    ax_access    = fig.add_subplot(gs[2, :])     # row 3 full — road access
+    ax_sync      = fig.add_subplot(gs[3, :])     # row 4 full — Phase 9 sync status
+    ax_narrative = fig.add_subplot(gs[4, :])     # row 5 full — narrative
 
     _panel_phases(ax_phases)
     _panel_top20(ax_top20, engine)
     _panel_decomposition(ax_decomp, engine)
     _panel_inventory(ax_inv, engine)
+    _panel_road_access(ax_access, engine)
+    _panel_sync(ax_sync, engine)
     _panel_narrative(ax_narrative, engine)
 
     plt.savefig(out_path, dpi=130, bbox_inches="tight", facecolor="white")

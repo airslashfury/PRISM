@@ -220,63 +220,182 @@ def build_catalog(
     return catalog
 
 
+TRANSPORT_SCENARIO = "transport"
+
+# Threshold above which a barrio qualifies for a transport intervention.
+_ACCESS_THRESHOLD_MIN = 15.0      # travel time threshold: > 15 min = at-risk
+_ACCESS_SEVERE_MIN    = 25.0      # > 25 min = severe isolation → new_access_road eligible
+
+# Value of Accessibility Time model (VALT) — disaster-context
+#   Road access failures during hurricanes / floods are life-critical.
+#   pop × time_savings_min × $10/min × 2 major events/year × NPV_factor
+#   $10/min ≈ $600/hr (life-critical emergency access value)
+_VALUE_PER_MIN        = 10.0       # USD per minute per person (disaster context)
+_EMERGENCY_EVENTS_YR  = 2          # major hurricanes/floods per year (PR avg)
+_NPV_30_5PCT          = 15.3725
+
+# Transport intervention costs
+_ROAD_HARDENING_USD   = 5_000_000   # $5M per intervention (critical km of road flood-proofing)
+_NEW_ACCESS_ROAD_USD  = 15_000_000  # $15M per new access corridor
+_HARDENING_TIME_SAVE  = 15.0        # minutes saved by hardening
+_NEW_ROAD_TIME_SAVE   = 30.0        # minutes saved by new access road
+
+# Normalise travel time to a resilience-score-like unit for display
+# 120 min travel time → composite score 1.0 (rough ceiling)
+_TIME_NORM            = 120.0
+
+
+def _valt(pop: int, time_savings_min: float) -> float:
+    return pop * time_savings_min * _VALUE_PER_MIN * _EMERGENCY_EVENTS_YR * _NPV_30_5PCT
+
+
+def build_transport_catalog(
+    engine: Engine,
+    top_n: int = 100,
+    equity_weight: float = DEFAULT_EQUITY_WEIGHT,
+) -> list[Intervention]:
+    """
+    Build transport intervention catalog from road_access_cost results.
+
+    Selects top_n barrios by worst access time (above threshold) and creates
+    road_hardening and/or new_access_road interventions.  Stored with
+    scenario_name='transport' so they can be mixed into any ILP run.
+    """
+    create_schema(engine)
+
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT
+                rac.barrio_entity_id,
+                rac.barrio_name,
+                rac.travel_time_min,
+                rac.pop,
+                COALESCE(be.svi_score, 0.0) AS svi_score
+            FROM transport.road_access_cost rac
+            LEFT JOIN graph.entities ge
+                ON ge.entity_id = rac.barrio_entity_id
+            LEFT JOIN economy.barrio_economics be
+                ON ST_Within(ST_Centroid(ge.geom), be.geom)
+            WHERE rac.travel_time_min > :threshold
+            ORDER BY rac.travel_time_min DESC
+            LIMIT :top_n
+        """), {
+            "threshold": _ACCESS_THRESHOLD_MIN,
+            "top_n": top_n,
+        }).fetchall()
+
+    if not rows:
+        log.warning("No road_access_cost rows above threshold; run python -m prism.transport first")
+        return []
+
+    catalog: list[Intervention] = []
+
+    for r in rows:
+        eid, ename, travel_min, pop, svi = r[0], r[1], r[2], r[3], r[4]
+        if travel_min is None:
+            continue
+
+        score_before = min(travel_min / _TIME_NORM, 2.0)   # normalised, cap at 2.0
+
+        # Road hardening: reduces travel time by _HARDENING_TIME_SAVE min
+        save_h = min(_HARDENING_TIME_SAVE, travel_min)
+        score_after_h = max(0.0, (travel_min - save_h) / _TIME_NORM)
+        pop_benefit_h  = _valt(pop, save_h)
+        equity_adj_h   = pop_benefit_h * (1.0 + equity_weight * svi)
+        net_h_per_m    = (equity_adj_h - _ROAD_HARDENING_USD) / (_ROAD_HARDENING_USD / 1e6)
+        catalog.append(Intervention(
+            entity_id=eid,
+            entity_name=ename,
+            intervention_type="road_hardening",
+            cost_usd=_ROAD_HARDENING_USD,
+            composite_before=round(score_before, 4),
+            composite_after=round(score_after_h, 4),
+            resilience_uplift=round(score_before - score_after_h, 4),
+            uplift_per_million=round((score_before - score_after_h) / (_ROAD_HARDENING_USD / 1e6), 6),
+            objective_score=round(-equity_adj_h / 1e6, 4),
+            population_benefit_usd=round(pop_benefit_h, 2),
+            economic_benefit_usd=0.0,
+            property_impact_usd=0.0,
+            net_benefit_per_million=round(net_h_per_m, 4),
+            weighted_svi=round(svi, 4),
+            equity_adjusted_benefit_usd=round(equity_adj_h, 2),
+        ))
+
+        # New access road: only for severely isolated barrios
+        if travel_min > _ACCESS_SEVERE_MIN:
+            save_n = min(_NEW_ROAD_TIME_SAVE, travel_min)
+            score_after_n = max(0.0, (travel_min - save_n) / _TIME_NORM)
+            pop_benefit_n  = _valt(pop, save_n)
+            equity_adj_n   = pop_benefit_n * (1.0 + equity_weight * svi)
+            net_n_per_m    = (equity_adj_n - _NEW_ACCESS_ROAD_USD) / (_NEW_ACCESS_ROAD_USD / 1e6)
+            catalog.append(Intervention(
+                entity_id=eid,
+                entity_name=ename,
+                intervention_type="new_access_road",
+                cost_usd=_NEW_ACCESS_ROAD_USD,
+                composite_before=round(score_before, 4),
+                composite_after=round(score_after_n, 4),
+                resilience_uplift=round(score_before - score_after_n, 4),
+                uplift_per_million=round((score_before - score_after_n) / (_NEW_ACCESS_ROAD_USD / 1e6), 6),
+                objective_score=round(-equity_adj_n / 1e6, 4),
+                population_benefit_usd=round(pop_benefit_n, 2),
+                economic_benefit_usd=0.0,
+                property_impact_usd=0.0,
+                net_benefit_per_million=round(net_n_per_m, 4),
+                weighted_svi=round(svi, 4),
+                equity_adjusted_benefit_usd=round(equity_adj_n, 2),
+            ))
+
+    _save_catalog(engine, TRANSPORT_SCENARIO, catalog)
+    log.info("Transport catalog: %d interventions for %d barrios", len(catalog), len(rows))
+    return catalog
+
+
 def _save_catalog(engine: Engine, scenario: str, catalog: list[Intervention]) -> None:
-    rows = [
-        {
-            "scenario_name":               scenario,
-            "entity_id":                   iv.entity_id,
-            "entity_name":                 iv.entity_name,
-            "intervention_type":           iv.intervention_type,
-            "cost_usd":                    iv.cost_usd,
-            "composite_before":            iv.composite_before,
-            "composite_after":             iv.composite_after,
-            "resilience_uplift":           iv.resilience_uplift,
-            "uplift_per_million":          iv.uplift_per_million,
-            "objective_score":             iv.objective_score,
-            "population_benefit_usd":      iv.population_benefit_usd,
-            "economic_benefit_usd":        iv.economic_benefit_usd,
-            "property_impact_usd":         iv.property_impact_usd,
-            "net_benefit_per_million":     iv.net_benefit_per_million,
-            "weighted_svi":                iv.weighted_svi,
-            "equity_adjusted_benefit_usd": iv.equity_adjusted_benefit_usd,
-        }
-        for iv in catalog
-    ]
-
-    upsert = text("""
-        INSERT INTO optimize.intervention_catalog
-            (scenario_name, entity_id, entity_name, intervention_type,
-             cost_usd, composite_before, composite_after,
-             resilience_uplift, uplift_per_million, objective_score,
-             population_benefit_usd, economic_benefit_usd,
-             property_impact_usd, net_benefit_per_million,
-             weighted_svi, equity_adjusted_benefit_usd)
-        VALUES
-            (:scenario_name, :entity_id, :entity_name, :intervention_type,
-             :cost_usd, :composite_before, :composite_after,
-             :resilience_uplift, :uplift_per_million, :objective_score,
-             :population_benefit_usd, :economic_benefit_usd,
-             :property_impact_usd, :net_benefit_per_million,
-             :weighted_svi, :equity_adjusted_benefit_usd)
-        ON CONFLICT (scenario_name, entity_id, intervention_type) DO UPDATE SET
-            entity_name                  = EXCLUDED.entity_name,
-            cost_usd                     = EXCLUDED.cost_usd,
-            composite_before             = EXCLUDED.composite_before,
-            composite_after              = EXCLUDED.composite_after,
-            resilience_uplift            = EXCLUDED.resilience_uplift,
-            uplift_per_million           = EXCLUDED.uplift_per_million,
-            objective_score              = EXCLUDED.objective_score,
-            population_benefit_usd       = EXCLUDED.population_benefit_usd,
-            economic_benefit_usd         = EXCLUDED.economic_benefit_usd,
-            property_impact_usd          = EXCLUDED.property_impact_usd,
-            net_benefit_per_million      = EXCLUDED.net_benefit_per_million,
-            weighted_svi                 = EXCLUDED.weighted_svi,
-            equity_adjusted_benefit_usd  = EXCLUDED.equity_adjusted_benefit_usd,
-            computed_at                  = now()
-    """)
-
     with engine.begin() as conn:
-        conn.execute(upsert, rows)
+        conn.execute(text(
+            "DELETE FROM optimize.intervention_catalog WHERE scenario_name = :sn"
+        ), {"sn": scenario})
+        for iv in catalog:
+            conn.execute(text("""
+                INSERT INTO optimize.intervention_catalog
+                    (scenario_name, entity_id, entity_name, intervention_type,
+                     cost_usd, composite_before, composite_after,
+                     resilience_uplift, uplift_per_million, objective_score,
+                     population_benefit_usd, economic_benefit_usd,
+                     property_impact_usd, net_benefit_per_million,
+                     weighted_svi, equity_adjusted_benefit_usd)
+                VALUES
+                    (:sn, :eid, :ename, :itype,
+                     :cost, :before, :after,
+                     :uplift, :upm, :obj,
+                     :pop_b, :econ_b, :prop_i, :net_m,
+                     :wsvi, :eq_adj)
+                ON CONFLICT (scenario_name, entity_id, intervention_type) DO UPDATE SET
+                    entity_name               = EXCLUDED.entity_name,
+                    cost_usd                  = EXCLUDED.cost_usd,
+                    composite_before          = EXCLUDED.composite_before,
+                    composite_after           = EXCLUDED.composite_after,
+                    resilience_uplift         = EXCLUDED.resilience_uplift,
+                    uplift_per_million        = EXCLUDED.uplift_per_million,
+                    objective_score           = EXCLUDED.objective_score,
+                    population_benefit_usd    = EXCLUDED.population_benefit_usd,
+                    economic_benefit_usd      = EXCLUDED.economic_benefit_usd,
+                    property_impact_usd       = EXCLUDED.property_impact_usd,
+                    net_benefit_per_million   = EXCLUDED.net_benefit_per_million,
+                    weighted_svi              = EXCLUDED.weighted_svi,
+                    equity_adjusted_benefit_usd = EXCLUDED.equity_adjusted_benefit_usd,
+                    computed_at               = now()
+            """), {
+                "sn": scenario, "eid": iv.entity_id, "ename": iv.entity_name,
+                "itype": iv.intervention_type, "cost": iv.cost_usd,
+                "before": iv.composite_before, "after": iv.composite_after,
+                "uplift": iv.resilience_uplift, "upm": iv.uplift_per_million,
+                "obj": iv.objective_score,
+                "pop_b": iv.population_benefit_usd, "econ_b": iv.economic_benefit_usd,
+                "prop_i": iv.property_impact_usd, "net_m": iv.net_benefit_per_million,
+                "wsvi": iv.weighted_svi, "eq_adj": iv.equity_adjusted_benefit_usd,
+            })
 
 
 def load_catalog(

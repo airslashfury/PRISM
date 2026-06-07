@@ -119,7 +119,6 @@ def _portfolio_run_count(engine) -> int:
     return row[0] if row else 0
 
 
-@pytest.mark.skipif(True, reason="Requires ≥2 portfolio runs — run python -m prism.optimize twice")
 def test_compare_two_runs(engine, report_schema):
     with engine.connect() as conn:
         ids = conn.execute(text(

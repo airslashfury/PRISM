@@ -5591,3 +5591,32 @@ complements:
     url: https://hifld.publicenvirodata.org/
     license: public (mirror of former HIFLD Open)
     refresh: as-released
+  osm_overpass_bridges:
+    name: OSM Overpass - Puerto Rico bridge inventory
+    type: overpass
+    url: https://overpass-api.de/api/interpreter
+    query: '[out:json][timeout:90];area["ISO3166-2"="US-PR"]->.pr;(way["bridge"="yes"](area.pr);way["bridge"="viaduct"](area.pr););out center tags;'
+    target_table: transport.bridge_inventory
+    loader: prism.transport.bridges
+    license: ODbL (OpenStreetMap contributors)
+    refresh: quarterly
+    notes: 'Pull PR bridges for transport.bridge_inventory. Run: python -m prism.transport.bridges'
+sync_sources:
+  wfs_flood_zones_1pct:
+    layer_name: pr_geodata:g23_riesgo_inunda_floodzone_1pct_seamless_2017
+    url: http://geoserver2.pr.gov/geoserver/pr_geodata/wfs
+    sync_interval_hours: 24
+    affects_resilience: true
+    notes: Primary flood-zone layer - drives hazard overlay in Phase 3 resilience model
+  wfs_marejada:
+    layer_name: pr_geodata:g23_riesgo_inunda_model_intrusion_marejada_cic_cat2
+    url: http://geoserver2.pr.gov/geoserver/pr_geodata/wfs
+    sync_interval_hours: 24
+    affects_resilience: true
+    notes: Cat-2 storm-surge intrusion model - Cat-3 hazard additive in resilience scoring
+  wfs_roads_primary:
+    layer_name: pr_geodata:g35_viales_carreteras_estatales_2017
+    url: http://geoserver2.pr.gov/geoserver/pr_geodata/wfs
+    sync_interval_hours: 168
+    affects_resilience: false
+    notes: State road network 2017 - weekly sync; drives transport.road_access_cost rebuild

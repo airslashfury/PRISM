@@ -88,6 +88,42 @@ def _load_community_context(engine: Engine) -> str:
     return "\n".join(lines)
 
 
+def _load_road_access_context(engine: Engine) -> str:
+    """Return a compact summary of road access for the worst-connected barrios."""
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT barrio_name, travel_time_min, pop
+                FROM   transport.road_access_cost
+                WHERE  travel_time_min IS NOT NULL
+                ORDER  BY travel_time_min DESC
+                LIMIT  5
+            """)).fetchall()
+            stats = conn.execute(text("""
+                SELECT
+                    COUNT(*) FILTER (WHERE travel_time_min IS NOT NULL) AS reachable,
+                    COUNT(*) FILTER (WHERE travel_time_min IS NULL)     AS isolated,
+                    AVG(travel_time_min)                                AS mean_min,
+                    MAX(travel_time_min)                                AS max_min
+                FROM transport.road_access_cost
+            """)).fetchone()
+    except Exception:
+        return "Road access data not yet computed (run python -m prism.transport first)."
+
+    if not rows or stats is None:
+        return "Road access data not yet computed."
+
+    lines = [
+        f"Road access: {stats[0]} barrios reachable, {stats[1]} isolated "
+        f"(no road link within 5 km). Mean travel time to nearest hospital: "
+        f"{stats[2]:.1f} min. Max: {stats[3]:.1f} min.",
+        "Five worst-access barrios (by travel time):",
+    ]
+    for name, t_min, pop in rows:
+        lines.append(f"  {(name or 'unknown'):<32s}  {t_min:6.1f} min  pop={pop:,}")
+    return "\n".join(lines)
+
+
 def _build_prompt_single(engine: Engine, run_id: int, scenario_name: str) -> tuple[str, bool]:
     """Build a prompt for a single portfolio run (no comparison)."""
     from prism.report.compare import _load_portfolio  # internal helper
@@ -112,6 +148,8 @@ def _build_prompt_single(engine: Engine, run_id: int, scenario_name: str) -> tup
         if total_pop > 0 else 0.0
     )
 
+    road_ctx = _load_road_access_context(engine)
+
     prompt = f"""Generate a PRISM infrastructure briefing for the following portfolio analysis.
 
 SCENARIO: {scenario_name}
@@ -128,6 +166,8 @@ TOP INTERVENTIONS:
 
 {community_ctx}
 
+{road_ctx}
+
 Respond with a JSON object matching this schema:
 {_RESPONSE_SCHEMA}
 """
@@ -135,7 +175,11 @@ Respond with a JSON object matching this schema:
     return prompt, equity_flag
 
 
-def _build_prompt_comparison(comparison: ComparisonResult, community_ctx: str) -> tuple[str, bool]:
+def _build_prompt_comparison(
+    comparison: ComparisonResult,
+    community_ctx: str,
+    road_ctx: str = "",
+) -> tuple[str, bool]:
     """Build a prompt for a comparison of two runs."""
     a = comparison.summary_a
     b = comparison.summary_b
@@ -182,6 +226,8 @@ SUBSTATIONS SHARED ({len(comparison.items_shared)}):
 {_top5(comparison.items_shared)}
 
 {community_ctx}
+
+{road_ctx}
 
 Respond with a JSON object matching this schema:
 {_RESPONSE_SCHEMA}
@@ -294,9 +340,10 @@ def generate_narrative(
 
     create_schema(engine)
     community_ctx = _load_community_context(engine)
+    road_ctx = _load_road_access_context(engine)
 
     if comparison is not None:
-        prompt, equity_flag = _build_prompt_comparison(comparison, community_ctx)
+        prompt, equity_flag = _build_prompt_comparison(comparison, community_ctx, road_ctx)
         effective_run_id = comparison.run_id_b
         comparison_id = comparison.comparison_id
         scenario_name = comparison.summary_a.scenario_name
@@ -317,6 +364,25 @@ def generate_narrative(
         max_tokens=2048,
         force_tier=force_tier,
     )
+
+    if not completion.text or len(completion.text.strip()) < 20:
+        log.warning("LLM returned empty/trivial response — not persisting narrative")
+        return NarrativeResult(
+            narrative_id=None,
+            scenario_name=scenario_name,
+            run_id=effective_run_id,
+            comparison_id=comparison_id,
+            title="PRISM Narrative (empty LLM response)",
+            text=json.dumps({
+                "title": "PRISM Infrastructure Briefing (empty response)",
+                "executive_summary": "LLM returned no content. Re-run when the model is available.",
+                "equity_findings": "",
+                "tradeoff_table": [],
+                "recommended_next_steps": ["Re-run `python -m prism.report` when LLM is available."],
+            }),
+            equity_flag=False,
+            model_used=completion.model,
+        )
 
     parsed = _parse_response(completion.text)
     title = parsed.get("title", "PRISM Infrastructure Briefing")

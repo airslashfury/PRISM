@@ -19,6 +19,7 @@ from typing import Any
 class AssetType(str, Enum):
     RAIL = "rail"
     ROAD = "road"
+    BRIDGE = "bridge"
     TRANSMISSION = "transmission"
     FIBER = "fiber"
     WATER = "water"
