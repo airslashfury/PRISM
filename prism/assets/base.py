@@ -55,6 +55,9 @@ class ObjectiveWeights:
     """Weights for the long-term-societal-value objective (plan section 3).
 
     Costs are minimized, benefits maximized. Tune per study; defaults are neutral placeholders.
+    equity_weight: multiplier applied to population benefit for high-SVI areas.
+      A substation serving tracts with svi_score=s gets benefit × (1 + equity_weight × s).
+      0.0 = pure VOLL (Phase 5 behaviour); 1.0 = double weight for max-SVI areas.
     """
 
     construction: float = 1.0
@@ -64,6 +67,7 @@ class ObjectiveWeights:
     disaster_vulnerability: float = 1.0
     population_benefit: float = 1.0
     economic_benefit: float = 1.0
+    equity_weight: float = 0.0
 
 
 class InfrastructureAsset(abc.ABC):

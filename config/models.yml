@@ -78,6 +78,31 @@ escalation:
   fall_back_down:
     when: a prompt pattern is proven; pin the routine high-volume version to the cheapest tier that holds quality
 
+# --- Ollama (local / production) backend ---
+# Used when PRISM_LLM_BACKEND=ollama (or auto-detected when no ANTHROPIC_API_KEY).
+# PRISM_OLLAMA_MODEL env var overrides all tiers to a single model.
+# PRISM_OLLAMA_BASE_URL overrides base_url (default: http://localhost:11434).
+#
+# Model rationale (from `ollama list` 2026-06-06):
+#   qwen2.5-coder:14b  — dense 14B, coding-focused; reliable at structured JSON output → haiku bulk passes
+#   qwen3.6:35b-a3b    — MoE 35B/3.6B-active, general reasoning; fast + strong narrative quality → sonnet/opus
+#   qwen2.5-coder:32b  — NOT used: coding-focused, redundant given qwen3 covers reasoning better at same size
+#
+# qwen3 thinking mode: set think: true on a tier to prepend /think to the prompt,
+# enabling Qwen3's chain-of-thought reasoning (costs more tokens, worth it for opus).
+ollama:
+  base_url: http://localhost:11434
+  tier_models:
+    haiku:
+      model: qwen2.5-coder:14b
+      think: false
+    sonnet:
+      model: qwen3.6:35b-a3b
+      think: false
+    opus:
+      model: qwen3.6:35b-a3b
+      think: true             # enables Qwen3 chain-of-thought for flagship calls
+
 # Machine-readable thresholds the runtime router (prism/llm.py) reads to auto-escalate.
 escalation_thresholds:
   confidence_below: 0.7      # bump up a tier when model confidence is under this

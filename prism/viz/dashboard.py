@@ -8,6 +8,7 @@ Panels:
   2. Top-20 substations by composite score (Cat-3 scenario)
   3. Score decomposition: hazard / cascade / SPOF boost for top-10
   4. System inventory: entity types and relationship types
+  5. Latest AI narrative (from report.narratives)
 """
 from __future__ import annotations
 
@@ -48,10 +49,10 @@ def _panel_phases(ax: plt.Axes) -> None:
         ("1 — Spatial Foundation",    "COMPLETE", "122 spatial tables · EPSG:32161 · 0 invalid geoms"),
         ("2 — Knowledge Graph",       "COMPLETE", "48,801 nodes · 68,272 edges · 6 rel types"),
         ("3 — Resilience Modeling",   "COMPLETE", "315 substations scored · 3 scenarios · top composite=84.10"),
-        ("4 — Optimization / Power",  "ACTIVE",   "Intervention portfolio under budget constraint"),
-        ("5 — Economy / Property",    "pending",  "CRIM parcels · economic impact"),
-        ("6 — Human Simulation",      "pending",  "Population dynamics"),
-        ("7 — Decision Intelligence", "pending",  "AI narratives"),
+        ("4 — Optimization / Power",  "COMPLETE", "ILP portfolio · $500M budget · 105 interventions"),
+        ("5 — Economy / Property",    "COMPLETE", "VOLL model · 294 substations · $2,389/person 30yr"),
+        ("6 — Human Simulation",      "COMPLETE", "SVI · community resilience · equity portfolio"),
+        ("7 — Decision Intelligence", "ACTIVE",   "AI narratives · scenario comparison · report schema"),
         ("8 — Transportation",        "pending",  "Rail / road routing"),
         ("9 — Digital Twin",          "pending",  "Real-time sync"),
     ]
@@ -247,6 +248,79 @@ def _panel_inventory(ax: plt.Axes, engine) -> None:
         y -= 0.065
 
 
+def _panel_narrative(ax: plt.Axes, engine) -> None:
+    """Show the latest AI narrative from report.narratives."""
+    import json as _json
+
+    ax.axis("off")
+    ax.set_title("Latest AI Narrative (Phase 7)", fontsize=11, fontweight="bold",
+                 color=C_DARK, pad=6)
+
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT title, text, equity_flag, model_used, generated_at
+                FROM   report.narratives
+                ORDER  BY generated_at DESC
+                LIMIT  1
+            """)).fetchone()
+    except Exception:
+        ax.text(0.5, 0.5, "report.narratives not yet created\n(run python -m prism.report)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=9)
+        return
+
+    if row is None:
+        ax.text(0.5, 0.5, "No narratives yet\n(run python -m prism.report)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=9)
+        return
+
+    title, raw_text, equity_flag, model_used, generated_at = row
+
+    try:
+        parsed = _json.loads(raw_text)
+        summary = parsed.get("executive_summary", raw_text[:400])
+        equity  = parsed.get("equity_findings", "")
+        steps   = parsed.get("recommended_next_steps", [])
+    except Exception:
+        summary = str(raw_text)[:400]
+        equity  = ""
+        steps   = []
+
+    y = 0.97
+    def _write(text_str: str, size: float = 8.5, bold: bool = False, colour: str = C_DARK,
+               indent: float = 0.02) -> None:
+        nonlocal y
+        weight = "bold" if bold else "normal"
+        wrapped = _wrap(text_str, width=72)
+        for line in wrapped:
+            ax.text(indent, y, line, transform=ax.transAxes, fontsize=size,
+                    fontweight=weight, color=colour, va="top")
+            y -= 0.055
+
+    def _wrap(s: str, width: int = 72) -> list[str]:
+        import textwrap
+        return textwrap.wrap(s, width=width) or [""]
+
+    _write(title or "PRISM Briefing", size=9.5, bold=True)
+    y -= 0.02
+    _write(summary, size=8)
+    if equity:
+        y -= 0.02
+        _write("EQUITY:", size=8, bold=True, colour=C_AMBER)
+        _write(equity, size=7.5, colour=C_AMBER)
+    if steps:
+        y -= 0.02
+        _write("NEXT STEPS:", size=8, bold=True)
+        for step in steps[:3]:
+            _write(f"• {step}", size=7.5, indent=0.04)
+
+    flag_colour = C_RED if equity_flag else C_GREEN
+    ax.text(0.98, 0.02,
+            f"equity_flag={'YES' if equity_flag else 'no'}  |  model: {model_used}  |  {str(generated_at)[:16]}",
+            transform=ax.transAxes, fontsize=7, color=flag_colour,
+            ha="right", va="bottom", style="italic")
+
+
 # ── public API ─────────────────────────────────────────────────────────────
 
 def build_dashboard(out_path: str | Path | None = None, engine=None) -> Path:
@@ -254,30 +328,32 @@ def build_dashboard(out_path: str | Path | None = None, engine=None) -> Path:
     if engine is None:
         engine = _default_engine()
 
-    out_path = Path(out_path) if out_path else Path("data/viz/phase3_dashboard.png")
+    out_path = Path(out_path) if out_path else Path("data/viz/phase7_dashboard.png")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig = plt.figure(figsize=(20, 14), facecolor="white")
-    fig.suptitle("PRISM — Infrastructure Simulation Model  |  State Snapshot 2026-06-05",
-                 fontsize=15, fontweight="bold", color=C_DARK, y=0.98)
+    fig = plt.figure(figsize=(20, 20), facecolor="white")
+    fig.suptitle("PRISM — Infrastructure Simulation Model  |  State Snapshot 2026-06-06",
+                 fontsize=15, fontweight="bold", color=C_DARK, y=0.99)
 
     gs = gridspec.GridSpec(
-        2, 3,
+        3, 3,
         figure=fig,
         left=0.04, right=0.97,
-        top=0.93, bottom=0.06,
-        hspace=0.42, wspace=0.32,
+        top=0.96, bottom=0.04,
+        hspace=0.40, wspace=0.32,
     )
 
-    ax_phases = fig.add_subplot(gs[:, 0])       # left col — full height
-    ax_top20  = fig.add_subplot(gs[0, 1:])      # top-right 2 cols
-    ax_decomp = fig.add_subplot(gs[1, 1])       # bottom-middle
-    ax_inv    = fig.add_subplot(gs[1, 2])       # bottom-right
+    ax_phases    = fig.add_subplot(gs[:2, 0])    # left col — top 2 rows
+    ax_top20     = fig.add_subplot(gs[0, 1:])    # top-right 2 cols
+    ax_decomp    = fig.add_subplot(gs[1, 1])     # middle-centre
+    ax_inv       = fig.add_subplot(gs[1, 2])     # middle-right
+    ax_narrative = fig.add_subplot(gs[2, :])     # full bottom row
 
     _panel_phases(ax_phases)
     _panel_top20(ax_top20, engine)
     _panel_decomposition(ax_decomp, engine)
     _panel_inventory(ax_inv, engine)
+    _panel_narrative(ax_narrative, engine)
 
     plt.savefig(out_path, dpi=130, bbox_inches="tight", facecolor="white")
     plt.close(fig)

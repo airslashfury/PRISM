@@ -1,6 +1,6 @@
 services:
   postgis:
-    image: postgis/postgis:16-3.4
+    image: pgrouting/pgrouting:16-3.4
     container_name: prism-postgis
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-prism}

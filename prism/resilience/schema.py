@@ -52,9 +52,26 @@ _DDL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_scenario_composite ON resilience.scenario_scores (scenario_name, composite_score DESC)",
     "CREATE INDEX IF NOT EXISTS idx_scenario_rank      ON resilience.scenario_scores (scenario_name, rank)",
+
+    # Phase 6: per-barrio community resilience
+    """
+    CREATE TABLE IF NOT EXISTS resilience.community_resilience (
+        barrio_id           BIGINT PRIMARY KEY REFERENCES graph.entities(entity_id) ON DELETE CASCADE,
+        barrio_name         TEXT,
+        avg_svi_score       DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+        infra_density_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+        recovery_factor     DOUBLE PRECISION NOT NULL DEFAULT 0.3,
+        resilience_score    DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+        geom                GEOMETRY(GEOMETRY, 32161),
+        computed_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_community_resilience_score ON resilience.community_resilience (resilience_score DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_community_resilience_geom  ON resilience.community_resilience USING GIST (geom)",
 ]
 
 _DROP_DDL = [
+    "DROP TABLE IF EXISTS resilience.community_resilience CASCADE",
     "DROP TABLE IF EXISTS resilience.scenario_scores CASCADE",
     "DROP TABLE IF EXISTS resilience.cascade_scores CASCADE",
     "DROP TABLE IF EXISTS resilience.spof_scores CASCADE",

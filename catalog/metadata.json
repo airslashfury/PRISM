@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-03",
+  "generated": "2026-06-06",
   "layers": {
     "pr_geodata:g03_legales_barrios_2023": {
       "source": "ogp_prits_wfs",
@@ -1488,7 +1488,7 @@
       "title": "HIFLD Transmission Lines",
       "domain": "electricidad",
       "priority": "P0",
-      "license": "public (former HIFLD Open \u00e2\u20ac\u201d volunteer mirror)",
+      "license": "public (former HIFLD Open â€” volunteer mirror)",
       "file": "C:\\Users\\Eric Ryan\\PRISM\\PRISM\\data\\raw\\hifld_next\\2026-06-03\\transmission_lines.geojson",
       "feature_count": 141,
       "size_bytes": 415456,
@@ -1851,7 +1851,7 @@
     "derived:resilience.scenario_scores": {
       "source": "derived",
       "title": "resilience.scenario_scores",
-      "description": "Composite risk scores per substation per scenario (cat3, slr2ft, combined); 945 rows = 315 \u00d7 3 scenarios; formula: hazard \u00d7 cascade \u00d7 (1 + betweenness)",
+      "description": "Composite risk scores per substation per scenario (cat3, slr2ft, combined); 945 rows = 315 × 3 scenarios; formula: hazard × cascade × (1 + betweenness)",
       "schema": "resilience",
       "table": "scenario_scores",
       "row_count": 945,
@@ -1868,7 +1868,7 @@
     "derived:optimize.intervention_catalog": {
       "source": "derived",
       "title": "optimize.intervention_catalog",
-      "description": "Phase 4 intervention catalog: 4 types \u00d7 top-50 substations = 200 entries; cost model from FEMA BRIC + PREPA post-Maria contracts; cat3 scenario",
+      "description": "Phase 4 intervention catalog: 4 types × top-50 substations = 200 entries; cost model from FEMA BRIC + PREPA post-Maria contracts; cat3 scenario",
       "schema": "optimize",
       "table": "intervention_catalog",
       "row_count": 200,
@@ -1893,6 +1893,120 @@
       ],
       "compute_date": "2026-06-05",
       "code_commit": "1da1ca4",
+      "license": "derived"
+    },
+    "source:census_2020_decennial": {
+      "source": "census_2020_decennial",
+      "title": "Census 2020 Decennial - PR Census blocks (census_tabblock20)",
+      "description": "POP20 and HOUSING20 at Census block level. Mirrored Phase 0 via Census TIGER/Line 2024. Population/housing denominator for economy.barrio_economics.",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2024/TABBLOCK20/",
+      "domain": "territorio",
+      "priority": "P0",
+      "license": "public domain (US Census Bureau)",
+      "pull_date": "2026-06-03",
+      "note": "POP20 2020 Decennial. Income/home-value use PR statewide ACS 2022 medians (B19013=21058, B25077=129900); per-tract ACS needs CENSUS_API_KEY."
+    },
+    "derived:economy.barrio_economics": {
+      "source": "derived",
+      "title": "economy.barrio_economics",
+      "description": "Census 2020 blocks aggregated to Census tract: population, housing_units. Median income 21058 and home value 129900 (PR statewide ACS 2022 — set CENSUS_API_KEY for per-tract). Phase 6: adds poverty_rate (0.435 default), pct_elderly (0.185), pct_disabled (0.255), svi_score (PERCENT_RANK 0-1 of flood_zone_fraction*0.70 + slope_score*0.30; range 0.0-1.0, stddev 0.289). 981 tracts, SRID=32161.",
+      "schema": "economy",
+      "table": "barrio_economics",
+      "row_count": 981,
+      "inputs": [
+        "census_tabblock20",
+        "census_tract",
+        "prism/economy/census.py"
+      ],
+      "compute_date": "2026-06-05",
+      "license": "derived from public domain (US Census Bureau)",
+      "crs": "EPSG:32161",
+      "phase": 6
+    },
+    "derived:economy.substation_exposure": {
+      "source": "derived",
+      "title": "economy.substation_exposure",
+      "description": "VOLL-based 30yr NPV exposure per substation. Population: recursive FEEDS+POWERS->barrio graph, centroid-tract join. Benefit: 0.822 kW/person x 5 USD/kWh x 33.6 hr/yr x NPV 17.29 = 2389 USD/person. 315 substations, 294 with population.",
+      "schema": "economy",
+      "table": "substation_exposure",
+      "row_count": 315,
+      "inputs": [
+        "graph.entities",
+        "graph.relationships",
+        "economy.barrio_economics",
+        "resilience.scenario_scores",
+        "prism/economy/exposure.py"
+      ],
+      "compute_date": "2026-06-05",
+      "license": "derived",
+      "voll_model": "PR avg 0.822 kW/person, VOLL 5 USD/kWh, Cat-3 33.6 hr/yr, NPV 30yr 4pct"
+    },
+    "derived:optimize.intervention_catalog.v2": {
+      "source": "derived",
+      "title": "optimize.intervention_catalog Phase 5",
+      "description": "Phase 5 catalog: 4 types x 200 substations = 800 entries. Adds population_benefit_usd, economic_benefit_usd, property_impact_usd, net_benefit_per_million. VOLL model from economy.substation_exposure.",
+      "schema": "optimize",
+      "table": "intervention_catalog",
+      "row_count": 800,
+      "inputs": [
+        "resilience.scenario_scores",
+        "economy.substation_exposure",
+        "prism/optimize/catalog.py",
+        "prism/assets/transmission.py"
+      ],
+      "compute_date": "2026-06-05",
+      "license": "derived"
+    },
+    "derived:optimize.portfolio.ilp": {
+      "source": "derived",
+      "title": "optimize portfolio ILP Phase 5",
+      "description": "ILP portfolio (scipy.optimize.milp) maximising equity-adjusted net dollar benefit. 500M USD budget, cat3, top-200, equity_weight=1.0. 105 interventions (88 elevation + 17 hardening), 498.8M spent (99.8% binding). Equity-weighted variant at 200M budget: 45 items, 3 substations differ from pure-VOLL; equity-unique substations have higher mean SVI than VOLL-only substations.",
+      "schema": "optimize",
+      "table": "portfolio_items",
+      "row_count": 105,
+      "inputs": [
+        "optimize.intervention_catalog",
+        "prism/optimize/optimizer.py"
+      ],
+      "compute_date": "2026-06-05",
+      "license": "derived",
+      "algorithm": "ILP scipy.optimize.milp",
+      "phase": 6
+    },
+    "derived:resilience.community_resilience": {
+      "description": "Phase 6 community resilience score per barrio. Components: svi_component (1-avg_svi, 50%), infra_density_score (hospital+water_plant+health_center per 1000 pop within 10km, 30%), recovery_factor (from latest portfolio run intervention type, 20%). resilience_score in [0,1] (1=most resilient). 901 barrios, all SRID=32161.",
+      "source": "derived",
+      "schema": "resilience",
+      "table": "community_resilience",
+      "generated": "2026-06-06",
+      "phase": 6,
+      "license": "derived"
+    },
+    "derived:optimize.intervention_catalog.v3": {
+      "description": "Phase 6 catalog: 800 entries (200 substations x 4 types), cat3. Adds weighted_svi (population-weighted SVI across downstream barrio tracts, 189/200 substations differentiated) and equity_adjusted_benefit_usd = pop_benefit x (1 + equity_weight x weighted_svi). DEFAULT_EQUITY_WEIGHT=1.0 for Phase 6 runs. Equity portfolio at 00M budget selects 3 different substations vs pure-VOLL; equity-unique substations have higher mean SVI.",
+      "source": "derived",
+      "schema": "optimize",
+      "table": "intervention_catalog",
+      "generated": "2026-06-06",
+      "phase": 6,
+      "license": "derived"
+    },
+    "derived:report.scenario_comparison": {
+      "source": "derived",
+      "phase": 7,
+      "table": "report.scenario_comparison",
+      "description": "Delta between two portfolio runs: cost, uplift, population, SVI-weighted population, equity flag",
+      "computed_by": "prism.report.compare.compare_runs()",
+      "pulled_at": "2026-06-06",
+      "license": "derived from PR government GIS + Census 2020"
+    },
+    "derived:report.narratives": {
+      "source": "derived",
+      "phase": 7,
+      "table": "report.narratives",
+      "description": "AI-generated infrastructure briefings (Sonnet/Opus); title, executive summary, equity findings, tradeoff table, recommended next steps",
+      "computed_by": "prism.report.narrative.generate_narrative()",
+      "pulled_at": "2026-06-06",
       "license": "derived"
     }
   }
