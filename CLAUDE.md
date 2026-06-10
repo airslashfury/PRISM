@@ -100,9 +100,37 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | 7 — Decision Intelligence | **COMPLETE** | 2026-06-06 | Opus GO |
 | 8 — Transportation | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
 | 9 — Digital Twin | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
-| 10 — Rail Corridor | **ACTIVE** | — | — |
+| 10 — Rail Corridor | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
 
 ## Current state (2026-06-07)
+
+### Phase 10 — COMPLETE (2026-06-07, Opus GO conditional)
+
+**What was built:**
+- `prism/corridor/schema.py` — DDL: `corridor.routes` (route alternatives with full objective breakdown), `corridor.route_segments` (terrain-typed segments)
+- `prism/corridor/cost_surface.py` — composite cost raster at 300 m resolution over PR: terrain slope (slope_deg → percent grade, 133K binned points), flood zones (rasterio rasterize, 28,979 cells = 7.6%), SVI-weighted population benefit (Gaussian-spread, 933 barrios)
+- `prism/corridor/router.py` — Dijkstra 8-connectivity on cost surface; "corridor exclusion" (penalty multiplier on prior path) for distinct alternatives
+- `prism/assets/rail.py` — complete InfrastructureAsset: standard $15M/km / elevated $40M/km / tunnel $120M/km; maintenance $500K/km/yr 30-yr NPV; capacity 20K pax/day; failure impact (ridership × detour/disruption cost)
+- `prism/corridor/corridors.py` — `generate_corridors()`: San Juan→Ponce (3 alts), San Juan→Arecibo (1), San Juan→Mayagüez (1); objective score = construction + maintenance + flood_risk_premium − svi_weighted_pop × transit_value; intermodal SERVES links to nearest barrios and facilities
+- `prism/corridor/__main__.py` — CLI: `python -m prism.corridor [--from CITY] [--to CITY] [--n N] [--show-only] [--drop] [--list]`
+- `prism/report/narrative.py` — `_load_corridor_context()`, `generate_corridor_narrative()` (Sonnet/Opus)
+- `prism/viz/dashboard.py` — `_panel_corridor()` with ranked alternatives table; Phase 10 ACTIVE in tracker; 6-row layout, 20×38 in; output: `data/viz/phase10_dashboard.png`
+- `tests/test_corridor.py` — 39 tests; all pass
+- `catalog/metadata.json` — 160 entries (added `derived:corridor.routes`, `derived:corridor.route_segments`)
+- `FRONTEND_PLAN.md` — 6-phase frontend plan (F0–F5): Next.js 14 + FastAPI + Deck.gl + shadcn/ui
+
+**Phase 10 live state (2026-06-07):**
+- `corridor.routes`: 5 rows — SJ→Ponce alt 1 (198.1 km, $4.5B, 1.02M pop, obj $4.4B best); alt 2 (208.5 km, $4.8B, 598K pop); alt 3 (210.2 km, $13.1B, tunnel-heavy); SJ→Arecibo (72.8 km, $1.65B, 638K pop); SJ→Mayagüez (167.4 km, $3.8B, 910K pop)
+- `corridor.route_segments`: populated with terrain-typed segments per route
+- `graph.relationships SERVES`: corridor endpoint barrios linked to destination facilities
+- Full test suite: **39 corridor + 183 prior-phase = 222 passed, 2 skipped** (pre-existing Phase 3 SLR geometry skip + Phase 7 compare skip)
+
+**Phase 10 carry-forwards:**
+- **Intermodal SERVES scope limited**: links nearest barrio per city endpoint to destination facilities within 5 km; does not create station entities in `graph.entities`. Full station modelling deferred to Frontend Phase F3.
+- **Alt 3 (SJ→Ponce) tunnels through mountains**: $11.5B construction due to exclusion penalty routing through high-slope terrain. Realistic upper bound; not a code defect.
+- **Narrative requires LLM backend**: `generate_corridor_narrative()` stubs gracefully without API key. Set `ANTHROPIC_API_KEY` or `PRISM_LLM_BACKEND=ollama` to generate real comparison text.
+- **Frontend plan written**: `FRONTEND_PLAN.md` ready for F0 scaffold after business decision on timing.
+- **All open carry-forwards from Phases 0–9** remain deferred (CRIM parcels, multi-scenario rescore, bridge span data, ~50% eid names).
 
 ### Census ACS carry-forward — CLOSED (2026-06-07)
 
@@ -146,48 +174,27 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 - **`_test_*` rows in sync.data_sources:** left by test suite (prefixed, harmless). Consider a dedicated test schema or teardown for a clean production registry.
 - **Open carry-forwards from earlier phases** (CENSUS_API_KEY, CRIM parcels, rail corridor study, pct_elderly/pct_disabled, bridge span data) remain deferred — documented in respective phase sections above.
 
-## Start here — Phase 10 ACTIVE
+## Start here — ALL PHASES COMPLETE
 
-Phases 0–9 complete. Phase 10 (Rail Corridor Study) is now active.
+Phases 0–10 complete. PRISM is a full-stack Puerto Rico infrastructure simulation model.
 
 **PRISM live state:**
-- **Data layer:** 3.62 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; 158 catalog entries
-- **Knowledge graph:** 48,801 nodes, 68,272 edges, 6 relationship types
+- **Data layer:** 3.62 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; 160 catalog entries
+- **Knowledge graph:** 48,801 nodes, 68,272+ edges, 6 relationship types
 - **Resilience:** 315 substations scored across 3 scenarios; top composite 84.10 (PALO SECO SP TC)
-- **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with **real per-tract ACS data** (income, poverty, elderly, disability); 5-component SVI
-- **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (now selects relocation for high-SVI substations)
+- **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with real per-tract ACS data; 5-component SVI
+- **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (equity-aware)
 - **Transport:** pgRouting road-access (892/901 barrios reachable; median 9.2 min); 3,168 bridges
 - **Decision intelligence:** AI narratives (Sonnet/Opus); scenario comparison with equity_flag
 - **Digital Twin:** WFS re-sync spine; auto rescore on hazard-layer change
+- **Rail Corridors:** 5 alternatives across 3 O-D pairs; cost surface (slope + flood + SVI-pop); preferred SJ→Ponce alt 1 (198 km, $4.5B, 1.02M pop served)
 
-## Start here (Phase 10 — Rail Corridor Study)
-
-**Goal:** produce ranked, mapped inter-city rail corridor alternatives for Puerto Rico using a greenfield cost-surface routing engine — turning PRISM from an analysis tool into a *proposal generator*.
-
-**Pre-conditions:** Phases 0–9 complete; Census ACS carry-forward closed; real SVI in place.
-
-**Build tasks:**
-
-1. **Cost surface** — `prism/corridor/cost_surface.py`: rasterize terrain slope, flood zones, SVI-weighted population benefit, and parcel displacement cost into a composite cost grid at ~300 m resolution. Outputs a GeoTIFF stored in `data/derived/corridor/`.
-2. **Greenfield router** — `prism/corridor/router.py`: raster least-cost path using `scipy.ndimage` skeletonization or a sparse-graph Dijkstra over the cost raster; returns waypoint GeoDataFrame + per-segment cost breakdown (terrain, flood, parcel, benefit).
-3. **Rail asset model** — `prism/assets/rail.py`: pluggable `InfrastructureAsset` implementation. Construction cost tiered by terrain (standard $15M/km, elevated $40M/km, tunnel $120M/km); 30-yr maintenance NPV; passenger capacity model; ridership demand linked to barrio population via graph proximity.
-4. **Corridor generator** — `prism/corridor/corridors.py`: run the router for San Juan → Ponce (≥3 alternatives) and San Juan → Arecibo or Mayagüez (1 additional). Store results in `corridor.routes` and `corridor.route_segments`.
-5. **Intermodal links**: connect corridor endpoint stations to graph nodes (barrios, hospitals, ports, airports) via new `SERVES` relationships in `graph.relationships`.
-6. **Corridor CLI** — `python -m prism.corridor [--from CITY] [--to CITY] [--n N] [--show-only]`
-7. **Report integration** — extend `prism/report/narrative.py` with `_load_corridor_context()` and a corridor-comparison prompt (Sonnet / Opus for flagship).
-8. **Dashboard panel** — add corridor map to `prism/viz/dashboard.py` showing ranked alternatives with cost/impact/SVI annotations; Phase 10 ACTIVE in tracker.
-9. **Tests** — `tests/test_corridor.py`: cost surface build, routing correctness, rail asset model, corridor generation, CLI.
-10. **Catalog** — add `corridor.routes` and `corridor.route_segments` entries to `catalog/metadata.json`.
-
-**Schema (`prism/corridor/schema.py`):**
-```sql
-corridor.routes       (route_id, from_city, to_city, alternative_n, total_cost_usd, total_km,
-                        population_served, svi_weighted_pop, construction_cost_usd,
-                        maintenance_30yr_usd, flood_exposure_frac, objective_score, geom LINESTRING)
-corridor.route_segments (segment_id, route_id, seq, terrain_type, cost_per_km, km, geom)
-```
-
-Phase 10 "Done when": `python -m prism.corridor --from "San Juan" --to "Ponce"` completes without error; ≥3 route alternatives are stored in `corridor.routes`; each has a full objective-function breakdown (construction, maintenance, flood exposure, population served, SVI-weighted population); `prism/report` generates an AI comparison narrative naming the preferred route with plain-language tradeoffs.
+**Next steps (all are elective):**
+- **Frontend** — `FRONTEND_PLAN.md` ready; start with Phase F0 scaffold (Next.js + FastAPI + Deck.gl)
+- **CRIM parcels** — pull from PR network; improves property-impact model in optimizer
+- **CENSUS_API_KEY** — set in `.env` for real ACS poverty/elderly/disability per tract
+- **Multi-scenario rescore** — extend `prism/sync/trigger.py` beyond cat3-only
+- **Station entities** — add rail station nodes to `graph.entities` for full intermodal graph
 
 ### Phase 8 — COMPLETE (2026-06-07, Opus GO conditional)
 

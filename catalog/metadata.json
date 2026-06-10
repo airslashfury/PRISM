@@ -2064,6 +2064,26 @@
       ],
       "generated": "2026-06-07",
       "license": "derived"
+    },
+    "derived:corridor.routes": {
+      "source": "prism_phase10",
+      "title": "Rail corridor route alternatives",
+      "domain": "transport",
+      "priority": "P10",
+      "license": "PRISM derived",
+      "description": "Greenfield least-cost-path rail corridors (San Juan-Ponce 3 alts, San Juan-Arecibo, San Juan-Mayaguez). Columns: route_id, from_city, to_city, alternative_n, total_cost_usd, total_km, population_served, svi_weighted_pop, construction_cost_usd, maintenance_30yr_usd, flood_exposure_frac, objective_score, geom (LINESTRING 32161).",
+      "computed_by": "prism.corridor.corridors.generate_corridors",
+      "pulled_at": "2026-06-07"
+    },
+    "derived:corridor.route_segments": {
+      "source": "prism_phase10",
+      "title": "Rail corridor route segments (terrain-typed)",
+      "domain": "transport",
+      "priority": "P10",
+      "license": "PRISM derived",
+      "description": "Per-segment breakdown of each corridor alternative. Columns: segment_id, route_id, seq, terrain_type (standard/elevated/tunnel), cost_per_km, km, geom (LINESTRING 32161).",
+      "computed_by": "prism.corridor.corridors.generate_corridors",
+      "pulled_at": "2026-06-07"
     }
   }
 }

@@ -54,11 +54,12 @@ def _panel_phases(ax: plt.Axes) -> None:
         ("6 — Human Simulation",      "COMPLETE", "SVI · community resilience · equity portfolio"),
         ("7 — Decision Intelligence", "COMPLETE", "AI narratives · scenario comparison · equity_flag"),
         ("8 — Transportation",        "COMPLETE", "pgRouting · 892/901 barrios reachable · 3,168 bridges"),
-        ("9 — Digital Twin",          "ACTIVE",   "WFS re-sync spine · checksum diff · rescore trigger"),
+        ("9 — Digital Twin",          "COMPLETE", "WFS re-sync spine · checksum diff · rescore trigger"),
+        ("10 — Rail Corridor",        "ACTIVE",   "Cost surface · greenfield router · corridor alternatives"),
     ]
 
     ax.set_xlim(0, 10)
-    ax.set_ylim(-0.5, len(phases) - 0.5)
+    ax.set_ylim(-0.5, len(phases) - 0.5)  # noqa: E501
     ax.axis("off")
     ax.set_title("PRISM — Phase Completion", fontsize=13, fontweight="bold",
                  color=C_DARK, pad=8)
@@ -391,6 +392,72 @@ def _panel_sync(ax: plt.Axes, engine) -> None:
         y -= 0.10
 
 
+def _panel_corridor(ax: plt.Axes, engine) -> None:
+    """Phase 10 corridor panel: ranked alternatives with cost/impact breakdown."""
+    ax.axis("off")
+    ax.set_title("Phase 10 — Rail Corridor Alternatives", fontsize=11, fontweight="bold",
+                 color=C_DARK, pad=6)
+
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT from_city, to_city, alternative_n,
+                       total_km, construction_cost_usd, maintenance_30yr_usd,
+                       flood_exposure_frac, population_served, svi_weighted_pop, objective_score
+                FROM   corridor.routes
+                ORDER  BY from_city, to_city, objective_score
+            """)).fetchall()
+    except Exception:
+        ax.text(0.5, 0.5, "Corridor data not yet computed\n(run python -m prism.corridor)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=10)
+        return
+
+    if not rows:
+        ax.text(0.5, 0.5, "No corridors stored\n(run python -m prism.corridor)",
+                ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=10)
+        return
+
+    y = 0.96
+    col_x = [0.02, 0.20, 0.29, 0.39, 0.51, 0.61, 0.75, 0.88]
+    headers = ["Route", "Alt", "km", "Constr $M", "Maint 30yr $M", "Pop served", "SVI-wtd pop", "Obj $M"]
+    for hdr, x in zip(headers, col_x):
+        ax.text(x, y, hdr, transform=ax.transAxes, fontsize=7.5,
+                fontweight="bold", color=C_DARK, va="top")
+    y -= 0.08
+    ax.axhline(y + 0.04, xmin=0.01, xmax=0.99, color=C_GREY, linewidth=0.5, transform=ax.transAxes)
+
+    current_pair: tuple | None = None
+    best_scores: dict[tuple, float] = {}
+    for fc, tc, *rest in rows:
+        k = (fc, tc)
+        if k not in best_scores:
+            best_scores[k] = rest[-1]  # objective_score is last
+
+    for fc, tc, alt, km, constr, maint, flood, pop, svi_pop, score in rows:
+        pair = (fc, tc)
+        if pair != current_pair:
+            if current_pair is not None:
+                y -= 0.04  # spacing between origin-destination groups
+            current_pair = pair
+
+        is_best = abs(score - best_scores[pair]) < 1e6
+        colour  = C_GREEN if is_best else C_DARK
+
+        vals = [
+            f"{fc[:8]}->{tc[:8]}", f"{alt}{'*' if is_best else ' '}",
+            f"{km:.0f}", f"{constr/1e6:.0f}", f"{maint/1e6:.0f}",
+            f"{pop:,}", f"{svi_pop:,.0f}", f"{score/1e6:.0f}",
+        ]
+        for val, x in zip(vals, col_x):
+            ax.text(x, y, val, transform=ax.transAxes, fontsize=7,
+                    color=colour, va="top",
+                    fontweight="bold" if is_best else "normal")
+        y -= 0.09
+
+    ax.text(0.02, 0.03, "[*] = preferred (lowest objective score)",
+            transform=ax.transAxes, fontsize=7, color=C_GREEN, va="bottom", style="italic")
+
+
 def _panel_narrative(ax: plt.Axes, engine) -> None:
     """Show the latest AI narrative from report.narratives."""
     import json as _json
@@ -471,20 +538,20 @@ def build_dashboard(out_path: str | Path | None = None, engine=None) -> Path:
     if engine is None:
         engine = _default_engine()
 
-    out_path = Path(out_path) if out_path else Path("data/viz/phase9_dashboard.png")
+    out_path = Path(out_path) if out_path else Path("data/viz/phase10_dashboard.png")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig = plt.figure(figsize=(20, 32), facecolor="white")
+    fig = plt.figure(figsize=(20, 38), facecolor="white")
     fig.suptitle("PRISM — Infrastructure Simulation Model  |  State Snapshot 2026-06-07",
                  fontsize=15, fontweight="bold", color=C_DARK, y=0.99)
 
     gs = gridspec.GridSpec(
-        5, 3,
+        6, 3,
         figure=fig,
         left=0.04, right=0.97,
         top=0.97, bottom=0.02,
         hspace=0.42, wspace=0.32,
-        height_ratios=[1, 1, 1, 0.65, 1],
+        height_ratios=[1.2, 1, 1, 0.65, 0.8, 1],
     )
 
     ax_phases    = fig.add_subplot(gs[:2, 0])    # left col — top 2 rows
@@ -493,7 +560,8 @@ def build_dashboard(out_path: str | Path | None = None, engine=None) -> Path:
     ax_inv       = fig.add_subplot(gs[1, 2])     # row 2 right
     ax_access    = fig.add_subplot(gs[2, :])     # row 3 full — road access
     ax_sync      = fig.add_subplot(gs[3, :])     # row 4 full — Phase 9 sync status
-    ax_narrative = fig.add_subplot(gs[4, :])     # row 5 full — narrative
+    ax_corridor  = fig.add_subplot(gs[4, :])     # row 5 full — Phase 10 corridors
+    ax_narrative = fig.add_subplot(gs[5, :])     # row 6 full — narrative
 
     _panel_phases(ax_phases)
     _panel_top20(ax_top20, engine)
@@ -501,6 +569,7 @@ def build_dashboard(out_path: str | Path | None = None, engine=None) -> Path:
     _panel_inventory(ax_inv, engine)
     _panel_road_access(ax_access, engine)
     _panel_sync(ax_sync, engine)
+    _panel_corridor(ax_corridor, engine)
     _panel_narrative(ax_narrative, engine)
 
     plt.savefig(out_path, dpi=130, bbox_inches="tight", facecolor="white")

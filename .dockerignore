@@ -1,0 +1,28 @@
+# Keep build contexts tiny and correct. Critically, never ship host
+# node_modules (Windows-native binaries) into the Linux image — the
+# container reinstalls them cleanly.
+
+# data + heavy local artifacts
+data/
+.venv/
+.git/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
+*.egg-info/
+New folder/
+
+# node / next
+**/node_modules/
+**/.next/
+**/out/
+
+# env + secrets (compose injects runtime env)
+.env
+**/.env.local
+*.local.env
+
+# docs / scratch not needed in images
+docs/
+catalog/
+*.md

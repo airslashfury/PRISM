@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: "Inter";
+    --font-mono: "JetBrains Mono";
+
+    /* PRISM runs dark-first: a deep slate "command center" palette. */
+    --background: 222 47% 4.5%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 44% 6.5%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 6%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Cyan accent — used sparingly; the data carries the color. */
+    --primary: 187 92% 50%;
+    --primary-foreground: 222 47% 7%;
+
+    --secondary: 217 33% 14%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 11%;
+    --muted-foreground: 215 18% 60%;
+
+    --accent: 217 33% 15%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 28% 13%;
+    --input: 215 28% 16%;
+    --ring: 187 92% 50%;
+
+    --radius: 0.6rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1, "cv11" 1;
+  }
+  /* Tabular figures for all numeric data. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+}
+
+/* Subtle grid texture for the app background — reads as an engineering canvas. */
+.app-grid-bg {
+  background-image:
+    linear-gradient(to right, hsl(215 28% 13% / 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(215 28% 13% / 0.35) 1px, transparent 1px);
+  background-size: 44px 44px;
+  background-position: -1px -1px;
+}
+
+/* Thin, dark scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(215 28% 18%) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: hsl(215 28% 18%);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(215 28% 26%);
+}
+
+/* MapLibre tweaks so popups/controls match the dark theme. */
+.maplibregl-popup-content {
+  background: hsl(222 44% 7%) !important;
+  color: hsl(210 40% 98%) !important;
+  border: 1px solid hsl(215 28% 16%);
+  border-radius: 8px;
+  padding: 0 !important;
+  box-shadow: 0 12px 40px -8px rgb(0 0 0 / 0.7);
+}
+.maplibregl-popup-tip {
+  border-top-color: hsl(222 44% 7%) !important;
+  border-bottom-color: hsl(222 44% 7%) !important;
+}
+.maplibregl-ctrl-attrib {
+  background: hsl(222 44% 7% / 0.7) !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: hsl(215 18% 60%) !important;
+}

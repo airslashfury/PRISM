@@ -88,6 +88,43 @@ def _load_community_context(engine: Engine) -> str:
     return "\n".join(lines)
 
 
+def _load_corridor_context(engine: Engine) -> str:
+    """Return a compact corridor comparison summary for the prompt."""
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT from_city, to_city, alternative_n,
+                       total_km, construction_cost_usd, maintenance_30yr_usd,
+                       flood_exposure_frac, population_served, svi_weighted_pop, objective_score
+                FROM   corridor.routes
+                ORDER  BY from_city, to_city, objective_score
+            """)).fetchall()
+    except Exception:
+        return "Rail corridor data not yet computed (run python -m prism.corridor first)."
+
+    if not rows:
+        return "No rail corridors stored yet."
+
+    lines = [f"Rail corridor alternatives ({len(rows)} routes stored):"]
+    current_pair: tuple[str, str] | None = None
+    for fc, tc, alt, km, constr, maint, flood, pop, svi_pop, score in rows:
+        pair = (fc, tc)
+        if pair != current_pair:
+            lines.append(f"\n  {fc} → {tc}:")
+            current_pair = pair
+        lines.append(
+            f"    Alt {alt}: {km:.0f} km  "
+            f"constr=${constr/1e6:.0f}M  "
+            f"maint30=${maint/1e6:.0f}M  "
+            f"flood={flood*100:.0f}%  "
+            f"pop={pop:,}  "
+            f"svi_pop={svi_pop:,.0f}  "
+            f"obj=${score/1e6:.0f}M"
+        )
+
+    return "\n".join(lines)
+
+
 def _load_road_access_context(engine: Engine) -> str:
     """Return a compact summary of road access for the worst-connected barrios."""
     try:
@@ -148,7 +185,8 @@ def _build_prompt_single(engine: Engine, run_id: int, scenario_name: str) -> tup
         if total_pop > 0 else 0.0
     )
 
-    road_ctx = _load_road_access_context(engine)
+    road_ctx     = _load_road_access_context(engine)
+    corridor_ctx = _load_corridor_context(engine)
 
     prompt = f"""Generate a PRISM infrastructure briefing for the following portfolio analysis.
 
@@ -167,6 +205,8 @@ TOP INTERVENTIONS:
 {community_ctx}
 
 {road_ctx}
+
+{corridor_ctx}
 
 Respond with a JSON object matching this schema:
 {_RESPONSE_SCHEMA}
@@ -419,6 +459,109 @@ def generate_narrative(
         title=title,
         text=completion.text,
         equity_flag=equity_flag,
+        model_used=completion.model,
+    )
+
+
+_CORRIDOR_RESPONSE_SCHEMA = """{
+  "title": "<briefing title>",
+  "preferred_route": "<from → to, alternative N>",
+  "executive_summary": "<3-5 sentence comparison of the corridor alternatives>",
+  "equity_findings": "<which corridor best serves high-SVI communities and why>",
+  "tradeoff_table": [
+    {"route": "<from→to alt N>", "cost_m": <total $M>, "benefit": "<key advantage>"}
+  ],
+  "recommended_next_steps": ["<action 1>", "<action 2>"]
+}"""
+
+
+def generate_corridor_narrative(
+    engine: Engine,
+    flagship: bool = False,
+) -> NarrativeResult:
+    """Generate an AI narrative comparing all stored corridor alternatives."""
+    from prism.llm import backend_available
+    if not backend_available():
+        return NarrativeResult(
+            narrative_id=None,
+            scenario_name="corridor",
+            run_id=None,
+            comparison_id=None,
+            title="Corridor Narrative (stub — set ANTHROPIC_API_KEY)",
+            text="{}",
+            equity_flag=False,
+            model_used="stub",
+        )
+
+    create_schema(engine)
+    corridor_ctx = _load_corridor_context(engine)
+    community_ctx = _load_community_context(engine)
+
+    prompt = f"""Generate a PRISM rail corridor comparison briefing.
+
+CONTEXT:
+Puerto Rico Infrastructure Simulation Model — Phase 10 Rail Corridor Study.
+Greenfield corridors routed via least-cost-path over a composite cost surface
+(terrain slope, flood exposure, SVI-weighted population benefit) at 300 m resolution.
+
+{corridor_ctx}
+
+{community_ctx}
+
+Evaluate each alternative on:
+1. Total lifecycle cost (construction + 30-yr maintenance NPV)
+2. Flood exposure risk
+3. Population served within 5 km catchment
+4. Equity (SVI-weighted population)
+5. Objective score (lower = better, already accounts for cost vs. population tradeoff)
+
+Identify the preferred route for each origin-destination pair and explain the tradeoffs.
+
+Respond ONLY with a valid JSON object matching this schema:
+{_CORRIDOR_RESPONSE_SCHEMA}
+"""
+
+    from prism import llm
+    completion = llm.complete(
+        task="flagship_report" if flagship else "planning_report",
+        prompt=prompt,
+        system=_SYSTEM,
+        max_tokens=2048,
+    )
+
+    if not completion.text or len(completion.text.strip()) < 20:
+        return NarrativeResult(
+            narrative_id=None,
+            scenario_name="corridor",
+            run_id=None,
+            comparison_id=None,
+            title="Corridor Narrative (empty LLM response)",
+            text="{}",
+            equity_flag=False,
+            model_used=completion.model,
+        )
+
+    parsed = _parse_response(completion.text)
+    title  = parsed.get("title", "PRISM Rail Corridor Briefing")
+
+    with engine.begin() as conn:
+        row = conn.execute(text("""
+            INSERT INTO report.narratives
+                (scenario_name, run_id, comparison_id, title, text, equity_flag, model_used)
+            VALUES
+                ('corridor', NULL, NULL, :title, :text, FALSE, :model)
+            RETURNING narrative_id
+        """), {"title": title, "text": completion.text, "model": completion.model}).fetchone()
+        narrative_id = row[0]
+
+    return NarrativeResult(
+        narrative_id=narrative_id,
+        scenario_name="corridor",
+        run_id=None,
+        comparison_id=None,
+        title=title,
+        text=completion.text,
+        equity_flag=False,
         model_used=completion.model,
     )
 

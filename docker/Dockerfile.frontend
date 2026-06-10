@@ -1,0 +1,32 @@
+# PRISM frontend — Next.js 14, multi-stage build.
+FROM node:20-slim AS deps
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm install
+
+FROM node:20-slim AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY frontend ./
+ENV NEXT_TELEMETRY_DISABLED=1
+# Both are resolved at BUILD time: NEXT_PUBLIC_* is inlined into the client
+# bundle, and next.config rewrites() bakes the proxy target into the route
+# manifest. So API_PROXY_TARGET must point at the compose service name here.
+ENV NEXT_PUBLIC_API_BASE=/api
+ENV API_PROXY_TARGET=http://api:8000
+RUN npm run build
+
+FROM node:20-slim AS run
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/next.config.mjs ./next.config.mjs
+EXPOSE 3000
+# Inside compose the proxy target is the api service.
+ENV API_PROXY_TARGET=http://api:8000
+ENV NEXT_PUBLIC_API_BASE=/api
+CMD ["npm", "start"]
