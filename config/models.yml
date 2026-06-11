@@ -13,7 +13,7 @@ models:
     rate_per_mtok: { input: 3, output: 15 }
     role: balanced daily driver
   opus:
-    id: claude-opus-4-x             # set to current flagship (e.g. 4.6/4.7/4.8) — confirm
+    id: claude-opus-4-8             # current flagship (confirmed 2026-06-09)
     rate_per_mtok: { input: 5, output: 25 }
     role: hard reasoning, design, review
 
@@ -42,6 +42,13 @@ build_routing:
   asset_interface_design:    opus
   hard_debugging:            opus
   phase_gate_review:         opus
+  # --- MVP2 additions (see MVP2_PLAN.md) ---
+  frontend_components:       sonnet    # pages, Deck.gl layers, charts
+  deckgl_3d_terrain:         sonnet    # M2 build (architecture decision itself -> opus)
+  ui_copy_pass:              haiku     # ui-ux skill copy sweeps over pages
+  ha_architecture_review:    opus      # M3 Redis/queue/prod topology review
+  playground_design:         opus      # M4 schema + UX design review
+  nl_agent_tool_design:      opus      # M5b tool-use agent design
 
 # --- Run-time: PRISM calling Claude (Phase 7 / Phase 9) ---
 runtime_routing:
@@ -57,6 +64,14 @@ runtime_routing:
   flagship_report:             opus     # the "$500M -> where" analysis a partner reads
   cross_domain_reasoning:      opus
   hidden_dependency_discovery: opus
+  # --- MVP2 additions (see MVP2_PLAN.md) ---
+  narrative_stream:            sonnet   # M1 SSE-streamed narratives
+  playground_summary:          haiku    # M4 scorecard one-liners
+  playground_comparison:       sonnet   # M4 scenario-vs-scenario narrative
+  nl_query_parse:              haiku    # M5b Ask-PRISM intent + tool routing
+  nl_query_answer:             sonnet   # M5b Ask-PRISM composed answer
+  storm_timeline_caption:      haiku    # M5c per-timestep captions
+  board_pack_report:           opus     # M5d flagship PDF narrative
 
 # --- Escalation checkpoints (the handoffs) ---
 escalation:

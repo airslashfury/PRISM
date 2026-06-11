@@ -60,6 +60,14 @@ export const useCorridorRoute = (id: number | null) =>
     staleTime: 30 * MIN,
   });
 
+export const useCorridorProfile = (id: number | null) =>
+  useQuery({
+    queryKey: ["corridorProfile", id],
+    queryFn: () => api.corridorProfile(id as number),
+    enabled: id != null,
+    staleTime: 30 * MIN,
+  });
+
 export const useTransmission = (enabled = true) =>
   useQuery({ queryKey: ["transmission"], queryFn: api.transmission, staleTime: 60 * MIN, enabled });
 

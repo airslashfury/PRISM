@@ -8,6 +8,12 @@ import { Map } from "react-map-gl/maplibre";
 // CARTO dark-matter basemap — free, no API key, matches the command-center theme.
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
+// Esri World Imagery — free raster satellite basemap, no API key (attribution required).
+const SATELLITE_TILES = [
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+];
+const SATELLITE_ATTRIBUTION = "Esri, Maxar, Earthstar Geographics, and the GIS User Community";
+
 // Terrain tile requests must go through the Next.js proxy (/api/…) so they are
 // same-origin — MapLibre loads tiles directly from the browser, bypassing fetch,
 // so an absolute API URL would hit CORS from any host other than localhost.
@@ -58,6 +64,12 @@ export interface PrismMapProps {
   children?: React.ReactNode;
   /** Enable MapLibre 3D terrain from locally-mirrored USGS 3DEP DEM. */
   terrain?: boolean;
+  /** Vertical exaggeration applied to the terrain mesh (1-3, default 1.7). */
+  exaggeration?: number;
+  /** Show Esri World Imagery satellite raster instead of the dark-matter basemap. */
+  satellite?: boolean;
+  /** When set, drives the camera directly (e.g. a fly-through tour) — applied with no transition. */
+  viewStateOverride?: MapViewState | null;
 }
 
 export function PrismMap({
@@ -67,12 +79,15 @@ export function PrismMap({
   initialViewState = PR_VIEW,
   children,
   terrain = false,
+  exaggeration = 1.7,
+  satellite = false,
+  viewStateOverride = null,
 }: PrismMapProps) {
   const mapRef = useRef<any>(null);
   const terrainActive = useRef(false);
   const [viewState, setViewState] = useState<MapViewState>(initialViewState);
 
-  const applyTerrainLayers = useCallback((map: any) => {
+  const applyTerrainLayers = useCallback((map: any, exag: number) => {
     if (!map.getSource("prism-dem")) {
       map.addSource("prism-dem", {
         type: "raster-dem",
@@ -83,7 +98,7 @@ export function PrismMap({
         attribution: "USGS 3DEP 1/3 arc-sec",
       });
     }
-    map.setTerrain({ source: "prism-dem", exaggeration: 1.5 });
+    map.setTerrain({ source: "prism-dem", exaggeration: exag });
     if (!map.getLayer("hillshade")) {
       map.addLayer({
         id: "hillshade",
@@ -99,6 +114,42 @@ export function PrismMap({
     terrainActive.current = true;
   }, []);
 
+  // Esri World Imagery, inserted just above the style's background layer so the
+  // dark-matter vector layers (labels, roads) still render on top.
+  const applySatelliteLayer = useCallback((map: any) => {
+    if (!map.getSource("esri-satellite")) {
+      map.addSource("esri-satellite", {
+        type: "raster",
+        tiles: SATELLITE_TILES,
+        tileSize: 256,
+        attribution: SATELLITE_ATTRIBUTION,
+      });
+    }
+    if (!map.getLayer("esri-satellite-layer")) {
+      const styleLayers = map.getStyle()?.layers ?? [];
+      const beforeId = styleLayers[1]?.id;
+      map.addLayer(
+        { id: "esri-satellite-layer", type: "raster", source: "esri-satellite" },
+        beforeId,
+      );
+    }
+  }, []);
+
+  const setSatelliteVisible = useCallback(
+    (map: any, visible: boolean) => {
+      if (!map.getLayer("esri-satellite-layer")) {
+        if (!visible) return;
+        applySatelliteLayer(map);
+      }
+      map.setLayoutProperty("esri-satellite-layer", "visibility", visible ? "visible" : "none");
+      const bg = map.getStyle()?.layers?.[0];
+      if (bg?.type === "background") {
+        map.setPaintProperty(bg.id, "background-opacity", visible ? 0 : 1);
+      }
+    },
+    [applySatelliteLayer],
+  );
+
   const removeTerrainLayers = useCallback((map: any) => {
     try { map.setTerrain(null); } catch { /* already removed */ }
     try {
@@ -112,7 +163,7 @@ export function PrismMap({
     const map = mapRef.current?.getMap?.() ?? mapRef.current;
     if (terrain && !terrainActive.current) {
       if (map && typeof map.isStyleLoaded === "function" && map.isStyleLoaded()) {
-        applyTerrainLayers(map);
+        applyTerrainLayers(map, exaggeration);
       }
       setViewState((vs) => ({
         ...vs,
@@ -130,15 +181,41 @@ export function PrismMap({
         transitionDuration: 600,
       }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terrain, applyTerrainLayers, removeTerrainLayers]);
+
+  // Live-update exaggeration without a full terrain teardown/rebuild.
+  useEffect(() => {
+    const map = mapRef.current?.getMap?.() ?? mapRef.current;
+    if (terrainActive.current && map?.getSource?.("prism-dem")) {
+      map.setTerrain({ source: "prism-dem", exaggeration });
+    }
+  }, [exaggeration]);
+
+  // Drive the camera directly when a fly-through tour supplies a frame.
+  useEffect(() => {
+    if (viewStateOverride) {
+      setViewState({ ...viewStateOverride, transitionDuration: 0 });
+    }
+  }, [viewStateOverride]);
+
+  // Toggle the satellite raster layer.
+  useEffect(() => {
+    const map = mapRef.current?.getMap?.() ?? mapRef.current;
+    if (map && typeof map.isStyleLoaded === "function" && map.isStyleLoaded()) {
+      setSatelliteVisible(map, satellite);
+    }
+  }, [satellite, setSatelliteVisible]);
 
   const handleMapLoad = useCallback(
     (event: { target: any }) => {
       const map = event.target;
       mapRef.current = { getMap: () => map };
-      if (terrain) applyTerrainLayers(map);
+      if (terrain) applyTerrainLayers(map, exaggeration);
+      if (satellite) setSatelliteVisible(map, true);
     },
-    [terrain, applyTerrainLayers],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
   return (

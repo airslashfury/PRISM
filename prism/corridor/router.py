@@ -137,17 +137,15 @@ def _compute_segments(
 
     Returns (segments, total_km, construction_usd, maintenance_30yr_usd).
     Merges consecutive cells of the same terrain type into one segment.
+    Each step (edge between consecutive path cells) is attributed to exactly
+    one segment, so sum(segment.km) == the true path length (matches
+    ST_Length of the full-path geometry within rounding).
     """
     res = cs.resolution_m
     segments: list[Segment] = []
     total_construction = 0.0
     total_maint = 0.0
     total_km = 0.0
-    total_flood_cells = 0
-
-    current_terrain: str | None = None
-    current_coords: list[tuple[float, float]] = []
-    current_km = 0.0
 
     def _flush(terrain: str, coords: list[tuple[float, float]], km: float) -> None:
         nonlocal total_construction, total_maint, total_km
@@ -165,36 +163,32 @@ def _compute_segments(
             coords=list(coords),
         ))
 
-    for i, (row, col) in enumerate(path):
-        slope = float(cs.slope_array[row, col])
-        terrain = terrain_type_at(slope)
+    current_terrain = terrain_type_at(float(cs.slope_array[path[0]]))
+    current_coords: list[tuple[float, float]] = [idx_to_xy(path[0][0], path[0][1], cs)]
+    current_km = 0.0
 
-        if cs.flood_array[row, col] > 0.5:
-            total_flood_cells += 1
-
+    for i in range(1, len(path)):
+        prev_row, prev_col = path[i - 1]
+        row, col = path[i]
+        diag = abs(row - prev_row) + abs(col - prev_col) == 2
+        step_km = res * (1.4142 if diag else 1.0) / 1_000
+        terrain = terrain_type_at(float(cs.slope_array[row, col]))
         xy = idx_to_xy(row, col, cs)
 
-        if current_terrain is None:
-            current_terrain = terrain
-            current_coords = [xy]
-            current_km = 0.0
-        elif terrain != current_terrain:
+        if terrain != current_terrain:
+            # The connecting edge belongs to the segment it leads into.
+            current_coords.append(xy)
+            current_km += step_km
             _flush(current_terrain, current_coords, current_km)
             current_terrain = terrain
             current_coords = [xy]
             current_km = 0.0
         else:
-            # Diagonal vs. orthogonal step
-            prev_row, prev_col = path[i - 1]
-            diag = abs(row - prev_row) + abs(col - prev_col) == 2
-            step_km = res * (1.4142 if diag else 1.0) / 1_000
             current_km += step_km
             current_coords.append(xy)
 
-    if current_terrain and current_coords:
-        _flush(current_terrain, current_coords, current_km)
+    _flush(current_terrain, current_coords, current_km)
 
-    flood_frac = total_flood_cells / len(path) if path else 0.0
     return segments, total_km, total_construction, total_maint
 
 

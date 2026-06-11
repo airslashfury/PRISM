@@ -187,7 +187,16 @@ class CorridorRouteDetail(CorridorRoute):
     segments_geojson: FeatureCollection
     line_geojson: FeatureCollection
     segments: list[CorridorSegment]
-    narrative: str | None = None
+    narrative: NarrativeContent | None = None
+
+
+class ProfilePoint(BaseModel):
+    distance_m: float
+    lng: float
+    lat: float
+    elev_m: float
+    grade_pct: float
+    terrain_type: str
 
 
 # --------------------------------------------------------------------------- #
@@ -228,4 +237,17 @@ class Narrative(BaseModel):
     text: str | None
     equity_flag: bool | None
     model_used: str | None
+    format: str | None = None
+    status: str | None = None
     generated_at: datetime | None
+
+
+class NarrativeContent(BaseModel):
+    """Parsed narrative ready for the frontend NarrativePanel — markdown body
+    plus the provenance footer (model + timestamp)."""
+    title: str | None = None
+    narrative_md: str
+    format: str = "markdown"
+    model_used: str | None = None
+    status: str | None = None
+    generated_at: datetime | None = None

@@ -84,8 +84,21 @@ def test_parse_response_strips_markdown_fence():
 def test_parse_response_plain_text_fallback():
     payload = "This is not JSON at all."
     parsed = _parse_response(payload)
-    assert "executive_summary" in parsed
-    assert "This is not JSON" in parsed["executive_summary"]
+    assert parsed["format"] == "markdown"
+    assert "### Consequence" in parsed["narrative_md"]
+    assert "This is not JSON" in parsed["narrative_md"]
+
+
+def test_parse_response_markdown_contract():
+    payload = json.dumps({
+        "title": "Corridor Briefing",
+        "format": "markdown",
+        "narrative_md": "### Consequence\n\nServes 1M people.\n\n### Tradeoffs\n\n### Equity\n\n### Recommended next steps\n",
+    })
+    parsed = _parse_response(payload)
+    assert parsed["format"] == "markdown"
+    assert parsed["title"] == "Corridor Briefing"
+    assert "### Consequence" in parsed["narrative_md"]
 
 
 # ── NarrativeResult.display ────────────────────────────────────────────────
@@ -108,6 +121,68 @@ def test_narrative_display_renders():
     assert "Grid Resilience Briefing" in output
     assert "PALO SECO" in output
     assert "equity_flag" in output
+
+
+def test_narrative_display_renders_markdown():
+    payload = json.dumps({
+        "title": "Corridor Briefing",
+        "format": "markdown",
+        "narrative_md": "### Consequence\n\nServes 1M people across the corridor.",
+    })
+    nr = NarrativeResult(
+        narrative_id=None, scenario_name="corridor", run_id=None,
+        comparison_id=None, title="Corridor Briefing",
+        text=payload, equity_flag=False, model_used="test",
+        format="markdown", status="ok",
+    )
+    output = nr.display()
+    assert "Corridor Briefing" in output
+    assert "### Consequence" in output
+    assert "Serves 1M people" in output
+    assert "status: ok" in output
+
+
+# ── _is_valid_completion / _complete_validated ─────────────────────────────
+
+
+def test_is_valid_completion():
+    from prism.report.narrative import _is_valid_completion, _MIN_LEN
+
+    assert _is_valid_completion("x" * _MIN_LEN) is True
+    assert _is_valid_completion("too short") is False
+    assert _is_valid_completion("") is False
+    assert _is_valid_completion(None) is False
+
+
+def test_complete_validated_returns_ok_on_first_try(monkeypatch):
+    from prism.report.narrative import _complete_validated
+    from prism.llm import Completion
+
+    good = Completion(text="x" * 250, tier="sonnet", model="claude-sonnet-4-6", backend="anthropic")
+    monkeypatch.setattr("prism.llm.complete", lambda **kwargs: good)
+
+    completion, status = _complete_validated("planning_report", "prompt", system="sys", max_tokens=100)
+    assert status == "ok"
+    assert completion is good
+
+
+def test_complete_validated_escalates_then_fails(monkeypatch):
+    from prism.report.narrative import _complete_validated
+    from prism.llm import Completion
+
+    short = Completion(text="too short", tier="haiku", model="claude-haiku-4-5", backend="anthropic")
+    calls = {"n": 0}
+
+    def fake_complete(**kwargs):
+        calls["n"] += 1
+        return short
+
+    monkeypatch.setattr("prism.llm.complete", fake_complete)
+
+    completion, status = _complete_validated("planning_report", "prompt", system="sys", max_tokens=100)
+    assert status == "failed"
+    # one initial call + one same-tier retry + one escalated-tier attempt
+    assert calls["n"] == 3
 
 
 # ── compare_runs (requires DB with ≥2 portfolio runs) ─────────────────────

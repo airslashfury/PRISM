@@ -25,10 +25,29 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from prism.llm import _TIER_ORDER
 from prism.report.schema import create_schema
 from prism.report.compare import ComparisonResult
 
 log = logging.getLogger(__name__)
+
+_MARKDOWN_CONTRACT = """
+OUTPUT FORMAT CONTRACT (enforced — follow exactly):
+- Respond with a single JSON object only — no markdown code fences, no preamble such as
+  "Here is" or "Based on the data above".
+- "format" must be the literal string "markdown".
+- "narrative_md" must be GitHub-flavored markdown using ONLY these section headers, as
+  H3 ("###"), in this exact order:
+    ### Consequence
+    ### Tradeoffs
+    ### Equity
+    ### Recommended next steps
+- The "### Consequence" section must open with one sentence stating the real-world
+  consequence of the numbers below — who is protected or affected, and by how much —
+  not a restatement of the inputs.
+- Use a markdown table under "### Tradeoffs" when comparing more than two items.
+- Use a bullet list under "### Recommended next steps".
+"""
 
 _SYSTEM = """You are PRISM — Puerto Rico Infrastructure Simulation Model.
 Your role is to translate quantitative infrastructure analysis into clear,
@@ -44,18 +63,16 @@ Index (SVI) derived from flood-zone exposure and terrain slope (proxy: real ACS 
 unavailable without CENSUS_API_KEY).
 
 Be precise, cite numbers, surface tradeoffs, and flag equity implications.
-Respond ONLY with a valid JSON object — no markdown fences, no preamble.
-"""
+""" + _MARKDOWN_CONTRACT
 
 _RESPONSE_SCHEMA = """{
   "title": "<concise briefing title>",
-  "executive_summary": "<3-5 sentence summary of findings>",
-  "equity_findings": "<analysis of who benefits, SVI-weighted impact, equity tradeoffs>",
-  "tradeoff_table": [
-    {"item": "<substation or intervention>", "cost_m": <float>, "benefit": "<plain-language benefit>"}
-  ],
-  "recommended_next_steps": ["<action 1>", "<action 2>", ...]
+  "format": "markdown",
+  "narrative_md": "<GitHub-flavored markdown — see OUTPUT FORMAT CONTRACT for required sections>"
 }"""
+
+# Minimum length (chars, stripped) for a completion to be considered non-empty.
+_MIN_LEN = 200
 
 
 def _load_community_context(engine: Engine) -> str:
@@ -288,11 +305,76 @@ def _parse_response(text: str) -> dict:
     except json.JSONDecodeError:
         return {
             "title": "PRISM Infrastructure Briefing",
-            "executive_summary": raw[:500],
-            "equity_findings": "",
-            "tradeoff_table": [],
-            "recommended_next_steps": [],
+            "format": "markdown",
+            "narrative_md": f"### Consequence\n\n{raw[:1000]}",
         }
+
+
+def _is_valid_completion(text: str) -> bool:
+    """A completion is usable if it's non-empty and at least _MIN_LEN chars."""
+    return bool(text) and len(text.strip()) >= _MIN_LEN
+
+
+def _complete_validated(
+    task: str,
+    prompt: str,
+    *,
+    system: str,
+    max_tokens: int,
+    force_tier: str | None = None,
+):
+    """Call llm.complete with retry-then-escalate validation.
+
+    Tries the resolved tier, retries once at the same tier if the response is
+    empty or under _MIN_LEN chars, then escalates one tier and tries once more.
+    Returns (Completion, status) where status is "ok" or "failed". A "failed"
+    status still returns the last completion attempted (for logging) — callers
+    must persist an explicit failure stub, never a silent empty.
+    """
+    from prism import llm
+
+    completion = llm.complete(
+        task=task, prompt=prompt, system=system, max_tokens=max_tokens, force_tier=force_tier,
+    )
+    if _is_valid_completion(completion.text):
+        return completion, "ok"
+
+    log.warning(
+        "Narrative completion too short (tier=%s, chars=%d) — retrying same tier",
+        completion.tier, len(completion.text.strip()),
+    )
+    retry = llm.complete(
+        task=task, prompt=prompt, system=system, max_tokens=max_tokens, force_tier=completion.tier,
+    )
+    if _is_valid_completion(retry.text):
+        return retry, "ok"
+
+    next_idx = _TIER_ORDER.index(retry.tier) + 1 if retry.tier in _TIER_ORDER else len(_TIER_ORDER)
+    if next_idx < len(_TIER_ORDER):
+        escalated_tier = _TIER_ORDER[next_idx]
+        log.warning("Narrative completion still too short — escalating to tier=%s", escalated_tier)
+        escalated = llm.complete(
+            task=task, prompt=prompt, system=system, max_tokens=max_tokens, force_tier=escalated_tier,
+        )
+        if _is_valid_completion(escalated.text):
+            return escalated, "ok"
+        return escalated, "failed"
+
+    return retry, "failed"
+
+
+def _failure_stub(title: str) -> str:
+    """An explicit, non-empty stub for narratives that failed validation."""
+    return json.dumps({
+        "title": title,
+        "format": "markdown",
+        "narrative_md": (
+            "### Consequence\n\n"
+            "Narrative generation failed after retries across multiple model tiers — "
+            "no consequence summary is available for this run yet. "
+            "Re-run `python -m prism.report` once the LLM backend is healthy."
+        ),
+    })
 
 
 @dataclass
@@ -305,36 +387,48 @@ class NarrativeResult:
     text: str
     equity_flag: bool
     model_used: str
+    format: str = "json"
+    status: str = "ok"
 
     def display(self) -> str:
         parsed = _parse_response(self.text)
+        title = parsed.get("title", self.title)
         lines = [
             f"{'=' * 70}",
-            f"  {parsed.get('title', self.title)}",
+            f"  {title}",
             f"{'=' * 70}",
             "",
-            "EXECUTIVE SUMMARY",
-            parsed.get("executive_summary", ""),
-            "",
-            "EQUITY FINDINGS",
-            parsed.get("equity_findings", "(none)"),
-            "",
         ]
-        table = parsed.get("tradeoff_table", [])
-        if table:
-            lines += ["TRADEOFFS", f"  {'Item':<34} {'Cost $M':>8}  {'Benefit'}", "  " + "-" * 70]
-            for row in table[:10]:
-                lines.append(
-                    f"  {str(row.get('item',''))[:33]:<34} "
-                    f"{float(row.get('cost_m', 0)):>8.1f}  {row.get('benefit', '')}"
-                )
-            lines.append("")
-        steps = parsed.get("recommended_next_steps", [])
-        if steps:
-            lines.append("RECOMMENDED NEXT STEPS")
-            for s in steps:
-                lines.append(f"  • {s}")
-        lines += ["", f"  [model: {self.model_used}  |  equity_flag: {self.equity_flag}]"]
+        if parsed.get("format") == "markdown" and parsed.get("narrative_md"):
+            lines.append(parsed["narrative_md"])
+        else:
+            # Legacy (pre-M1) JSON shape.
+            lines += [
+                "EXECUTIVE SUMMARY",
+                parsed.get("executive_summary", ""),
+                "",
+                "EQUITY FINDINGS",
+                parsed.get("equity_findings", "(none)"),
+                "",
+            ]
+            table = parsed.get("tradeoff_table", [])
+            if table:
+                lines += ["TRADEOFFS", f"  {'Item':<34} {'Cost $M':>8}  {'Benefit'}", "  " + "-" * 70]
+                for row in table[:10]:
+                    lines.append(
+                        f"  {str(row.get('item',''))[:33]:<34} "
+                        f"{float(row.get('cost_m', 0)):>8.1f}  {row.get('benefit', '')}"
+                    )
+                lines.append("")
+            steps = parsed.get("recommended_next_steps", [])
+            if steps:
+                lines.append("RECOMMENDED NEXT STEPS")
+                for s in steps:
+                    lines.append(f"  • {s}")
+        lines += [
+            "",
+            f"  [model: {self.model_used}  |  equity_flag: {self.equity_flag}  |  status: {self.status}]",
+        ]
         return "\n".join(lines)
 
 
@@ -362,19 +456,21 @@ def generate_narrative(
             title="PRISM Narrative (stub — set ANTHROPIC_API_KEY)",
             text=json.dumps({
                 "title": "PRISM Infrastructure Briefing (stub)",
-                "executive_summary": (
-                    "No LLM backend configured. Set ANTHROPIC_API_KEY or "
-                    "PRISM_LLM_BACKEND=ollama and re-run `python -m prism.report`."
+                "format": "markdown",
+                "narrative_md": (
+                    "### Consequence\n\n"
+                    "No LLM backend configured, so no narrative was generated. "
+                    "Set `ANTHROPIC_API_KEY` or `PRISM_LLM_BACKEND=ollama` and "
+                    "re-run `python -m prism.report`.\n\n"
+                    "### Recommended next steps\n\n"
+                    "- Set `ANTHROPIC_API_KEY` in `.env`, or\n"
+                    "- Set `PRISM_LLM_BACKEND=ollama` (tier models already configured in `config/models.yml`)"
                 ),
-                "equity_findings": "",
-                "tradeoff_table": [],
-                "recommended_next_steps": [
-                    "Set ANTHROPIC_API_KEY in .env, or",
-                    "Set PRISM_LLM_BACKEND=ollama (Ollama tier_models already configured in config/models.yml)",
-                ],
             }),
             equity_flag=False,
             model_used="stub",
+            format="markdown",
+            status="failed",
         )
         return stub
 
@@ -394,61 +490,43 @@ def generate_narrative(
     else:
         raise ValueError("Provide either run_id or comparison")
 
-    from prism import llm
-
+    task = "planning_report" if not flagship else "flagship_report"
     force_tier = "opus" if flagship else None
-    completion = llm.complete(
-        task="planning_report" if not flagship else "flagship_report",
-        prompt=prompt,
-        system=_SYSTEM,
-        max_tokens=2048,
-        force_tier=force_tier,
+    completion, status = _complete_validated(
+        task, prompt, system=_SYSTEM, max_tokens=2048, force_tier=force_tier,
     )
 
-    if not completion.text or len(completion.text.strip()) < 20:
-        log.warning("LLM returned empty/trivial response — not persisting narrative")
-        return NarrativeResult(
-            narrative_id=None,
-            scenario_name=scenario_name,
-            run_id=effective_run_id,
-            comparison_id=comparison_id,
-            title="PRISM Narrative (empty LLM response)",
-            text=json.dumps({
-                "title": "PRISM Infrastructure Briefing (empty response)",
-                "executive_summary": "LLM returned no content. Re-run when the model is available.",
-                "equity_findings": "",
-                "tradeoff_table": [],
-                "recommended_next_steps": ["Re-run `python -m prism.report` when LLM is available."],
-            }),
-            equity_flag=False,
-            model_used=completion.model,
-        )
-
-    parsed = _parse_response(completion.text)
-    title = parsed.get("title", "PRISM Infrastructure Briefing")
+    if status == "failed":
+        title = "PRISM Infrastructure Briefing (generation failed)"
+        narrative_text = _failure_stub(title)
+    else:
+        parsed = _parse_response(completion.text)
+        title = parsed.get("title", "PRISM Infrastructure Briefing")
+        narrative_text = completion.text
 
     with engine.begin() as conn:
         row = conn.execute(text("""
             INSERT INTO report.narratives
                 (scenario_name, run_id, comparison_id,
-                 title, text, equity_flag, model_used)
+                 title, text, equity_flag, model_used, format, status)
             VALUES
-                (:sn, :rid, :cid, :title, :text, :ef, :model)
+                (:sn, :rid, :cid, :title, :text, :ef, :model, 'markdown', :status)
             RETURNING narrative_id
         """), {
-            "sn":    scenario_name,
-            "rid":   effective_run_id,
-            "cid":   comparison_id,
-            "title": title,
-            "text":  completion.text,
-            "ef":    equity_flag,
-            "model": completion.model,
+            "sn":     scenario_name,
+            "rid":    effective_run_id,
+            "cid":    comparison_id,
+            "title":  title,
+            "text":   narrative_text,
+            "ef":     equity_flag,
+            "model":  completion.model,
+            "status": status,
         }).fetchone()
         narrative_id = row[0]
 
     log.info(
-        "Narrative saved: id=%d, model=%s, equity_flag=%s, title=%r",
-        narrative_id, completion.model, equity_flag, title,
+        "Narrative saved: id=%d, model=%s, equity_flag=%s, status=%s, title=%r",
+        narrative_id, completion.model, equity_flag, status, title,
     )
 
     return NarrativeResult(
@@ -457,47 +535,28 @@ def generate_narrative(
         run_id=effective_run_id,
         comparison_id=comparison_id,
         title=title,
-        text=completion.text,
+        text=narrative_text,
         equity_flag=equity_flag,
         model_used=completion.model,
+        format="markdown",
+        status=status,
     )
 
 
 _CORRIDOR_RESPONSE_SCHEMA = """{
   "title": "<briefing title>",
-  "preferred_route": "<from → to, alternative N>",
-  "executive_summary": "<3-5 sentence comparison of the corridor alternatives>",
-  "equity_findings": "<which corridor best serves high-SVI communities and why>",
-  "tradeoff_table": [
-    {"route": "<from→to alt N>", "cost_m": <total $M>, "benefit": "<key advantage>"}
-  ],
-  "recommended_next_steps": ["<action 1>", "<action 2>"]
+  "format": "markdown",
+  "preferred_route": "<from -> to, alternative N>",
+  "narrative_md": "<GitHub-flavored markdown — see OUTPUT FORMAT CONTRACT for required sections>"
 }"""
 
 
-def generate_corridor_narrative(
-    engine: Engine,
-    flagship: bool = False,
-) -> NarrativeResult:
-    """Generate an AI narrative comparing all stored corridor alternatives."""
-    from prism.llm import backend_available
-    if not backend_available():
-        return NarrativeResult(
-            narrative_id=None,
-            scenario_name="corridor",
-            run_id=None,
-            comparison_id=None,
-            title="Corridor Narrative (stub — set ANTHROPIC_API_KEY)",
-            text="{}",
-            equity_flag=False,
-            model_used="stub",
-        )
-
-    create_schema(engine)
+def _corridor_prompt(engine: Engine) -> str:
+    """Build the prompt for the rail corridor comparison briefing."""
     corridor_ctx = _load_corridor_context(engine)
     community_ctx = _load_community_context(engine)
 
-    prompt = f"""Generate a PRISM rail corridor comparison briefing.
+    return f"""Generate a PRISM rail corridor comparison briefing.
 
 CONTEXT:
 Puerto Rico Infrastructure Simulation Model — Phase 10 Rail Corridor Study.
@@ -521,37 +580,49 @@ Respond ONLY with a valid JSON object matching this schema:
 {_CORRIDOR_RESPONSE_SCHEMA}
 """
 
-    from prism import llm
-    completion = llm.complete(
-        task="flagship_report" if flagship else "planning_report",
-        prompt=prompt,
-        system=_SYSTEM,
-        max_tokens=2048,
-    )
 
-    if not completion.text or len(completion.text.strip()) < 20:
+def generate_corridor_narrative(
+    engine: Engine,
+    flagship: bool = False,
+) -> NarrativeResult:
+    """Generate an AI narrative comparing all stored corridor alternatives."""
+    from prism.llm import backend_available
+    if not backend_available():
         return NarrativeResult(
             narrative_id=None,
             scenario_name="corridor",
             run_id=None,
             comparison_id=None,
-            title="Corridor Narrative (empty LLM response)",
-            text="{}",
+            title="Corridor Narrative (stub — set ANTHROPIC_API_KEY)",
+            text=_failure_stub("Corridor Narrative (stub — set ANTHROPIC_API_KEY)"),
             equity_flag=False,
-            model_used=completion.model,
+            model_used="stub",
+            format="markdown",
+            status="failed",
         )
 
-    parsed = _parse_response(completion.text)
-    title  = parsed.get("title", "PRISM Rail Corridor Briefing")
+    create_schema(engine)
+    prompt = _corridor_prompt(engine)
+
+    task = "flagship_report" if flagship else "planning_report"
+    completion, status = _complete_validated(task, prompt, system=_SYSTEM, max_tokens=2048)
+
+    if status == "failed":
+        title = "Corridor Narrative (generation failed)"
+        narrative_text = _failure_stub(title)
+    else:
+        parsed = _parse_response(completion.text)
+        title = parsed.get("title", "PRISM Rail Corridor Briefing")
+        narrative_text = completion.text
 
     with engine.begin() as conn:
         row = conn.execute(text("""
             INSERT INTO report.narratives
-                (scenario_name, run_id, comparison_id, title, text, equity_flag, model_used)
+                (scenario_name, run_id, comparison_id, title, text, equity_flag, model_used, format, status)
             VALUES
-                ('corridor', NULL, NULL, :title, :text, FALSE, :model)
+                ('corridor', NULL, NULL, :title, :text, FALSE, :model, 'markdown', :status)
             RETURNING narrative_id
-        """), {"title": title, "text": completion.text, "model": completion.model}).fetchone()
+        """), {"title": title, "text": narrative_text, "model": completion.model, "status": status}).fetchone()
         narrative_id = row[0]
 
     return NarrativeResult(
@@ -560,10 +631,75 @@ Respond ONLY with a valid JSON object matching this schema:
         run_id=None,
         comparison_id=None,
         title=title,
-        text=completion.text,
+        text=narrative_text,
         equity_flag=False,
         model_used=completion.model,
+        format="markdown",
+        status=status,
     )
+
+
+def stream_corridor_narrative(engine: Engine, flagship: bool = False):
+    """Yield markdown text chunks for the corridor narrative as it's generated.
+
+    Streams from the Anthropic backend (Ollama falls back to a single
+    non-streaming chunk). Once the stream finishes, persists the accumulated
+    result to report.narratives exactly like `generate_corridor_narrative` —
+    including the retry/escalation/failure-stub validation — and yields one
+    final `event: done` SSE message with the persisted narrative_id and model.
+    """
+    from prism.llm import backend_available
+    if not backend_available():
+        yield _sse("chunk", {"text": "### Consequence\n\nNo LLM backend configured."})
+        yield _sse("done", {"narrative_id": None, "model": "stub", "status": "failed"})
+        return
+
+    create_schema(engine)
+    prompt = _corridor_prompt(engine)
+    task = "narrative_stream" if not flagship else "flagship_report"
+
+    from prism import llm
+
+    handle = llm.stream_complete(task, prompt, system=_SYSTEM, max_tokens=2048)
+    chunks: list[str] = []
+    for piece in handle.chunks:
+        chunks.append(piece)
+        yield _sse("chunk", {"text": piece})
+
+    full_text = "".join(chunks)
+    if _is_valid_completion(full_text):
+        completion = llm.Completion(text=full_text, tier=handle.tier, model=handle.model, backend=handle.backend)
+        status = "ok"
+    else:
+        log.warning("Streamed narrative too short (chars=%d) — falling back to non-streaming retry", len(full_text.strip()))
+        completion, status = _complete_validated(task, prompt, system=_SYSTEM, max_tokens=2048)
+        if status == "ok":
+            yield _sse("chunk", {"text": completion.text})
+
+    if status == "failed":
+        title = "Corridor Narrative (generation failed)"
+        narrative_text = _failure_stub(title)
+    else:
+        parsed = _parse_response(completion.text)
+        title = parsed.get("title", "PRISM Rail Corridor Briefing")
+        narrative_text = completion.text
+
+    with engine.begin() as conn:
+        row = conn.execute(text("""
+            INSERT INTO report.narratives
+                (scenario_name, run_id, comparison_id, title, text, equity_flag, model_used, format, status)
+            VALUES
+                ('corridor', NULL, NULL, :title, :text, FALSE, :model, 'markdown', :status)
+            RETURNING narrative_id
+        """), {"title": title, "text": narrative_text, "model": completion.model, "status": status}).fetchone()
+        narrative_id = row[0]
+
+    yield _sse("done", {"narrative_id": narrative_id, "model": completion.model, "status": status, "title": title})
+
+
+def _sse(event: str, data: dict) -> str:
+    """Format a single Server-Sent Events message."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 def load_latest_narrative(engine: Engine, scenario_name: str = "cat3") -> NarrativeResult | None:
@@ -571,7 +707,7 @@ def load_latest_narrative(engine: Engine, scenario_name: str = "cat3") -> Narrat
     with engine.connect() as conn:
         row = conn.execute(text("""
             SELECT narrative_id, scenario_name, run_id, comparison_id,
-                   title, text, equity_flag, model_used
+                   title, text, equity_flag, model_used, format, status
             FROM   report.narratives
             WHERE  scenario_name = :sn
             ORDER  BY generated_at DESC
@@ -589,4 +725,6 @@ def load_latest_narrative(engine: Engine, scenario_name: str = "cat3") -> Narrat
         text=row[5],
         equity_flag=row[6],
         model_used=row[7],
+        format=row[8],
+        status=row[9],
     )

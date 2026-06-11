@@ -57,7 +57,15 @@ maximize: population benefit + economic benefit
 
 Example: "Alt 1 ranks best because it has the lowest construction cost while serving 1.02M people — the population term outweighs Alt 3's 40% shorter distance through tunnel terrain."
 
-### 6. "So what" framing on comparison tables and leaderboards
+### 6. AI narrative text is always rendered, never raw
+
+Any LLM-generated text shown in the UI must go through the shared `<NarrativePanel>`
+component (markdown rendering via react-markdown + prose styling) — never interpolated as
+a bare string. If you find `{detail.narrative}`-style raw interpolation, fix it as part of
+the copy pass. Backend side: narratives must follow the M1 output contract
+(GitHub-flavored markdown, no preamble, consequence-first opening sentence).
+
+### 7. "So what" framing on comparison tables and leaderboards
 
 Don't leave the comparison implicit. After a ranking, add a one-liner that says what the difference means in human terms:
 - "The top-ranked route costs $4.5B less than Alt 3 and serves 420K more people."
@@ -92,6 +100,17 @@ Don't leave the comparison implicit. After a ranking, add a one-liner that says 
 - Objective score box already has "construction + maintenance + flood risk − population value served" — keep and extend.
 - Terrain composition: explain *why* tunnel is 8× more expensive than standard (hard rock excavation vs. grading).
 - "Best" badge: add a one-liner on what makes it best (e.g., "lowest cost per person served").
+
+### Playground (`/playground`) — when built (MVP2 M4)
+- Frame it as consequence-testing, not drawing: "Sketch infrastructure, see what it costs
+  and who it protects — without touching the real model."
+- Scorecard headline must be a consequence line ("Protects 41K people for $12M — $293 per
+  person served"), with the four model outputs (construction, maintenance NPV, capacity,
+  failure impact) below it.
+- Failure-injection results lead with the human footprint: people, hospitals, water
+  plants downstream — score deltas second.
+- Always label proxy data: property impact uses the Census housing proxy until CRIM
+  parcels land ("estimated from Census housing stock, not parcel values").
 
 ### Sync (`/sync`)
 - Lead with why syncing matters to the model: stale flood zones = stale risk scores.

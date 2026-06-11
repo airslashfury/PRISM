@@ -34,6 +34,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-prism}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
       CORS_ORIGINS: "*"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      PRISM_LLM_BACKEND: ${PRISM_LLM_BACKEND:-}
+      PRISM_OLLAMA_MODEL: ${PRISM_OLLAMA_MODEL:-}
+      PRISM_OLLAMA_BASE_URL: ${PRISM_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     volumes:

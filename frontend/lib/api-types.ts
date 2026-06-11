@@ -275,6 +275,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/corridor/routes/{route_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Route Profile
+         * @description DEM-sampled elevation profile along the route (~100 m intervals).
+         */
+        get: operations["route_profile_corridor_routes__route_id__profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/network/transmission": {
         parameters: {
             query?: never;
@@ -372,6 +392,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/narratives/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Narratives Stream
+         * @description SSE stream of a generated narrative: `event: chunk` messages with
+         *     `{"text": "..."}` as markdown arrives, then one `event: done` message
+         *     with `{"narrative_id", "model", "status", "title"}` once persisted.
+         */
+        post: operations["narratives_stream_reports_narratives_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/terrain/tiles/{z}/{x}/{y}.png": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Terrain Tile
+         * @description Return a MapLibre terrain-RGB PNG tile from locally-mirrored USGS 3DEP DEMs.
+         */
+        get: operations["terrain_tile_terrain_tiles__z___x___y__png_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -437,8 +499,7 @@ export interface components {
             line_geojson: components["schemas"]["FeatureCollection"];
             /** Segments */
             segments: components["schemas"]["CorridorSegment"][];
-            /** Narrative */
-            narrative?: string | null;
+            narrative?: components["schemas"]["NarrativeContent"] | null;
         };
         /** CorridorSegment */
         CorridorSegment: {
@@ -535,8 +596,34 @@ export interface components {
             equity_flag: boolean | null;
             /** Model Used */
             model_used: string | null;
+            /** Format */
+            format?: string | null;
+            /** Status */
+            status?: string | null;
             /** Generated At */
             generated_at: string | null;
+        };
+        /**
+         * NarrativeContent
+         * @description Parsed narrative ready for the frontend NarrativePanel — markdown body
+         *     plus the provenance footer (model + timestamp).
+         */
+        NarrativeContent: {
+            /** Title */
+            title?: string | null;
+            /** Narrative Md */
+            narrative_md: string;
+            /**
+             * Format
+             * @default markdown
+             */
+            format: string;
+            /** Model Used */
+            model_used?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Generated At */
+            generated_at?: string | null;
         };
         /** OverviewCounts */
         OverviewCounts: {
@@ -644,6 +731,21 @@ export interface components {
             items: components["schemas"]["PortfolioItem"][];
             /** Allocation By Type */
             allocation_by_type: components["schemas"]["TypeAllocation"][];
+        };
+        /** ProfilePoint */
+        ProfilePoint: {
+            /** Distance M */
+            distance_m: number;
+            /** Lng */
+            lng: number;
+            /** Lat */
+            lat: number;
+            /** Elev M */
+            elev_m: number;
+            /** Grade Pct */
+            grade_pct: number;
+            /** Terrain Type */
+            terrain_type: string;
         };
         /** ScenarioInfo */
         ScenarioInfo: {
@@ -1159,6 +1261,37 @@ export interface operations {
             };
         };
     };
+    route_profile_corridor_routes__route_id__profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                route_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePoint"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     transmission_network_transmission_get: {
         parameters: {
             query?: never;
@@ -1269,6 +1402,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Narrative"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    narratives_stream_reports_narratives_stream_post: {
+        parameters: {
+            query?: {
+                /** @description Narrative type to stream. Only 'corridor' is supported. */
+                kind?: string;
+                flagship?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    terrain_tile_terrain_tiles__z___x___y__png_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                z: number;
+                x: number;
+                y: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

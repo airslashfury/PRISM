@@ -39,9 +39,15 @@ _DDL = [
         title           TEXT,
         text            TEXT NOT NULL,
         equity_flag     BOOLEAN NOT NULL DEFAULT FALSE,
-        model_used      TEXT NOT NULL
+        model_used      TEXT NOT NULL,
+        format          TEXT NOT NULL DEFAULT 'json',
+        status          TEXT NOT NULL DEFAULT 'ok'
     )
     """,
+
+    # Migration for tables created before the M1 output contract.
+    "ALTER TABLE report.narratives ADD COLUMN IF NOT EXISTS format TEXT NOT NULL DEFAULT 'json'",
+    "ALTER TABLE report.narratives ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ok'",
 
     "CREATE INDEX IF NOT EXISTS idx_narratives_run ON report.narratives (run_id)",
     "CREATE INDEX IF NOT EXISTS idx_narratives_scenario ON report.narratives (scenario_name, generated_at DESC)",

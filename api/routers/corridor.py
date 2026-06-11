@@ -7,6 +7,8 @@ from sqlalchemy.engine import Engine
 from api import schemas
 from api.db import fetch_all, fetch_geojson, fetch_one
 from api.deps import engine_dep
+from prism.report.narrative import _parse_response
+from prism.terrain.profile import sample_route_profile
 
 router = APIRouter(prefix="/corridor", tags=["corridor"])
 
@@ -126,18 +128,38 @@ def route_detail(route_id: int, engine: Engine = Depends(engine_dep)) -> dict:
         """,
         route_id=route_id,
     )
-    narrative = fetch_one(
+    narrative_row = fetch_one(
         engine,
         """
-        SELECT text FROM report.narratives
+        SELECT title, text, model_used, format, status, generated_at FROM report.narratives
         WHERE scenario_name ILIKE '%corridor%' OR title ILIKE '%corridor%'
         ORDER BY generated_at DESC LIMIT 1
         """,
     )
+    narrative = None
+    if narrative_row:
+        parsed = _parse_response(narrative_row["text"])
+        narrative = {
+            "title": parsed.get("title", narrative_row["title"]),
+            "narrative_md": parsed.get("narrative_md") or parsed.get("executive_summary", ""),
+            "format": narrative_row["format"] or "json",
+            "model_used": narrative_row["model_used"],
+            "status": narrative_row["status"],
+            "generated_at": narrative_row["generated_at"],
+        }
     return {
         **base,
         "line_geojson": line,
         "segments_geojson": segments_geojson,
         "segments": segments,
-        "narrative": narrative["text"] if narrative else None,
+        "narrative": narrative,
     }
+
+
+@router.get("/routes/{route_id}/profile", response_model=list[schemas.ProfilePoint])
+def route_profile(route_id: int, engine: Engine = Depends(engine_dep)) -> list[dict]:
+    """DEM-sampled elevation profile along the route (~100 m intervals)."""
+    try:
+        return sample_route_profile(engine, route_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

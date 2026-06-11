@@ -1,5 +1,8 @@
 # PRISM API — lightweight image. The api/ package is self-contained
 # (SQLAlchemy + psycopg only); it does NOT import the heavy geo stack.
+# It does import prism.report.narrative + prism.llm + prism.config for AI
+# narrative generation/streaming — those only need PyYAML/anthropic on top of
+# SQLAlchemy/psycopg (no geopandas/rasterio at import time).
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -17,9 +20,17 @@ RUN pip install --no-cache-dir \
     "python-dotenv>=1.0" \
     "numpy>=1.26" \
     "rasterio>=1.3" \
-    "Pillow>=10.0"
+    "Pillow>=10.0" \
+    "PyYAML>=6.0" \
+    "anthropic>=0.39" \
+    "requests>=2.31"
 
 COPY api ./api
+COPY prism/__init__.py ./prism/__init__.py
+COPY prism/config.py ./prism/config.py
+COPY prism/llm.py ./prism/llm.py
+COPY prism/report ./prism/report
+COPY config ./config
 
 EXPOSE 8000
 

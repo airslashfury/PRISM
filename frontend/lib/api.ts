@@ -20,9 +20,11 @@ export type TypeAllocation = Schemas["TypeAllocation"];
 export type ExposureRow = Schemas["ExposureRow"];
 export type CorridorRoute = Schemas["CorridorRoute"];
 export type CorridorRouteDetail = Schemas["CorridorRouteDetail"];
+export type ProfilePoint = Schemas["ProfilePoint"];
 export type SyncSource = Schemas["SyncSource"];
 export type SyncLogEntry = Schemas["SyncLogEntry"];
 export type Narrative = Schemas["Narrative"];
+export type NarrativeContent = Schemas["NarrativeContent"];
 
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
@@ -88,6 +90,7 @@ export const api = {
   corridorRoutes: () => apiGet<CorridorRoute[]>("/corridor/routes"),
   corridorRoutesGeojson: () => apiGet<FeatureCollection>("/corridor/routes/geojson"),
   corridorRoute: (id: number) => apiGet<CorridorRouteDetail>(`/corridor/routes/${id}`),
+  corridorProfile: (id: number) => apiGet<ProfilePoint[]>(`/corridor/routes/${id}/profile`),
 
   transmission: () => apiGet<FeatureCollection>("/network/transmission"),
   floodZones: () => apiGet<FeatureCollection>("/hazard/flood"),
@@ -97,3 +100,54 @@ export const api = {
 
   narratives: (limit = 20) => apiGet<Narrative[]>("/reports/narratives", { limit }),
 };
+
+export interface NarrativeStreamDone {
+  narrative_id: number | null;
+  model: string;
+  status: string;
+  title?: string;
+}
+
+export interface NarrativeStreamHandlers {
+  onChunk?: (text: string) => void;
+  onDone?: (data: NarrativeStreamDone) => void;
+}
+
+/** Consume the SSE narrative stream (POST — EventSource doesn't support POST bodies/methods). */
+export async function streamCorridorNarrative(
+  handlers: NarrativeStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/reports/narratives/stream?kind=corridor`, {
+    method: "POST",
+    headers: { Accept: "text/event-stream" },
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new ApiError(res.status, res.statusText);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const raw = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      let event = "message";
+      let data = "";
+      for (const line of raw.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      const parsed = JSON.parse(data);
+      if (event === "chunk") handlers.onChunk?.(parsed.text);
+      else if (event === "done") handlers.onDone?.(parsed as NarrativeStreamDone);
+    }
+  }
+}

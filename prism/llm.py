@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -206,6 +207,75 @@ def _complete_ollama(
 
     msg = resp.json()["message"]
     return msg.get("content", "") or ""
+
+
+def _stream_anthropic(
+    prompt: str,
+    system: str | None,
+    model: str,
+    max_tokens: int,
+    cache_system: bool,
+) -> Iterator[str]:
+    import anthropic  # lazy import
+
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if system:
+        kwargs["system"] = (
+            [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+            if cache_system
+            else system
+        )
+    with client.messages.stream(**kwargs) as stream:
+        yield from stream.text_stream
+
+
+@dataclass
+class StreamHandle:
+    tier: str
+    model: str
+    backend: str
+    chunks: Iterator[str]
+
+
+def stream_complete(
+    task: str,
+    prompt: str,
+    *,
+    system: str | None = None,
+    stage: str = "runtime",
+    confidence: float | None = None,
+    criticality: str | None = None,
+    force_tier: str | None = None,
+    max_tokens: int = 2048,
+    cache_system: bool = True,
+) -> StreamHandle:
+    """Like `complete`, but returns a `StreamHandle` whose `.chunks` iterator
+    yields text incrementally (Anthropic only — Ollama yields one chunk
+    containing the full response)."""
+    tier = resolve_tier(
+        task, stage=stage, confidence=confidence,
+        criticality=criticality, force_tier=force_tier,
+    )
+
+    be = _backend()
+
+    if be == "anthropic":
+        model = _anthropic_model_id(tier)
+        log.debug("LLM stream dispatch: backend=anthropic tier=%s model=%s", tier, model)
+        chunks = _stream_anthropic(prompt, system, model, max_tokens, cache_system)
+    else:  # ollama — no streaming support, fall back to one chunk
+        model = _ollama_model_id(tier)
+        think = _ollama_think(tier)
+        log.debug("LLM stream dispatch: backend=ollama (non-streaming fallback) tier=%s model=%s", tier, model)
+        text = _complete_ollama(prompt, system, model, max_tokens, think=think)
+        chunks = iter([text])
+
+    return StreamHandle(tier=tier, model=model, backend=be, chunks=chunks)
 
 
 def complete(
