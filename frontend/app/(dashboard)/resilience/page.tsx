@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { ScatterplotLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
+import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import { ChevronLeft, TriangleAlert } from "lucide-react";
 
@@ -12,10 +13,10 @@ import { Segmented } from "@/components/ui/segmented";
 import { Badge } from "@/components/ui/badge";
 import { SeverityLabel } from "@/components/severity";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
-import { useFloodZones, useScores, useSubstation, useTransmission } from "@/lib/hooks";
+import { useScores, useSubstation, useConsequence } from "@/lib/hooks";
 import { riskColor, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum, fmtUsd } from "@/lib/utils";
-import type { SubstationScore } from "@/lib/api";
+import { tileUrl, type SubstationScore } from "@/lib/api";
 
 const SCENARIOS = [
   { value: "cat3", label: "Cat-3 Hurricane" },
@@ -41,17 +42,18 @@ const HEAT_RANGE: RGB[] = [
 
 const GRID_RGB: RGB = [34, 211, 238];
 const FLOOD_RGB: RGB = [37, 99, 235];
+const CONSEQUENCE_RGB: RGB = [250, 204, 21];
 
 export default function ResiliencePage() {
   const [scenario, setScenario] = useState<string>("cat3");
   const [selected, setSelected] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
   const [mode, setMode] = useState<string>("points");
   const [showGrid, setShowGrid] = useState(false);
   const [showFlood, setShowFlood] = useState(false);
 
   const { data: scores, isLoading, error } = useScores(scenario, 400);
-  const { data: grid } = useTransmission(showGrid);
-  const { data: flood } = useFloodZones(showFlood);
+  const { data: consequence } = useConsequence(hovered);
 
   const { min, max } = useMemo(() => {
     if (!scores?.length) return { min: 0, max: 1 };
@@ -62,11 +64,13 @@ export default function ResiliencePage() {
   const layers = useMemo(() => {
     const ls: Layer[] = [];
 
-    if (showFlood && flood) {
+    if (showFlood) {
       ls.push(
-        new GeoJsonLayer({
+        new MVTLayer({
           id: "flood",
-          data: flood as never,
+          data: tileUrl("flood"),
+          minZoom: 0,
+          maxZoom: 14,
           filled: true,
           stroked: false,
           getFillColor: [...FLOOD_RGB, 60] as [number, number, number, number],
@@ -75,11 +79,13 @@ export default function ResiliencePage() {
       );
     }
 
-    if (showGrid && grid) {
+    if (showGrid) {
       ls.push(
-        new GeoJsonLayer({
+        new MVTLayer({
           id: "grid",
-          data: grid as never,
+          data: tileUrl("transmission"),
+          minZoom: 0,
+          maxZoom: 14,
           filled: false,
           stroked: true,
           getLineColor: [...GRID_RGB, 90] as [number, number, number, number],
@@ -139,8 +145,30 @@ export default function ResiliencePage() {
         );
       }
     }
+
+    // Consequence Lens (M5a): ripple-highlight the downstream dependency cone
+    // of the hovered substation.
+    if (hovered != null && consequence?.downstream.length) {
+      ls.push(
+        new ScatterplotLayer({
+          id: "consequence-ripple",
+          data: consequence.downstream,
+          getPosition: (d: { lon?: number | null; lat?: number | null }) => [d.lon ?? 0, d.lat ?? 0],
+          getRadius: 600,
+          radiusUnits: "meters",
+          radiusMinPixels: 4,
+          radiusMaxPixels: 24,
+          getFillColor: [...CONSEQUENCE_RGB, 110] as [number, number, number, number],
+          getLineColor: [...CONSEQUENCE_RGB, 230] as [number, number, number, number],
+          getLineWidth: 1.5,
+          lineWidthUnits: "pixels",
+          stroked: true,
+          pickable: false,
+        }),
+      );
+    }
     return ls;
-  }, [scores, grid, flood, showGrid, showFlood, mode, min, max, selected]);
+  }, [scores, showGrid, showFlood, mode, min, max, selected, hovered, consequence]);
 
   const getTooltip = (info: PickingInfo) => {
     const d = info.object as SubstationScore | undefined;
@@ -162,12 +190,21 @@ export default function ResiliencePage() {
     setSelected(d?.entity_id ?? null);
   };
 
+  const onHover = (info: PickingInfo) => {
+    if (info.layer?.id !== "substations") {
+      setHovered(null);
+      return;
+    }
+    const d = info.object as SubstationScore | undefined;
+    setHovered(d?.entity_id ?? null);
+  };
+
   const top = scores ? [...scores].slice(0, 25) : [];
 
   return (
     <div className="flex h-full">
       <div className="relative flex-1">
-        <MapCanvas layers={layers} getTooltip={getTooltip} onClick={onClick}>
+        <MapCanvas layers={layers} getTooltip={getTooltip} onClick={onClick} onHover={onHover}>
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Substations at risk
@@ -175,6 +212,16 @@ export default function ResiliencePage() {
             <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(scores?.length)}</div>
             <div className="text-[11px] text-muted-foreground">ring = single point of failure</div>
           </div>
+
+          {/* Consequence Lens (M5a) — instant downstream-impact headline on hover */}
+          {hovered != null && consequence?.headline && (
+            <div className="pointer-events-none absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                {consequence.name ?? "Substation"} fails
+              </div>
+              <div className="mt-0.5 text-sm font-medium text-foreground">{consequence.headline}</div>
+            </div>
+          )}
 
           {/* Layer control */}
           <div className="absolute right-4 top-4 w-52 rounded-lg border border-border/70 bg-card/90 p-3 shadow-lg backdrop-blur">

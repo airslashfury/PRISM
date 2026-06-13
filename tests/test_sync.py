@@ -47,7 +47,11 @@ def engine():
 def sync_schema(engine):
     create_schema(engine)
     yield
-    # leave schema intact — idempotent DDL
+    # leave schema intact (idempotent DDL) but remove _test_* registry rows
+    # so they don't accumulate in sync.data_sources / sync.sync_log.
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM sync.sync_log WHERE source_name LIKE '\\_test\\_%'"))
+        conn.execute(text("DELETE FROM sync.data_sources WHERE source_name LIKE '\\_test\\_%'"))
 
 
 # ── schema DDL ────────────────────────────────────────────────────────────────

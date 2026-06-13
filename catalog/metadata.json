@@ -1817,6 +1817,24 @@
       "code_commit": "1da1ca4",
       "license": "derived from PR government"
     },
+    "derived:graph.downstream_summary": {
+      "source": "derived",
+      "title": "graph.downstream_summary",
+      "description": "M5a Consequence Lens: per-substation downstream cascade summary (population/hospitals/water_plants/health_centers/barrios + downstream entity ids + one-line headline), refreshed by the sync spine",
+      "schema": "graph",
+      "table": "downstream_summary",
+      "row_count": 961,
+      "inputs": [
+        "graph.entities (substation)",
+        "graph.relationships (FEEDS, POWERS, SERVES)",
+        "resilience.cascade_scores",
+        "economy.substation_exposure",
+        "prism/graph/downstream_summary.py"
+      ],
+      "compute_date": "2026-06-12",
+      "code_commit": "72026ac",
+      "license": "derived"
+    },
     "derived:resilience.spof_scores": {
       "source": "derived",
       "title": "resilience.spof_scores",

@@ -1,0 +1,63 @@
+# Production overlay. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Adds an nginx reverse proxy (port 80) in front of the frontend + API,
+# switches api/worker to JSON structured logging, and adds a scheduled
+# pg_dump backup sidecar. The base docker-compose.yml is unchanged — this
+# file only adds services and overrides environment/restart policy.
+services:
+  postgis:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  api:
+    restart: unless-stopped
+    environment:
+      PRISM_LOG_FORMAT: json
+      PRISM_LOG_LEVEL: ${PRISM_LOG_LEVEL:-INFO}
+
+  worker:
+    restart: unless-stopped
+    environment:
+      PRISM_LOG_FORMAT: json
+      PRISM_LOG_LEVEL: ${PRISM_LOG_LEVEL:-INFO}
+
+  frontend:
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: prism-nginx
+    restart: unless-stopped
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - api
+      - frontend
+
+  backup:
+    image: prism-postgis:16-3.4
+    container_name: prism-backup
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/backup/backup.sh"]
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-prism}
+      POSTGRES_USER: ${POSTGRES_USER:-prism}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-prism}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      - ./docker/backup:/backup:ro
+      - prism_backups:/backups
+    depends_on:
+      postgis:
+        condition: service_healthy
+
+volumes:
+  prism_backups:

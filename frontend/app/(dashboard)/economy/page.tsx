@@ -1,17 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { ScatterplotLayer } from "@deck.gl/layers";
+import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 
 import { MapCanvas, tip } from "@/components/map/map-canvas";
 import { GradientLegend } from "@/components/legend";
 import { Segmented } from "@/components/ui/segmented";
+import { InfoPanel } from "@/components/info-panel";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
-import { useEconomyTracts, useExposure, useFloodZones } from "@/lib/hooks";
+import { useEconomyTracts, useExposure } from "@/lib/hooks";
 import { sviColor, type RGB } from "@/lib/colors";
 import { fmtInt, fmtNum, fmtPct, fmtUsd } from "@/lib/utils";
-import type { ExposureRow } from "@/lib/api";
+import { tileUrl, type ExposureRow } from "@/lib/api";
 
 const SVI_STOPS: RGB[] = [
   [56, 78, 122],
@@ -25,7 +27,6 @@ export default function EconomyPage() {
   const { data: exposure } = useExposure(400);
   const [showExposure, setShowExposure] = useState<string>("on");
   const [showFlood, setShowFlood] = useState(false);
-  const { data: flood } = useFloodZones(showFlood);
 
   const stats = useMemo(() => {
     const feats = tracts?.features ?? [];
@@ -41,27 +42,28 @@ export default function EconomyPage() {
   }, [tracts]);
 
   const layers = useMemo(() => {
-    const ls: Layer[] = [];
-    if (tracts) {
+    const ls: Layer[] = [
+      new MVTLayer({
+        id: "svi-choropleth",
+        data: tileUrl("tracts"),
+        minZoom: 0,
+        maxZoom: 14,
+        filled: true,
+        stroked: true,
+        getFillColor: (f: { properties: Record<string, number> }) =>
+          [...sviColor(f.properties.svi_score ?? 0), 155] as [number, number, number, number],
+        getLineColor: [148, 163, 184, 35],
+        lineWidthMinPixels: 0.5,
+        pickable: true,
+      }),
+    ];
+    if (showFlood) {
       ls.push(
-        new GeoJsonLayer({
-          id: "svi-choropleth",
-          data: tracts as never,
-          filled: true,
-          stroked: true,
-          getFillColor: (f: { properties: Record<string, number> }) =>
-            [...sviColor(f.properties.svi_score ?? 0), 155] as [number, number, number, number],
-          getLineColor: [148, 163, 184, 35],
-          lineWidthMinPixels: 0.5,
-          pickable: true,
-        }),
-      );
-    }
-    if (showFlood && flood) {
-      ls.push(
-        new GeoJsonLayer({
+        new MVTLayer({
           id: "flood",
-          data: flood as never,
+          data: tileUrl("flood"),
+          minZoom: 0,
+          maxZoom: 14,
           filled: true,
           stroked: false,
           getFillColor: [37, 99, 235, 55],
@@ -89,7 +91,7 @@ export default function EconomyPage() {
       );
     }
     return ls;
-  }, [tracts, exposure, showExposure, showFlood, flood]);
+  }, [exposure, showExposure, showFlood]);
 
   const getTooltip = (info: PickingInfo) => {
     if (info.layer?.id === "exposure") {
@@ -130,7 +132,7 @@ export default function EconomyPage() {
               Social Vulnerability Index (SVI)
             </div>
             <div className="mt-0.5 text-[10px] text-muted-foreground/70">
-              poverty · age · disability · flood · slope
+              0 = low vulnerability, 1 = high · weighted: poverty · age · disability · flood · slope
             </div>
             <div className="mt-0.5 flex items-baseline gap-2">
               <span className="text-2xl font-semibold tnum">{fmtNum(stats.avg, 2)}</span>
@@ -177,13 +179,31 @@ export default function EconomyPage() {
       </div>
 
       <aside className="flex w-[360px] shrink-0 flex-col border-l border-border/70 bg-card/30">
-        <div className="border-b border-border/70 p-4">
-          <h2 className="text-sm font-semibold">Most exposed substations</h2>
-          <p className="text-xs text-muted-foreground">
-            Ranked by people who lose power if this substation fails. Circle size on the map
-            is proportional to that population. VOLL (Value of Lost Load) converts outage
-            exposure to a 30-year net-present-value dollar figure at $2,389/person.
-          </p>
+        <div className="space-y-3 border-b border-border/70 p-4">
+          <div>
+            <h2 className="text-sm font-semibold">Most exposed substations</h2>
+            <p className="text-xs text-muted-foreground">
+              Ranked by people who lose power if this substation fails. Circle size on the map
+              is proportional to that population. VOLL (Value of Lost Load) converts outage
+              exposure to a 30-year net-present-value dollar figure at $2,389/person.
+            </p>
+          </div>
+          <InfoPanel
+            sections={[
+              {
+                title: "What this is",
+                body: "Two related layers: the SVI choropleth (per Census tract, how vulnerable residents are to a disruption) and substation exposure (how many people each substation powers, and what an outage there would cost).",
+              },
+              {
+                title: "How it's calculated",
+                body: "SVI is a weighted composite, percentile-ranked 0–1 across all 981 tracts: poverty rate (30%), elderly population (15%), disability rate (10%), flood-zone overlap (30%), terrain slope (15%). Exposure traces the knowledge graph downstream from each substation (FEEDS → POWERS) to count the population it serves; VOLL converts that population's expected outage hours into a 30-year NPV dollar figure ($2,389/person) used as the \"economic benefit\" in Portfolio.",
+              },
+              {
+                title: "Data sources & accuracy",
+                body: "Poverty, elderly, and disability rates are from Census ACS 5-year 2022 estimates per tract. Flood zones are from the PR government WFS hazard layers; slope is derived from USGS 3DEP elevation. Median income and home value are currently statewide ACS medians applied uniformly, not yet per-tract.",
+              },
+            ]}
+          />
         </div>
         <div className="flex-1 overflow-y-auto">
           {error && <div className="p-4"><ErrorBlock error={error} /></div>}

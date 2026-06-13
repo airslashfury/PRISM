@@ -32,6 +32,7 @@ def trigger_rescore(engine: Engine, scenario: str = "cat3") -> None:
     """Re-run the named resilience scenario and persist updated scores."""
     from prism.resilience.hazard import SCENARIOS
     from prism.resilience.score import run_scenario
+    from prism.graph.downstream_summary import compute_downstream_summary
 
     if scenario not in SCENARIOS:
         raise ValueError(f"Unknown scenario '{scenario}'; valid: {list(SCENARIOS)}")
@@ -43,3 +44,6 @@ def trigger_rescore(engine: Engine, scenario: str = "cat3") -> None:
         len(ranked),
         ranked[0].composite_score if ranked else 0.0,
     )
+
+    n = compute_downstream_summary(engine)
+    log.info("Refreshed downstream summary for %d substations (Consequence Lens)", n)

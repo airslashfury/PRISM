@@ -1,8 +1,8 @@
-# PRISM API — lightweight image. The api/ package is self-contained
-# (SQLAlchemy + psycopg only); it does NOT import the heavy geo stack.
-# It does import prism.report.narrative + prism.llm + prism.config for AI
-# narrative generation/streaming — those only need PyYAML/anthropic on top of
-# SQLAlchemy/psycopg (no geopandas/rasterio at import time).
+# Shared image for the `api` and `worker` services. The api/ routes themselves
+# stay light (SQLAlchemy + psycopg + rasterio for terrain/profile), but the
+# arq worker (api/worker.py) runs prism.corridor.generate_corridors and
+# prism.sync.trigger.trigger_rescore, which pull in geopandas/scipy/networkx —
+# included here so both services can share one image.
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -23,13 +23,32 @@ RUN pip install --no-cache-dir \
     "Pillow>=10.0" \
     "PyYAML>=6.0" \
     "anthropic>=0.39" \
-    "requests>=2.31"
+    "requests>=2.31" \
+    "redis>=5.0" \
+    "arq>=0.26" \
+    "slowapi>=0.1.9" \
+    "pyproj>=3.6" \
+    "shapely>=2.0" \
+    "networkx>=3.2" \
+    "scipy>=1.11" \
+    "geopandas>=0.14" \
+    "prometheus-client>=0.20" \
+    "python-json-logger>=2.0.7"
 
 COPY api ./api
 COPY prism/__init__.py ./prism/__init__.py
 COPY prism/config.py ./prism/config.py
+COPY prism/cache.py ./prism/cache.py
 COPY prism/llm.py ./prism/llm.py
 COPY prism/report ./prism/report
+COPY prism/load ./prism/load
+COPY prism/corridor ./prism/corridor
+COPY prism/sync ./prism/sync
+COPY prism/resilience ./prism/resilience
+COPY prism/terrain ./prism/terrain
+COPY prism/graph ./prism/graph
+COPY prism/assets ./prism/assets
+COPY prism/playground ./prism/playground
 COPY config ./config
 
 EXPOSE 8000

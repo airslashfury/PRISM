@@ -1,5 +1,6 @@
 """
-python -m prism.graph [--entities] [--topology] [--relationships] [--query NAME]
+python -m prism.graph build [--entities] [--topology] [--relationships] [--query NAME]
+python -m prism.graph downstream-summary
 
 Builds the PRISM knowledge graph in PostGIS:
   1. Create graph schema (DDL)
@@ -7,6 +8,8 @@ Builds the PRISM knowledge graph in PostGIS:
   3. Build TX network and road topology
   4. Derive all relationship edges
   5. Optional: run the exit-gate failure query for a named substation
+
+`downstream-summary` recomputes graph.downstream_summary (M5a Consequence Lens).
 """
 from __future__ import annotations
 
@@ -26,6 +29,7 @@ from prism.graph.relationships import (
     build_powers, build_serves, build_crosses,
 )
 from prism.graph.query import downstream_of, find_entity, affected_population
+from prism.graph.downstream_summary import compute_downstream_summary
 
 app = typer.Typer(add_completion=False)
 console = Console()
@@ -149,6 +153,15 @@ def build(
             )
 
     console.print("\n[bold green]Done.[/bold green]\n")
+
+
+@app.command("downstream-summary")
+def downstream_summary() -> None:
+    """Recompute graph.downstream_summary (M5a Consequence Lens) for every substation."""
+    engine = get_engine()
+    _hdr("Downstream summary (Consequence Lens)")
+    n, elapsed = _run_stage("compute_downstream_summary", compute_downstream_summary, engine)
+    _ok(f"{n} substations summarized ({elapsed:.1f}s)")
 
 
 if __name__ == "__main__":

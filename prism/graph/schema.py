@@ -80,9 +80,27 @@ _DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_tx_network_geom ON graph.tx_network USING GIST (geom)",
+
+    # ── downstream summary (M5a — Consequence Lens) ───────────────────────────
+    """
+    CREATE TABLE IF NOT EXISTS graph.downstream_summary (
+        entity_id           BIGINT PRIMARY KEY REFERENCES graph.entities(entity_id) ON DELETE CASCADE,
+        kind                TEXT NOT NULL,
+        name                TEXT,
+        population_affected BIGINT NOT NULL DEFAULT 0,
+        hospitals           INT NOT NULL DEFAULT 0,
+        water_plants        INT NOT NULL DEFAULT 0,
+        health_centers      INT NOT NULL DEFAULT 0,
+        barrios             INT NOT NULL DEFAULT 0,
+        downstream_ids      JSONB NOT NULL DEFAULT '[]'::jsonb,
+        headline            TEXT NOT NULL,
+        computed_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
 ]
 
 _DROP_DDL = [
+    "DROP TABLE IF EXISTS graph.downstream_summary CASCADE",
     "DROP TABLE IF EXISTS graph.tx_network CASCADE",
     "DROP TABLE IF EXISTS graph.road_edges CASCADE",
     "DROP TABLE IF EXISTS graph.road_vertices CASCADE",

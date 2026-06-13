@@ -5,6 +5,7 @@ import {
   Users,
   Route,
   RefreshCw,
+  FlaskConical,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export const NAV: NavItem[] = [
   { href: "/economy", label: "Economy", icon: Users, desc: "Who's most vulnerable and how much it costs when the lights go out" },
   { href: "/corridor", label: "Rail Corridor", icon: Route, desc: "Ranked routes balancing construction cost, terrain, and population served" },
   { href: "/sync", label: "Digital Twin", icon: RefreshCw, desc: "Live hazard data — new flood maps auto-trigger a resilience re-score" },
+  { href: "/playground", label: "Playground", icon: FlaskConical, desc: "Sketch infrastructure onto the live model and see cost, capacity, and resilience impact instantly" },
 ];
 
 export function activeNav(pathname: string): NavItem {

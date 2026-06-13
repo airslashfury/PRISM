@@ -56,10 +56,17 @@ export function tip(rows: [string, string][], title?: string) {
   };
 }
 
+/** Imperative API handed to the parent once the underlying MapLibre map has loaded. */
+export interface PrismMapApi {
+  /** Elevation (m) of the rendered terrain mesh at a lng/lat, or null if terrain isn't active/loaded. */
+  getTerrainElevation: (lng: number, lat: number) => number | null;
+}
+
 export interface PrismMapProps {
   layers: Layer[];
   getTooltip?: (info: PickingInfo) => null | string | { html?: string; text?: string; style?: object };
   onClick?: (info: PickingInfo) => void;
+  onHover?: (info: PickingInfo) => void;
   initialViewState?: MapViewState;
   children?: React.ReactNode;
   /** Enable MapLibre 3D terrain from locally-mirrored USGS 3DEP DEM. */
@@ -70,18 +77,25 @@ export interface PrismMapProps {
   satellite?: boolean;
   /** When set, drives the camera directly (e.g. a fly-through tour) — applied with no transition. */
   viewStateOverride?: MapViewState | null;
+  /** Called once the map (and its API) is ready. */
+  onMapReady?: (api: PrismMapApi) => void;
+  /** Called once the terrain DEM tiles for the current view have finished loading. */
+  onTerrainTilesLoaded?: () => void;
 }
 
 export function PrismMap({
   layers,
   getTooltip,
   onClick,
+  onHover,
   initialViewState = PR_VIEW,
   children,
   terrain = false,
   exaggeration = 1.7,
   satellite = false,
   viewStateOverride = null,
+  onMapReady,
+  onTerrainTilesLoaded,
 }: PrismMapProps) {
   const mapRef = useRef<any>(null);
   const terrainActive = useRef(false);
@@ -164,6 +178,7 @@ export function PrismMap({
     if (terrain && !terrainActive.current) {
       if (map && typeof map.isStyleLoaded === "function" && map.isStyleLoaded()) {
         applyTerrainLayers(map, exaggeration);
+        map.once("idle", () => onTerrainTilesLoaded?.());
       }
       setViewState((vs) => ({
         ...vs,
@@ -211,8 +226,22 @@ export function PrismMap({
     (event: { target: any }) => {
       const map = event.target;
       mapRef.current = { getMap: () => map };
-      if (terrain) applyTerrainLayers(map, exaggeration);
+      if (terrain) {
+        applyTerrainLayers(map, exaggeration);
+        map.once("idle", () => onTerrainTilesLoaded?.());
+      }
       if (satellite) setSatelliteVisible(map, true);
+      onMapReady?.({
+        getTerrainElevation: (lng, lat) => {
+          if (!terrainActive.current) return null;
+          try {
+            const elev = map.queryTerrainElevation([lng, lat]);
+            return elev ?? null;
+          } catch {
+            return null;
+          }
+        },
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -241,6 +270,7 @@ export function PrismMap({
         layers={layers}
         getTooltip={getTooltip as never}
         onClick={onClick}
+        onHover={onHover}
         style={{ position: "absolute", inset: "0" }}
       >
         <Map mapStyle={MAP_STYLE} attributionControl={false} reuseMaps onLoad={handleMapLoad} />

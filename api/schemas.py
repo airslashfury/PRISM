@@ -92,6 +92,27 @@ class SubstationDetail(SubstationScore):
     economic_benefit_usd: float | None = None
 
 
+class ConsequenceEntity(BaseModel):
+    entity_id: int
+    kind: str
+    name: str | None
+    lon: float | None = None
+    lat: float | None = None
+
+
+class ConsequenceSummary(BaseModel):
+    entity_id: int
+    kind: str
+    name: str | None
+    population_affected: int
+    hospitals: int
+    water_plants: int
+    health_centers: int
+    barrios: int
+    headline: str
+    downstream: list[ConsequenceEntity]
+
+
 class SpofEntity(BaseModel):
     entity_id: int
     name: str | None
@@ -251,3 +272,96 @@ class NarrativeContent(BaseModel):
     model_used: str | None = None
     status: str | None = None
     generated_at: datetime | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Playground (M4)                                                              #
+# --------------------------------------------------------------------------- #
+class AssetTypeSchema(BaseModel):
+    """A playground-eligible asset type, reflected from PLAYGROUND_SCHEMA."""
+    asset_type: str
+    geometry: Literal["point", "line"]
+    icon: str
+    default_unit_cost_usd_per_km: float | None = None
+    default_unit_cost_usd: float | None = None
+    params: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ScenarioCreate(BaseModel):
+    name: str
+    description: str | None = None
+    author: str | None = None
+
+
+class PlaygroundScenario(BaseModel):
+    scenario_id: int
+    name: str
+    description: str | None
+    author: str | None
+    status: str
+    is_reference: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScenarioAssetCreate(BaseModel):
+    asset_type: str
+    op: Literal["add", "remove"] = "add"
+    geometry: dict[str, Any] | None = None
+    """GeoJSON geometry in EPSG:4326 (Point or LineString)."""
+    target_entity_id: int | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class ScenarioAsset(BaseModel):
+    asset_id: int
+    asset_type: str
+    op: str
+    target_entity_id: int | None
+    params: dict[str, Any]
+    created_at: datetime
+
+
+class ScenarioEventCreate(BaseModel):
+    entity_id: int
+    event_type: Literal["fail"] = "fail"
+
+
+class ScenarioEvent(BaseModel):
+    event_id: int
+    entity_id: int
+    event_type: str
+    created_at: datetime
+
+
+class ScenarioResult(BaseModel):
+    result_id: int
+    scenario_id: int
+    run_id: str | None
+    objective_breakdown: dict[str, Any] | None
+    resilience_delta: dict[str, Any] | None
+    headline: str | None
+    status: str
+    computed_at: datetime
+
+
+class PlaygroundScenarioDetail(PlaygroundScenario):
+    assets: list[ScenarioAsset]
+    events: list[ScenarioEvent]
+    latest_result: ScenarioResult | None = None
+
+
+class CommitResult(BaseModel):
+    scenario_id: int
+    stations_created: int
+    serves_created: int
+
+
+class WhatIfResult(BaseModel):
+    entity_id: int
+    affected: list[dict[str, Any]]
+    people: int
+    barrios: int
+    municipios: int
+    hospitals: int
+    water_plants: int

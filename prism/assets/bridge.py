@@ -27,6 +27,16 @@ _TRIP_COST_PER_KM_P  = 0.03
 class Bridge(InfrastructureAsset):
     asset_type = AssetType.BRIDGE
 
+    PLAYGROUND_SCHEMA = {
+        "geometry": "point",
+        "icon": "milestone",
+        "default_unit_cost_usd_per_km": None,
+        "params": [
+            {"name": "span_m", "type": "float", "label": "Span length (m)", "default": 30.0},
+            {"name": "posted", "type": "bool", "label": "Load-posted", "default": False},
+        ],
+    }
+
     def construction_cost(self, segment: Any, ctx: Context) -> float:
         """
         segment must carry:

@@ -49,7 +49,7 @@ def build_located_in(engine: Engine) -> int:
     count = 0
     with engine.begin() as conn:
         for admin_kind in ("barrio", "municipio"):
-            rows = conn.execute(text(f"""
+            rows = conn.execute(text("""
                 SELECT p.entity_id AS pt_id, a.entity_id AS area_id,
                        ST_Distance(p.geom, ST_Centroid(a.geom)) AS dist
                 FROM graph.entities p
@@ -84,7 +84,7 @@ def build_connects_to(engine: Engine) -> int:
     with engine.begin() as conn:
         # Map each substation to the comp_id of its nearest TX segment endpoint.
         # We use the centroid of the noded segment as the attachment point.
-        comp_map_rows = conn.execute(text(f"""
+        comp_map_rows = conn.execute(text("""
             SELECT DISTINCT ON (sub.entity_id)
                    sub.entity_id,
                    tx.comp_id,

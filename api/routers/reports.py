@@ -1,13 +1,14 @@
 """AI narratives and scenario comparisons (Phase 7 / Decision Intelligence)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.engine import Engine
 
 from api import schemas
 from api.db import fetch_all
 from api.deps import engine_dep
+from api.limiter import limiter
 from prism.report.narrative import stream_corridor_narrative
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -33,7 +34,9 @@ def narratives(
 
 
 @router.post("/narratives/stream")
+@limiter.limit("5/minute")
 def narratives_stream(
+    request: Request,
     kind: str = Query("corridor", description="Narrative type to stream. Only 'corridor' is supported."),
     flagship: bool = Query(False),
     engine: Engine = Depends(engine_dep),

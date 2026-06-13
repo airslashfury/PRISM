@@ -101,8 +101,39 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | 8 — Transportation | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
 | 9 — Digital Twin | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
 | 10 — Rail Corridor | **COMPLETE** | 2026-06-07 | Opus GO (conditional) |
+| M1 — AI Text Quality | **COMPLETE** | 2026-06-10 | Opus GO |
+| M2 — 3D Corridor | **COMPLETE** | 2026-06-10 | Opus GO |
+| M2.1 — Cleanup | **COMPLETE** | 2026-06-11 | (no gate needed) |
+| M3 — Backend Stability Spine | **COMPLETE** | 2026-06-12 | Opus GO |
+| M4 — Playground | **COMPLETE** | 2026-06-12 | Opus GO |
+| M5a — Consequence Lens | **COMPLETE** | 2026-06-12 | Opus GO (conditional) |
 
-## Current state (2026-06-07)
+## Current state (2026-06-12)
+
+### M5a — COMPLETE (2026-06-12, Opus GO conditional)
+
+**What was built (Consequence Lens — hover ripple-highlight + one-line headline):**
+- `prism/graph/schema.py` — `graph.downstream_summary` table (per-substation: population_affected, hospitals, water_plants, health_centers, barrios, `downstream_ids` jsonb, `headline`)
+- `prism/graph/downstream_summary.py` — `build_headline()` (pluralized, comma-joined sentence, e.g. "Failure cuts power to 88,000 people, 2 hospitals, and 1 water plant."); `compute_downstream_summary()` reuses Phase 3 `cascade_scores` + Phase 5 `substation_exposure`, walks `downstream_of()` for the entity-id list, upserts all 961 substations
+- `python -m prism.graph downstream-summary` CLI; `prism/sync/trigger.py::trigger_rescore` now refreshes the summary after every rescore (sync-spine wired, per spec)
+- `GET /network/consequence/{entity_id}` (cached 6h) + `ConsequenceSummary`/`ConsequenceEntity` schemas
+- Frontend: `useConsequence` hook, `PrismMap` gained `onHover`; Resilience page hovers a substation → yellow `consequence-ripple` highlight on downstream entities + bottom-center "{name} fails / headline" banner
+- `tests/test_downstream_summary.py` — 8 new tests (pure headline logic + live DB coverage/consistency checks)
+- `catalog/metadata.json` — 161 entries (added `derived:graph.downstream_summary`)
+
+**M5a live state (2026-06-12):**
+- `graph.downstream_summary`: 961/961 substations, all with non-empty headlines
+- Full pytest: **282 passed, 2 skipped** (both pre-existing: Phase 3 SLR geometry, Phase 6 human-sim)
+- `npm run typecheck`/`lint` clean (one pre-existing `app/layout.tsx` font warning)
+- Live verified: `GET /network/consequence/915` (PALO SECO SP TC) → real headline + downstream list; Playwright hover sweep on `/resilience` rendered the banner ("COSTA SUR 13KV FAILS / Failure cuts power to 11,308 people.") and ripple layer, console clean (only benign WebGL warnings)
+
+**M5a carry-forwards into M5b+:**
+- **Scoping vs. spec:** "any asset on any map" → as-built covers only `kind='substation'` (the only entities with FEEDS/POWERS downstream cascades) and only the Resilience page is wired with hover/ripple/banner. Reasonable MVP cut; extend to other pages/entity types only if a later sub-phase needs it.
+- **Cache-coherence gap:** `/network/consequence/{id}` is cached 6h but `trigger_rescore`/`prism/cache.py` don't invalidate `consequence:*` keys on resync — a sync-triggered rescore can serve a stale headline for up to 6h. Fold the invalidation into M5c (Storm Timeline), which already extends the rescore trigger.
+- **Generated client gap (cosmetic):** `frontend/lib/api-types.ts` has the `ConsequenceSummary`/`ConsequenceEntity` schemas but not the `/network/consequence/{entity_id}` path entry (harmless — `api.ts` uses an explicit type param). Regenerate on next OpenAPI client refresh.
+- Ripple-highlight visual prominence is subtle (radiusMinPixels 4) — cosmetic, non-blocking.
+
+### Phase 10 — COMPLETE (2026-06-07, Opus GO conditional)
 
 ### Phase 10 — COMPLETE (2026-06-07, Opus GO conditional)
 
@@ -175,30 +206,55 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 - **`_test_*` rows in sync.data_sources:** left by test suite (prefixed, harmless). Consider a dedicated test schema or teardown for a clean production registry.
 - **Open carry-forwards from earlier phases** (CENSUS_API_KEY, CRIM parcels, rail corridor study, pct_elderly/pct_disabled, bridge span data) remain deferred — documented in respective phase sections above.
 
-## Start here — ALL PHASES COMPLETE
+## Start here — MVP2 in progress (M5b next)
 
-Phases 0–10 complete. PRISM is a full-stack Puerto Rico infrastructure simulation model.
+Phases 0–10 + M1–M4 + M5a complete. PRISM is a full-stack Puerto Rico infrastructure simulation model.
 
 **PRISM live state:**
-- **Data layer:** 3.62 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; 160 catalog entries
-- **Knowledge graph:** 48,801 nodes, 68,272+ edges, 6 relationship types
+- **Data layer:** 3.62 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; 161 catalog entries
+- **Knowledge graph:** 48,801 nodes, 68,272+ edges, 6 relationship types; `graph.downstream_summary` (961 substations, M5a)
 - **Resilience:** 315 substations scored across 3 scenarios; top composite 84.10 (PALO SECO SP TC)
 - **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with real per-tract ACS data; 5-component SVI
 - **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (equity-aware)
 - **Transport:** pgRouting road-access (892/901 barrios reachable; median 9.2 min); 3,168 bridges
 - **Decision intelligence:** AI narratives (Sonnet/Opus); scenario comparison with equity_flag
-- **Digital Twin:** WFS re-sync spine; auto rescore on hazard-layer change
+- **Digital Twin:** WFS re-sync spine; auto rescore on hazard-layer change → also refreshes Consequence Lens summary (M5a)
 - **Rail Corridors:** 5 alternatives across 3 O-D pairs; cost surface (slope + flood + SVI-pop); preferred SJ→Ponce alt 1 (121.0 km, $3.40B constr, 1.05M pop served)
 - **3D Corridor Experience (M2):** DEM-sampled elevation profiles, true-3D route ribbons with vertical exaggeration, animated train, fly-through tour with segment narration
+- **Playground (M4):** copy-on-write scenario sandbox with what-if failure mode
+- **Consequence Lens (M5a):** hover a substation on the Resilience map → ripple-highlight of its downstream cascade + one-line headline ("Failure cuts power to N people, N hospitals, ...")
 
-**Next steps — MVP2 is the active plan (2026-06-09): see `MVP2_PLAN.md`. Active phase: M3.**
-Phases M1–M6: AI text quality (markdown rendering + LLM output contract + non-empty
-validation), 3D corridor experience (DEM-sampled 3D alignments, elevation profiles,
-animated train, fly-through), backend stability spine (Redis cache/queue, arq worker,
-MVT vector tiles, Alembic, prod compose), Playground (copy-on-write scenario sandbox over
-the pluggable assets + what-if failure mode), signature features (Consequence Lens, Ask
-PRISM, Storm Timeline, Report Studio), elective auth/K8s. MVP2 absorbs FRONTEND_PLAN.md
-F4/F5 (F0–F3 are DONE). Gate protocol unchanged: Opus `phase-gate-reviewer` per phase.
+**Next steps — MVP2 is the active plan (2026-06-09): see `MVP2_PLAN.md`. Active phase: M5 (M5a done, M5b next).**
+M5 sub-phases (recommended order a→b→c→d): M5a Consequence Lens (DONE), M5b Ask PRISM,
+M5c Storm Timeline (also closes M5a's cache-invalidation carry-forward), M5d Report Studio.
+M6 (elective auth/K8s) follows. Gate protocol unchanged: Opus `phase-gate-reviewer` per
+sub-phase.
+
+### M4 — COMPLETE (2026-06-12, Opus GO)
+
+**What was built (copy-on-write scenario sandbox, "Playground"):**
+- `alembic/versions/0002_playground.py` — `playground` schema: `scenarios` (incl. `is_reference`/`status`), `scenario_assets` (geom in 32161, `op` add/remove, `target_entity_id`, jsonb `params`), `scenario_events` (fail/remove), `scenario_results` (jsonb `objective_breakdown`/`resilience_delta`, `headline`, `status`)
+- `prism/playground/registry.py` — reflects `PLAYGROUND_SCHEMA` off every `InfrastructureAsset` subclass (rail/road/bridge/transmission) + a synthetic `substation` entry (Transmission relocation) → palette is automatic, zero frontend changes per new asset type
+- `prism/playground/evaluate.py` — `evaluate_scenario()`: per-asset **four-model** evaluation (construction/maintenance/capacity/**failure**) via `InfrastructureAsset`; rail segmented against the Phase-10 cost surface (terrain + flood fraction); `failure_impact()` wired per type — rail via `_population_near_geom` (barrios within 5 km), road/bridge via `isolated_pop`/`detour_km` (detour_km = segment length for road), transmission/substation via `_nearby_substation_factors` (nearest scored substation's cascade/betweenness → `ctx`); "touched substations" resilience delta using Phase-4 `transmission.composite_after()` intervention factors; downstream footprint via `prism.graph.query` for fail/remove events
+- `prism/playground/whatif.py` — read-only instant downstream-failure check (`downstream_of`/`affected_population`)
+- `prism/playground/narrative.py` — `generate_comparison_narrative()`, Sonnet (`playground_comparison`), reuses M1 markdown contract
+- `prism/playground/commit.py` — **the one explicit exception to "never mutates base tables"**: "commit as reference" writes `graph.entities` (kind='station') at drafted rail-line endpoints + bidirectional SERVES to nearest barrio (confidence 0.8); idempotent via `src_gid = f"{scenario_id}:{asset_id}:{endpoint}"` + `ON CONFLICT`
+- `api/routers/playground.py` + `api/schemas.py` — full CRUD (scenarios/assets/events/results), `/playground/asset-types`, `/playground/scenarios/{id}/commit`, arq job endpoints (`/evaluate`, `/whatif/{id}`, `/scenarios/compare`) via `api/worker.py`
+- `frontend/app/(dashboard)/playground/page.tsx` — draw tools (point/line per registered type), palette from `/playground/asset-types`, evaluate → scorecard (objective value, construction/maintenance, per-asset failure_impact w/ SPOF badge, resilience delta + downstream footprint), what-if click flow, side-by-side scenario comparison with `NarrativePanel`, "Commit as reference" button + result display
+- `docker/Dockerfile.api` — added `prism/assets` and `prism/playground` to the shared api/worker image
+- `config/models.yml` — `playground_summary: haiku`, `playground_comparison: sonnet`, `playground_design: opus`
+- `tests/test_playground.py` — 40 tests incl. base-table-untouched checksum (now covers `graph.entities`, `graph.relationships`, `resilience.scenario_scores`, `economy.barrio_economics`, `corridor.routes`) and per-asset `failure_impact` presence
+
+**M4 live state (2026-06-12):**
+- Full pytest: 273 passed, 2 skipped (both pre-existing: Phase 3 SLR geometry, Phase 6 human-sim)
+- `npm run typecheck`/`lint`/`build` clean (frontend)
+- Live smoke tests via `http://localhost/api` (nginx proxy — port 8000 is shadowed by a stale host process on this machine, do not use it directly): full draw→evaluate→scorecard flow (rail/road/transmission/substation/bridge all return real construction/maintenance/capacity/failure_impact); what-if on PALO SECO SP TC (entity_id=915) returns real downstream footprint; commit-as-reference on a drafted rail line created 2 station entities + 4 SERVES links, re-commit was idempotent (0/0); all smoke-test scenarios and graph rows cleaned up afterward (`graph.entities` back to 48,801)
+
+**M4 carry-forwards into M5:**
+- transmission/substation `failure_impact.people_affected` is hardwired to 0 (Phase 5 parcel-level population not wired into the cascade proxy) — only `critical_facilities`/SPOF populate; documented in the `notes` string
+- `_population_near_geom` uses a flat 5 km radius for rail/road; `detour_km` for road/bridge is a coarse proxy (segment length / `params.detour_km` default 5.0) — acceptable for MVP, revisit if Playground numbers get cited in a flagship narrative
+- CI does not run `tests/test_playground.py` (needs the 3.6 GB local dataset, same as the rest of the suite since M3)
+- Station entities created via commit use `kind='station'`/`domain='transport'` with no further graph wiring beyond SERVES — sufficient for M4 scope; richer station modelling (platforms, transfer links) remains a future elective
 
 ### M1 — COMPLETE (2026-06-10, Opus GO)
 
@@ -258,7 +314,48 @@ Standing elective items (folded into MVP2 where noted):
 - `memory/project_state.md` — sweep for old Phase 10 corridor numbers (198 km / $4.5B etc.)
 - 60 fps for train/tour not numerically profiled (only confirmed via screenshots/no jank); add a real FPS check if M4 Playground adds heavier per-frame layers
 
-**Next: M3 — Backend Stability Spine** (see `MVP2_PLAN.md` M3 section): Redis cache/queue, arq worker, MVT vector tiles, Alembic, prod compose.
+### M2.1 — COMPLETE (2026-06-11, cleanup pass before M3)
+
+**What changed (all frontend, no backend/API/DB changes):**
+- `frontend/app/(dashboard)/corridor/page.tsx` — removed the animated `TripsLayer` train (jittery, low value): deleted train state/effects, cruise-speed constants, `positionAtTime()`, `train-trip`/`train-head` layers, and the "Run train / Pause train" button. Station markers and tunnel portal markers (already present from M2) are now the primary "what's here" representation.
+- Fixed the 3D ribbon "floating above terrain" artifact at high zoom: `frontend/components/map/prism-map.tsx` exposes `PrismMapApi.getTerrainElevation(lng, lat)` (wraps `map.queryTerrainElevation`, via `onMapReady`/`onTerrainTilesLoaded` callbacks); `corridor/page.tsx` snaps each ribbon vertex to the rendered terrain mesh when available (falls back to DEM `elev_m × exaggeration`), densifies the path 4× between 100 m profile samples so it follows terrain undulation, and reduced `STANDARD_OFFSET_M` from 10 m to 2 m.
+- Tunnel portals and elevated viaduct piers are now `pickable` with hover tooltips ("Tunnel portal" + elevation; "Viaduct pier" + ground elevation/deck height).
+- New `frontend/components/info-panel.tsx` — dependency-free collapsible "About this data" component (native `<details>/<summary>`), used across Portfolio, Economy, Rail Corridor, and Sync pages.
+- Content pass adding "What this is / How it's calculated / Data sources & accuracy" `InfoPanel` sections + expanded inline copy to: `frontend/app/(dashboard)/portfolio/page.tsx` (ILP methodology, cost caveats), `frontend/app/(dashboard)/economy/page.tsx` (SVI 5-component formula, VOLL, ACS/WFS/3DEP sources), `frontend/app/(dashboard)/corridor/page.tsx` (cost-surface/Dijkstra methodology, per-km costs, accuracy caveats — bridge spans, station proxies), `frontend/app/(dashboard)/sync/page.tsx` (per-source descriptions in the registry table + sync/rescore methodology).
+
+**M2.1 verification (2026-06-11):**
+- `npm run typecheck` and `npm run lint` clean (only the pre-existing `app/layout.tsx` font warning remains)
+- Local dev server (`npm run dev -- -p 3005`): `/corridor`, `/portfolio`, `/economy`, `/sync` all compile and return 200; rendered HTML confirms train UI is gone and `InfoPanel` sections ("About this data" / "About the digital twin") render on Portfolio, Economy, and Sync
+- No pytest impact (frontend-only change)
+
+### M3 — COMPLETE (2026-06-12, Opus GO)
+
+**What was built:**
+- `api/cache.py`, `api/routers/tiles.py` — Redis response cache + `ST_AsMVT` vector tile endpoints (`GET /tiles/{layer}/{z}/{x}/{y}.mvt` for flood/transmission/tracts); `prism/cache.py` + `prism/sync/resync.py` invalidate affected cache keys via `invalidates` on sync source config. Frontend deck.gl layers (corridor/economy/portfolio/resilience pages) switched to `MVTLayer`.
+- `api/worker.py` (NEW) — arq `WorkerSettings` (`regenerate_corridors`, `rescore_resilience`, `generate_narrative`); `api/routers/jobs.py` (NEW) — `POST /jobs/corridor/regenerate`, `/jobs/resilience/rescore`, `/jobs/narratives/corridor`, `GET /jobs/{id}`. New `worker` service shares the `prism-api` image (`docker/Dockerfile.api` now also installs networkx/scipy/geopandas + copies `prism/terrain`, `prism/graph`, `prism/corridor`, `prism/sync`, `prism/resilience`).
+- `alembic/` (NEW) — `alembic.ini`, `alembic/env.py` (builds connection URL from POSTGRES_* env vars via `get_engine().url.render_as_string(hide_password=False)`; `target_metadata = None` — version ledger over existing idempotent `create_schema()` functions, not ORM/ autogenerate), `alembic/versions/0001_baseline.py` (runs all `prism/*/schema.py create_schema()` in FK-safe order).
+- `api/limiter.py` (NEW) — shared slowapi `Limiter` (Redis-backed via `REDIS_URL`, `memory://` fallback), wired into `api/main.py` (`app.state.limiter`, `RateLimitExceeded` handler, `SlowAPIMiddleware`). Applied `5/minute` to the 3 job-enqueue endpoints + `POST /reports/narratives/stream`.
+- `api/logging_config.py` (NEW) — JSON structured logging for api/worker/uvicorn access logs when `PRISM_LOG_FORMAT=json` (set in prod overlay).
+- `api/metrics.py` (NEW) — Prometheus `/metrics` (`prism_api_requests_total`, `prism_api_request_duration_seconds` by method/path-template/status) via `MetricsMiddleware`.
+- `docker-compose.prod.yml` (NEW) — overlay adding `nginx` (port 80, reverse-proxies `/` → frontend, `/api/*` → api with the SSE narrative-stream route handled specially: `proxy_buffering off`, `Connection ""`, 300s read timeout; `/metrics` → api), `backup` sidecar, `PRISM_LOG_FORMAT=json` for api/worker, `restart: unless-stopped` everywhere. `docker/nginx/nginx.conf` (NEW).
+- `docker/backup/backup.sh` + `restore.sh` (NEW) — `pg_dump -F custom` loop (configurable interval/retention) into `prism_backups` volume; `restore.sh` drops/recreates + `pg_restore`. `docs/runbook.md` (NEW) documents backup/restore/migrations/metrics/logging/jobs/rate-limits.
+- `.github/workflows/ci.yml` (NEW) — backend job (ruff on prism/api/alembic, postgis service container, `alembic upgrade head` ×2 idempotency check), frontend job (npm ci/lint/typecheck/build). Fixed 5 pre-existing ruff lint errors across `prism/assets/rail.py` (dead `disruption_cost` var — `FailureImpact` has no cost field), `prism/corridor/corridors.py`, `prism/corridor/router.py`, `prism/graph/relationships.py`, `prism/viz/dashboard.py` (unused imports / redundant f-strings) — all behavior-preserving.
+- `pyproject.toml` — `api` extra now includes redis/arq/slowapi/prometheus-client/python-json-logger (parity with `docker/Dockerfile.api`); `dev` extra gained `alembic>=1.13`.
+- `tests/test_sync.py` — module-scoped `sync_schema` fixture now deletes `_test_*` rows from `sync.data_sources`/`sync.sync_log` on teardown (closes Phase 9 registry-hygiene carry-forward).
+- `docker-compose.yml` — `worker` service now sets `healthcheck: disable: true` (the shared image's HEALTHCHECK probes `localhost:8000/health`, which doesn't exist in the worker).
+
+**M3 live state (2026-06-12):**
+- `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` — all 7 services (postgis, redis, api, worker, frontend, nginx, backup) up and healthy.
+- MVT warm tile latency ~5-7ms (well under 300ms target); cold ~0.2-0.3s.
+- Job-restart-survival verified: corridor-regen job enqueued, `api` container restarted mid-job, job reached `status=complete, result={'routes': 5}` via the independent `worker` container.
+- Rate limiting verified live: 6 rapid `POST /jobs/resilience/rescore` → 5×200 then `429 {"error":"Rate limit exceeded: 5 per 1 minute"}`.
+- Backup/restore drill executed: `prism_20260612T054040Z.dump` (720MB) produced by the `backup` sidecar; restored into scratch DB `prism_restore_test`, `graph.entities` count = 48,801 (matches live), scratch DB dropped.
+- Full pytest: **234 passed, 2 skipped** (both pre-existing: Phase 3 SLR geometry, Phase 6 human-sim no-exclusive-substations). `ruff check prism api alembic` clean. `npm run lint`/`typecheck` clean (frontend).
+
+**M3 carry-forwards into M4:**
+- CI (`.github/workflows/ci.yml`) has not yet run on GitHub Actions (no push this session) — review-only correctness; `alembic upgrade head` against a bare `postgis/postgis:16-3.4` service (no pgRouting) is the one untested-in-anger path. CI does not run the 234-test pytest suite (requires the 3.6GB locally-mirrored dataset) — local-only for now.
+- slowapi rate limiter keys on `get_remote_address`; behind nginx all clients share the proxy IP unless `X-Forwarded-For` is trusted by the limiter. Fine for single-tenant demo; revisit with M6 auth.
+- `alembic/versions/0001_baseline.py` has no downgrade (raises `NotImplementedError`, relies on each module's `drop_schema()`); future M4 playground schema changes should be a real incremental Alembic revision, not folded into baseline.
 
 ### Phase 8 — COMPLETE (2026-06-07, Opus GO conditional)
 

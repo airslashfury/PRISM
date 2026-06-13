@@ -14,7 +14,6 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from prism.config import sources
 from prism.load.db import create_view, ensure_postgis, get_engine
 from prism.load.vectors import (
     CONVENIENCE_VIEWS,

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.engine import Engine
 
 from api import schemas
+from api.cache import cached_response
 from api.db import fetch_all, fetch_geojson
 from api.deps import engine_dep
 
@@ -15,6 +16,7 @@ _SIMPLIFY_M = 60
 
 
 @router.get("/tracts", response_model=schemas.FeatureCollection)
+@cached_response("tracts", ttl=21600)
 def tracts(engine: Engine = Depends(engine_dep)) -> dict:
     """SVI choropleth: one Feature per Census tract."""
     return fetch_geojson(

@@ -6,6 +6,7 @@ import { Database, RefreshCw, Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/stat-card";
+import { InfoPanel } from "@/components/info-panel";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { useSyncSources, useSyncLog } from "@/lib/hooks";
 import { fmtInt, fmtNum, fmtRelative } from "@/lib/utils";
@@ -16,6 +17,16 @@ function statusVariant(s: string | null | undefined) {
   if (s === "skipped") return "muted" as const;
   return "secondary" as const;
 }
+
+// What each registered source is and what it feeds downstream.
+const SOURCE_INFO: Record<string, string> = {
+  wfs_flood_zones_1pct:
+    "PR govt 1% annual-chance flood extent (FEMA-aligned). Feeds the resilience hazard model.",
+  wfs_marejada:
+    "Storm-surge / marejada hazard zones. Feeds the resilience hazard model.",
+  wfs_roads_primary:
+    "Primary road network. Used for road-access travel-time scoring (Phase 8).",
+};
 
 export default function SyncPage() {
   const { data: sources, isLoading, error } = useSyncSources();
@@ -34,6 +45,24 @@ export default function SyncPage() {
         <StatCard label="Last sync cycle" value={fmtRelative(stats.lastRun)} sub="most recent run" icon={RefreshCw} accent="emerald" />
         <StatCard label="Rescores triggered" value={fmtInt(stats.rescores)} sub="hazard-layer changes" icon={Zap} accent="amber" />
       </section>
+
+      <InfoPanel
+        title="About the digital twin"
+        sections={[
+          {
+            title: "What this is",
+            body: "PRISM periodically re-checks live PR government data feeds so resilience scores reflect current hazard extents rather than a one-time snapshot — the link between the static simulation and real-world conditions.",
+          },
+          {
+            title: "How it's calculated",
+            body: "Each source below has a re-sync interval (24h for hazard layers, weekly for roads). A checksum based on feature count is compared to the last pull. If a hazard layer (flood zones or marejada) changes, all 315 substations are automatically re-scored against the new boundary under the Cat-3 scenario, and the run is logged below.",
+          },
+          {
+            title: "Data sources & accuracy",
+            body: "Checksums are feature-count based, so an in-place geometry edit at a constant feature count won't trigger a re-sync. Auto-rescore currently covers the Cat-3 scenario only — SLR/combined scenarios are not re-triggered automatically.",
+          },
+        ]}
+      />
 
       {error && <ErrorBlock error={error} />}
       {isLoading && <LoadingBlock label="Loading sync registry" />}
@@ -64,7 +93,12 @@ export default function SyncPage() {
               <tbody>
                 {sources.map((s) => (
                   <tr key={s.id} className="border-b border-border/40 hover:bg-accent/30">
-                    <td className="px-4 py-2.5 font-medium">{s.source_name}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="font-medium">{s.source_name}</div>
+                      {SOURCE_INFO[s.source_name] && (
+                        <div className="text-[11px] text-muted-foreground">{SOURCE_INFO[s.source_name]}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{s.source_type ?? "—"}</td>
                     <td className="px-4 py-2.5 text-right tnum text-muted-foreground">
                       {s.sync_interval_hours != null ? `${s.sync_interval_hours}h` : "—"}

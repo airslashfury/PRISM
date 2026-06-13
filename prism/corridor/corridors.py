@@ -15,7 +15,6 @@ import logging
 from dataclasses import dataclass
 
 from pyproj import Transformer
-from shapely.geometry import LineString
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 

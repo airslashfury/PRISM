@@ -45,7 +45,7 @@ def compute_community_resilience(engine: Engine) -> int:
     """
     create_schema(engine)
 
-    sql = text(f"""
+    sql = text("""
         WITH
         -- SVI component: avg svi_score of Census tracts covering this barrio
         -- (barrio centroid → tract join for reliability)

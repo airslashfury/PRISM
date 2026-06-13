@@ -64,6 +64,17 @@ _BETWEENNESS_FACTOR: dict[str, float] = {
 class Transmission(InfrastructureAsset):
     asset_type = AssetType.TRANSMISSION
 
+    PLAYGROUND_SCHEMA = {
+        "geometry": "line",
+        "icon": "zap",
+        "default_unit_cost_usd_per_km": 8_000_000 / 5,  # redundant_feed ~5 km
+        "params": [
+            {"name": "intervention_type", "type": "enum", "label": "Intervention type",
+             "options": ["redundant_feed"], "default": "redundant_feed"},
+            {"name": "voltage_kv", "type": "int", "label": "Voltage (kV)", "default": 115},
+        ],
+    }
+
     def construction_cost(self, segment: Any, ctx: Context) -> float:
         itype = ctx.get("intervention_type", "")
         if itype not in _COST:

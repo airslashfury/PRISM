@@ -20,3 +20,4 @@ export const MapCanvas = dynamic(
 );
 
 export { tip, PR_VIEW } from "./prism-map";
+export type { PrismMapApi } from "./prism-map";

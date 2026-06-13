@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from prism.corridor.cost_surface import CostSurface, TIER_FACTOR, terrain_type_at, idx_to_xy, xy_to_idx
+from prism.corridor.cost_surface import CostSurface, terrain_type_at, idx_to_xy, xy_to_idx
 
 log = logging.getLogger(__name__)
 

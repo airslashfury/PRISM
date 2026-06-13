@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.engine import Engine
 
 from api import schemas
+from api.cache import cached_response
 from api.db import fetch_geojson
 from api.deps import engine_dep
 
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/hazard", tags=["hazard"])
 
 
 @router.get("/flood", response_model=schemas.FeatureCollection)
+@cached_response("flood", ttl=86400)
 def flood(engine: Engine = Depends(engine_dep)) -> dict:
     """1%-annual-chance flood zones as polygons.
 

@@ -60,7 +60,7 @@ def main() -> None:
         print(f"  {name:<32}  {r.pop:>8,}  {r.travel_time_min:>10.1f}  {dist_km:>9.1f}")
 
     if isolated:
-        print(f"\n  Isolated barrios (no road vertex within snap radius):")
+        print("\n  Isolated barrios (no road vertex within snap radius):")
         for r in isolated[:10]:
             name = (r.barrio_name or f"eid={r.barrio_entity_id}")[:40]
             print(f"    {name}  pop={r.pop:,}")

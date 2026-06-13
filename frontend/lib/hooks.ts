@@ -22,6 +22,16 @@ export const useScores = (scenario: string, top = 400) =>
 export const useSpof = () =>
   useQuery({ queryKey: ["spof"], queryFn: api.spof, staleTime: 5 * MIN });
 
+/** Consequence Lens (M5a): downstream ripple + headline for a hovered substation. */
+export const useConsequence = (entityId: number | null) =>
+  useQuery({
+    queryKey: ["consequence", entityId],
+    queryFn: () => api.consequence(entityId as number),
+    enabled: entityId != null,
+    staleTime: 10 * MIN,
+    retry: false,
+  });
+
 export const useSubstation = (id: number | null, scenario: string) =>
   useQuery({
     queryKey: ["substation", id, scenario],
@@ -68,12 +78,6 @@ export const useCorridorProfile = (id: number | null) =>
     staleTime: 30 * MIN,
   });
 
-export const useTransmission = (enabled = true) =>
-  useQuery({ queryKey: ["transmission"], queryFn: api.transmission, staleTime: 60 * MIN, enabled });
-
-export const useFloodZones = (enabled = true) =>
-  useQuery({ queryKey: ["floodZones"], queryFn: api.floodZones, staleTime: 60 * MIN, enabled });
-
 export const useSyncSources = () =>
   useQuery({ queryKey: ["syncSources"], queryFn: api.syncSources, staleTime: 30_000 });
 
@@ -82,3 +86,25 @@ export const useSyncLog = (limit = 50) =>
 
 export const useNarratives = (limit = 20) =>
   useQuery({ queryKey: ["narratives", limit], queryFn: () => api.narratives(limit) });
+
+export const usePlaygroundAssetTypes = () =>
+  useQuery({ queryKey: ["playgroundAssetTypes"], queryFn: api.playgroundAssetTypes, staleTime: 30 * MIN });
+
+export const usePlaygroundScenarios = () =>
+  useQuery({ queryKey: ["playgroundScenarios"], queryFn: api.playgroundScenarios, staleTime: 0 });
+
+export const usePlaygroundScenario = (id: number | null) =>
+  useQuery({
+    queryKey: ["playgroundScenario", id],
+    queryFn: () => api.playgroundScenario(id as number),
+    enabled: id != null,
+    staleTime: 0,
+  });
+
+export const usePlaygroundGeojson = (id: number | null) =>
+  useQuery({
+    queryKey: ["playgroundGeojson", id],
+    queryFn: () => api.playgroundScenarioGeojson(id as number),
+    enabled: id != null,
+    staleTime: 0,
+  });

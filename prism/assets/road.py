@@ -28,6 +28,19 @@ _TRIP_COST_PER_KM_PERSON = 0.03         # generalised travel cost, USD/km/person
 class Road(InfrastructureAsset):
     asset_type = AssetType.ROAD
 
+    PLAYGROUND_SCHEMA = {
+        "geometry": "line",
+        "icon": "road",
+        "default_unit_cost_usd_per_km": 3_500_000,
+        "params": [
+            {"name": "intervention", "type": "enum", "label": "Intervention",
+             "options": ["hardening", "new_corridor"], "default": "new_corridor"},
+            {"name": "lanes", "type": "int", "label": "Lanes", "default": 2},
+            {"name": "auto_route", "type": "bool", "default": True,
+             "label": "Auto-route to terrain"},
+        ],
+    }
+
     def construction_cost(self, segment: Any, ctx: Context) -> float:
         """
         segment must carry:

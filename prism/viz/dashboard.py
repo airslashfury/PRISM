@@ -12,7 +12,6 @@ Panels:
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import matplotlib
@@ -280,7 +279,7 @@ def _panel_road_access(ax: plt.Axes, engine) -> None:
                 ha="center", va="center", transform=ax.transAxes, color=C_GREY, fontsize=10)
         return
 
-    names   = [(r[0] or f"eid=?")[:22] for r in rows]
+    names   = [(r[0] or "eid=?")[:22] for r in rows]
     times   = [r[1] for r in rows]
     pops    = [r[2] for r in rows]
 

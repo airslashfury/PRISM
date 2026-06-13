@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 
 from prism.load.db import get_engine
 from prism.resilience.cascade import save_cascade, score_all_substations

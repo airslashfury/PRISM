@@ -434,10 +434,364 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tiles/{layer}/{z}/{x}/{y}.mvt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tile
+         * @description Return one MVT tile for `layer`, cached in Redis under `tiles:{layer}:{z}:{x}:{y}`.
+         */
+        get: operations["tile_tiles__layer___z___x___y__mvt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/corridor/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Corridor Regen */
+        post: operations["enqueue_corridor_regen_jobs_corridor_regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/resilience/rescore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Rescore */
+        post: operations["enqueue_rescore_jobs_resilience_rescore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/narratives/corridor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Corridor Narrative */
+        post: operations["enqueue_corridor_narrative_jobs_narratives_corridor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Job Status */
+        get: operations["job_status_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/asset-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Asset Types
+         * @description All asset types the Playground palette can draw, reflected from prism.assets.*.
+         */
+        get: operations["asset_types_playground_asset_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Scenarios */
+        get: operations["list_scenarios_playground_scenarios_get"];
+        put?: never;
+        /** Create Scenario */
+        post: operations["create_scenario_playground_scenarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Scenario */
+        get: operations["get_scenario_playground_scenarios__scenario_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Scenario */
+        delete: operations["delete_scenario_playground_scenarios__scenario_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Commit Scenario
+         * @description Mark a scenario as a committed reference plan.
+         *
+         *     The one explicit exception to "Playground never mutates base tables":
+         *     drafted `rail` line assets get station entities written into
+         *     `graph.entities` (+ SERVES relationships to the nearest barrio).
+         *     Idempotent — re-committing updates existing stations in place.
+         */
+        post: operations["commit_scenario_playground_scenarios__scenario_id__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/assets/geojson": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scenario Assets Geojson */
+        get: operations["scenario_assets_geojson_playground_scenarios__scenario_id__assets_geojson_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Scenario Asset */
+        post: operations["add_scenario_asset_playground_scenarios__scenario_id__assets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Scenario Asset */
+        delete: operations["delete_scenario_asset_playground_scenarios__scenario_id__assets__asset_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Scenario Event */
+        post: operations["add_scenario_event_playground_scenarios__scenario_id__events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/events/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Scenario Event */
+        delete: operations["delete_scenario_event_playground_scenarios__scenario_id__events__event_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest Result */
+        get: operations["latest_result_playground_scenarios__scenario_id__result_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/{scenario_id}/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Evaluate */
+        post: operations["enqueue_evaluate_playground_scenarios__scenario_id__evaluate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/whatif/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Whatif */
+        post: operations["enqueue_whatif_playground_whatif__entity_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playground/scenarios/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Comparison Narrative */
+        post: operations["enqueue_comparison_narrative_playground_scenarios_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AssetTypeSchema
+         * @description A playground-eligible asset type, reflected from PLAYGROUND_SCHEMA.
+         */
+        AssetTypeSchema: {
+            /** Asset Type */
+            asset_type: string;
+            /**
+             * Geometry
+             * @enum {string}
+             */
+            geometry: "point" | "line";
+            /** Icon */
+            icon: string;
+            /** Default Unit Cost Usd Per Km */
+            default_unit_cost_usd_per_km?: number | null;
+            /** Default Unit Cost Usd */
+            default_unit_cost_usd?: number | null;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** CommitResult */
+        CommitResult: {
+            /** Scenario Id */
+            scenario_id: number;
+            /** Stations Created */
+            stations_created: number;
+            /** Serves Created */
+            serves_created: number;
+        };
         /** CorridorRoute */
         CorridorRoute: {
             /** Route Id */
@@ -580,6 +934,22 @@ export interface components {
             /** Postgis */
             postgis?: string | null;
         };
+        /** JobEnqueued */
+        JobEnqueued: {
+            /** Job Id */
+            job_id: string;
+        };
+        /** JobStatusResponse */
+        JobStatusResponse: {
+            /** Job Id */
+            job_id: string;
+            /** Status */
+            status: string;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** Narrative */
         Narrative: {
             /** Narrative Id */
@@ -667,6 +1037,61 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** PlaygroundScenario */
+        PlaygroundScenario: {
+            /** Scenario Id */
+            scenario_id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Author */
+            author: string | null;
+            /** Status */
+            status: string;
+            /** Is Reference */
+            is_reference: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PlaygroundScenarioDetail */
+        PlaygroundScenarioDetail: {
+            /** Scenario Id */
+            scenario_id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Author */
+            author: string | null;
+            /** Status */
+            status: string;
+            /** Is Reference */
+            is_reference: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Assets */
+            assets: components["schemas"]["ScenarioAsset"][];
+            /** Events */
+            events: components["schemas"]["ScenarioEvent"][];
+            latest_result?: components["schemas"]["ScenarioResult"] | null;
+        };
         /** PortfolioItem */
         PortfolioItem: {
             /** Item Id */
@@ -747,6 +1172,81 @@ export interface components {
             /** Terrain Type */
             terrain_type: string;
         };
+        /** ScenarioAsset */
+        ScenarioAsset: {
+            /** Asset Id */
+            asset_id: number;
+            /** Asset Type */
+            asset_type: string;
+            /** Op */
+            op: string;
+            /** Target Entity Id */
+            target_entity_id: number | null;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ScenarioAssetCreate */
+        ScenarioAssetCreate: {
+            /** Asset Type */
+            asset_type: string;
+            /**
+             * Op
+             * @default add
+             * @enum {string}
+             */
+            op: "add" | "remove";
+            /** Geometry */
+            geometry?: {
+                [key: string]: unknown;
+            } | null;
+            /** Target Entity Id */
+            target_entity_id?: number | null;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+        };
+        /** ScenarioCreate */
+        ScenarioCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Author */
+            author?: string | null;
+        };
+        /** ScenarioEvent */
+        ScenarioEvent: {
+            /** Event Id */
+            event_id: number;
+            /** Entity Id */
+            entity_id: number;
+            /** Event Type */
+            event_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ScenarioEventCreate */
+        ScenarioEventCreate: {
+            /** Entity Id */
+            entity_id: number;
+            /**
+             * Event Type
+             * @default fail
+             * @constant
+             */
+            event_type: "fail";
+        };
         /** ScenarioInfo */
         ScenarioInfo: {
             /** Name */
@@ -757,6 +1257,68 @@ export interface components {
             min_score: number;
             /** Max Score */
             max_score: number;
+        };
+        /** ScenarioResult */
+        ScenarioResult: {
+            /** Result Id */
+            result_id: number;
+            /** Scenario Id */
+            scenario_id: number;
+            /** Run Id */
+            run_id: string | null;
+            /** Objective Breakdown */
+            objective_breakdown: {
+                [key: string]: unknown;
+            } | null;
+            /** Resilience Delta */
+            resilience_delta: {
+                [key: string]: unknown;
+            } | null;
+            /** Headline */
+            headline: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** ConsequenceEntity */
+        ConsequenceEntity: {
+            /** Entity Id */
+            entity_id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+        };
+        /** ConsequenceSummary */
+        ConsequenceSummary: {
+            /** Entity Id */
+            entity_id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string | null;
+            /** Population Affected */
+            population_affected: number;
+            /** Hospitals */
+            hospitals: number;
+            /** Water Plants */
+            water_plants: number;
+            /** Health Centers */
+            health_centers: number;
+            /** Barrios */
+            barrios: number;
+            /** Headline */
+            headline: string;
+            /** Downstream */
+            downstream: components["schemas"]["ConsequenceEntity"][];
         };
         /** SpofEntity */
         SpofEntity: {
@@ -1466,6 +2028,603 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tile_tiles__layer___z___x___y__mvt_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                layer: string;
+                z: number;
+                x: number;
+                y: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_corridor_regen_jobs_corridor_regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+        };
+    };
+    enqueue_rescore_jobs_resilience_rescore_post: {
+        parameters: {
+            query?: {
+                scenario?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_corridor_narrative_jobs_narratives_corridor_post: {
+        parameters: {
+            query?: {
+                flagship?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_status_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    asset_types_playground_asset_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetTypeSchema"][];
+                };
+            };
+        };
+    };
+    list_scenarios_playground_scenarios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaygroundScenario"][];
+                };
+            };
+        };
+    };
+    create_scenario_playground_scenarios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaygroundScenario"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_scenario_playground_scenarios__scenario_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaygroundScenarioDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_scenario_playground_scenarios__scenario_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_scenario_playground_scenarios__scenario_id__commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scenario_assets_geojson_playground_scenarios__scenario_id__assets_geojson_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureCollection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_scenario_asset_playground_scenarios__scenario_id__assets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioAssetCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioAsset"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_scenario_asset_playground_scenarios__scenario_id__assets__asset_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+                asset_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_scenario_event_playground_scenarios__scenario_id__events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioEventCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioEvent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_scenario_event_playground_scenarios__scenario_id__events__event_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_result_playground_scenarios__scenario_id__result_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_evaluate_playground_scenarios__scenario_id__evaluate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_whatif_playground_whatif__entity_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_comparison_narrative_playground_scenarios_compare_post: {
+        parameters: {
+            query: {
+                scenario_a: number;
+                scenario_b: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
             };
             /** @description Validation Error */
             422: {

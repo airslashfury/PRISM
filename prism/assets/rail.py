@@ -53,6 +53,16 @@ class Rail(InfrastructureAsset):
     """
     asset_type = AssetType.RAIL
 
+    PLAYGROUND_SCHEMA = {
+        "geometry": "line",
+        "icon": "train",
+        "default_unit_cost_usd_per_km": 15_000_000,
+        "params": [
+            {"name": "auto_route", "type": "bool", "default": True,
+             "label": "Auto-route to terrain"},
+        ],
+    }
+
     def construction_cost(self, segment: Any, ctx: Context) -> float:
         length_m     = float(segment.get("length_m", 0))
         terrain_type = segment.get("terrain_type", "standard")
@@ -77,11 +87,8 @@ class Rail(InfrastructureAsset):
 
         riders = int(pop * _MODE_SHARE)
         if detour:
-            # Detour available: modest disruption (car/bus fallback)
-            disruption_cost = riders * _DISRUPTION_COST_PER_PERSON_30YR * 0.3
             notes = f"Rail failure: {riders:,} affected riders; detour available"
         else:
-            disruption_cost = riders * _DISRUPTION_COST_PER_PERSON_30YR
             notes = f"Rail failure: {riders:,} affected riders; NO alternative transport"
 
         return FailureImpact(

@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { GeoJsonLayer, ColumnLayer, PathLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
-import { TripsLayer } from "@deck.gl/geo-layers";
 import { PathStyleExtension } from "@deck.gl/extensions";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
-import { Mountain, Pause, Play, Sparkles, TrainFront, Video, X } from "lucide-react";
+import { Mountain, Sparkles, TrainFront, Video, X } from "lucide-react";
 
-import { MapCanvas, tip } from "@/components/map/map-canvas";
+import { MapCanvas, tip, type PrismMapApi } from "@/components/map/map-canvas";
 import { Segmented } from "@/components/ui/segmented";
 import { DiscreteLegend } from "@/components/legend";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NarrativePanel } from "@/components/narrative-panel";
+import { InfoPanel } from "@/components/info-panel";
 import { ElevationProfile } from "@/components/charts/elevation-profile";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { useCorridorGeojson, useCorridorProfile, useCorridorRoute, useCorridorRoutes } from "@/lib/hooks";
@@ -34,7 +34,11 @@ const RANK_LABEL = ["", "Best", "Alternative", "Costliest"];
 // Pier piers every ~4th profile sample (~400 m at the 100 m sampling interval).
 const PIER_STRIDE = 4;
 const ELEVATED_OFFSET_M = 25;
-const STANDARD_OFFSET_M = 10;
+const STANDARD_OFFSET_M = 2;
+// Extra interpolated vertices between each pair of 100 m profile samples, so the
+// ribbon follows terrain undulation between samples instead of cutting straight
+// lines through hills/valleys.
+const DENSIFY_SUBDIVS = 4;
 
 interface TerrainRun {
   terrain_type: string;
@@ -57,32 +61,51 @@ function buildTerrainRuns(profile: ProfilePoint[]): TerrainRun[] {
   return runs;
 }
 
-/** Ribbon height (m, already exaggerated) for a profile point. */
-function rideHeight(p: ProfilePoint, exaggeration: number): number {
-  const ground = p.elev_m * exaggeration;
-  if (p.terrain_type === "elevated") return ground + ELEVATED_OFFSET_M;
-  if (p.terrain_type === "tunnel") return ground;
+/** Ground height (m) at a point: snaps to the rendered terrain mesh when available,
+ * falling back to the DEM-sampled elevation profile (scaled by exaggeration). */
+function groundHeight(lng: number, lat: number, elevM: number, exaggeration: number, mapApi: PrismMapApi | null): number {
+  const snapped = mapApi?.getTerrainElevation(lng, lat) ?? null;
+  return snapped != null ? snapped : elevM * exaggeration;
+}
+
+/** Ribbon height (m) for a point, given its terrain type. */
+function rideHeight(
+  lng: number,
+  lat: number,
+  elevM: number,
+  terrainType: string,
+  exaggeration: number,
+  mapApi: PrismMapApi | null,
+): number {
+  const ground = groundHeight(lng, lat, elevM, exaggeration, mapApi);
+  if (terrainType === "elevated") return ground + ELEVATED_OFFSET_M;
+  if (terrainType === "tunnel") return ground;
   return ground + STANDARD_OFFSET_M;
 }
 
-// Animated train: real cruise speed (110 km/h) scaled into a fixed-length playback loop.
-const TRAIN_CRUISE_MPS = (110 * 1000) / 3600;
-const TRAIN_ANIM_SECONDS = 40;
-const TRAIN_TRAIL_FRACTION = 0.04;
-
-/** Linear interpolation along a [x,y,z][] path keyed by per-vertex timestamps. */
-function positionAtTime(path: number[][], timestamps: number[], t: number): number[] {
-  if (t <= timestamps[0]) return path[0];
-  for (let i = 1; i < timestamps.length; i++) {
-    if (t <= timestamps[i]) {
-      const span = timestamps[i] - timestamps[i - 1];
-      const frac = span > 0 ? (t - timestamps[i - 1]) / span : 0;
-      const a = path[i - 1];
-      const b = path[i];
-      return a.map((v, idx) => v + (b[idx] - v) * frac);
+/** Build a densified [lng, lat, z] path for a terrain run, interpolating extra
+ * vertices between each pair of profile samples so the ribbon hugs terrain. */
+function densifyRunPath(
+  points: ProfilePoint[],
+  terrainType: string,
+  exaggeration: number,
+  mapApi: PrismMapApi | null,
+): number[][] {
+  const path: number[][] = [];
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    path.push([p.lng, p.lat, rideHeight(p.lng, p.lat, p.elev_m, terrainType, exaggeration, mapApi)]);
+    const next = points[i + 1];
+    if (!next) continue;
+    for (let s = 1; s < DENSIFY_SUBDIVS; s++) {
+      const t = s / DENSIFY_SUBDIVS;
+      const lng = p.lng + (next.lng - p.lng) * t;
+      const lat = p.lat + (next.lat - p.lat) * t;
+      const elevM = p.elev_m + (next.elev_m - p.elev_m) * t;
+      path.push([lng, lat, rideHeight(lng, lat, elevM, terrainType, exaggeration, mapApi)]);
     }
   }
-  return path[path.length - 1];
+  return path;
 }
 
 // Fly-through tour: camera traverses the whole profile in a fixed wall-clock duration.
@@ -114,9 +137,15 @@ export default function CorridorPage() {
   const { data: detail } = useCorridorRoute(routeId);
   const { data: profile } = useCorridorProfile(routeId);
 
-  // Animated train (TripsLayer)
-  const [trainPlaying, setTrainPlaying] = useState(false);
-  const [trainTime, setTrainTime] = useState(0);
+  // Terrain elevation lookup (for snapping the 3D ribbon to the rendered DEM mesh).
+  const mapApiRef = useRef<PrismMapApi | null>(null);
+  const [terrainTick, setTerrainTick] = useState(0);
+  const handleMapReady = useCallback((api: PrismMapApi) => {
+    mapApiRef.current = api;
+  }, []);
+  const handleTerrainTilesLoaded = useCallback(() => {
+    setTerrainTick((t) => t + 1);
+  }, []);
 
   // Corridor fly-through tour
   const [touring, setTouring] = useState(false);
@@ -124,8 +153,6 @@ export default function CorridorPage() {
   const [tourIndex, setTourIndex] = useState(0);
 
   useEffect(() => {
-    setTrainTime(0);
-    setTrainPlaying(false);
     setTouring(false);
     setTourViewState(null);
   }, [routeId]);
@@ -157,34 +184,6 @@ export default function CorridorPage() {
       setStreaming(false);
     }
   };
-
-  const trainPath = useMemo(() => {
-    if (!profile?.length) return null;
-    const path = profile.map((p) =>
-      is3d ? [p.lng, p.lat, rideHeight(p, exaggeration)] : [p.lng, p.lat, 0],
-    );
-    const timestamps = profile.map((p) => p.distance_m / TRAIN_CRUISE_MPS);
-    return { path, timestamps, totalTime: timestamps[timestamps.length - 1] };
-  }, [profile, is3d, exaggeration]);
-
-  // Drive the train animation loop, scaled so the full route runs in TRAIN_ANIM_SECONDS.
-  useEffect(() => {
-    if (!trainPlaying || !trainPath || trainPath.totalTime <= 0) return;
-    let raf: number;
-    let last = performance.now();
-    const speedFactor = trainPath.totalTime / TRAIN_ANIM_SECONDS;
-    const loop = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      setTrainTime((t) => {
-        const next = t + dt * speedFactor;
-        return next > trainPath.totalTime ? 0 : next;
-      });
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [trainPlaying, trainPath]);
 
   // Drive the fly-through tour: camera sweeps the profile at pitch 60deg over TOUR_DURATION_S.
   useEffect(() => {
@@ -287,8 +286,9 @@ export default function CorridorPage() {
       );
     }
     if (is3d && profile?.length) {
+      const mapApi = mapApiRef.current;
       for (const [i, run] of buildTerrainRuns(profile).entries()) {
-        const path = run.points.map((p) => [p.lng, p.lat, rideHeight(p, exaggeration)]);
+        const path = densifyRunPath(run.points, run.terrain_type, exaggeration, mapApi);
         const color = [...terrainColor(run.terrain_type), 255] as [number, number, number, number];
         const isTunnel = run.terrain_type === "tunnel";
 
@@ -322,9 +322,10 @@ export default function CorridorPage() {
               diskResolution: 8,
               radius: 15,
               extruded: true,
-              getPosition: (d: ProfilePoint) => [d.lng, d.lat, d.elev_m * exaggeration],
+              getPosition: (d: ProfilePoint) => [d.lng, d.lat, groundHeight(d.lng, d.lat, d.elev_m, exaggeration, mapApi)],
               getElevation: ELEVATED_OFFSET_M,
               getFillColor: [120, 120, 130, 200],
+              pickable: true,
             }),
           );
         }
@@ -335,22 +336,24 @@ export default function CorridorPage() {
             new ScatterplotLayer({
               id: `route-3d-portals-${i}`,
               data: portals,
-              getPosition: (d: ProfilePoint) => [d.lng, d.lat, d.elev_m * exaggeration],
+              getPosition: (d: ProfilePoint) => [d.lng, d.lat, groundHeight(d.lng, d.lat, d.elev_m, exaggeration, mapApi)],
               getRadius: 80,
               radiusUnits: "meters",
               getFillColor: [...terrainColor("tunnel"), 255] as [number, number, number, number],
               getLineColor: [255, 255, 255, 255],
               lineWidthMinPixels: 1,
               stroked: true,
+              pickable: true,
             }),
           );
         }
       }
     }
     if (profile?.length && detail) {
+      const mapApi = mapApiRef.current;
       const start = profile[0];
       const end = profile[profile.length - 1];
-      const z = (p: ProfilePoint) => (is3d ? rideHeight(p, exaggeration) : 0);
+      const z = (p: ProfilePoint) => (is3d ? rideHeight(p.lng, p.lat, p.elev_m, p.terrain_type, exaggeration, mapApi) : 0);
       const stations = [
         { position: [start.lng, start.lat, z(start)], name: detail.from_city },
         { position: [end.lng, end.lat, z(end)], name: detail.to_city },
@@ -383,38 +386,35 @@ export default function CorridorPage() {
         }),
       );
     }
-    if (trainPath) {
-      ls.push(
-        new TripsLayer<{ path: number[][]; timestamps: number[] }>({
-          id: "train-trip",
-          data: [trainPath],
-          getPath: (d) => d.path as unknown as number[],
-          getTimestamps: (d) => d.timestamps,
-          getColor: [255, 255, 255],
-          opacity: 0.9,
-          widthUnits: "pixels",
-          widthMinPixels: 4,
-          rounded: true,
-          trailLength: trainPath.totalTime * TRAIN_TRAIL_FRACTION,
-          currentTime: trainTime,
-        }),
-        new ScatterplotLayer({
-          id: "train-head",
-          data: [positionAtTime(trainPath.path, trainPath.timestamps, trainTime)],
-          getPosition: (d) => d as [number, number, number],
-          getRadius: 300,
-          radiusUnits: "meters",
-          getFillColor: [255, 255, 255, 255],
-          getLineColor: [56, 189, 248, 255],
-          lineWidthMinPixels: 2,
-          stroked: true,
-        }),
-      );
-    }
     return ls;
-  }, [geojson, detail, routeId, is3d, profile, exaggeration, trainPath, trainTime]);
+    // terrainTick: recompute once the rendered terrain mesh finishes loading so the
+    // ribbon can snap to it via mapApiRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geojson, detail, routeId, is3d, profile, exaggeration, terrainTick]);
 
   const getTooltip = (info: PickingInfo) => {
+    if (info.layer?.id?.startsWith("route-3d-portals-")) {
+      const d = info.object as ProfilePoint | undefined;
+      if (!d) return null;
+      return tip(
+        [
+          ["Elevation", `${fmtNum(d.elev_m, 0)} m`],
+          ["Distance", fmtKm(d.distance_m / 1000)],
+        ],
+        "Tunnel portal",
+      );
+    }
+    if (info.layer?.id?.startsWith("route-3d-piers-")) {
+      const d = info.object as ProfilePoint | undefined;
+      if (!d) return null;
+      return tip(
+        [
+          ["Ground elevation", `${fmtNum(d.elev_m, 0)} m`],
+          ["Deck height", `+${ELEVATED_OFFSET_M} m`],
+        ],
+        "Viaduct pier",
+      );
+    }
     if (info.layer?.id === "segments") {
       const p = (info.object as { properties: Record<string, number | string> })?.properties;
       if (!p) return null;
@@ -458,6 +458,8 @@ export default function CorridorPage() {
           viewStateOverride={tourViewState}
           layers={layers}
           getTooltip={getTooltip}
+          onMapReady={handleMapReady}
+          onTerrainTilesLoaded={handleTerrainTilesLoaded}
           onClick={(i) => {
             const p = (i.object as { properties?: Record<string, number> })?.properties;
             if (p?.route_id) setPicked(p.route_id);
@@ -531,17 +533,6 @@ export default function CorridorPage() {
             </div>
           )}
           <div className="absolute bottom-6 right-4 flex items-center gap-2">
-            {trainPath && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-card/90 backdrop-blur"
-                onClick={() => setTrainPlaying((p) => !p)}
-              >
-                {trainPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                <span className="ml-1.5">{trainPlaying ? "Pause train" : "Run train"}</span>
-              </Button>
-            )}
             <Button
               size="sm"
               variant={touring ? "default" : "outline"}
@@ -649,9 +640,28 @@ export default function CorridorPage() {
                 <div className="text-[11px] text-muted-foreground">
                   construction + maintenance (30yr NPV) + flood risk premium
                   − SVI-weighted population value served. The route that costs less
-                  and serves more vulnerable people wins.
+                  and serves more vulnerable people wins. This score is only meaningful
+                  *relative* to the other alternatives for this O-D pair — it is not an
+                  absolute project budget.
                 </div>
               </div>
+
+              <InfoPanel
+                sections={[
+                  {
+                    title: "What this is",
+                    body: "Each alternative is one routed path between two cities, generated by finding the lowest-cost path across a cost-surface raster and then scored on the same societal-value objective used elsewhere in PRISM (construction + maintenance − population benefit).",
+                  },
+                  {
+                    title: "How it's calculated",
+                    body: "A 300 m-resolution cost surface combines terrain slope (drives the construction-cost multiplier: standard $15M/km, elevated $40M/km, tunnel $120M/km), flood-zone overlap (adds a risk premium), and SVI-weighted population reachability (the benefit side). Dijkstra (8-connectivity) finds the lowest-cost path; alternates are produced by penalizing the prior path's corridor (\"corridor exclusion\") and re-routing. Maintenance is $500K/km/yr, expressed as a 30-yr NPV.",
+                  },
+                  {
+                    title: "Data sources & accuracy",
+                    body: "These are planning-level estimates for comparing alternatives, not engineering cost estimates: the 300 m cost-surface resolution can miss property-level obstacles, bridge spans default to 50 m (no real span data is available yet), and station/intermodal links are nearest-barrio proxies rather than sited stations.",
+                  },
+                ]}
+              />
 
               <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">

@@ -41,6 +41,7 @@ SYNC_SOURCES: list[dict] = [
         "url": WFS_URL,
         "sync_interval_hours": 24,
         "affects_resilience": True,
+        "invalidates": "flood_zones",
     },
     {
         "source_name": "wfs_marejada",
@@ -210,6 +211,12 @@ def sync_source(
     # First fetch or count changed — register the baseline / update
     if not dry_run:
         upsert_source(engine, source, new_checksum, count, "updated")
+        invalidates = source.get("invalidates")
+        if invalidates:
+            from prism.cache import invalidate_layer
+            n = invalidate_layer(invalidates)
+            if n:
+                log.info("Invalidated %d cache key(s) for %s", n, invalidates)
 
     result = SyncResult(
         source_name=source_name,

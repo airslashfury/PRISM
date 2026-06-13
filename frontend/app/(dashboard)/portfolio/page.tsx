@@ -18,6 +18,7 @@ import { Banknote, Gauge, TrendingUp, Layers } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/stat-card";
+import { InfoPanel } from "@/components/info-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_STROKE } from "@/components/charts";
@@ -56,11 +57,11 @@ export default function PortfolioPage() {
         <div>
           <h2 className="text-sm font-semibold">Investment portfolio</h2>
           <p className="text-xs text-muted-foreground">
-            ILP (Integer Linear Programming) finds the exact combination of interventions — not
-            a heuristic — that maximizes total resilience uplift within budget. Elevation raises
-            equipment above flood level ($5M–$15M); hardening adds flood barriers and structural
-            reinforcement ($3M–$8M); relocation moves a substation to safer ground ($20M+, chosen
-            only for the highest-vulnerability sites.
+            A portfolio is one optimizer run: given a budget and hazard scenario, it picks which
+            substations to upgrade and how, to get the most resilience and population benefit per
+            dollar. Elevation raises equipment above flood level ($5M–$15M); hardening adds flood
+            barriers and structural reinforcement ($3M–$8M); relocation moves a substation to
+            safer ground ($20M+, chosen only for the highest-vulnerability sites).
           </p>
         </div>
         <div className="w-[320px]">
@@ -80,6 +81,23 @@ export default function PortfolioPage() {
           )}
         </div>
       </div>
+
+      <InfoPanel
+        sections={[
+          {
+            title: "What this is",
+            body: "Each run picks a set of substation interventions for a fixed budget and hazard scenario. “Resilience uplift” is the reduction in each substation’s composite risk score (hazard probability × cascading impact × network criticality — see Resilience). “Per $1M” is the marginal efficiency used to rank candidates: how much uplift (or equity-adjusted benefit) one million dollars buys at that site.",
+          },
+          {
+            title: "How it's calculated",
+            body: "An Integer Linear Program (scipy.optimize.milp) searches all 800 candidate interventions (200 substations × 4 types: elevation, hardening, relocation, none) and finds the exact combination — not a heuristic — that maximizes total net benefit (population + economic benefit, minus cost) without exceeding the budget. Optionally, benefits are equity-weighted by each substation’s downstream Social Vulnerability Index (see Economy), so high-SVI areas are prioritized at the margin.",
+          },
+          {
+            title: "Data sources & accuracy",
+            body: "Costs are parametric model costs per intervention type, not site-specific engineering estimates. Population and economic benefit come from the VOLL (Value of Lost Load) exposure model. Treat this as a prioritization and trade-off tool — useful for comparing where a dollar does the most good — not a procurement-ready cost estimate.",
+          },
+        ]}
+      />
 
       {(runsErr || error) && <ErrorBlock error={runsErr ?? error} />}
       {(runsLoading || isLoading) && <LoadingBlock label="Loading portfolio" />}

@@ -6,21 +6,33 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 load_dotenv()
 
+from api.logging_config import configure_logging  # noqa: E402  (load_dotenv must run first)
+from api.limiter import limiter  # noqa: E402
+from api.metrics import MetricsMiddleware  # noqa: E402
+from api.metrics import router as metrics_router  # noqa: E402
 from api.routers import (  # noqa: E402  (load_dotenv must run first)
     corridor,
     economy,
     hazard,
+    jobs,
     network,
+    playground,
     portfolio,
     reports,
     resilience,
     sync,
     system,
     terrain,
+    tiles,
 )
+
+configure_logging()
 
 app = FastAPI(
     title="PRISM API",
@@ -51,7 +63,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (system, resilience, portfolio, economy, corridor, network, hazard, sync, reports, terrain):
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(MetricsMiddleware)
+
+app.include_router(metrics_router)
+for r in (system, resilience, portfolio, economy, corridor, network, hazard, sync, reports, terrain, tiles, jobs, playground):
     app.include_router(r.router)
 
 
