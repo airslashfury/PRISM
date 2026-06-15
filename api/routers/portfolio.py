@@ -29,6 +29,47 @@ def runs(
     )
 
 
+@router.get("/compare", response_model=schemas.PortfolioCompare)
+def compare(
+    run_id_a: int = Query(..., description="baseline run (e.g. previously shown budget)"),
+    run_id_b: int = Query(..., description="new run (e.g. budget after slider change)"),
+    engine: Engine = Depends(engine_dep),
+) -> dict:
+    """Item-level diff between two portfolio runs — what the budget allocator shows
+    after a re-run: which substations were added/dropped and the cost/uplift deltas.
+    Reuses prism.report.compare.compare_runs (also persists to report.scenario_comparison)."""
+    from prism.report.compare import compare_runs
+
+    try:
+        result = compare_runs(engine, run_id_a, run_id_b, label_a="run_a", label_b="run_b")
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    def _side(s) -> dict:
+        return {
+            "run_id": s.run_id,
+            "scenario_name": s.scenario_name,
+            "budget_usd": s.budget_usd,
+            "total_cost_usd": s.total_cost_usd,
+            "total_uplift": s.total_uplift,
+            "n_interventions": s.n_interventions,
+        }
+
+    return {
+        "run_a": _side(result.summary_a),
+        "run_b": _side(result.summary_b),
+        "delta_cost_usd": result.delta_cost_usd,
+        "delta_uplift": result.delta_uplift,
+        "delta_n_interventions": result.delta_n_interventions,
+        "delta_population": result.delta_population,
+        "delta_svi_weighted_pop": result.delta_svi_weighted_pop,
+        "items_only_in_a": result.items_only_in_a,
+        "items_only_in_b": result.items_only_in_b,
+        "items_shared": result.items_shared,
+        "equity_flag": result.equity_flag,
+    }
+
+
 @router.get("/runs/{run_id}", response_model=schemas.PortfolioRunDetail)
 def run_detail(run_id: int, engine: Engine = Depends(engine_dep)) -> dict:
     run = fetch_one(

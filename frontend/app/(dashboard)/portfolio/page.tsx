@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -13,10 +14,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Banknote, Gauge, TrendingUp, Layers } from "lucide-react";
+import { Banknote, Gauge, TrendingUp, Layers, SlidersHorizontal, Loader2, ArrowRight, Scale } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/stat-card";
 import { InfoPanel } from "@/components/info-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +26,7 @@ import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_STROKE } from "@/components/charts";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { usePortfolioRun, usePortfolioRuns } from "@/lib/hooks";
+import { api, pollJob, type PortfolioCompare, type PortfolioCompareItem, type PortfolioOptimizeResult } from "@/lib/api";
 import { fmtInt, fmtNum, fmtUsd, fmtUsdTiered } from "@/lib/utils";
 
 const TYPE_COLOR: Record<string, string> = {
@@ -38,6 +41,47 @@ export default function PortfolioPage() {
   const [picked, setPicked] = useState<number | null>(null);
   const runId = picked ?? runs?.[0]?.run_id ?? null;
   const { data: run, isLoading, error } = usePortfolioRun(runId);
+
+  // --- Budget allocator (P3-gov) ---------------------------------------- //
+  const queryClient = useQueryClient();
+  const [budgetM, setBudgetM] = useState(500);
+  const [equityWeight, setEquityWeight] = useState(1);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizeError, setOptimizeError] = useState<Error | null>(null);
+  const [compare, setCompare] = useState<PortfolioCompare | null>(null);
+
+  // Sync the slider to the selected run's budget whenever a (different) run loads,
+  // unless we're mid-optimize (the slider value is what we just submitted).
+  useEffect(() => {
+    if (run?.budget_usd != null && !optimizing) {
+      setBudgetM(Math.round(run.budget_usd / 1e6));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.run_id]);
+
+  async function rerunAllocation() {
+    if (runId == null) return;
+    const priorRunId = runId; // diff the new run against what's on screen now
+    setOptimizing(true);
+    setOptimizeError(null);
+    setCompare(null);
+    try {
+      const { job_id } = await api.enqueuePortfolioOptimize(
+        Math.round(budgetM * 1e6),
+        run?.scenario_name ?? "cat3",
+        equityWeight,
+      );
+      const result = await pollJob<PortfolioOptimizeResult>(job_id, { timeoutMs: 180_000 });
+      if (result?.run_id == null) throw new Error("Optimization returned no run id");
+      await queryClient.invalidateQueries({ queryKey: ["portfolioRuns"] });
+      setPicked(result.run_id);
+      setCompare(await api.portfolioCompare(priorRunId, result.run_id));
+    } catch (e) {
+      setOptimizeError(e as Error);
+    } finally {
+      setOptimizing(false);
+    }
+  }
 
   const efficiency = useMemo(() => {
     if (!run?.items) return [];
@@ -102,6 +146,105 @@ export default function PortfolioPage() {
           },
         ]}
       />
+
+      {/* Budget allocator — the marquee control: move the budget, re-run the ILP. */}
+      <Card>
+        <div className="flex items-center gap-2 border-b border-border/60 p-4">
+          <SlidersHorizontal className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold">Budget allocator</h3>
+          <span className="text-xs text-muted-foreground">
+            Set a capital budget and re-run the optimizer to see where the next dollar does the most good.
+          </span>
+        </div>
+        <div className="space-y-5 p-4">
+          <div className="grid gap-5 sm:grid-cols-2">
+            {/* Budget slider */}
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <label className="text-xs font-medium text-muted-foreground">Capital budget</label>
+                <span className="tnum text-lg font-semibold">${fmtInt(budgetM)}M</span>
+              </div>
+              <input
+                type="range"
+                min={50}
+                max={2000}
+                step={50}
+                value={budgetM}
+                disabled={optimizing}
+                onChange={(e) => setBudgetM(Number(e.target.value))}
+                className="h-1.5 w-full cursor-pointer accent-cyan-400"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                <span>$50M</span>
+                <span>$2B</span>
+              </div>
+            </div>
+            {/* Equity weight slider */}
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <Scale className="h-3 w-3" /> Equity weight
+                </label>
+                <span className="tnum text-lg font-semibold">{fmtNum(equityWeight, 1)}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.1}
+                value={equityWeight}
+                disabled={optimizing}
+                onChange={(e) => setEquityWeight(Number(e.target.value))}
+                className="h-1.5 w-full cursor-pointer accent-violet-400"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                <span>0 · pure cost-benefit</span>
+                <span>1 · full SVI boost</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={rerunAllocation} disabled={optimizing || runId == null}>
+              {optimizing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Optimizing…
+                </>
+              ) : (
+                <>Re-run allocation at ${fmtInt(budgetM)}M</>
+              )}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Runs the exact ILP on the {run?.scenario_name ?? "cat3"} scenario via the job queue
+              (~5–30s). Result is saved as a new run and diffed against the one shown now.
+            </span>
+          </div>
+          {optimizeError && <ErrorBlock error={optimizeError} />}
+
+          {/* Diff panel: what moved between the prior run and the new one */}
+          {compare && (
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <span className="tnum text-muted-foreground">Run #{compare.run_a.run_id}</span>
+                <ArrowRight className="h-4 w-4 text-primary" />
+                <span className="tnum">Run #{compare.run_b.run_id}</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  ${fmtInt(Math.round(compare.run_a.budget_usd / 1e6))}M → ${fmtInt(Math.round(compare.run_b.budget_usd / 1e6))}M
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <DeltaStat label="Capital deployed" value={fmtUsd(compare.run_b.total_cost_usd, 0)} delta={compare.delta_cost_usd} fmt={(v) => fmtUsd(v, 0)} />
+                <DeltaStat label="Resilience uplift" value={fmtNum(compare.run_b.total_uplift, 1)} delta={compare.delta_uplift} fmt={(v) => fmtNum(v, 1)} />
+                <DeltaStat label="Interventions" value={fmtInt(compare.run_b.n_interventions)} delta={compare.delta_n_interventions} fmt={(v) => fmtInt(v)} />
+                <DeltaStat label="People protected" value={fmtInt(compare.delta_population)} delta={compare.delta_population} fmt={(v) => fmtInt(v)} valueIsDelta />
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <DiffList title={`Newly funded (${compare.items_only_in_b.length})`} accent="emerald" items={compare.items_only_in_b} />
+                <DiffList title={`Dropped (${compare.items_only_in_a.length})`} accent="rose" items={compare.items_only_in_a} />
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {(runsErr || error) && <ErrorBlock error={runsErr ?? error} />}
       {(runsLoading || isLoading) && <LoadingBlock label="Loading portfolio" />}
@@ -219,6 +362,67 @@ export default function PortfolioPage() {
             </div>
           </Card>
         </>
+      )}
+    </div>
+  );
+}
+
+function DeltaStat({
+  label,
+  value,
+  delta,
+  fmt,
+  valueIsDelta = false,
+}: {
+  label: string;
+  value: string;
+  delta: number;
+  fmt: (v: number) => string;
+  valueIsDelta?: boolean;
+}) {
+  const up = delta > 0;
+  const flat = delta === 0;
+  const color = flat ? "text-muted-foreground" : up ? "text-emerald-400" : "text-rose-400";
+  return (
+    <div className="rounded-md border border-border/50 bg-card/40 p-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="tnum text-sm font-semibold">{valueIsDelta ? "" : value}</div>
+      <div className={`tnum text-xs ${color}`}>
+        {flat ? "no change" : `${up ? "+" : "−"}${fmt(Math.abs(delta))}`}
+      </div>
+    </div>
+  );
+}
+
+function DiffList({
+  title,
+  accent,
+  items,
+}: {
+  title: string;
+  accent: "emerald" | "rose";
+  items: PortfolioCompareItem[];
+}) {
+  const dot = accent === "emerald" ? "bg-emerald-400" : "bg-rose-400";
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
+        <span className={`h-2 w-2 rounded-full ${dot}`} />
+        {title}
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">None.</p>
+      ) : (
+        <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
+          {items.slice(0, 25).map((it) => (
+            <li key={`${it.entity_id}-${it.intervention_type}`} className="flex items-center justify-between gap-2 text-xs">
+              <span className="truncate">{it.entity_name ?? `#${it.entity_id}`}</span>
+              <span className="shrink-0 text-muted-foreground">
+                {it.intervention_type} · {fmtUsd(it.cost_usd, 0)}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

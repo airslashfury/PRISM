@@ -46,6 +46,7 @@ class Portfolio:
     budget_usd: float
     algorithm: str
     items: list[PortfolioItem] = field(default_factory=list)
+    run_id: int | None = None  # set by _save_portfolio after persistence
 
     @property
     def total_cost_usd(self) -> float:
@@ -370,6 +371,7 @@ def _save_portfolio(engine: Engine, portfolio: Portfolio) -> None:
         }).fetchone()
 
         run_id = run_row[0]
+        portfolio.run_id = run_id
 
         if portfolio.items:
             item_rows = [

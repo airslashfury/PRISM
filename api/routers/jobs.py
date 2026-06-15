@@ -12,7 +12,7 @@ import os
 
 from arq.connections import RedisSettings, create_pool
 from arq.jobs import Job, JobStatus
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from api.limiter import limiter
@@ -50,6 +50,22 @@ async def enqueue_corridor_regen(request: Request) -> JobEnqueued:
 async def enqueue_rescore(request: Request, scenario: str = "cat3") -> JobEnqueued:
     redis = await _pool()
     job = await redis.enqueue_job("rescore_resilience", scenario)
+    return JobEnqueued(job_id=job.job_id)
+
+
+@router.post("/portfolio/optimize", response_model=JobEnqueued)
+@limiter.limit("5/minute")
+async def enqueue_portfolio_optimize(
+    request: Request,
+    budget_usd: float = Query(500_000_000.0, gt=0, description="Capital budget for the ILP allocation"),
+    scenario: str = "cat3",
+    equity_weight: float = Query(1.0, ge=0.0, description="0=pure VOLL, 1=full equity boost"),
+    include_transport: bool = False,
+) -> JobEnqueued:
+    redis = await _pool()
+    job = await redis.enqueue_job(
+        "optimize_portfolio", budget_usd, scenario, equity_weight, include_transport
+    )
     return JobEnqueued(job_id=job.job_id)
 
 

@@ -53,6 +53,8 @@ COPY prism/provenance ./prism/provenance
 COPY prism/validate ./prism/validate
 COPY prism/citizen ./prism/citizen
 COPY prism/ask ./prism/ask
+COPY prism/economy ./prism/economy
+COPY prism/optimize ./prism/optimize
 COPY config ./config
 COPY catalog ./catalog
 

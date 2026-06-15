@@ -162,6 +162,40 @@ class PortfolioRunDetail(PortfolioRun):
     allocation_by_type: list[TypeAllocation]
 
 
+class PortfolioCompareItem(BaseModel):
+    entity_id: int
+    entity_name: str | None
+    intervention_type: str
+    cost_usd: float
+    resilience_uplift: float | None
+    weighted_svi: float
+    downstream_population: int
+
+
+class PortfolioCompareSide(BaseModel):
+    run_id: int
+    scenario_name: str
+    budget_usd: float
+    total_cost_usd: float
+    total_uplift: float
+    n_interventions: int
+
+
+class PortfolioCompare(BaseModel):
+    """Diff between two portfolio runs (e.g. budget-allocator before/after)."""
+    run_a: PortfolioCompareSide
+    run_b: PortfolioCompareSide
+    delta_cost_usd: float
+    delta_uplift: float
+    delta_n_interventions: int
+    delta_population: int
+    delta_svi_weighted_pop: float
+    items_only_in_a: list[PortfolioCompareItem]
+    items_only_in_b: list[PortfolioCompareItem]
+    items_shared: list[PortfolioCompareItem]
+    equity_flag: bool
+
+
 # --------------------------------------------------------------------------- #
 # Economy                                                                      #
 # --------------------------------------------------------------------------- #

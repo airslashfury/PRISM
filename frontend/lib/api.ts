@@ -244,6 +244,50 @@ export interface AskResponse {
   status: "ok" | "no_backend" | "no_match";
 }
 
+// Budget allocator (P3-gov). Hand-typed pending OpenAPI client regen — same
+// standing cosmetic gap as the P1/P2/P3 additions above.
+export interface PortfolioCompareItem {
+  entity_id: number;
+  entity_name: string | null;
+  intervention_type: string;
+  cost_usd: number;
+  resilience_uplift: number | null;
+  weighted_svi: number;
+  downstream_population: number;
+}
+
+export interface PortfolioCompareSide {
+  run_id: number;
+  scenario_name: string;
+  budget_usd: number;
+  total_cost_usd: number;
+  total_uplift: number;
+  n_interventions: number;
+}
+
+export interface PortfolioCompare {
+  run_a: PortfolioCompareSide;
+  run_b: PortfolioCompareSide;
+  delta_cost_usd: number;
+  delta_uplift: number;
+  delta_n_interventions: number;
+  delta_population: number;
+  delta_svi_weighted_pop: number;
+  items_only_in_a: PortfolioCompareItem[];
+  items_only_in_b: PortfolioCompareItem[];
+  items_shared: PortfolioCompareItem[];
+  equity_flag: boolean;
+}
+
+export interface PortfolioOptimizeResult {
+  run_id: number | null;
+  scenario: string;
+  budget_usd: number;
+  n_interventions: number;
+  total_cost_usd: number;
+  total_uplift: number;
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -326,6 +370,13 @@ export const api = {
 
   portfolioRuns: (limit = 50) => apiGet<PortfolioRun[]>("/portfolio/runs", { limit }),
   portfolioRun: (id: number) => apiGet<PortfolioRunDetail>(`/portfolio/runs/${id}`),
+  enqueuePortfolioOptimize: (budgetUsd: number, scenario = "cat3", equityWeight = 1.0) =>
+    apiSend<JobEnqueued>(
+      `/jobs/portfolio/optimize?budget_usd=${budgetUsd}&scenario=${encodeURIComponent(scenario)}&equity_weight=${equityWeight}`,
+      "POST",
+    ),
+  portfolioCompare: (runIdA: number, runIdB: number) =>
+    apiGet<PortfolioCompare>("/portfolio/compare", { run_id_a: runIdA, run_id_b: runIdB }),
 
   economyTracts: () => apiGet<FeatureCollection>("/economy/tracts"),
   economyCommunity: () => apiGet<FeatureCollection>("/economy/community"),

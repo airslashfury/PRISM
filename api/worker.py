@@ -36,6 +36,38 @@ async def rescore_resilience(ctx: dict, scenario: str = "cat3") -> dict:
     return {"scenario": scenario, "status": "done"}
 
 
+async def optimize_portfolio(
+    ctx: dict,
+    budget_usd: float = 500_000_000.0,
+    scenario: str = "cat3",
+    equity_weight: float = 1.0,
+    include_transport: bool = False,
+) -> dict:
+    """Re-run the ILP budget allocation at an arbitrary budget and persist a new run.
+
+    Backs the P3-gov budget allocator: the frontend slider enqueues this, polls for
+    completion, then loads the new run + diffs it against the previously shown run.
+    """
+    from prism.optimize.optimizer import run_portfolio
+
+    engine = get_engine()
+    portfolio = run_portfolio(
+        engine,
+        budget_usd=budget_usd,
+        scenario=scenario,
+        equity_weight=equity_weight,
+        include_transport=include_transport,
+    )
+    return {
+        "run_id": portfolio.run_id,
+        "scenario": scenario,
+        "budget_usd": budget_usd,
+        "n_interventions": len(portfolio.items),
+        "total_cost_usd": portfolio.total_cost_usd,
+        "total_uplift": portfolio.total_uplift,
+    }
+
+
 async def generate_narrative(ctx: dict, kind: str = "corridor", flagship: bool = False) -> dict:
     """Generate an AI narrative and persist it to report.narratives."""
     from prism.report.narrative import generate_corridor_narrative
@@ -78,6 +110,7 @@ class WorkerSettings:
     functions = [
         regenerate_corridors,
         rescore_resilience,
+        optimize_portfolio,
         generate_narrative,
         evaluate_scenario,
         whatif_failure,
