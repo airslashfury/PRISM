@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { fmtRelative } from "@/lib/utils";
 import { useOverview } from "@/lib/hooks";
 import { activeNav } from "./nav";
+import { MobileNav } from "./mobile-nav";
 
 export function Topbar() {
   const pathname = usePathname();
@@ -22,13 +23,16 @@ export function Topbar() {
   const ok = health.data?.status === "ok";
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/70 bg-card/30 px-6 backdrop-blur">
-      <div className="min-w-0">
-        <h1 className="truncate text-base font-semibold tracking-tight">{nav.label}</h1>
-        <p className="truncate text-xs text-muted-foreground">{nav.desc}</p>
+    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/30 px-4 backdrop-blur md:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <MobileNav />
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold tracking-tight">{nav.label}</h1>
+          <p className="truncate text-xs text-muted-foreground">{nav.desc}</p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-5 text-xs">
+      <div className="flex shrink-0 items-center gap-5 text-xs">
         <div className="hidden items-center gap-1.5 sm:flex">
           <span className="text-muted-foreground">Last sync</span>
           <span className="tnum text-foreground/90">{fmtRelative(overview?.last_sync_at)}</span>

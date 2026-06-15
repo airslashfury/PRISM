@@ -10,9 +10,10 @@ import { GradientLegend } from "@/components/legend";
 import { Segmented } from "@/components/ui/segmented";
 import { InfoPanel } from "@/components/info-panel";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { ProvenanceBadge } from "@/components/provenance-badge";
 import { useEconomyTracts, useExposure } from "@/lib/hooks";
 import { sviColor, type RGB } from "@/lib/colors";
-import { fmtInt, fmtNum, fmtPct, fmtUsd } from "@/lib/utils";
+import { fmtInt, fmtIntTiered, fmtNum, fmtPct, fmtUsd, fmtUsdTiered } from "@/lib/utils";
 import { tileUrl, type ExposureRow } from "@/lib/api";
 
 const SVI_STOPS: RGB[] = [
@@ -124,12 +125,13 @@ export default function EconomyPage() {
   const topExposed = exposure?.slice(0, 20) ?? [];
 
   return (
-    <div className="flex h-full">
-      <div className="relative flex-1">
+    <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+      <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
         <MapCanvas layers={layers} getTooltip={getTooltip}>
-          <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="pointer-events-auto absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Social Vulnerability Index (SVI)
+              <ProvenanceBadge table="economy.barrio_economics" />
             </div>
             <div className="mt-0.5 text-[10px] text-muted-foreground/70">
               0 = low vulnerability, 1 = high · weighted: poverty · age · disability · flood · slope
@@ -178,10 +180,13 @@ export default function EconomyPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-[360px] shrink-0 flex-col border-l border-border/70 bg-card/30">
+      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[360px] md:shrink-0 md:border-l md:border-t-0">
         <div className="space-y-3 border-b border-border/70 p-4">
           <div>
-            <h2 className="text-sm font-semibold">Most exposed substations</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              Most exposed substations
+              <ProvenanceBadge table="economy.substation_exposure" />
+            </h2>
             <p className="text-xs text-muted-foreground">
               Ranked by people who lose power if this substation fails. Circle size on the map
               is proportional to that population. VOLL (Value of Lost Load) converts outage
@@ -218,7 +223,7 @@ export default function EconomyPage() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{e.entity_name ?? `#${e.entity_id}`}</div>
                   <div className="text-xs text-muted-foreground">
-                    {fmtInt(e.population_affected)} people · {fmtUsd(e.economic_benefit_usd)}
+                    {fmtIntTiered(e.population_affected, "proxy")} people · {fmtUsdTiered(e.economic_benefit_usd, "proxy")}
                   </div>
                 </div>
               </li>

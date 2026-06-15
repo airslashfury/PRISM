@@ -22,8 +22,9 @@ import { InfoPanel } from "@/components/info-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_STROKE } from "@/components/charts";
+import { ProvenanceBadge } from "@/components/provenance-badge";
 import { usePortfolioRun, usePortfolioRuns } from "@/lib/hooks";
-import { fmtInt, fmtNum, fmtUsd } from "@/lib/utils";
+import { fmtInt, fmtNum, fmtUsd, fmtUsdTiered } from "@/lib/utils";
 
 const TYPE_COLOR: Record<string, string> = {
   elevation: "#22d3ee",
@@ -55,7 +56,10 @@ export default function PortfolioPage() {
       {/* Run selector */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold">Investment portfolio</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            Investment portfolio
+            <ProvenanceBadge table="optimize.portfolio.ilp" />
+          </h2>
           <p className="text-xs text-muted-foreground">
             A portfolio is one optimizer run: given a budget and hazard scenario, it picks which
             substations to upgrade and how, to get the most resilience and population benefit per
@@ -64,7 +68,7 @@ export default function PortfolioPage() {
             safer ground ($20M+, chosen only for the highest-vulnerability sites).
           </p>
         </div>
-        <div className="w-[320px]">
+        <div className="w-full sm:w-[320px]">
           {runs && runs.length > 0 && (
             <Select value={String(runId)} onValueChange={(v) => setPicked(Number(v))}>
               <SelectTrigger>
@@ -108,7 +112,7 @@ export default function PortfolioPage() {
             <StatCard label="Budget" value={fmtUsd(run.budget_usd, 0)} sub={run.scenario_name} icon={Banknote} accent="primary" />
             <StatCard
               label="Capital deployed"
-              value={fmtUsd(run.total_cost_usd)}
+              value={fmtUsdTiered(run.total_cost_usd, "proxy")}
               sub={`${fmtNum(utilization * 100, 1)}% utilization`}
               icon={Gauge}
               accent="emerald"
@@ -205,7 +209,7 @@ export default function PortfolioPage() {
                           {it.intervention_type}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-right tnum">{fmtUsd(it.cost_usd)}</td>
+                      <td className="px-4 py-2 text-right tnum">{fmtUsdTiered(it.cost_usd, "proxy")}</td>
                       <td className="px-4 py-2 text-right tnum">{fmtNum(it.resilience_uplift, 1)}</td>
                       <td className="px-4 py-2 text-right tnum text-muted-foreground">{fmtNum(it.uplift_per_million, 2)}</td>
                     </tr>

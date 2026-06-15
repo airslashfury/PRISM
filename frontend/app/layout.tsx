@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 import "./globals.css";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: "PRISM — Infrastructure Intelligence",
   description:
     "Puerto Rico Infrastructure Simulation Model — resilience, economy, optimization, and rail corridors as one interconnected system.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

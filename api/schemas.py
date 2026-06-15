@@ -3,7 +3,7 @@ frontend's typed client is generated from — keep them honest to the DB.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -365,3 +365,190 @@ class WhatIfResult(BaseModel):
     municipios: int
     hospitals: int
     water_plants: int
+
+
+# --------------------------------------------------------------------------- #
+# Provenance & confidence (MVP3 Pillar 1)                                      #
+# --------------------------------------------------------------------------- #
+class ConfidenceTier(BaseModel):
+    key: str
+    label: str
+    rank: int
+    color: str | None = None
+    description: str
+
+
+class ProvenanceRecord(BaseModel):
+    table: str
+    source: str | None = None
+    title: str | None = None
+    description: str | None = None
+    url: str | None = None
+    domain: str | None = None
+    priority: str | None = None
+    license: str | None = None
+    row_count: int | None = None
+    feature_count: int | None = None
+    inputs: list[str] = Field(default_factory=list)
+    compute_date: str | None = None
+    pulled_at: str | None = None
+    sha256: str | None = None
+    method: str
+    confidence_tier: str
+    confidence_label: str
+    confidence_color: str | None = None
+    assumptions: str | None = None
+    upgrade_path: str | None = None
+
+
+class InventoryEntry(ProvenanceRecord):
+    id: str
+    is_derived: bool
+
+
+class Assumption(BaseModel):
+    key: str
+    label: str
+    value: float | None = None
+    unit: str | None = None
+    confidence_tier: str
+    used_by: list[str] = Field(default_factory=list)
+    assumptions: str
+    upgrade_path: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Calibration & Validation (MVP3 Pillar 2)                                     #
+# --------------------------------------------------------------------------- #
+class BacktestResult(BaseModel):
+    event_key: str
+    event_name: str
+    event_date: date | None = None
+    validation_type: str
+    scenario_name: str | None = None
+    top_n: int | None = None
+    precision_at_n: float | None = None
+    recall: float | None = None
+    hits: list[dict[str, Any]] = Field(default_factory=list)
+    misses: list[str] = Field(default_factory=list)
+    notes: str | None = None
+    computed_at: datetime | None = None
+
+
+class SensitivityResult(BaseModel):
+    assumption_key: str
+    perturbation: str
+    baseline_value: str | None = None
+    perturbed_value: str | None = None
+    spearman_rho: float | None = None
+    top10_overlap: float | None = None
+    n_compared: int | None = None
+    stability: str
+    notes: str | None = None
+    computed_at: datetime | None = None
+
+
+class ModelCardSensitivity(BaseModel):
+    assumption_key: str
+    assumption: Assumption | None = None
+    results: list[SensitivityResult] = Field(default_factory=list)
+
+
+class ModelCard(BaseModel):
+    id: str
+    name: str
+    purpose: str
+    inputs: list[str] = Field(default_factory=list)
+    known_limitations: list[str] = Field(default_factory=list)
+    provenance: ProvenanceRecord | None = None
+    backtests: list[BacktestResult] = Field(default_factory=list)
+    sensitivity: list[ModelCardSensitivity] = Field(default_factory=list)
+
+
+# ── Citizen civic card (MVP3 P3-cit) ────────────────────────────────────────
+
+
+class BarrioOption(BaseModel):
+    entity_id: int
+    name: str
+    municipio: str | None = None
+
+
+class ServingSubstation(BaseModel):
+    entity_id: int
+    name: str | None
+    edge_confidence: float
+    confidence_tier: str
+
+
+class CivicConsequence(BaseModel):
+    headline: str
+    population_affected: int
+    hospitals: int
+    water_plants: int
+    health_centers: int
+    confidence_tier: str
+
+
+class CivicCommunityResilience(BaseModel):
+    score: float
+    percentile: float
+    confidence_tier: str
+
+
+class CivicRoadAccess(BaseModel):
+    nearest_hospital: str
+    travel_time_min: float
+    confidence_tier: str
+
+
+class CivicFloodExposure(BaseModel):
+    fraction_in_flood_zone: float
+    level: str
+    confidence_tier: str
+
+
+class CivicPlannedItem(BaseModel):
+    entity_name: str | None
+    intervention_type: str
+    cost_usd: float
+    resilience_uplift: float
+    confidence_tier: str
+
+
+class CivicCard(BaseModel):
+    barrio_entity_id: int
+    barrio_name: str
+    municipio_name: str | None = None
+    serving_substation: ServingSubstation | None = None
+    consequence: CivicConsequence | None = None
+    community_resilience: CivicCommunityResilience | None = None
+    road_access: CivicRoadAccess | None = None
+    flood_exposure: CivicFloodExposure
+    planned_nearby: list[CivicPlannedItem] = Field(default_factory=list)
+
+
+# ── Ask PRISM (MVP3 P3-shared) ──────────────────────────────────────────────
+
+
+class AskRequest(BaseModel):
+    query: str
+
+
+class AskMapPoint(BaseModel):
+    entity_id: int
+    name: str | None = None
+    kind: str | None = None
+    lon: float
+    lat: float
+
+
+class AskResponse(BaseModel):
+    answer_md: str
+    tool: str | None = None
+    tool_args: dict[str, Any] = Field(default_factory=dict)
+    tool_result: dict[str, Any] | None = None
+    confidence_tiers: dict[str, str] = Field(default_factory=dict)
+    map_points: list[AskMapPoint] = Field(default_factory=list)
+    model_used: str
+    status: str

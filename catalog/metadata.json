@@ -2102,6 +2102,48 @@
       "description": "Per-segment breakdown of each corridor alternative. Columns: segment_id, route_id, seq, terrain_type (standard/elevated/tunnel), cost_per_km, km, geom (LINESTRING 32161).",
       "computed_by": "prism.corridor.corridors.generate_corridors",
       "pulled_at": "2026-06-07"
+    },
+    "derived:validation.backtest_results": {
+      "source": "derived",
+      "title": "Event backtest results",
+      "domain": "validation",
+      "priority": "MVP3-P2",
+      "license": "PRISM derived",
+      "description": "MVP3 P2: replays real events (Hurricane Maria 2017, Hurricane Fiona 2022, April 2024 island-wide blackout) against PRISM's resilience rankings. Columns: event_key, event_name, event_date, validation_type, scenario_name, top_n, precision_at_n, recall, hits (jsonb), misses (jsonb), notes.",
+      "schema": "validation",
+      "table": "backtest_results",
+      "row_count": 3,
+      "inputs": [
+        "config/validation_events.yml",
+        "resilience.scenario_scores",
+        "resilience.spof_scores",
+        "graph.relationships (LOCATED_IN, FEEDS, POWERS)",
+        "graph.entities (municipio)",
+        "prism/validate/backtest.py"
+      ],
+      "computed_by": "prism.validate.backtest.run_all_backtests",
+      "compute_date": "2026-06-13"
+    },
+    "derived:validation.sensitivity_results": {
+      "source": "derived",
+      "title": "Sensitivity sweep results",
+      "domain": "validation",
+      "priority": "MVP3-P2",
+      "license": "PRISM derived",
+      "description": "MVP3 P2: +/-50% sweeps over PRISM's load-bearing assumptions (VOLL, discount rate, outage hours, feeder-assignment confidence, hazard probability curve), reporting Spearman rank correlation + top-10 overlap vs. baseline and a robust/sensitive stability badge. Columns: assumption_key, perturbation, baseline_value, perturbed_value, spearman_rho, top10_overlap, n_compared, stability, notes.",
+      "schema": "validation",
+      "table": "sensitivity_results",
+      "row_count": 10,
+      "inputs": [
+        "config/confidence.yml (assumptions)",
+        "economy.substation_exposure",
+        "resilience.cascade_scores",
+        "resilience.scenario_scores",
+        "graph.relationships (POWERS)",
+        "prism/validate/sensitivity.py"
+      ],
+      "computed_by": "prism.validate.sensitivity.run_all_sensitivity",
+      "compute_date": "2026-06-13"
     }
   }
 }

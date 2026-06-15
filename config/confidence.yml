@@ -1,0 +1,362 @@
+# Confidence taxonomy for PRISM (MVP3 Pillar 1 — Truth & Provenance).
+#
+# Every derived table (and every global assumption baked into a model) is
+# stamped with a `method` and a `confidence_tier` from the four below, plus a
+# one-line `assumptions` note and an `upgrade_path` describing what would move
+# it to a higher tier. The provenance API (`prism/provenance/`) merges this
+# file with `catalog/metadata.json` at request time — nothing here duplicates
+# row counts / pull dates / checksums, which stay in the catalog.
+#
+# Tiers are ordered from most to least certain. A figure's tier is the tier of
+# its *weakest* required input (e.g. a composite score that uses a Proxy
+# relationship is itself Proxy, even if every other input is Authoritative).
+
+tiers:
+  authoritative:
+    label: Authoritative
+    rank: 1
+    color: "#2563eb"          # blue
+    description: >-
+      Government or federal data, measured directly (WFS layers, Census TIGER/ACS,
+      USGS 3DEP, OSM/HIFLD geometry, FEMA flood zones). Rendered at full precision.
+  modeled:
+    label: Modeled
+    rank: 2
+    color: "#16a34a"          # green
+    description: >-
+      PRISM's own computation over Authoritative inputs using a documented method
+      (betweenness centrality, ILP optimization, Dijkstra cost-surface routing,
+      VOLL exposure). Internally consistent and reproducible; correctness depends
+      on the method and on its inputs' tiers.
+  proxy:
+    label: Proxy
+    rank: 3
+    color: "#d97706"          # amber
+    description: >-
+      A spatial or statistical approximation standing in for a relationship that
+      is not publicly published (chiefly substation→facility feeder assignment,
+      built from a Voronoi / voltage-hierarchy heuristic at confidence 0.4-0.7).
+      Good for ranking; rounded display only — never false precision.
+  estimated:
+    label: Estimated
+    rank: 4
+    color: "#9ca3af"          # gray
+    description: >-
+      A national or literature constant used as a default in the absence of a
+      Puerto Rico-specific measurement (VOLL $/kWh, discount rate, bridge span,
+      outage duration). Same for every asset of its type until replaced with a
+      local figure.
+
+# ── derived tables ──────────────────────────────────────────────────────────
+# Keyed by "schema.table" to match catalog/metadata.json's `derived:` entries.
+tables:
+  graph.entities:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Entities are typed extractions of features from authoritative sources
+      (HIFLD substations/transmission, OGP/PRITS WFS facilities, Census TIGER
+      barrios/municipios) — geometry and attributes are not modeled.
+    upgrade_path: null
+
+  graph.relationships:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      LOCATED_IN, CONNECTS_TO, SERVES and CROSSES are geometric joins on measured
+      geometry (confidence ~1.0). FEEDS and POWERS — which substation feeds which
+      facility — are NOT public; they are approximated by a spatial Voronoi /
+      voltage-hierarchy proxy at confidence 0.4-0.7 (per-edge `confidence` column).
+      Every downstream consequence figure inherits this tier.
+    upgrade_path: >-
+      A LUMA feeder-topology data-sharing agreement would replace FEEDS/POWERS
+      with measured assignments, raising this — and everything built on it — to
+      Authoritative.
+
+  graph.road_edges:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: OSM/WFS road centerlines noded into a routable graph; geometry not modeled.
+    upgrade_path: null
+
+  graph.road_vertices:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: Topology vertices derived directly from road_edges noding.
+    upgrade_path: null
+
+  graph.tx_network:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: ST_Node of measured HIFLD transmission-line geometry (25 m snap tolerance).
+    upgrade_path: null
+
+  graph.downstream_summary:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      Per-substation downstream population/facility counts walk the FEEDS/POWERS
+      proxy relationships — inherits graph.relationships' Proxy tier. Headline
+      population figures should render rounded (≈) rather than exact.
+    upgrade_path: Same as graph.relationships — a feeder data-sharing agreement.
+
+  resilience.spof_scores:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Betweenness centrality and articulation points computed with NetworkX over
+      the undirected CONNECTS_TO graph — a measured topology, so the ranking
+      itself is Modeled, not Proxy.
+    upgrade_path: null
+
+  resilience.cascade_scores:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      Downstream criticality (hospital=10, water_plant=5, health_center=3,
+      barrio=1) is scaled by POWERS-relationship confidence — inherits the
+      feeder-assignment Proxy tier.
+    upgrade_path: Same as graph.relationships.
+
+  resilience.scenario_scores:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      Composite = hazard_probability × cascade_impact × (1 + betweenness).
+      Hazard and betweenness terms are Modeled over Authoritative hazard layers;
+      the cascade term is Proxy, so the composite — and any ranking derived from
+      it — is Proxy overall. Strong for relative ranking, weaker for absolute
+      population claims.
+    upgrade_path: Same as graph.relationships.
+
+  resilience.community_resilience:
+    method: modeled
+    confidence_tier: proxy
+    assumptions: >-
+      Per-barrio score = svi_component (50%, Modeled over real ACS data) +
+      infra_density_score (30%) + recovery_factor (20%, derived from the latest
+      portfolio run, which is Proxy). Inherits the Proxy tier via recovery_factor.
+    upgrade_path: Same as graph.relationships.
+
+  optimize.intervention_catalog:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Per-substation intervention costs (FEMA BRIC unit costs) and benefits.
+      Early version (v1) used income-proxy benefits; superseded by v2/v3.
+    upgrade_path: null
+
+  optimize.portfolio_runs:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: Phase 4 greedy-knapsack portfolio over the v1 catalog.
+    upgrade_path: null
+
+  optimize.intervention_catalog.v2:
+    method: modeled
+    confidence_tier: proxy
+    assumptions: >-
+      Adds population_benefit_usd / economic_benefit_usd from VOLL exposure,
+      which is itself Proxy (depends on FEEDS/POWERS downstream population).
+      Costs and capacities are Modeled/Authoritative; benefits are Proxy —
+      catalog is Proxy overall for ranking purposes.
+    upgrade_path: Same as graph.relationships.
+
+  optimize.intervention_catalog.v3:
+    method: modeled
+    confidence_tier: proxy
+    assumptions: >-
+      v2 + weighted_svi (population-weighted Social Vulnerability Index) and
+      equity_adjusted_benefit_usd. SVI itself is Modeled over real ACS data, but
+      the population weighting again routes through the Proxy FEEDS/POWERS graph.
+    upgrade_path: Same as graph.relationships.
+
+  optimize.portfolio.ilp:
+    method: modeled
+    confidence_tier: proxy
+    assumptions: >-
+      scipy.optimize.milp exact ILP over intervention_catalog.v3 — the
+      optimization itself is exact given its inputs, but those inputs are Proxy
+      (see intervention_catalog.v3). Budget allocation rankings are robust;
+      absolute dollar/population figures inherit the Proxy ceiling.
+    upgrade_path: Same as graph.relationships.
+
+  economy.barrio_economics:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Per-tract population/income/poverty/elderly/disability from Census 2020
+      blocks + ACS 5-yr 2022 (real per-tract data, CENSUS_API_KEY set). The
+      5-component SVI (poverty 30% + elderly 15% + disabled 10% + flood 30% +
+      slope 15%) is a documented Modeled composite over Authoritative inputs.
+    upgrade_path: null
+
+  economy.substation_exposure:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      VOLL-based 30-yr NPV exposure = downstream population (via Proxy
+      FEEDS/POWERS) × VOLL ($2,389/person, an Estimated national constant — see
+      `assumptions` below). Both factors are below Authoritative, so exposure
+      dollar figures should render rounded with ≈.
+    upgrade_path: Same as graph.relationships, plus a PR-specific VOLL study.
+
+  report.scenario_comparison:
+    method: modeled
+    confidence_tier: proxy
+    assumptions: Delta between two portfolio runs — inherits optimize.portfolio.ilp's Proxy tier.
+    upgrade_path: Same as graph.relationships.
+
+  report.narratives:
+    method: ai_generated
+    confidence_tier: modeled
+    assumptions: >-
+      AI-generated prose (Sonnet/Opus) summarizing live query results — the
+      narrative's claims carry the confidence tier of the figures they cite, but
+      the narrative itself is not an independent measurement.
+    upgrade_path: null
+
+  transport.road_access_cost:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      pgr_dijkstra over the Authoritative road graph at a flat 40 km/h assumed
+      speed (an Estimated constant — real speed limits not modeled).
+    upgrade_path: Incorporate posted speed limits per road class.
+
+  transport.bridge_inventory:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      3,168 bridge ways from OSM Overpass — geometry and tags are Authoritative.
+      Span length is not in the source data; the bridge asset model defaults
+      every bridge to a 50 m "medium" tier (Estimated) for cost purposes.
+    upgrade_path: Pull span data from an as-built bridge inventory (e.g. NBI/PRHTA).
+
+  sync.data_sources:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: Operational registry of live WFS/OSM/NOAA feeds — last-fetch timestamps and checksums are measured, not modeled.
+    upgrade_path: null
+
+  sync.sync_log:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: Append-only audit log of sync runs.
+    upgrade_path: null
+
+  corridor.routes:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Dijkstra least-cost-path over a composite cost surface (measured terrain
+      slope + Authoritative flood zones + SVI-weighted population). Per-km unit
+      costs (standard/elevated/tunnel) are Estimated national construction-cost
+      figures, not PR-specific bids.
+    upgrade_path: Replace per-km unit costs with PR-specific construction bids.
+
+  corridor.route_segments:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: Per-segment terrain-type breakdown of corridor.routes — same tier and caveats.
+    upgrade_path: null
+
+  validation.backtest_results:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Each event's "severely affected municipios" list is hand-curated from
+      3 cited news/academic sources per event, not a per-substation outage
+      GIS — a deliberate "scrappy first pass" per MVP3_PLAN.md. Precision and
+      recall are honest measurements against PRISM's own rankings, but the
+      ground truth itself is coarse (municipio-level, not feeder-level).
+    upgrade_path: >-
+      Replace hand-curated municipio lists with LUMA/PREPA outage-restoration
+      GIS data per event, scored at the substation/feeder level.
+
+  validation.sensitivity_results:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Spearman rank correlation + top-10 overlap of substation rankings under
+      +/-50% perturbations of each assumption in this file's `assumptions:`
+      list. The +/-50% range and the robust threshold (rho>=0.9, overlap>=0.8)
+      are documented choices, not derived from a formal uncertainty analysis.
+    upgrade_path: >-
+      Replace the +/-50% heuristic range with assumption-specific uncertainty
+      bounds once PR-specific data narrows each estimate.
+
+# ── global estimated constants ──────────────────────────────────────────────
+# Not tables — single numbers baked into formulas across the models above.
+# Surfaced on the Trust Center and used as the sweep list for P2 sensitivity
+# analysis and the P3-eng assumptions panel.
+assumptions:
+  - key: voll_usd_per_kwh
+    label: Value of Lost Load (VOLL)
+    value: 5.0
+    unit: USD/kWh
+    confidence_tier: estimated
+    used_by:
+      - economy.substation_exposure
+      - optimize.intervention_catalog.v2
+      - optimize.intervention_catalog.v3
+    assumptions: >-
+      National default outage-cost figure (0.822 kW/person x $5/kWh x 33.6 hr/yr
+      x 17.29 NPV factor = $2,389/person 30yr). Not PR-specific.
+    upgrade_path: Commission a PR-specific VOLL study (PREB/LUMA outage-cost data).
+
+  - key: discount_rate
+    label: Discount rate (NPV)
+    value: 0.03
+    unit: fraction/yr
+    confidence_tier: estimated
+    used_by:
+      - optimize.intervention_catalog.v2
+      - corridor.routes
+    assumptions: Standard public-infrastructure discount rate (3%/yr, 30-yr horizon).
+    upgrade_path: Use PR Treasury / OMB's official discount rate if one is published.
+
+  - key: outage_hours_per_year
+    label: Annual outage hours
+    value: 33.6
+    unit: hours/yr
+    confidence_tier: estimated
+    used_by:
+      - economy.substation_exposure
+    assumptions: National SAIDI-style default; PR's actual post-Maria outage hours are far higher in some areas.
+    upgrade_path: Use LUMA SAIDI/SAIFI filings per feeder.
+
+  - key: feeder_assignment_radius
+    label: Feeder assignment (Voronoi proxy)
+    value: null
+    unit: spatial heuristic
+    confidence_tier: proxy
+    used_by:
+      - graph.relationships
+    assumptions: >-
+      FEEDS/POWERS assigned by nearest-substation Voronoi cell adjusted by
+      voltage hierarchy — confidence 0.4-0.7 per edge.
+    upgrade_path: LUMA feeder-topology data-sharing agreement.
+
+  - key: bridge_span_default_m
+    label: Default bridge span
+    value: 50
+    unit: meters
+    confidence_tier: estimated
+    used_by:
+      - transport.bridge_inventory
+      - prism.assets.bridge
+    assumptions: OSM bridge ways carry no span attribute; every bridge defaults to the "medium" 50 m cost tier.
+    upgrade_path: Pull span data from NBI/PRHTA as-built records.
+
+  - key: hazard_probability_curve
+    label: Hazard probability (cat3/slr2ft/combined)
+    value: null
+    unit: scenario-defined
+    confidence_tier: modeled
+    used_by:
+      - resilience.scenario_scores
+    assumptions: >-
+      Per-scenario hazard probabilities are Modeled overlays of Authoritative
+      flood/SLR/storm-surge/slope layers, not historical-frequency statistics.
+    upgrade_path: Validate against P2 event backtests (Maria/Fiona/2024 blackout).

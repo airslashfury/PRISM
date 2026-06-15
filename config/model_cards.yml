@@ -1,0 +1,186 @@
+# Model cards for the Trust Center (`/methods/validation`) — MVP3 P2.
+#
+# One entry per PRISM sub-model. `confidence_table` keys into
+# config/confidence.yml `tables:` for the tier/method/assumptions/upgrade_path
+# (single source of truth — not duplicated here). `validation_events` keys into
+# config/validation_events.yml; `sensitivity_keys` keys into
+# config/confidence.yml `assumptions:` AND the assumption-level sweeps computed
+# by prism/validate/sensitivity.py. `prism/provenance/catalog.py` merges all
+# three at request time.
+
+models:
+  - id: spof_betweenness
+    name: SPOF / Betweenness Centrality
+    purpose: >-
+      Identify structurally critical substations — single points of failure
+      whose loss fragments the transmission network — via betweenness
+      centrality and articulation points on the undirected CONNECTS_TO graph.
+    inputs:
+      - graph.tx_network
+      - graph.relationships (CONNECTS_TO)
+    confidence_table: resilience.spof_scores
+    known_limitations:
+      - CONNECTS_TO is derived from TX-line component membership at a 25 m
+        snap tolerance, not actual switching/breaker topology — two
+        substations on the same physical line are treated as always
+        connected, regardless of normally-open switches.
+    validation_events:
+      - blackout_apr_2024
+    sensitivity_keys: []
+
+  - id: cascade_impact
+    name: Downstream Cascade Impact
+    purpose: >-
+      Score the societal harm of a single substation failure by walking the
+      FEEDS/POWERS downstream graph and summing criticality-weighted facility
+      and population counts (hospital=10, water_plant=5, health_center=3,
+      barrio=1).
+    inputs:
+      - graph.relationships (FEEDS, POWERS)
+      - graph.entities (hospital, water_plant, health_center, barrio)
+    confidence_table: resilience.cascade_scores
+    known_limitations:
+      - Inherits the FEEDS/POWERS feeder-assignment proxy (confidence
+        0.4-0.7) — a substation's downstream set is a spatial approximation,
+        not a measured feeder map.
+      - Criticality weights (10/5/3/1) are a documented but not independently
+        validated severity ranking.
+    validation_events:
+      - hurricane_maria_2017
+      - hurricane_fiona_2022
+    sensitivity_keys:
+      - feeder_assignment_radius
+
+  - id: hazard_scenarios
+    name: Hazard Scenarios (cat3 / slr2ft / combined)
+    purpose: >-
+      Estimate P(failure | scenario) per asset from flood-zone membership,
+      sea-level-rise inundation, Cat-3 storm-surge overlay, and terrain slope.
+    inputs:
+      - flood_zones (FEMA/PR WFS)
+      - g27_sea_level_rise_inundation_extent_*
+      - g23_riesgo_inunda_model_intrusion_marejada_cic_cat2
+      - terrain_slope
+    confidence_table: resilience.scenario_scores
+    known_limitations:
+      - Flood-zone base probabilities and the Cat-3 flood multiplier (1.5x)
+        are documented heuristics, not fitted to observed failure rates.
+      - "SLR/surge layers are inert for most scored substations (coastal
+        polygons vs. inland substation points) — see Phase 3 carry-forward."
+    validation_events:
+      - hurricane_maria_2017
+      - hurricane_fiona_2022
+    sensitivity_keys:
+      - hazard_probability_curve
+
+  - id: composite_resilience
+    name: Composite Resilience Score
+    purpose: >-
+      Rank substations by composite = hazard_probability x cascade_impact x
+      (1 + betweenness) — the headline "highest consequence" ranking shown on
+      the Resilience page.
+    inputs:
+      - resilience.spof_scores
+      - resilience.cascade_scores
+      - hazard_scenarios (this page)
+    confidence_table: resilience.scenario_scores
+    known_limitations:
+      - A multiplicative composite of a Modeled term (hazard, betweenness)
+        and a Proxy term (cascade) — the composite is Proxy overall. Strong
+        for relative ranking, weaker for absolute population claims.
+    validation_events:
+      - hurricane_maria_2017
+      - hurricane_fiona_2022
+      - blackout_apr_2024
+    sensitivity_keys:
+      - hazard_probability_curve
+      - feeder_assignment_radius
+
+  - id: community_resilience
+    name: Community Resilience / SVI
+    purpose: >-
+      Per-barrio resilience score combining Social Vulnerability Index (SVI),
+      infrastructure density, and recovery factor from the latest portfolio
+      run — used for the equity lens in Portfolio and Economy.
+    inputs:
+      - economy.barrio_economics (Census 2020 + ACS 5-yr 2022)
+      - optimize.portfolio.ilp (recovery_factor)
+    confidence_table: resilience.community_resilience
+    known_limitations:
+      - recovery_factor couples this score to whichever portfolio run was
+        most recent — re-running the optimizer changes community_resilience
+        on next compute.
+      - SVI is a 5-component composite (poverty 30%, elderly 15%, disabled
+        10%, flood 30%, slope 15%) — documented but not independently
+        weighted-validated against an external SVI (e.g. CDC/ATSDR).
+    validation_events:
+      - hurricane_maria_2017
+    sensitivity_keys: []
+
+  - id: voll_exposure
+    name: VOLL Economic Exposure
+    purpose: >-
+      Estimate the 30-year NPV economic benefit of preventing a substation's
+      downstream outage, using a Value-of-Lost-Load (VOLL) model:
+      population x kW/person x $/kWh x outage-hours/yr x NPV factor.
+    inputs:
+      - economy.barrio_economics (population)
+      - graph.relationships (FEEDS, POWERS — downstream population)
+    confidence_table: economy.substation_exposure
+    known_limitations:
+      - VOLL ($5/kWh), outage-hours/yr (33.6), and the discount rate (3%) are
+        national/literature defaults, not PR-specific measurements.
+      - Because all three are scalar multipliers applied uniformly to every
+        substation, P2's sensitivity sweep shows substation *rankings* (and
+        ILP portfolio selection) are invariant to plausible changes in these
+        constants — only the absolute dollar figures shift. Render dollar
+        figures with "≈".
+    validation_events: []
+    sensitivity_keys:
+      - voll_usd_per_kwh
+      - discount_rate
+      - outage_hours_per_year
+
+  - id: ilp_portfolio
+    name: ILP Budget Allocator
+    purpose: >-
+      Exact integer linear program (scipy.optimize.milp) selecting the set of
+      interventions (elevate / harden / relocate / road / bridge) that
+      maximizes total net benefit subject to a budget constraint.
+    inputs:
+      - optimize.intervention_catalog.v3
+      - voll_exposure (this page)
+    confidence_table: optimize.portfolio.ilp
+    known_limitations:
+      - The optimization is exact given its inputs, but those inputs inherit
+        the FEEDS/POWERS Proxy tier and the VOLL/discount-rate Estimated
+        constants.
+      - Per P2 sensitivity, the *selected portfolio* is invariant to VOLL /
+        discount-rate / outage-hours changes (uniform scalars don't change an
+        ILP argmax) — robust for "where to spend next," not yet validated
+        against an actual post-disaster repair-priority list.
+    validation_events: []
+    sensitivity_keys:
+      - voll_usd_per_kwh
+      - discount_rate
+      - outage_hours_per_year
+
+  - id: corridor_routing
+    name: Rail Corridor Routing
+    purpose: >-
+      Dijkstra least-cost-path routing over a composite cost surface (terrain
+      slope + flood zones + SVI-weighted population) to generate ranked rail
+      corridor alternatives.
+    inputs:
+      - terrain_slope
+      - flood_zones
+      - economy.barrio_economics (SVI-weighted population)
+    confidence_table: corridor.routes
+    known_limitations:
+      - Per-km construction costs (standard/elevated/tunnel) are Estimated
+        national figures, not PR-specific bids.
+      - Bridge spans default to 50 m (Estimated) — see
+        transport.bridge_inventory.
+    validation_events: []
+    sensitivity_keys:
+      - bridge_span_default_m

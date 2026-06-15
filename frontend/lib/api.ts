@@ -52,6 +52,198 @@ export interface WhatIfResult {
   water_plants: number;
 }
 
+/** Confidence tier key, matching `config/confidence.yml`. */
+export type ConfidenceTierKey = "authoritative" | "modeled" | "proxy" | "estimated";
+
+/** MVP3 Pillar 1 — not yet in the generated OpenAPI types (api/routers/provenance.py),
+ * typed by hand to match `api.schemas.ConfidenceTier`/`ProvenanceRecord`/`InventoryEntry`/`Assumption`. */
+export interface ConfidenceTier {
+  key: ConfidenceTierKey;
+  label: string;
+  rank: number;
+  color: string | null;
+  description: string;
+}
+
+export interface ProvenanceRecord {
+  table: string;
+  source?: string | null;
+  title?: string | null;
+  description?: string | null;
+  url?: string | null;
+  domain?: string | null;
+  priority?: string | null;
+  license?: string | null;
+  row_count?: number | null;
+  feature_count?: number | null;
+  inputs: string[];
+  compute_date?: string | null;
+  pulled_at?: string | null;
+  sha256?: string | null;
+  method: string;
+  confidence_tier: ConfidenceTierKey;
+  confidence_label: string;
+  confidence_color?: string | null;
+  assumptions?: string | null;
+  upgrade_path?: string | null;
+}
+
+export interface InventoryEntry extends ProvenanceRecord {
+  id: string;
+  is_derived: boolean;
+}
+
+export interface Assumption {
+  key: string;
+  label: string;
+  value: number | null;
+  unit?: string | null;
+  confidence_tier: ConfidenceTierKey;
+  used_by: string[];
+  assumptions: string;
+  upgrade_path?: string | null;
+}
+
+/** MVP3 Pillar 2 — not yet in the generated OpenAPI types (api/routers/validate.py),
+ * typed by hand to match `api.schemas.BacktestResult`/`SensitivityResult`/`ModelCard`. */
+export interface BacktestHit {
+  entity_id: number;
+  entity_name?: string | null;
+  rank: number;
+  is_hit: boolean;
+  [key: string]: unknown;
+}
+
+export interface BacktestResult {
+  event_key: string;
+  event_name: string;
+  event_date?: string | null;
+  validation_type: string;
+  scenario_name?: string | null;
+  top_n?: number | null;
+  precision_at_n?: number | null;
+  recall?: number | null;
+  hits: BacktestHit[];
+  misses: string[];
+  notes?: string | null;
+  computed_at?: string | null;
+}
+
+export type SensitivityStability = "robust" | "sensitive" | "unknown";
+
+export interface SensitivityResult {
+  assumption_key: string;
+  perturbation: string;
+  baseline_value?: string | null;
+  perturbed_value?: string | null;
+  spearman_rho?: number | null;
+  top10_overlap?: number | null;
+  n_compared?: number | null;
+  stability: SensitivityStability;
+  notes?: string | null;
+  computed_at?: string | null;
+}
+
+export interface ModelCardSensitivity {
+  assumption_key: string;
+  assumption: Assumption | null;
+  results: SensitivityResult[];
+}
+
+export interface ModelCard {
+  id: string;
+  name: string;
+  purpose: string;
+  inputs: string[];
+  known_limitations: string[];
+  provenance: ProvenanceRecord | null;
+  backtests: BacktestResult[];
+  sensitivity: ModelCardSensitivity[];
+}
+
+/** MVP3 P3-cit — not yet in the generated OpenAPI types (api/routers/citizen.py),
+ * typed by hand to match `api.schemas.BarrioOption`/`CivicCard`. */
+export interface BarrioOption {
+  entity_id: number;
+  name: string;
+  municipio: string | null;
+}
+
+export interface ServingSubstation {
+  entity_id: number;
+  name: string | null;
+  edge_confidence: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface CivicConsequence {
+  headline: string;
+  population_affected: number;
+  hospitals: number;
+  water_plants: number;
+  health_centers: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface CivicCommunityResilience {
+  score: number;
+  percentile: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface CivicRoadAccess {
+  nearest_hospital: string;
+  travel_time_min: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface CivicFloodExposure {
+  fraction_in_flood_zone: number;
+  level: "minimal" | "low" | "moderate" | "high";
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface CivicPlannedItem {
+  entity_name: string | null;
+  intervention_type: string;
+  cost_usd: number;
+  resilience_uplift: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface CivicCard {
+  barrio_entity_id: number;
+  barrio_name: string;
+  municipio_name: string | null;
+  serving_substation: ServingSubstation | null;
+  consequence: CivicConsequence | null;
+  community_resilience: CivicCommunityResilience | null;
+  road_access: CivicRoadAccess | null;
+  flood_exposure: CivicFloodExposure;
+  planned_nearby: CivicPlannedItem[];
+}
+
+/** MVP3 P3-shared — not yet in the generated OpenAPI types (api/routers/ask.py),
+ * typed by hand to match `api.schemas.AskResponse`. */
+export interface AskMapPoint {
+  entity_id: number;
+  name: string | null;
+  kind: string | null;
+  lon: number;
+  lat: number;
+}
+
+export interface AskResponse {
+  answer_md: string;
+  tool: string | null;
+  tool_args: Record<string, unknown>;
+  tool_result: Record<string, unknown> | null;
+  confidence_tiers: Record<string, ConfidenceTierKey>;
+  map_points: AskMapPoint[];
+  model_used: string;
+  status: "ok" | "no_backend" | "no_match";
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -180,6 +372,23 @@ export const api = {
       "POST",
     ),
   jobStatus: (jobId: string) => apiGet<JobStatusResponse>(`/jobs/${jobId}`),
+
+  confidenceTiers: () => apiGet<ConfidenceTier[]>("/provenance/tiers"),
+  provenanceAssumptions: () => apiGet<Assumption[]>("/provenance/assumptions"),
+  provenanceInventory: () => apiGet<InventoryEntry[]>("/provenance/inventory"),
+  provenanceTable: (table: string) => apiGet<ProvenanceRecord>(`/provenance/${table}`),
+  provenanceLayer: (layerId: string) =>
+    apiGet<ProvenanceRecord>(`/provenance/layer/${encodeURIComponent(layerId)}`),
+
+  validationBacktests: () => apiGet<BacktestResult[]>("/validate/backtests"),
+  validationSensitivity: () => apiGet<SensitivityResult[]>("/validate/sensitivity"),
+  modelCards: () => apiGet<ModelCard[]>("/validate/model-cards"),
+  modelCard: (id: string) => apiGet<ModelCard>(`/validate/model-cards/${encodeURIComponent(id)}`),
+
+  citizenBarrios: () => apiGet<BarrioOption[]>("/citizen/barrios"),
+  civicCard: (barrioEntityId: number) => apiGet<CivicCard>(`/citizen/card/${barrioEntityId}`),
+
+  ask: (query: string) => apiSend<AskResponse>("/ask", "POST", { query }),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

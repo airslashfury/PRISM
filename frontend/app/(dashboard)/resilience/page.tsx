@@ -13,9 +13,10 @@ import { Segmented } from "@/components/ui/segmented";
 import { Badge } from "@/components/ui/badge";
 import { SeverityLabel } from "@/components/severity";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { ProvenanceBadge } from "@/components/provenance-badge";
 import { useScores, useSubstation, useConsequence } from "@/lib/hooks";
 import { riskColor, type RGB } from "@/lib/colors";
-import { cn, fmtInt, fmtNum, fmtUsd } from "@/lib/utils";
+import { cn, fmtInt, fmtIntTiered, fmtNum, fmtUsdTiered } from "@/lib/utils";
 import { tileUrl, type SubstationScore } from "@/lib/api";
 
 const SCENARIOS = [
@@ -202,8 +203,8 @@ export default function ResiliencePage() {
   const top = scores ? [...scores].slice(0, 25) : [];
 
   return (
-    <div className="flex h-full">
-      <div className="relative flex-1">
+    <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+      <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
         <MapCanvas layers={layers} getTooltip={getTooltip} onClick={onClick} onHover={onHover}>
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -215,9 +216,10 @@ export default function ResiliencePage() {
 
           {/* Consequence Lens (M5a) — instant downstream-impact headline on hover */}
           {hovered != null && consequence?.headline && (
-            <div className="pointer-events-none absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+            <div className="pointer-events-auto absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
+              <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
                 {consequence.name ?? "Substation"} fails
+                <ProvenanceBadge table="graph.downstream_summary" />
               </div>
               <div className="mt-0.5 text-sm font-medium text-foreground">{consequence.headline}</div>
             </div>
@@ -251,7 +253,7 @@ export default function ResiliencePage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-[380px] shrink-0 flex-col border-l border-border/70 bg-card/30">
+      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[380px] md:shrink-0 md:border-l md:border-t-0">
         <div className="border-b border-border/70 p-4">
           <Segmented options={SCENARIOS as never} value={scenario} onChange={setScenario} className="w-full" />
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
@@ -330,8 +332,9 @@ function TopList({
 }) {
   return (
     <div>
-      <div className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         Highest consequence · top {rows.length}
+        <ProvenanceBadge table="resilience.scenario_scores" />
       </div>
       <ul>
         {rows.map((r, i) => (
@@ -383,16 +386,16 @@ function DetailPanel({ id, scenario, onBack }: { id: number; scenario: string; o
             <Metric label="Hazard P" value={fmtNum(data.hazard_score, 2)} />
             <Metric label="Cascade" value={fmtNum(data.cascade_impact, 1)} />
           </div>
-          <PanelBox title="What fails when this substation goes down">
+          <PanelBox title="What fails when this substation goes down" badge={<ProvenanceBadge table="graph.downstream_summary" />}>
             <Row label="Hospitals" value={fmtInt(data.downstream_hospitals)} />
             <Row label="Water plants" value={fmtInt(data.downstream_water_plants)} />
             <Row label="Health centers" value={fmtInt(data.downstream_health_centers)} />
             <Row label="Barrios" value={fmtInt(data.downstream_barrios)} />
-            <Row label="People affected" value={fmtInt(data.population_affected)} />
+            <Row label="People affected" value={fmtIntTiered(data.population_affected, "proxy")} />
           </PanelBox>
-          <PanelBox title="Economic exposure (VOLL — 30yr NPV)">
-            <Row label="Population benefit" value={fmtUsd(data.population_benefit_usd)} />
-            <Row label="Economic benefit" value={fmtUsd(data.economic_benefit_usd)} />
+          <PanelBox title="Economic exposure (VOLL — 30yr NPV)" badge={<ProvenanceBadge table="economy.substation_exposure" />}>
+            <Row label="Population benefit" value={fmtUsdTiered(data.population_benefit_usd, "proxy")} />
+            <Row label="Economic benefit" value={fmtUsdTiered(data.economic_benefit_usd, "proxy")} />
           </PanelBox>
           {data.spof_betweenness != null && (
             <PanelBox title="Network centrality">
@@ -415,10 +418,13 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PanelBox({ title, children }: { title: string; children: React.ReactNode }) {
+function PanelBox({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border/60 bg-background/30 p-3">
-      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</div>
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+        {badge}
+      </div>
       <div className="space-y-1.5">{children}</div>
     </div>
   );

@@ -107,8 +107,110 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | M3 — Backend Stability Spine | **COMPLETE** | 2026-06-12 | Opus GO |
 | M4 — Playground | **COMPLETE** | 2026-06-12 | Opus GO |
 | M5a — Consequence Lens | **COMPLETE** | 2026-06-12 | Opus GO (conditional) |
+| MVP3 P1 — Truth & Provenance | **COMPLETE** | 2026-06-13 | Opus GO (conditional) |
+| MVP3 P2 — Calibration & Validation | **COMPLETE** | 2026-06-13 | Opus GO (conditional) |
+| MVP3 P3-cit — Citizen civic card | **COMPLETE** | 2026-06-13 | Opus GO (after one fix) |
+| MVP3 P3-shared — Ask PRISM | **COMPLETE** | 2026-06-13 | Opus GO (after one fix) |
 
-## Current state (2026-06-12)
+## Current state (2026-06-13)
+
+### MVP3 P3-shared — Ask PRISM — COMPLETE (2026-06-13, Opus GO after one fix)
+
+**What was built (natural-language query bar — MVP3_PLAN.md P3-shared):**
+- `prism/ask/tools.py` (NEW) — 7 typed, read-only SQL tools, each returning `confidence_tiers` via `prism.provenance.get_table_provenance` and `map_points` where applicable: `find_entity` (name/kind search on `graph.entities`), `downstream_of` (substations only — reuses M5a `graph.downstream_summary`), `top_resilience` (`resilience.scenario_scores`), `portfolio_items` (latest `optimize.portfolio_items` run, optional budget filter), `corridor_compare` (`corridor.routes` by from/to city), `svi_lookup` (`resilience.community_resilience` + percentile), `address_lookup` (wraps P3-cit's `get_civic_card` by barrio-name search)
+- `prism/ask/agent.py` (NEW) — `route_query()` (Haiku, `nl_query_parse` — picks a tool + args from `TOOL_SPECS` or `null`), `answer_query()` (orchestrates route → execute tool → Sonnet `nl_query_answer` composes the markdown answer from the tool's real output); `AskResult` dataclass (`answer_md`, `tool`, `tool_args`, `tool_result`, `confidence_tiers`, `map_points`, `model_used`, `status` ∈ `ok|no_backend|no_match`). Honest degradation at every step: empty query / no LLM backend / no tool match / tool execution error all return a non-fabricated response.
+- `api/routers/ask.py` (NEW) — `POST /ask` (rate-limited 10/min), `api/schemas.py` — `AskRequest`/`AskMapPoint`/`AskResponse`; registered in `api/main.py`
+- `config/models.yml` — `nl_query_parse: haiku`, `nl_query_answer: sonnet`
+- `docker/Dockerfile.api` — added `COPY prism/ask ./prism/ask`
+- Frontend: `frontend/app/(dashboard)/ask/page.tsx` (NEW) — "Ask PRISM" page: text input + example-question chips, conversation history, each answer in a `<NarrativePanel>` (markdown) with `<ConfidenceChip>`s per cited table and `map_points` rendered as linked chips to `/resilience` or `/citizen` (chosen over an embedded Deck.gl map for scope discipline — "drive the map" via navigation); new nav entry "Ask PRISM" (Sparkles icon, position 2, right after Overview); hand-typed `AskMapPoint`/`AskResponse` types + `api.ask(query)` in `frontend/lib/api.ts` (same standing cosmetic gap as other P1-P3 additions)
+- `tests/test_ask.py` (NEW) — 23 tests: all 7 tools against the live DB (success + error/no-match paths), `answer_query`/`route_query` with LLM mocked (empty query, no backend, no tool match, successful route+compose, tool-error handling), 2 API endpoint tests
+
+**Gate history:** first review **NO-GO** — CI's `ruff check prism api alembic` gate was red: an extraneous `f`-string prefix on a query with no placeholders in `prism/ask/tools.py::top_resilience` (`F541`, introduced this session), plus a pre-existing unused `import json` in `prism/playground/narrative.py` (`F401`, latent since M4, also on this gate). Both fixed (one-line removals); `ruff check prism api alembic` → clean. Re-review → **GO**.
+
+**P3-shared live state (2026-06-13):**
+- `pytest tests/test_ask.py -q` → 23 passed; `pytest tests/test_ask.py tests/test_citizen.py tests/test_provenance.py -q` → 46 passed (no breakage in dependencies)
+- `ruff check prism api alembic` → clean; `npm run typecheck`/`lint` clean (only the pre-existing `app/layout.tsx` font warning)
+- Verified live through the deployed nginx stack: `POST /api/ask {"query": "What happens if Palo Seco SP TC fails?"}` → routed to `find_entity`, entity_id=915, confidence_tiers `{"graph.entities":"authoritative"}`, model_used `qwen3.6:35b-a3b`; `POST /api/ask {"query":"What is the top investment in the current portfolio?"}` → routed to `portfolio_items`, real figures (run_id=366, $498,380,171.28, 46 interventions, top items relocation @ $38,458,406.66 each), confidence_tiers `{"optimize.portfolio.ilp":"proxy"}`; `GET /ask` → 200
+- A full unfiltered `pytest -q` run hung earlier this session (>1.5h, contention from live-Ollama narrative tests + concurrent Docker rebuild) and was killed; a narrower `pytest -q -k "not narrative and not Narrative"` run (excludes only the 8 slow live-LLM narrative tests, which `prism/ask` doesn't touch) completed cleanly afterward: **342 passed, 2 skipped, 8 deselected** (18m17s) — same 2 pre-existing skips (Phase 3 SLR geometry, Phase 6 human-sim), zero regressions.
+
+**P3-shared carry-forwards into the rest of P3 (P3-eng / P3-gov):**
+- **No tool chaining**: the single-shot Haiku router picks exactly one tool per query, so "what happens if Palo Seco fails" can route to `find_entity` (just locates the entity) rather than `downstream_of` (the consequence). It degrades honestly (says it lacks downstream data, suggests rephrasing) rather than fabricating — an acceptable MVP cut per the single-tool-per-query design, but worth revisiting if multi-step conversational answers become a requirement.
+- Map integration is a linked-chip list, not an embedded map — sufficient for "drive the map" via navigation; richer in-place highlighting is a future elective.
+- `frontend/lib/api.ts` Ask types hand-typed — same standing cosmetic gap as P1/P2/P3-cit, regenerate OpenAPI client on next refresh.
+
+### MVP3 P3-cit — Citizen civic card — COMPLETE (2026-06-13, Opus GO after one fix)
+
+**What was built ("what about my barrio?" — MVP3_PLAN.md P3-cit):**
+- `prism/citizen/` (NEW) — `card.py`: `list_barrios(engine)` (all 901 barrios + municipio from `graph.entities.attrs`), `get_civic_card(engine, barrio_id)` — pure aggregation of existing model outputs, each section tagged with its confidence tier via `prism.provenance.get_table_provenance`:
+  - serving substation: reverse `POWERS` edge lookup on `graph.relationships` (proxy)
+  - consequence: `graph.downstream_summary` headline/population_affected/hospitals/water_plants/health_centers (M5a, proxy)
+  - community resilience: `resilience.community_resilience.resilience_score` + island-wide `PERCENT_RANK()` percentile (proxy)
+  - road access: nearest hospital + travel time from `transport.road_access_cost` (modeled)
+  - flood exposure: live `ST_Intersection`/`ST_Area` overlay vs `flood_zones` (FEMA 1%), minimal/low/moderate/high (hardcoded authoritative — raw FEMA layer, not in `derived:*` catalog)
+  - planned nearby: latest `optimize.portfolio_items` run filtered to the barrio + its serving substation
+- `api/routers/citizen.py` — `GET /citizen/barrios`, `GET /citizen/card/{barrio_entity_id}` (404 if unknown); new schemas in `api/schemas.py`
+- Frontend: `frontend/app/(dashboard)/citizen/page.tsx` (NEW) — "What about my area?" page: barrio search/filter (901 barrios, by name or municipio), `<InfoPanel>` "About this card", then per-section `<Card>`s each with `<ConfidenceChip>`: Power (substation + Cat-3 consequence headline, reworded plain-language), Community resilience (percentile framing, "more vulnerable"/"more resilient" at <34%/>66%), Emergency access (nearest hospital + travel time, 40km/h caveat), Flood risk (plain-language per level), Planned nearby (portfolio items, omitted if empty), footer "not an official notice from LUMA/PREPA/PRASA" disclaimer. New nav entry "My Area" (Home icon, position 2)
+- `tests/test_citizen.py` (NEW) — 8 tests
+- `docker/Dockerfile.api` — added `COPY prism/citizen ./prism/citizen` (was missing — caused 502 until api/worker rebuilt + nginx restarted)
+
+**Gate history:** first review **NO-GO** — `_community_resilience()`'s `PERCENT_RANK() OVER (ORDER BY resilience_score)` was inside a query already filtered `WHERE barrio_id = :bid`, so the window saw one row and percentile was always 0.0 for all 901 barrios — rendered as "ranks higher than 0% of barrios" plus an incorrect "more vulnerable" qualifier on every card, even high-resilience ones. Fixed by moving the window function into a subquery over the full table, then filtering by barrio. Added regression test `test_community_resilience_percentile_varies_across_barrios`. Re-review → **GO**.
+
+**P3-cit live state (2026-06-13):**
+- Full pytest: **327 passed, 2 skipped** (both pre-existing: Phase 3 SLR geometry, Phase 6 human-sim)
+- `npm run typecheck`/`lint` clean (only the pre-existing `app/layout.tsx` font warning)
+- Verified live through the deployed stack: `GET /api/citizen/barrios` → 200/901 rows; `GET /api/citizen/card/46007` (Playa, Santa Isabel) → full card, all tiers correct, flood level "high"; `GET /api/citizen/card/46424` (Algarrobos, Mayagüez) → percentile=0.117 (post-fix, was incorrectly 0.0) and non-empty `planned_nearby` (1 elevation item, $5.0M, proxy); `/citizen` page renders "What about my area?" heading at 200
+
+**P3-cit carry-forwards into P3-shared (Ask PRISM):**
+- "Done when" says "enters an address *or* picks a barrio" — only barrio-pick built (address geocoding deferred; acceptable given barrio-level data granularity)
+- `frontend/lib/api.ts` citizen types hand-typed — same standing cosmetic gap as P1/P2 (regenerate OpenAPI client on next refresh)
+- Civic card mixes 5 confidence tiers with only per-section chips (no overall cross-tier caveat) — Ask PRISM should be able to explain tier composition if a citizen asks
+
+### MVP3 P2 — Calibration & Validation — COMPLETE (2026-06-13, Opus GO conditional)
+
+**What was built (backtests, sensitivity sweeps, model cards — MVP3_PLAN.md Pillar 2):**
+- `config/validation_events.yml` (NEW) — 3 real events with cited ground truth: Hurricane Maria 2017 + Hurricane Fiona 2022 (`validation_type: municipio_overlap`, hand-curated "severely affected municipios" lists, 2-3 cited sources each), April 2024 island-wide blackout (`validation_type: spof_corridor`)
+- `config/model_cards.yml` (NEW) — 8 model cards (spof_betweenness, cascade_impact, hazard_scenarios, composite_resilience, community_resilience, voll_exposure, ilp_portfolio, corridor_routing): id/name/purpose/inputs/confidence_table/known_limitations/validation_events/sensitivity_keys
+- `prism/validate/` (NEW) — `schema.py` (`validation.backtest_results`, `validation.sensitivity_results`), `events.py`, `backtest.py` (`_backtest_municipio_overlap()` walks top-20 cat3 substations → downstream FEEDS/POWERS → barrios → municipios via `ST_Within(centroid, municipio.geom)`, compares to cited ground truth; `_backtest_spof_corridor()` checks top-30 betweenness/articulation points against the Apr-2024 blackout), `sensitivity.py` (±50% sweeps over VOLL, discount rate, outage hours, feeder-assignment confidence, hazard probability curve; Spearman rho + top-10 overlap vs. baseline; "robust" if rho>=0.9 and overlap>=0.8 else "sensitive"), `model_cards.py` (merges model_cards.yml + live provenance + backtest + sensitivity results), `__main__.py` (CLI: `python -m prism.validate [--backtest] [--sensitivity] [--show-only] [--drop]`)
+- `api/routers/validate.py` — `GET /validate/backtests`, `/sensitivity`, `/model-cards`, `/model-cards/{id}`; new schemas in `api/schemas.py` (`BacktestResult`, `SensitivityResult`, `ModelCardSensitivity`, `ModelCard`)
+- `config/confidence.yml` + `catalog/metadata.json` — added `validation.backtest_results`/`validation.sensitivity_results` stamps (tier `modeled`, "scrappy first pass" assumptions documented); catalog now 163 entries
+- Frontend: `frontend/app/(dashboard)/methods/validation/page.tsx` (NEW) — "Calibration & Validation" sub-page of Trust Center: per-event backtest cards (precision/recall, amber "Missed (N)" callout, expandable hits/misses table), sensitivity sweep table (grouped by assumption, robust/sensitive badges), 8 model cards (purpose/inputs/limitations/backtests/sensitivity badges); linked from `/methods`. New hand-typed types/hooks in `frontend/lib/api.ts`/`hooks.ts` (`BacktestResult`, `SensitivityResult`, `ModelCard`, etc.)
+- `tests/test_validate.py` (NEW) — 22 tests: schema DDL, config loading, live backtests for both validation types, live sensitivity sweeps for all 5 assumptions, model-card merging, all 5 API endpoints incl. 404, confidence-stamp guard
+- **Deployment fix**: `docker/Dockerfile.api` was missing `prism/provenance`, `prism/validate`, and `catalog/` (the last excluded by `.dockerignore`, a P1 gap that also blocked `/validate/model-cards`) — added all three; `.dockerignore`'s `catalog/` exclusion removed. Rebuilt and recreated `api`/`worker`/`frontend` containers.
+
+**P2 live state (2026-06-13):**
+- `validation.backtest_results`: 3 rows — Maria 2017 (precision=0.15, recall=0.40, misses: Adjuntas, Lares, Las Marías, Maricao, Morovis, Orocovis), Fiona 2022 (precision=0.40, recall=0.583, misses: Guayanilla, Guánica, Lajas, Sabana Grande, Yauco), Apr 2024 blackout (precision=0.233, recall=0.75, misses: Florida)
+- `validation.sensitivity_results`: 10 rows — VOLL/discount-rate/outage-hours all "robust" (rho=1.0, mathematically rank-invariant scalar multipliers on `population_benefit_usd`, confirmed empirically); feeder-assignment-confidence "robust" at both thresholds (rho=0.994/0.946); hazard-curve "robust" at both perturbations (rho=1.0/0.997)
+- Full pytest: **319 passed, 2 skipped** (both pre-existing: Phase 3 SLR geometry, Phase 6 human-sim) — includes a fix to `tests/test_provenance.py::test_api_inventory`'s stale hardcoded catalog count (161→163)
+- `npm run typecheck`/`lint` clean (only the pre-existing `app/layout.tsx` font warning)
+- Verified live through the deployed stack (`http://localhost/...`): `/api/validate/backtests`, `/api/validate/sensitivity`, `/api/validate/model-cards`, `/api/validate/model-cards/ilp_portfolio`, `/api/provenance/tiers`, `/api/provenance/inventory` all 200; `/methods` and `/methods/validation` both 200
+
+**P2 carry-forwards into P3:**
+- `frontend/lib/api.ts` validation types are hand-typed (not yet in generated `api-types.ts`) — same standing item as P1's provenance types, regenerate on next OpenAPI client refresh (cosmetic)
+- `~50% eid=XXX` name-resolution gap (long-standing) — `HitsMissesTable` falls back to `eid=${entity_id}`; P3's citizen card / Ask PRISM should pre-resolve names
+- Backtest precision is honestly low (0.15-0.40) — a feeder-proxy ceiling, by design per MVP3_PLAN.md's "scrappy first pass" philosophy; keep it labeled plainly, don't tune to look better
+- The Dockerfile/`.dockerignore` fix this session also retroactively closes an undetected P1 deployment gap (`/provenance/*` was 404 on the deployed stack until now)
+
+### MVP3 P1 — Truth & Provenance — COMPLETE (2026-06-13, Opus GO conditional)
+
+**What was built (confidence/provenance spine — MVP3_PLAN.md Pillar 1):**
+- `config/confidence.yml` — 4-tier taxonomy (authoritative/modeled/proxy/estimated, ranked + colored + described); per-table stamps (`method`, `confidence_tier`, `assumptions`, `upgrade_path`) for all 25 `derived:*` catalog entries, enforcing the "a figure's tier is the tier of its weakest required input" rule (e.g. `graph.relationships` FEEDS/POWERS proxy at confidence 0.4-0.7 propagates Proxy to `downstream_summary`, `cascade_scores`, `scenario_scores`, `substation_exposure`, `intervention_catalog.v2/v3`, `portfolio.ilp`, `scenario_comparison`, `community_resilience`); plus 6 global "estimated constants" (VOLL, discount rate, outage hours, feeder-assignment proxy, bridge span default, hazard probability curve)
+- `prism/provenance/` (NEW) — `catalog.py` merges `catalog/metadata.json` + `config/confidence.yml` at request time (read-only, lru-cached, no DB): `list_tiers()`, `list_assumptions()`, `get_table_provenance()`, `get_layer_provenance()`, `list_inventory()`
+- `api/routers/provenance.py` — `GET /provenance/tiers`, `/assumptions`, `/inventory`, `/layer/{layer_id}`, `/{table}`; new schemas in `api/schemas.py`
+- Frontend: `<ConfidenceChip>`/`<ProvenanceBadge table="...">` (click → popover: source/vintage/method/assumptions/upgrade-path), `fmtIntTiered`/`fmtUsdTiered`/`fmtCompact` (Proxy/Estimated render "≈87K"/"≈$1.2M"); wired onto Resilience (consequence banner, highest-consequence list, detail panel), Economy (SVI card, exposed-substations list), Corridor ("Route alternatives"), Portfolio ("Investment portfolio" heading + capital-deployed StatCard + per-item cost column)
+- `frontend/app/(dashboard)/methods/page.tsx` (NEW) — Trust Center: 4 tier cards, tier-filterable model inventory (25 derived tables), global assumptions table, collapsible full data-source inventory (161 catalog entries, 136 mirrored layers with live `pulled_at` vintage); added to nav as "Trust Center"
+- `tests/test_provenance.py` — 15 tests incl. guard test `test_every_derived_table_in_catalog_has_confidence_stamp` (enforces every `derived:*` catalog entry has a confidence.yml stamp)
+
+**P1 live state (2026-06-13):**
+- `python -m pytest tests/test_provenance.py -q` → 15 passed
+- Full pytest: **296 passed, 1 failed, 2 skipped** — the 1 failure (`tests/test_resilience.py::test_load_scenario_results`) is a pre-existing test-isolation flake unrelated to this session (zero diffs to `prism/resilience`/`prism/graph`; passes in isolation, 1 passed in 57s) — confirmed by Opus gate review
+- `npm run typecheck`/`lint` clean (only the pre-existing `app/layout.tsx` font warning)
+- Verified live: a Proxy-tier number (e.g. Resilience "People affected", Economy exposure, Portfolio capital deployed/item cost) renders with "≈"; an Authoritative number does not
+
+**P1 carry-forwards into P2:**
+- **Catalog-driven InfoPanels (P1 task 6, stretch) deferred** — one hand-typed vintage string remains: `frontend/app/(dashboard)/economy/page.tsx:208` InfoPanel prose says "Census ACS 5-year 2022 estimates" (should be sourced from `/provenance/inventory`'s live `pulled_at`)
+- `frontend/lib/api.ts` provenance types are hand-typed (not yet in generated `api-types.ts`) — regenerate OpenAPI client on next refresh (cosmetic)
+- `~50% eid=XXX` name-resolution gap (long-standing) still open — provenance badges don't expose raw entity ids; relevant to P3's citizen card / Ask PRISM
+- P2 sensitivity sweep should consume `config/confidence.yml`'s 6 global `assumptions` via `list_assumptions()` — data model is ready
 
 ### M5a — COMPLETE (2026-06-12, Opus GO conditional)
 
@@ -206,12 +308,14 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 - **`_test_*` rows in sync.data_sources:** left by test suite (prefixed, harmless). Consider a dedicated test schema or teardown for a clean production registry.
 - **Open carry-forwards from earlier phases** (CENSUS_API_KEY, CRIM parcels, rail corridor study, pct_elderly/pct_disabled, bridge span data) remain deferred — documented in respective phase sections above.
 
-## Start here — MVP2 in progress (M5b next)
+## Start here — MVP3 in progress (P3-eng / P3-gov next)
 
-Phases 0–10 + M1–M4 + M5a complete. PRISM is a full-stack Puerto Rico infrastructure simulation model.
+Phases 0–10 + M1–M4 + M5a + MVP3 P1–P2 + P3-cit + P3-shared complete. PRISM is a full-stack Puerto
+Rico infrastructure simulation model with a confidence/provenance/validation spine, a citizen-facing
+civic card, and a natural-language query bar.
 
 **PRISM live state:**
-- **Data layer:** 3.62 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; 161 catalog entries
+- **Data layer:** 3.62 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; 163 catalog entries
 - **Knowledge graph:** 48,801 nodes, 68,272+ edges, 6 relationship types; `graph.downstream_summary` (961 substations, M5a)
 - **Resilience:** 315 substations scored across 3 scenarios; top composite 84.10 (PALO SECO SP TC)
 - **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with real per-tract ACS data; 5-component SVI
@@ -223,12 +327,17 @@ Phases 0–10 + M1–M4 + M5a complete. PRISM is a full-stack Puerto Rico infras
 - **3D Corridor Experience (M2):** DEM-sampled elevation profiles, true-3D route ribbons with vertical exaggeration, animated train, fly-through tour with segment narration
 - **Playground (M4):** copy-on-write scenario sandbox with what-if failure mode
 - **Consequence Lens (M5a):** hover a substation on the Resilience map → ripple-highlight of its downstream cascade + one-line headline ("Failure cuts power to N people, N hospitals, ...")
+- **Trust Center (MVP3 P1):** `/methods` lists every model + mirrored layer with live vintage and a confidence tier (authoritative/modeled/proxy/estimated); `<ProvenanceBadge>`/`<ConfidenceChip>` on Resilience/Economy/Corridor/Portfolio; Proxy/Estimated dollar and population figures render "≈"
+- **Calibration & Validation (MVP3 P2):** `/methods/validation` — 3 real events backtested (Maria 2017, Fiona 2022, Apr 2024 blackout) with published precision/recall + hits/misses tables; 5-assumption sensitivity sweep (all "robust"); 8 model cards merging purpose/inputs/limitations with live provenance + backtest + sensitivity results
+- **Citizen civic card (MVP3 P3-cit):** `/citizen` ("My Area") — pick a barrio, get a plain-language card: serving substation + Cat-3 consequence headline, community-resilience percentile vs. the rest of PR, nearest-hospital travel time, FEMA flood exposure, and any nearby planned investments — every section labeled with its confidence tier
+- **Ask PRISM (MVP3 P3-shared):** `/ask` — a query bar over 7 read-only typed tools (find_entity, downstream_of, top_resilience, portfolio_items, corridor_compare, svi_lookup, address_lookup); Haiku routes, Sonnet composes an answer citing live numbers and their confidence tiers, with map_points rendered as links to the relevant page
 
-**Next steps — MVP2 is the active plan (2026-06-09): see `MVP2_PLAN.md`. Active phase: M5 (M5a done, M5b next).**
-M5 sub-phases (recommended order a→b→c→d): M5a Consequence Lens (DONE), M5b Ask PRISM,
-M5c Storm Timeline (also closes M5a's cache-invalidation carry-forward), M5d Report Studio.
-M6 (elective auth/K8s) follows. Gate protocol unchanged: Opus `phase-gate-reviewer` per
-sub-phase.
+**Next steps — MVP3 is the active plan: see `MVP3_PLAN.md`. P1 (Truth & Provenance), P2
+(Calibration & Validation), P3-cit (citizen civic card), and P3-shared (Ask PRISM) DONE — next is
+the rest of P3: P3-eng (assumptions panel + provenance-stamped exports) and/or P3-gov (budget
+allocator, scenario library, Report Studio), then P4 (breadth).** Gate protocol unchanged: Opus
+`phase-gate-reviewer` per pillar/sub-phase. MVP2's M5c-d (Storm Timeline, Report Studio) and M6
+(elective auth/K8s) remain queued behind MVP3 per the user's "begin @MVP3_PLAN.md" redirect.
 
 ### M4 — COMPLETE (2026-06-12, Opus GO)
 

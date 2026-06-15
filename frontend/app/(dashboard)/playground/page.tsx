@@ -488,8 +488,8 @@ export default function PlaygroundPage() {
   const otherScenarios = (scenarios ?? []).filter((s) => s.scenario_id !== activeScenarioId);
 
   return (
-    <div className="flex h-full">
-      <div className="relative flex-1">
+    <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+      <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
         <MapCanvas layers={layers} getTooltip={getTooltip} onClick={handleMapClick}>
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -534,7 +534,7 @@ export default function PlaygroundPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-[420px] shrink-0 flex-col border-l border-border/70 bg-card/30">
+      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[420px] md:shrink-0 md:border-l md:border-t-0">
         <div className="border-b border-border/70 p-4">
           <h2 className="text-sm font-semibold">Playground</h2>
           <p className="text-xs text-muted-foreground">

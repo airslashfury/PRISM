@@ -49,7 +49,12 @@ COPY prism/terrain ./prism/terrain
 COPY prism/graph ./prism/graph
 COPY prism/assets ./prism/assets
 COPY prism/playground ./prism/playground
+COPY prism/provenance ./prism/provenance
+COPY prism/validate ./prism/validate
+COPY prism/citizen ./prism/citizen
+COPY prism/ask ./prism/ask
 COPY config ./config
+COPY catalog ./catalog
 
 EXPOSE 8000
 

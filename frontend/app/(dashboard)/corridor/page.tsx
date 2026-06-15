@@ -16,6 +16,7 @@ import { NarrativePanel } from "@/components/narrative-panel";
 import { InfoPanel } from "@/components/info-panel";
 import { ElevationProfile } from "@/components/charts/elevation-profile";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { ProvenanceBadge } from "@/components/provenance-badge";
 import { useCorridorGeojson, useCorridorProfile, useCorridorRoute, useCorridorRoutes } from "@/lib/hooks";
 import { streamCorridorNarrative } from "@/lib/api";
 import { rankColor, type RGB } from "@/lib/colors";
@@ -449,8 +450,8 @@ export default function CorridorPage() {
   }, [detail]);
 
   return (
-    <div className="flex h-full">
-      <div className="relative flex-1">
+    <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+      <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
         <MapCanvas
           terrain={is3d}
           exaggeration={exaggeration}
@@ -547,9 +548,12 @@ export default function CorridorPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-[400px] shrink-0 flex-col border-l border-border/70 bg-card/30">
+      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[400px] md:shrink-0 md:border-l md:border-t-0">
         <div className="border-b border-border/70 p-4">
-          <h2 className="text-sm font-semibold">Route alternatives</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            Route alternatives
+            <ProvenanceBadge table="corridor.routes" />
+          </h2>
           <p className="text-xs text-muted-foreground">Ranked by societal-value objective</p>
         </div>
 

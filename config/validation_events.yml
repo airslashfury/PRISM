@@ -1,0 +1,107 @@
+# Real-world events used by MVP3 P2 (Calibration & Validation) to backtest
+# PRISM's resilience rankings — `prism/validate/backtest.py`.
+#
+# This is intentionally a "scrappy first pass" (per MVP3_PLAN.md P2): there is
+# no clean per-substation outage GIS for any of these events. Instead each
+# event records a hand-curated, cited list of municipios that were reported as
+# severely / disproportionately affected, and the backtest checks whether
+# PRISM's top-ranked substations for the matching hazard scenario serve those
+# municipios (directly or via downstream barrios).
+#
+# validation_type:
+#   municipio_overlap — precision/recall of top_n scenario_scores substations
+#                        against a list of severely-affected municipios.
+#   spof_corridor     — did the model's SPOF ranking (betweenness /
+#                        articulation points) flag the substations along a
+#                        named transmission corridor that actually triggered
+#                        a cascading failure?
+#
+# Municipio names must match graph.entities.name (kind='municipio') without
+# the " Municipio" suffix — matched case-insensitively, accents included.
+
+events:
+  hurricane_maria_2017:
+    name: "Hurricane Maria"
+    date: "2017-09-20"
+    validation_type: municipio_overlap
+    scenario: cat3
+    top_n: 20
+    description: >-
+      Category-4 hurricane that made landfall near Yabucoa on 2017-09-20 and
+      knocked out power to the entire island. Recovery was sharply uneven:
+      the mountainous interior (Cordillera Central) went without grid power
+      for months while San Juan metro recovered in weeks.
+    severely_affected_municipios:
+      - Utuado
+      - Lares
+      - Adjuntas
+      - Ciales
+      - Jayuya
+      - Orocovis
+      - Las Marías
+      - Maricao
+      - Morovis
+      - Barranquitas
+    sources:
+      - title: "Utuado, Puerto Rico: One Year After Hurricane Maria"
+        url: https://mayanifarms.com/utuado-puerto-rico-one-year-after-hurricane-maria-2/
+      - title: "Satellite-based assessment of electricity restoration efforts in Puerto Rico after Hurricane Maria (PLOS ONE)"
+        url: https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0218883
+      - title: "Hurricane Maria Leaves Puerto Rico Facing Months Without Power (NBC News)"
+        url: https://www.nbcnews.com/news/weather/hurricane-maria-leaves-puerto-rico-facing-months-without-power-n803326
+
+  hurricane_fiona_2022:
+    name: "Hurricane Fiona"
+    date: "2022-09-18"
+    validation_type: municipio_overlap
+    scenario: cat3
+    top_n: 20
+    description: >-
+      Category-1 hurricane that made landfall near Punta Tocón (Guánica /
+      Ponce area) on 2022-09-18, triggering another island-wide outage
+      (1,468,223 customers). Two weeks later, remaining outages were
+      concentrated in the western and southern municipios closest to
+      landfall, plus the central-mountain town of Utuado.
+    severely_affected_municipios:
+      - Guánica
+      - Ponce
+      - Yauco
+      - Guayanilla
+      - Peñuelas
+      - Sabana Grande
+      - Lajas
+      - Cabo Rojo
+      - San Germán
+      - Mayagüez
+      - Hormigueros
+      - Utuado
+    sources:
+      - title: "Nearly a week after Hurricane Fiona, half of Puerto Rico still without power (PBS NewsHour)"
+        url: https://www.pbs.org/newshour/nation/nearly-a-week-after-hurricane-fiona-half-of-puerto-rico-still-without-power
+      - title: "Behind the blackout triggered by Hurricane Fiona (CNN)"
+        url: https://www.cnn.com/2022/10/01/us/hurricane-fiona-puerto-rico-electrical-grid
+      - title: "Puerto Rico Hurricane Fiona power outages (NPR)"
+        url: https://www.npr.org/2022/10/02/1126462352/puerto-rico-hurricane-fiona-luma-energy-power-outages
+
+  blackout_apr_2024:
+    name: "April 2024 island-wide blackout"
+    date: "2024-04-16"
+    validation_type: spof_corridor
+    top_k: 30
+    target_municipios:
+      - Arecibo
+      - Manatí
+      - Florida
+      - Barceloneta
+    description: >-
+      A protection-system fault on the 230 kV transmission line 50100
+      (Cambalache substation, Arecibo, to Manatí) cascaded into a total
+      island-wide loss of generation, leaving ~1.4M customers without power.
+      Validation question: does PRISM's SPOF analysis (betweenness /
+      articulation points on the CONNECTS_TO graph) flag substations along
+      this corridor as structurally critical?
+    sources:
+      - title: "LUMA Submits Preliminary Findings on Island-Wide Blackout to PREB"
+        url: https://lumapr.com/news/luma-submits-preliminary-findings-on-island-wide-blackout-to-preb/?lang=en
+      - title: "Puerto Rico's islandwide blackout attributed to outdated underground cable (NBC News)"
+        url: https://www.nbcnews.com/news/latino/puerto-rico-blackout-new-years-eve-underground-cable-outdated-rcna187134

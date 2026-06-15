@@ -17,6 +17,8 @@ from api.limiter import limiter  # noqa: E402
 from api.metrics import MetricsMiddleware  # noqa: E402
 from api.metrics import router as metrics_router  # noqa: E402
 from api.routers import (  # noqa: E402  (load_dotenv must run first)
+    ask,
+    citizen,
     corridor,
     economy,
     hazard,
@@ -24,12 +26,14 @@ from api.routers import (  # noqa: E402  (load_dotenv must run first)
     network,
     playground,
     portfolio,
+    provenance,
     reports,
     resilience,
     sync,
     system,
     terrain,
     tiles,
+    validate,
 )
 
 configure_logging()
@@ -69,7 +73,7 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(MetricsMiddleware)
 
 app.include_router(metrics_router)
-for r in (system, resilience, portfolio, economy, corridor, network, hazard, sync, reports, terrain, tiles, jobs, playground):
+for r in (system, resilience, portfolio, economy, corridor, network, hazard, sync, reports, terrain, tiles, jobs, playground, provenance, validate, citizen, ask):
     app.include_router(r.router)
 
 

@@ -108,3 +108,41 @@ export const usePlaygroundGeojson = (id: number | null) =>
     enabled: id != null,
     staleTime: 0,
   });
+
+export const useConfidenceTiers = () =>
+  useQuery({ queryKey: ["confidenceTiers"], queryFn: api.confidenceTiers, staleTime: 60 * MIN });
+
+export const useProvenanceAssumptions = () =>
+  useQuery({ queryKey: ["provenanceAssumptions"], queryFn: api.provenanceAssumptions, staleTime: 60 * MIN });
+
+export const useProvenanceInventory = () =>
+  useQuery({ queryKey: ["provenanceInventory"], queryFn: api.provenanceInventory, staleTime: 60 * MIN });
+
+export const useProvenanceTable = (table: string | null) =>
+  useQuery({
+    queryKey: ["provenanceTable", table],
+    queryFn: () => api.provenanceTable(table as string),
+    enabled: table != null,
+    staleTime: 60 * MIN,
+  });
+
+export const useValidationBacktests = () =>
+  useQuery({ queryKey: ["validationBacktests"], queryFn: api.validationBacktests, staleTime: 60 * MIN });
+
+export const useValidationSensitivity = () =>
+  useQuery({ queryKey: ["validationSensitivity"], queryFn: api.validationSensitivity, staleTime: 60 * MIN });
+
+export const useModelCards = () =>
+  useQuery({ queryKey: ["modelCards"], queryFn: api.modelCards, staleTime: 60 * MIN });
+
+/** P3-cit: barrio typeahead + civic card for "what about my barrio?" */
+export const useCitizenBarrios = () =>
+  useQuery({ queryKey: ["citizenBarrios"], queryFn: api.citizenBarrios, staleTime: 60 * MIN });
+
+export const useCivicCard = (barrioEntityId: number | null) =>
+  useQuery({
+    queryKey: ["civicCard", barrioEntityId],
+    queryFn: () => api.civicCard(barrioEntityId as number),
+    enabled: barrioEntityId != null,
+    staleTime: 10 * MIN,
+  });

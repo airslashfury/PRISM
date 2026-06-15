@@ -35,6 +35,33 @@ export function fmtPct(v: number | null | undefined, digits = 1): string {
   return `${(v * 100).toFixed(digits)}%`;
 }
 
+/** Compact magnitude: 87412 -> "87K", 1_250_000 -> "1.3M". Used for Proxy/Estimated figures. */
+export function fmtCompact(v: number | null | undefined): string {
+  if (v == null || Number.isNaN(v)) return "—";
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(0)}K`;
+  return `${sign}${Math.round(abs)}`;
+}
+
+/** Confidence-aware integer formatting: Authoritative/Modeled -> exact ("87,412"),
+ * Proxy/Estimated -> rounded with a leading "≈" ("≈87K") so a proxy-derived figure
+ * never reads with false precision. */
+export function fmtIntTiered(v: number | null | undefined, tier?: string | null): string {
+  if (v == null || Number.isNaN(v)) return "—";
+  if (tier === "proxy" || tier === "estimated") return `≈${fmtCompact(v)}`;
+  return fmtInt(v);
+}
+
+/** Confidence-aware USD formatting: Proxy/Estimated figures get a leading "≈". */
+export function fmtUsdTiered(v: number | null | undefined, tier?: string | null, digits = 1): string {
+  if (v == null || Number.isNaN(v)) return "—";
+  const formatted = fmtUsd(v, digits);
+  if (tier === "proxy" || tier === "estimated") return `≈${formatted}`;
+  return formatted;
+}
+
 export function fmtKm(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return "—";
   return `${v.toFixed(1)} km`;
