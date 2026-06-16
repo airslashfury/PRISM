@@ -2144,6 +2144,33 @@
       ],
       "computed_by": "prism.validate.sensitivity.run_all_sensitivity",
       "compute_date": "2026-06-13"
+    },
+    "derived:sync.generation_status": {
+      "source": "derived",
+      "title": "sync.generation_status",
+      "schema": "sync",
+      "table": "generation_status",
+      "description": "PREPA live per-plant current output (MW) + inferred online/offline status, fuzzy-matched to graph.entities substations. Sourced from operationdata.prepa.pr.gov (dataSource.js/dataLoadPerSite). Supply-side authoritative; status inferred from MW.",
+      "inputs": [
+        "operationdata.prepa.pr.gov/dataSource.js",
+        "graph.entities (substation)",
+        "prism/sync/prepa_ops.py"
+      ],
+      "compute_date": "2026-06-16",
+      "license": "derived"
+    },
+    "derived:sync.grid_snapshot": {
+      "source": "derived",
+      "title": "sync.grid_snapshot",
+      "schema": "sync",
+      "table": "grid_snapshot",
+      "description": "Latest island-wide generation (MW) and grid frequency (Hz) from PREPA's published rolling 24h feed (dataGraph.js). Single-row latest snapshot; historical archive is a future increment.",
+      "inputs": [
+        "operationdata.prepa.pr.gov/dataGraph.js",
+        "prism/sync/prepa_ops.py"
+      ],
+      "compute_date": "2026-06-16",
+      "license": "derived"
     }
   }
 }

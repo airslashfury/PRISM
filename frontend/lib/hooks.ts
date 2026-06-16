@@ -12,6 +12,9 @@ export const useOverview = () =>
 export const useScenarios = () =>
   useQuery({ queryKey: ["scenarios"], queryFn: api.scenarios, staleTime: 30 * MIN });
 
+export const useGeneration = () =>
+  useQuery({ queryKey: ["generation"], queryFn: api.generation, staleTime: 2 * MIN });
+
 export const useScores = (scenario: string, top = 400) =>
   useQuery({
     queryKey: ["scores", scenario, top],

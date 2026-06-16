@@ -12,6 +12,45 @@ from api.deps import engine_dep
 router = APIRouter(prefix="/network", tags=["network"])
 
 
+@router.get("/generation", response_model=schemas.GenerationStatus)
+@cached_response("generation", ttl=120)
+def generation(engine: Engine = Depends(engine_dep)) -> dict:
+    """Live PREPA generation: per-plant current output + the island-wide reading.
+
+    Supply-side AUTHORITATIVE data (operationdata.prepa.pr.gov). `status` is
+    INFERRED from MW (no explicit field in the feed). Updated by the prepa_ops
+    sync; this endpoint is a read of sync.generation_status + sync.grid_snapshot.
+    """
+    plants = fetch_all(
+        engine,
+        """
+        SELECT g.plant_name, g.plant_type, g.entity_id, e.name AS entity_name,
+               g.matched, g.site_total_mw, g.n_units, g.online_units, g.status,
+               ST_X(ST_Centroid(ST_Transform(e.geom, 4326))) AS lon,
+               ST_Y(ST_Centroid(ST_Transform(e.geom, 4326))) AS lat
+        FROM sync.generation_status g
+        LEFT JOIN graph.entities e ON e.entity_id = g.entity_id
+        ORDER BY g.site_total_mw DESC, g.plant_name
+        """,
+    )
+    system = fetch_one(
+        engine,
+        """
+        SELECT generation_mw, frequency_hz, reading_hour, as_of, fetched_at
+        FROM sync.grid_snapshot WHERE id = 1
+        """,
+    )
+    as_of = system["as_of"] if system else None
+    return {
+        "system": system,
+        "plants": plants,
+        "as_of": as_of,
+        "total_plants": len(plants),
+        "online": sum(1 for p in plants if p["status"] == "online"),
+        "matched": sum(1 for p in plants if p["matched"]),
+    }
+
+
 @router.get("/transmission", response_model=schemas.FeatureCollection)
 @cached_response("transmission", ttl=21600)
 def transmission(engine: Engine = Depends(engine_dep)) -> dict:

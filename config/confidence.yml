@@ -50,6 +50,29 @@ tiers:
 # ── derived tables ──────────────────────────────────────────────────────────
 # Keyed by "schema.table" to match catalog/metadata.json's `derived:` entries.
 tables:
+  sync.generation_status:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Per-plant current output from PREPA's operational portal
+      (operationdata.prepa.pr.gov), the utility's own published generation data —
+      authoritative for MW. The online/offline `status` is INFERRED from
+      site_total_mw > 0 (the feed has no explicit status field), so that flag is
+      Modeled, not measured. Plant→substation `entity_id` is a name prefix match
+      (best-effort, `matched` flag distinguishes); supply-side only — it does NOT
+      establish which substation feeds whom.
+    upgrade_path: >-
+      An explicit unit-status field from PREPA would make `status` Authoritative.
+
+  sync.grid_snapshot:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Island-wide generation (MW) and grid frequency (Hz) — the latest point of
+      PREPA's published rolling 24h feed. Single-row latest snapshot; historical
+      archive is a future increment.
+    upgrade_path: null
+
   graph.entities:
     method: measured
     confidence_tier: authoritative

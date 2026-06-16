@@ -113,6 +113,38 @@ class ConsequenceSummary(BaseModel):
     downstream: list[ConsequenceEntity]
 
 
+# --- PREPA live generation (operationdata.prepa.pr.gov) -------------------- #
+class GenerationPlant(BaseModel):
+    plant_name: str
+    plant_type: str
+    entity_id: int | None
+    entity_name: str | None
+    matched: bool
+    site_total_mw: float
+    n_units: int
+    online_units: int
+    status: str  # online | offline (inferred from MW — Modeled, not measured)
+    lon: float | None = None
+    lat: float | None = None
+
+
+class GridSnapshot(BaseModel):
+    generation_mw: float | None
+    frequency_hz: float | None
+    reading_hour: str | None
+    as_of: datetime | None
+    fetched_at: datetime | None
+
+
+class GenerationStatus(BaseModel):
+    system: GridSnapshot | None
+    plants: list[GenerationPlant]
+    as_of: datetime | None
+    total_plants: int
+    online: int
+    matched: int
+
+
 class SpofEntity(BaseModel):
     entity_id: int
     name: str | None

@@ -23,7 +23,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--source", choices=["wfs", "osm", "noaa"], default=None,
+        "--source", choices=["wfs", "osm", "noaa", "prepa"], default=None,
         help="Limit sync to one source type (default: all)",
     )
     parser.add_argument(
@@ -53,6 +53,17 @@ def main() -> None:
         return
 
     create_schema(engine)
+
+    if args.source == "prepa":
+        from prism.sync.prepa_ops import sync_generation_status
+        print("Fetching PREPA live generation feed ...")
+        summary = sync_generation_status(engine, mirror=not args.dry_run)
+        print(
+            f"  plants: {summary['plants']}  matched: {summary['matched']}  "
+            f"online: {summary['online']}\n"
+            f"  island generation: {summary['system_mw']} MW  as of {summary['as_of']}"
+        )
+        return
 
     if args.show_only:
         from sqlalchemy import text

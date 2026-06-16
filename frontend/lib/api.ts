@@ -288,6 +288,38 @@ export interface PortfolioOptimizeResult {
   total_uplift: number;
 }
 
+// PREPA live generation (operationdata.prepa.pr.gov). Hand-typed pending OpenAPI regen.
+export interface GenerationPlant {
+  plant_name: string;
+  plant_type: string;
+  entity_id: number | null;
+  entity_name: string | null;
+  matched: boolean;
+  site_total_mw: number;
+  n_units: number;
+  online_units: number;
+  status: "online" | "offline";
+  lon: number | null;
+  lat: number | null;
+}
+
+export interface GridSnapshot {
+  generation_mw: number | null;
+  frequency_hz: number | null;
+  reading_hour: string | null;
+  as_of: string | null;
+  fetched_at: string | null;
+}
+
+export interface GenerationStatus {
+  system: GridSnapshot | null;
+  plants: GenerationPlant[];
+  as_of: string | null;
+  total_plants: number;
+  online: number;
+  matched: number;
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -365,6 +397,7 @@ export const api = {
     apiGet<SubstationScore[]>("/resilience/scores", { scenario, top }),
   spof: () => apiGet<SpofEntity[]>("/resilience/spof"),
   consequence: (entityId: number) => apiGet<ConsequenceSummary>(`/network/consequence/${entityId}`),
+  generation: () => apiGet<GenerationStatus>("/network/generation"),
   substation: (id: number, scenario: string) =>
     apiGet<SubstationDetail>(`/resilience/substations/${id}`, { scenario }),
 

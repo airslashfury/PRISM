@@ -5620,3 +5620,12 @@ sync_sources:
     sync_interval_hours: 168
     affects_resilience: false
     notes: State road network 2017 - weekly sync; drives transport.road_access_cost rebuild
+  prepa_generation:
+    source_type: prepa
+    url: https://operationdata.prepa.pr.gov
+    sync_interval_hours: 1
+    affects_resilience: false
+    notes: >-
+      PREPA live per-plant generation + island-wide gen/frequency. Run via
+      `python -m prism.sync --source prepa`. Updates sync.generation_status +
+      sync.grid_snapshot. Supply-side authoritative; status inferred from MW.
