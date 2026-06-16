@@ -90,6 +90,18 @@ def test_compare_endpoint(client, two_runs):
     assert isinstance(body["equity_flag"], bool)
 
 
+def test_compare_endpoint_is_pure_read(client, engine, two_runs):
+    """GET /portfolio/compare must not write a report.scenario_comparison row."""
+    small, large = two_runs
+    with engine.connect() as c:
+        before = c.execute(text("SELECT count(*) FROM report.scenario_comparison")).scalar()
+    r = client.get(f"/portfolio/compare?run_id_a={small.run_id}&run_id_b={large.run_id}")
+    assert r.status_code == 200
+    with engine.connect() as c:
+        after = c.execute(text("SELECT count(*) FROM report.scenario_comparison")).scalar()
+    assert after == before
+
+
 def test_compare_endpoint_unknown_run_404(client, two_runs):
     small, _ = two_runs
     r = client.get(f"/portfolio/compare?run_id_a={small.run_id}&run_id_b=999999999")

@@ -37,11 +37,14 @@ def compare(
 ) -> dict:
     """Item-level diff between two portfolio runs — what the budget allocator shows
     after a re-run: which substations were added/dropped and the cost/uplift deltas.
-    Reuses prism.report.compare.compare_runs (also persists to report.scenario_comparison)."""
+    Reuses prism.report.compare.compare_runs as a pure read (persist=False) so a
+    GET doesn't write an audit row per call."""
     from prism.report.compare import compare_runs
 
     try:
-        result = compare_runs(engine, run_id_a, run_id_b, label_a="run_a", label_b="run_b")
+        result = compare_runs(
+            engine, run_id_a, run_id_b, label_a="run_a", label_b="run_b", persist=False
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

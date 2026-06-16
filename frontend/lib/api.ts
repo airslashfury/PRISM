@@ -451,6 +451,10 @@ export async function pollJob<T = unknown>(
   for (;;) {
     const status = await api.jobStatus(jobId);
     if (status.status === "complete") return (status.result ?? null) as T;
+    if (status.status === "failed") {
+      const msg = (status.result as { error?: string } | null)?.error ?? "job failed";
+      throw new ApiError(500, msg);
+    }
     if (status.status === "not_found") throw new ApiError(404, "job not found");
     if (Date.now() - start > timeoutMs) throw new ApiError(408, "job timed out");
     await new Promise((r) => setTimeout(r, intervalMs));

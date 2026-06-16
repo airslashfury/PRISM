@@ -2,11 +2,59 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+# Source GIS name fields frequently carry embedded newlines/tabs and double
+# spaces (e.g. "GUANICA\r\n T.O."). Collapse runs of whitespace to a single
+# space and trim, so a name renders cleanly everywhere downstream instead of
+# being patched with scattered .replace("\n"," ") band-aids.
+_WS_RE = re.compile(r"\s+")
+
+
+def _clean_name(val: object) -> str | None:
+    if val is None:
+        return None
+    cleaned = _WS_RE.sub(" ", str(val)).strip()
+    return cleaned or None
+
+
+# (table, column) pairs that denormalize an entity name copied from
+# graph.entities. clean_entity_names() normalizes all of them in place.
+_NAME_COLUMNS: list[tuple[str, str]] = [
+    ("graph.entities", "name"),
+    ("economy.substation_exposure", "entity_name"),
+    ("optimize.intervention_catalog", "entity_name"),
+    ("optimize.portfolio_items", "entity_name"),
+    ("resilience.scenario_scores", "entity_name"),
+    ("transport.road_access_cost", "nearest_hosp_name"),
+]
+
+
+def clean_entity_names(engine: Engine) -> dict[str, int]:
+    """Collapse embedded whitespace/control chars in stored entity names.
+
+    Idempotent: each statement rewrites only the rows that actually change, so a
+    second run is a no-op (and returns zero counts). Tables that don't yet exist
+    (e.g. a bare CI database) are skipped. Returns rows-changed per table.
+    """
+    norm = "btrim(regexp_replace({col}, '\\s+', ' ', 'g'))"
+    counts: dict[str, int] = {}
+    with engine.begin() as conn:
+        for table, col in _NAME_COLUMNS:
+            if conn.execute(text("SELECT to_regclass(:t)"), {"t": table}).scalar() is None:
+                continue
+            expr = norm.format(col=col)
+            res = conn.execute(text(
+                f"UPDATE {table} SET {col} = {expr} "
+                f"WHERE {col} IS NOT NULL AND {col} <> {expr}"
+            ))
+            counts[table] = res.rowcount
+    return counts
 
 
 @dataclass
@@ -183,7 +231,7 @@ def _ingest_spec(conn: Any, spec: _EntitySpec) -> int:
                 f"available keys: {list(row.keys())[:10]}"
             )
         src_gid = str(raw_gid)
-        name_val = row.get(spec.name_col) if spec.name_col else None
+        name_val = _clean_name(row.get(spec.name_col)) if spec.name_col else None
         attrs = spec.attr_fn(row)
 
         conn.execute(text("""

@@ -89,5 +89,12 @@ async def job_status(job_id: str) -> JobStatusResponse:
     if status == JobStatus.complete:
         info = await job.result_info()
         if info is not None:
+            # arq marks a job that raised as `complete` with success=False and the
+            # exception as the result. Surface that as "failed" so pollers stop
+            # immediately instead of waiting out their timeout.
+            if not info.success:
+                return JobStatusResponse(
+                    job_id=job_id, status="failed", result={"error": str(info.result)}
+                )
             result = info.result
     return JobStatusResponse(job_id=job_id, status=status.value, result=result)

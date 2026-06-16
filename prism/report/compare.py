@@ -149,13 +149,19 @@ def compare_runs(
     *,
     label_a: str = "run_a",
     label_b: str = "run_b",
+    persist: bool = True,
 ) -> ComparisonResult:
-    """Compare two portfolio runs and persist the result.
+    """Compare two portfolio runs.
 
     equity_flag is set when run_b selects ≥1 substation/intervention not in run_a
     (convention: run_b = equity portfolio, run_a = pure-VOLL baseline).
+
+    persist=True stores the result in report.scenario_comparison (the report
+    module wants the audit row). persist=False makes this a pure read — used by
+    GET /portfolio/compare, where a read endpoint shouldn't write a row per call.
     """
-    create_schema(engine)
+    if persist:
+        create_schema(engine)
 
     summary_a = _load_portfolio(engine, run_id_a)
     summary_b = _load_portfolio(engine, run_id_b)
@@ -175,39 +181,41 @@ def compare_runs(
 
     equity_flag = len(only_b) > 0
 
-    with engine.begin() as conn:
-        row = conn.execute(text("""
-            INSERT INTO report.scenario_comparison
-                (run_id_a, run_id_b, label_a, label_b,
-                 delta_cost_usd, delta_uplift, delta_n_interventions,
-                 delta_population, delta_svi_weighted_pop,
-                 items_only_in_a, items_only_in_b, items_shared, equity_flag)
-            VALUES
-                (:rid_a, :rid_b, :la, :lb,
-                 :dcost, :dup, :dn, :dpop, :dsvi,
-                 :oa, :ob, :sh, :ef)
-            RETURNING comparison_id
-        """), {
-            "rid_a": run_id_a,
-            "rid_b": run_id_b,
-            "la":    label_a,
-            "lb":    label_b,
-            "dcost": summary_b.total_cost_usd - summary_a.total_cost_usd,
-            "dup":   summary_b.total_uplift - summary_a.total_uplift,
-            "dn":    summary_b.n_interventions - summary_a.n_interventions,
-            "dpop":  pop_b - pop_a,
-            "dsvi":  svi_pop_b - svi_pop_a,
-            "oa":    json.dumps(only_a),
-            "ob":    json.dumps(only_b),
-            "sh":    json.dumps(shared),
-            "ef":    equity_flag,
-        }).fetchone()
-        comparison_id = row[0]
+    comparison_id = None
+    if persist:
+        with engine.begin() as conn:
+            row = conn.execute(text("""
+                INSERT INTO report.scenario_comparison
+                    (run_id_a, run_id_b, label_a, label_b,
+                     delta_cost_usd, delta_uplift, delta_n_interventions,
+                     delta_population, delta_svi_weighted_pop,
+                     items_only_in_a, items_only_in_b, items_shared, equity_flag)
+                VALUES
+                    (:rid_a, :rid_b, :la, :lb,
+                     :dcost, :dup, :dn, :dpop, :dsvi,
+                     :oa, :ob, :sh, :ef)
+                RETURNING comparison_id
+            """), {
+                "rid_a": run_id_a,
+                "rid_b": run_id_b,
+                "la":    label_a,
+                "lb":    label_b,
+                "dcost": summary_b.total_cost_usd - summary_a.total_cost_usd,
+                "dup":   summary_b.total_uplift - summary_a.total_uplift,
+                "dn":    summary_b.n_interventions - summary_a.n_interventions,
+                "dpop":  pop_b - pop_a,
+                "dsvi":  svi_pop_b - svi_pop_a,
+                "oa":    json.dumps(only_a),
+                "ob":    json.dumps(only_b),
+                "sh":    json.dumps(shared),
+                "ef":    equity_flag,
+            }).fetchone()
+            comparison_id = row[0]
 
-    log.info(
-        "Comparison saved: id=%d, equity_flag=%s, only_a=%d, only_b=%d, shared=%d",
-        comparison_id, equity_flag, len(only_a), len(only_b), len(shared),
-    )
+        log.info(
+            "Comparison saved: id=%d, equity_flag=%s, only_a=%d, only_b=%d, shared=%d",
+            comparison_id, equity_flag, len(only_a), len(only_b), len(shared),
+        )
 
     return ComparisonResult(
         comparison_id=comparison_id,
