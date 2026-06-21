@@ -61,7 +61,11 @@ def main() -> None:
         print(
             f"  plants: {summary['plants']}  matched: {summary['matched']}  "
             f"online: {summary['online']}\n"
-            f"  island generation: {summary['system_mw']} MW  as of {summary['as_of']}"
+            f"  island generation: {summary['system_mw']} MW  "
+            f"spinning reserve: {summary.get('spinning_reserve_mw')} MW  "
+            f"renewable: {summary.get('renewable_mw')} MW\n"
+            f"  capacity history: {summary.get('capacity_history_rows', 0)} period rows  "
+            f"as of {summary['as_of']}"
         )
         return
 

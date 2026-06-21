@@ -60,17 +60,58 @@ def create_schema(engine: Engine) -> None:
             )
         """))
 
-        # Latest island-wide reading from dataGraph.js (single-row snapshot;
-        # archive/history is a deliberate future increment, not built yet).
+        # Latest island-wide reading (single-row snapshot, updated each sync).
+        # Extended with Genera feed fields: reserves, fuel mix, renewable breakdown.
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS sync.grid_snapshot (
-                id              int             PRIMARY KEY DEFAULT 1,
-                generation_mw   double precision,
-                frequency_hz    double precision,
-                reading_hour    text,
-                as_of           timestamptz,
-                fetched_at      timestamptz     NOT NULL DEFAULT now(),
+                id                      int             PRIMARY KEY DEFAULT 1,
+                generation_mw           double precision,
+                frequency_hz            double precision,
+                reading_hour            text,
+                as_of                   timestamptz,
+                fetched_at              timestamptz     NOT NULL DEFAULT now(),
+                spinning_reserve_mw     double precision,
+                operational_reserve_mw  double precision,
+                available_capacity_mw   double precision,
+                prepa_pct               double precision,
+                ppoa_pct                double precision,
+                renewable_mw            double precision,
+                solar_mw                double precision,
+                wind_mw                 double precision,
+                hydro_mw                double precision,
+                fuel_mix                jsonb,
                 CONSTRAINT grid_snapshot_singleton CHECK (id = 1)
+            )
+        """))
+
+        # Add new columns to existing deployments (idempotent).
+        for col, typedef in [
+            ("spinning_reserve_mw",    "double precision"),
+            ("operational_reserve_mw", "double precision"),
+            ("available_capacity_mw",  "double precision"),
+            ("prepa_pct",              "double precision"),
+            ("ppoa_pct",               "double precision"),
+            ("renewable_mw",           "double precision"),
+            ("solar_mw",               "double precision"),
+            ("wind_mw",                "double precision"),
+            ("hydro_mw",               "double precision"),
+            ("fuel_mix",               "jsonb"),
+        ]:
+            conn.execute(text(
+                f"ALTER TABLE sync.grid_snapshot "
+                f"ADD COLUMN IF NOT EXISTS {col} {typedef}"
+            ))
+
+        # Rolling capacity trend from dataCapacity (daily/weekly/monthly).
+        # Upserted each sync; gives historical baseline for resilience scoring.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.grid_capacity_history (
+                id           serial           PRIMARY KEY,
+                period_type  text             NOT NULL,
+                period_label text             NOT NULL,
+                capacity_mw  double precision NOT NULL,
+                recorded_at  timestamptz      NOT NULL DEFAULT now(),
+                CONSTRAINT uq_capacity_period UNIQUE (period_type, period_label)
             )
         """))
 

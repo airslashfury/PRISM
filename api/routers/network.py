@@ -36,7 +36,9 @@ def generation(engine: Engine = Depends(engine_dep)) -> dict:
     system = fetch_one(
         engine,
         """
-        SELECT generation_mw, frequency_hz, reading_hour, as_of, fetched_at
+        SELECT generation_mw, frequency_hz, reading_hour, as_of, fetched_at,
+               spinning_reserve_mw, operational_reserve_mw, available_capacity_mw,
+               prepa_pct, ppoa_pct, renewable_mw, solar_mw, wind_mw, hydro_mw, fuel_mix
         FROM sync.grid_snapshot WHERE id = 1
         """,
     )

@@ -1,16 +1,22 @@
 """PREPA operational-data feed (operationdata.prepa.pr.gov) — live generation.
 
-The portal publishes three JS files (not JSON): per-plant/unit current output
-(dataSource.js → dataLoadPerSite), island-wide generation + grid frequency
-(dataGraph.js → dataGraph), and dam levels (dataLevels.js, unused here).
+The portal publishes three JS files (not JSON):
+  dataSourceGenera.js — per-plant/unit current output (dataLoadPerSite), system
+                        metrics (reserves, capacity, PREPA/PPOA split), fuel-mix
+                        breakdown (dataByFuel), and historical capacity trend
+                        (dataCapacity). Superset of the old dataSource.js;
+                        Genera PR's dashboard pulls this same file.
+  dataGraph.js        — island-wide generation + grid frequency (dataGraph).
+                        Kept as the frequency source; not in dataSourceGenera.js.
 
-This is **supply-side authoritative** data — what each plant is generating right
-now — and is the live grid-state source the Phase 9 sync spine was built for.
 Two honesty caveats, surfaced via confidence tiers:
-  * It is NOT a feeder model. It does not say which substation feeds whom, so it
-    does not improve the FEEDS/POWERS proxy (that's delivery-side).
-  * The feed has no explicit online/offline field; `status` is INFERRED from MW,
-    so the inferred flag is Modeled, not Authoritative.
+  * Supply-side only — does NOT improve the FEEDS/POWERS feeder proxy (delivery-side).
+  * `status` is INFERRED from MW (no explicit online/offline field) → Modeled, not
+    Authoritative.
+  * The `Renewable` percentage in dataMetrics covers only Genera-operated capacity,
+    not PPOA renewable contracts. The renewable_mw derived from dataLoadPerSite
+    (summing Renovable/Hidroelectricas plant types) is more complete but still
+    excludes PPOA solar/wind.
 
 Per the data-sovereignty rule, every fetch is mirrored to data/raw/prepa_ops/
 with a sha256 before we rely on it.
@@ -35,28 +41,27 @@ log = logging.getLogger(__name__)
 
 PREPA_BASE = "https://operationdata.prepa.pr.gov"
 FEED_FILES = {
-    "source": "dataSource.js",   # per-plant generation (dataLoadPerSite)
-    "graph": "dataGraph.js",     # island-wide generation + frequency
+    "genera": "dataSourceGenera.js",  # replaces dataSource.js — full superset
+    "graph": "dataGraph.js",          # island-wide generation + frequency
 }
 _RAW_DIR = Path("data/raw/prepa_ops")
 _UA = "PRISM/1.0 (infrastructure simulation; data-sovereignty mirror)"
 
 
 # --------------------------------------------------------------------------- #
-# Fetch + parse (the feeds are JS object literals, not JSON)                   #
+# Fetch + low-level parse helpers                                              #
 # --------------------------------------------------------------------------- #
 def fetch_feed(name: str, *, timeout: float = 25.0) -> str:
-    """Fetch one PREPA feed. Decoded as cp1252 (the source uses Windows-1252 for
-    accented Spanish labels; plant names themselves are ASCII)."""
+    """Fetch one PREPA feed. The server sends UTF-8 (accented Spanish Desc strings
+    in dataMetrics require this; ASCII plant names are unaffected)."""
     url = f"{PREPA_BASE}/{FEED_FILES[name]}"
     req = urllib.request.Request(url, headers={"User-Agent": _UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (trusted gov host)
-        return resp.read().decode("cp1252", "replace")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+        return resp.read().decode("utf-8", "replace")
 
 
 def _extract_array(raw: str, varname: str) -> str:
-    """Return the bracket-balanced `[ ... ]` literal assigned to `const varname`,
-    ignoring brackets inside single-quoted strings and handling nested arrays."""
+    """Return the bracket-balanced `[ ... ]` literal assigned to `const varname`."""
     m = re.search(rf"const\s+{re.escape(varname)}\s*=\s*\[", raw)
     if not m:
         raise ValueError(f"variable {varname!r} not found in feed")
@@ -73,22 +78,58 @@ def _extract_array(raw: str, varname: str) -> str:
             elif ch == "]":
                 depth -= 1
                 if depth == 0:
-                    return raw[start:i + 1]
+                    return raw[start : i + 1]
     raise ValueError(f"unbalanced array for {varname!r}")
 
 
+def _extract_object(raw: str, varname: str) -> str:
+    """Return the brace-balanced `{ ... }` literal assigned to `const varname`."""
+    m = re.search(rf"const\s+{re.escape(varname)}\s*=\s*\{{", raw)
+    if not m:
+        raise ValueError(f"variable {varname!r} not found in feed")
+    start = m.end() - 1
+    depth = 0
+    in_str = False
+    for i in range(start, len(raw)):
+        ch = raw[i]
+        if ch == "'":
+            in_str = not in_str
+        elif not in_str:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return raw[start : i + 1]
+    raise ValueError(f"unbalanced object for {varname!r}")
+
+
+def _js_to_json(s: str) -> str:
+    """Convert a JS literal (unquoted keys, single-quoted strings, trailing
+    commas) to JSON-compatible text. Values never contain apostrophes."""
+    s = s.replace("'", '"')
+    s = re.sub(r"([{\[,]\s*)([A-Za-z_]\w*)\s*:", r'\1"\2":', s)
+    s = re.sub(r",(\s*[}\]])", r"\1", s)
+    return s
+
+
 def _js_array_to_obj(array_text: str) -> list[dict]:
-    """Convert a JS array-of-objects literal (unquoted keys, single-quoted
-    strings, trailing commas) to Python via JSON. The PREPA data carries no
-    apostrophes or embedded quotes in values, so the transform is unambiguous."""
-    s = array_text.replace("'", '"')                                  # str delimiters
-    s = re.sub(r'([{\[,]\s*)([A-Za-z_]\w*)\s*:', r'\1"\2":', s)        # quote bare keys
-    s = re.sub(r",(\s*[}\]])", r"\1", s)                              # drop trailing commas
-    return json.loads(s)
+    return json.loads(_js_to_json(array_text))
 
 
-def _parse_as_of(raw_source: str) -> datetime | None:
-    m = re.search(r"dataFechaAcualizado\s*=\s*'([^']+)'", raw_source)
+def _js_object_to_dict(obj_text: str) -> dict:
+    return json.loads(_js_to_json(obj_text))
+
+
+def _to_float(v: Any) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _parse_as_of(raw: str) -> datetime | None:
+    m = re.search(r"dataFechaAcualizado\s*=\s*'([^']+)'", raw)
     if not m:
         return None
     try:
@@ -97,11 +138,14 @@ def _parse_as_of(raw_source: str) -> datetime | None:
         return None
 
 
-def parse_plants(raw_source: str) -> list[dict[str, Any]]:
-    """Per-plant generation with an inferred status. `online_units` counts units
-    with MW > 0; status is 'online' if the plant is producing, else 'offline'."""
+# --------------------------------------------------------------------------- #
+# Per-domain parsers                                                           #
+# --------------------------------------------------------------------------- #
+def parse_plants(raw_genera: str) -> list[dict[str, Any]]:
+    """Per-plant generation with inferred status. From dataLoadPerSite in
+    dataSourceGenera.js (same variable name as old dataSource.js)."""
     plants = []
-    for p in _js_array_to_obj(_extract_array(raw_source, "dataLoadPerSite")):
+    for p in _js_array_to_obj(_extract_array(raw_genera, "dataLoadPerSite")):
         units = p.get("units") or []
         online = sum(1 for u in units if _to_float(u.get("MW")) > 0)
         site_total = _to_float(p.get("SiteTotal"))
@@ -111,11 +155,52 @@ def parse_plants(raw_source: str) -> list[dict[str, Any]]:
             "site_total_mw": site_total,
             "n_units": len(units),
             "online_units": online,
-            # SiteTotal is the plant's net output; <=0 (incl. small parasitic
-            # negatives) reads as not generating.
             "status": "online" if site_total > 0 else "offline",
         })
     return [p for p in plants if p["plant_name"]]
+
+
+def parse_fuel_mix(raw_genera: str) -> dict[str, float]:
+    """Parse dataByFuel → {fuel_label: percentage}. Returns {} on parse error."""
+    try:
+        items = _js_array_to_obj(_extract_array(raw_genera, "dataByFuel"))
+        return {str(item.get("fuel", "")).strip(): _to_float(item.get("value"))
+                for item in items if item.get("fuel")}
+    except (ValueError, json.JSONDecodeError):
+        return {}
+
+
+def parse_metrics(raw_genera: str) -> dict[str, float]:
+    """Parse dataMetrics → {desc: value}. Keys mirror the feed's Desc strings,
+    e.g. 'Rotating Reserve', 'Available Capacity', 'PREPA', 'PPOA'."""
+    try:
+        items = _js_array_to_obj(_extract_array(raw_genera, "dataMetrics"))
+        return {str(item.get("Desc", "")).strip(): _to_float(item.get("value"))
+                for item in items if item.get("Desc")}
+    except (ValueError, json.JSONDecodeError):
+        return {}
+
+
+def parse_capacity_history(raw_genera: str) -> list[dict[str, Any]]:
+    """Parse dataCapacity → [{period_type, period_label, capacity_mw}].
+    Covers daily (last 7 days), weekly (last 5 weeks), monthly (last 12 months).
+    Returns [] on parse error — caller upserts idempotently."""
+    try:
+        obj = _js_object_to_dict(_extract_object(raw_genera, "dataCapacity"))
+    except (ValueError, json.JSONDecodeError):
+        return []
+    rows = []
+    for period_type in ("daily", "weekly", "monthly"):
+        period = obj.get(period_type, {})
+        labels = period.get("labels", [])
+        capacities = period.get("capacity", [])
+        for label, cap in zip(labels, capacities):
+            rows.append({
+                "period_type": period_type,
+                "period_label": str(label),
+                "capacity_mw": _to_float(cap),
+            })
+    return rows
 
 
 def parse_system(raw_graph: str) -> dict[str, Any] | None:
@@ -132,21 +217,48 @@ def parse_system(raw_graph: str) -> dict[str, Any] | None:
     }
 
 
-def _to_float(v: Any) -> float:
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def fetch_generation() -> dict[str, Any]:
-    """Fetch + parse all feeds. Returns the parsed payload plus the raw text so
-    the caller can mirror it. Pure I/O + parse, no DB."""
-    raws = {name: fetch_feed(name) for name in FEED_FILES}
+def _renewable_breakdown(plants: list[dict]) -> dict[str, float]:
+    """Sum actual generation MW by renewable category from the plant list.
+    More complete than dataMetrics 'Renewable' % which counts only Genera-operated
+    capacity (excludes PPOA renewables)."""
+    solar = wind = hydro = other = 0.0
+    for p in plants:
+        t = p["plant_type"].lower()
+        n = p["plant_name"].lower()
+        mw = p["site_total_mw"]
+        if "hidro" in t:
+            hydro += mw
+        elif "renovable" in t or "renew" in t:
+            if "solar" in n:
+                solar += mw
+            elif "wind" in n or "viento" in n:
+                wind += mw
+            else:
+                other += mw
     return {
-        "as_of": _parse_as_of(raws["source"]),
-        "plants": parse_plants(raws["source"]),
+        "solar_mw": solar,
+        "wind_mw": wind,
+        "hydro_mw": hydro,
+        "renewable_mw": solar + wind + hydro + other,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Fetch all feeds                                                               #
+# --------------------------------------------------------------------------- #
+def fetch_generation() -> dict[str, Any]:
+    """Fetch + parse all feeds. Returns parsed payload + raw text for mirroring."""
+    raws = {name: fetch_feed(name) for name in FEED_FILES}
+    plants = parse_plants(raws["genera"])
+    metrics = parse_metrics(raws["genera"])
+    return {
+        "as_of": _parse_as_of(raws["genera"]),
+        "plants": plants,
         "system": parse_system(raws["graph"]),
+        "fuel_mix": parse_fuel_mix(raws["genera"]),
+        "metrics": metrics,
+        "capacity_history": parse_capacity_history(raws["genera"]),
+        "renewable": _renewable_breakdown(plants),
         "raws": raws,
     }
 
@@ -172,11 +284,9 @@ def mirror_raw(raws: dict[str, str], *, when: datetime | None = None) -> Path:
 # Fuzzy match plant → graph.entities substation                               #
 # --------------------------------------------------------------------------- #
 def _match_entity(conn, plant_name: str) -> int | None:
-    """Best-effort match of a PREPA plant name to a substation entity. Uses a
-    PREFIX match only (a substation whose name starts with the plant name),
-    preferring generator-flagged substations — broad substring matching produced
-    false positives like 'Wind' -> 'BERWIND TC'. Returns None if no confident
-    match (left unmatched + labeled, never guessed)."""
+    """Prefix match of a PREPA plant name to a substation entity. Prefers
+    generator-flagged substations; broad substring matching produced false
+    positives ('Wind' → 'BERWIND TC'). Returns None when no confident match."""
     row = conn.execute(text("""
         SELECT entity_id
         FROM graph.entities
@@ -192,8 +302,11 @@ def _match_entity(conn, plant_name: str) -> int | None:
 # Sync: fetch → parse → mirror → match → upsert                               #
 # --------------------------------------------------------------------------- #
 def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, Any]:
-    """One PREPA sync cycle. Upserts sync.generation_status (per plant) and the
-    single-row sync.grid_snapshot. Returns a summary."""
+    """One PREPA/Genera sync cycle. Upserts:
+      sync.generation_status  — per-plant latest output
+      sync.grid_snapshot      — island-wide snapshot (reserves, fuel mix, renewables)
+      sync.grid_capacity_history — rolling daily/weekly/monthly capacity trend
+    Returns a summary dict."""
     create_schema(engine)
     data = fetch_generation()
     if mirror:
@@ -201,8 +314,13 @@ def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, 
 
     plants = data["plants"]
     as_of = data["as_of"]
+    metrics = data["metrics"]
+    fuel_mix = data["fuel_mix"]
+    renew = data["renewable"]
+
     matched = 0
     with engine.begin() as conn:
+        # Per-plant upsert (unchanged from original)
         for p in plants:
             entity_id = _match_entity(conn, p["plant_name"])
             if entity_id is not None:
@@ -226,19 +344,57 @@ def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, 
             """), {**p, "entity_id": entity_id, "matched": entity_id is not None,
                    "as_of": as_of})
 
+        # Extended grid_snapshot (reserves, fuel mix, PREPA/PPOA split, renewables)
         sysd = data["system"]
         if sysd:
             conn.execute(text("""
                 INSERT INTO sync.grid_snapshot
-                    (id, generation_mw, frequency_hz, reading_hour, as_of, fetched_at)
-                VALUES (1, :generation_mw, :frequency_hz, :reading_hour, :as_of, now())
+                    (id, generation_mw, frequency_hz, reading_hour, as_of, fetched_at,
+                     spinning_reserve_mw, operational_reserve_mw, available_capacity_mw,
+                     prepa_pct, ppoa_pct,
+                     renewable_mw, solar_mw, wind_mw, hydro_mw, fuel_mix)
+                VALUES (1, :generation_mw, :frequency_hz, :reading_hour, :as_of, now(),
+                        :spinning_reserve_mw, :operational_reserve_mw, :available_capacity_mw,
+                        :prepa_pct, :ppoa_pct,
+                        :renewable_mw, :solar_mw, :wind_mw, :hydro_mw, :fuel_mix)
                 ON CONFLICT (id) DO UPDATE SET
-                    generation_mw = EXCLUDED.generation_mw,
-                    frequency_hz  = EXCLUDED.frequency_hz,
-                    reading_hour  = EXCLUDED.reading_hour,
-                    as_of         = EXCLUDED.as_of,
-                    fetched_at    = now()
-            """), {**sysd, "as_of": as_of})
+                    generation_mw          = EXCLUDED.generation_mw,
+                    frequency_hz           = EXCLUDED.frequency_hz,
+                    reading_hour           = EXCLUDED.reading_hour,
+                    as_of                  = EXCLUDED.as_of,
+                    fetched_at             = now(),
+                    spinning_reserve_mw    = EXCLUDED.spinning_reserve_mw,
+                    operational_reserve_mw = EXCLUDED.operational_reserve_mw,
+                    available_capacity_mw  = EXCLUDED.available_capacity_mw,
+                    prepa_pct              = EXCLUDED.prepa_pct,
+                    ppoa_pct               = EXCLUDED.ppoa_pct,
+                    renewable_mw           = EXCLUDED.renewable_mw,
+                    solar_mw               = EXCLUDED.solar_mw,
+                    wind_mw                = EXCLUDED.wind_mw,
+                    hydro_mw               = EXCLUDED.hydro_mw,
+                    fuel_mix               = EXCLUDED.fuel_mix
+            """), {
+                **sysd,
+                "as_of": as_of,
+                "spinning_reserve_mw": metrics.get("Reserva en Rotación"),
+                "operational_reserve_mw": metrics.get("Reserva Operacional"),
+                "available_capacity_mw": metrics.get("Capacidad Disponible"),
+                "prepa_pct": metrics.get("PREPA"),
+                "ppoa_pct": metrics.get("PPOA"),
+                **renew,
+                "fuel_mix": json.dumps(fuel_mix),
+            })
+
+        # Rolling capacity history (upsert by period_type + period_label)
+        for row in data["capacity_history"]:
+            conn.execute(text("""
+                INSERT INTO sync.grid_capacity_history
+                    (period_type, period_label, capacity_mw, recorded_at)
+                VALUES (:period_type, :period_label, :capacity_mw, now())
+                ON CONFLICT (period_type, period_label) DO UPDATE SET
+                    capacity_mw = EXCLUDED.capacity_mw,
+                    recorded_at = now()
+            """), row)
 
     summary = {
         "plants": len(plants),
@@ -246,6 +402,9 @@ def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, 
         "online": sum(1 for p in plants if p["status"] == "online"),
         "as_of": as_of.isoformat() if as_of else None,
         "system_mw": data["system"]["generation_mw"] if data["system"] else None,
+        "spinning_reserve_mw": metrics.get("Reserva en Rotación"),
+        "renewable_mw": renew["renewable_mw"],
+        "capacity_history_rows": len(data["capacity_history"]),
     }
-    log.info("PREPA sync: %s", summary)
+    log.info("PREPA/Genera sync: %s", summary)
     return summary

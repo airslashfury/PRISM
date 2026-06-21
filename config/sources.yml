@@ -5626,6 +5626,10 @@ sync_sources:
     sync_interval_hours: 1
     affects_resilience: false
     notes: >-
-      PREPA live per-plant generation + island-wide gen/frequency. Run via
-      `python -m prism.sync --source prepa`. Updates sync.generation_status +
-      sync.grid_snapshot. Supply-side authoritative; status inferred from MW.
+      PREPA/Genera live generation feed (dataSourceGenera.js + dataGraph.js).
+      Per-plant MW, spinning/operational reserve, available capacity, PREPA/PPOA
+      split, renewable breakdown (solar/wind/hydro), fuel mix, and rolling
+      daily/weekly/monthly capacity history. Run via `python -m prism.sync
+      --source prepa`. Updates sync.generation_status, sync.grid_snapshot, and
+      sync.grid_capacity_history. Supply-side authoritative; status inferred from
+      MW (Modeled). Does not fix the FEEDS/POWERS feeder proxy (delivery-side).

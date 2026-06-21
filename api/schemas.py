@@ -134,6 +134,17 @@ class GridSnapshot(BaseModel):
     reading_hour: str | None
     as_of: datetime | None
     fetched_at: datetime | None
+    # Genera feed additions (dataSourceGenera.js)
+    spinning_reserve_mw: float | None = None
+    operational_reserve_mw: float | None = None
+    available_capacity_mw: float | None = None
+    prepa_pct: float | None = None
+    ppoa_pct: float | None = None
+    renewable_mw: float | None = None
+    solar_mw: float | None = None
+    wind_mw: float | None = None
+    hydro_mw: float | None = None
+    fuel_mix: dict | None = None
 
 
 class GenerationStatus(BaseModel):
