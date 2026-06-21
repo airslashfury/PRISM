@@ -25,6 +25,10 @@ export const useScores = (scenario: string, top = 400) =>
 export const useSpof = () =>
   useQuery({ queryKey: ["spof"], queryFn: api.spof, staleTime: 5 * MIN });
 
+/** Live electricity posture — default resilience view (refetches with the feed). */
+export const useCurrentState = () =>
+  useQuery({ queryKey: ["currentState"], queryFn: api.currentState, staleTime: 2 * MIN });
+
 /** Consequence Lens (M5a): downstream ripple + headline for a hovered substation. */
 export const useConsequence = (entityId: number | null) =>
   useQuery({

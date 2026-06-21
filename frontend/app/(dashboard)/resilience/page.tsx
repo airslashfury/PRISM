@@ -5,7 +5,7 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import { ChevronLeft, TriangleAlert } from "lucide-react";
+import { ChevronLeft, PowerOff, TriangleAlert } from "lucide-react";
 
 import { MapCanvas, tip } from "@/components/map/map-canvas";
 import { GradientLegend } from "@/components/legend";
@@ -14,14 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { SeverityLabel } from "@/components/severity";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
-import { useScores, useSubstation, useConsequence } from "@/lib/hooks";
+import { useScores, useSubstation, useConsequence, useCurrentState } from "@/lib/hooks";
 import { riskColor, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtIntTiered, fmtNum, fmtUsdTiered } from "@/lib/utils";
-import { tileUrl, type SubstationScore } from "@/lib/api";
+import { tileUrl } from "@/lib/api";
 
-const SCENARIOS = [
-  { value: "cat3", label: "Cat-3 Hurricane" },
-  { value: "slr2ft", label: "Sea-Level Rise 2ft" },
+const MODES = [
+  { value: "current", label: "Current state" },
+  { value: "cat3", label: "Cat-3" },
+  { value: "slr2ft", label: "SLR 2ft" },
   { value: "combined", label: "Combined" },
 ] as const;
 
@@ -44,23 +45,76 @@ const HEAT_RANGE: RGB[] = [
 const GRID_RGB: RGB = [34, 211, 238];
 const FLOOD_RGB: RGB = [37, 99, 235];
 const CONSEQUENCE_RGB: RGB = [250, 204, 21];
+const OFFLINE_RGB: RGB = [239, 68, 68];
+
+/** One normalized map point, fed from either the live current-state feed or a
+ *  scenario score. `value` drives color + radius; `is_offline` marks live outages. */
+type MapPoint = {
+  entity_id: number;
+  name: string | null;
+  lon: number;
+  lat: number;
+  value: number;
+  is_articulation: boolean;
+  is_offline: boolean;
+  is_generator: boolean;
+  population_affected: number | null;
+  plant_name: string | null;
+};
 
 export default function ResiliencePage() {
-  const [scenario, setScenario] = useState<string>("cat3");
+  const [mode, setMode] = useState<string>("current");
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
-  const [mode, setMode] = useState<string>("points");
+  const [viz, setViz] = useState<string>("points");
   const [showGrid, setShowGrid] = useState(false);
   const [showFlood, setShowFlood] = useState(false);
 
-  const { data: scores, isLoading, error } = useScores(scenario, 400);
+  const isCurrent = mode === "current";
+  const current = useCurrentState();
+  const scores = useScores(isCurrent ? "cat3" : mode, 400);
   const { data: consequence } = useConsequence(hovered);
 
+  const isLoading = isCurrent ? current.isLoading : scores.isLoading;
+  const error = isCurrent ? current.error : scores.error;
+
+  // Normalize whichever source is active into a single MapPoint[].
+  const points = useMemo<MapPoint[]>(() => {
+    if (isCurrent) {
+      return (current.data?.substations ?? []).map((s) => ({
+        entity_id: s.entity_id,
+        name: s.name,
+        lon: s.lon,
+        lat: s.lat,
+        value: s.baseline_consequence,
+        is_articulation: s.is_articulation,
+        is_offline: s.is_offline,
+        is_generator: s.is_generator,
+        population_affected: s.population_affected,
+        plant_name: s.plant_name,
+      }));
+    }
+    return (scores.data ?? []).map((s) => ({
+      entity_id: s.entity_id,
+      name: s.name,
+      lon: s.lon,
+      lat: s.lat,
+      value: s.composite_score,
+      is_articulation: s.is_articulation,
+      is_offline: false,
+      is_generator: false,
+      population_affected: null,
+      plant_name: null,
+    }));
+  }, [isCurrent, current.data, scores.data]);
+
   const { min, max } = useMemo(() => {
-    if (!scores?.length) return { min: 0, max: 1 };
-    const v = scores.map((s) => s.composite_score);
+    if (!points.length) return { min: 0, max: 1 };
+    const v = points.map((s) => s.value);
     return { min: Math.min(...v), max: Math.max(...v) };
-  }, [scores]);
+  }, [points]);
+
+  const offlinePoints = useMemo(() => points.filter((p) => p.is_offline), [points]);
 
   const layers = useMemo(() => {
     const ls: Layer[] = [];
@@ -98,53 +152,72 @@ export default function ResiliencePage() {
       );
     }
 
-    if (scores) {
-      if (mode === "heatmap") {
+    if (viz === "heatmap") {
+      ls.push(
+        new HeatmapLayer<MapPoint>({
+          id: "risk-heat",
+          data: points,
+          getPosition: (d) => [d.lon, d.lat],
+          getWeight: (d) => Math.max(d.value, 0.1),
+          radiusPixels: 55,
+          intensity: 1.2,
+          threshold: 0.04,
+          colorRange: HEAT_RANGE as unknown as [number, number, number][],
+        }),
+      );
+    } else {
+      // Live outage halo (current state only): a red glow behind offline nodes.
+      if (isCurrent && offlinePoints.length) {
         ls.push(
-          new HeatmapLayer<SubstationScore>({
-            id: "risk-heat",
-            data: scores,
+          new ScatterplotLayer<MapPoint>({
+            id: "offline-halo",
+            data: offlinePoints,
             getPosition: (d) => [d.lon, d.lat],
-            getWeight: (d) => Math.max(d.composite_score, 0.1),
-            radiusPixels: 55,
-            intensity: 1.2,
-            threshold: 0.04,
-            colorRange: HEAT_RANGE as unknown as [number, number, number][],
-          }),
-        );
-      } else {
-        ls.push(
-          new ScatterplotLayer<SubstationScore>({
-            id: "substations",
-            data: scores,
-            getPosition: (d) => [d.lon, d.lat],
-            getRadius: (d) => 300 + (d.composite_score - min) * 90,
+            getRadius: 2400,
             radiusUnits: "meters",
-            radiusMinPixels: 3.5,
-            radiusMaxPixels: 34,
-            getFillColor: (d) =>
-              [...riskColor(d.composite_score, min, max), 205] as [number, number, number, number],
-            getLineColor: (d) =>
-              d.entity_id === selected
-                ? [34, 211, 238, 255]
-                : d.is_articulation
-                  ? [255, 255, 255, 230]
-                  : [10, 14, 22, 120],
-            getLineWidth: (d) => (d.entity_id === selected ? 3 : d.is_articulation ? 1.5 : 0.5),
-            lineWidthUnits: "pixels",
-            stroked: true,
-            pickable: true,
-            autoHighlight: true,
-            highlightColor: [34, 211, 238, 60],
-            updateTriggers: {
-              getFillColor: [min, max],
-              getLineColor: [selected],
-              getLineWidth: [selected],
-              getRadius: [min],
-            },
+            radiusMinPixels: 14,
+            radiusMaxPixels: 60,
+            getFillColor: [...OFFLINE_RGB, 55] as [number, number, number, number],
+            stroked: false,
+            pickable: false,
           }),
         );
       }
+
+      ls.push(
+        new ScatterplotLayer<MapPoint>({
+          id: "substations",
+          data: points,
+          getPosition: (d) => [d.lon, d.lat],
+          getRadius: (d) => 300 + (d.value - min) * 90,
+          radiusUnits: "meters",
+          radiusMinPixels: 3.5,
+          radiusMaxPixels: 34,
+          getFillColor: (d) =>
+            [...riskColor(d.value, min, max), 205] as [number, number, number, number],
+          getLineColor: (d) =>
+            d.entity_id === selected
+              ? [34, 211, 238, 255]
+              : d.is_offline
+                ? [239, 68, 68, 255]
+                : d.is_articulation
+                  ? [255, 255, 255, 230]
+                  : [10, 14, 22, 120],
+          getLineWidth: (d) =>
+            d.entity_id === selected ? 3 : d.is_offline ? 2.5 : d.is_articulation ? 1.5 : 0.5,
+          lineWidthUnits: "pixels",
+          stroked: true,
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: [34, 211, 238, 60],
+          updateTriggers: {
+            getFillColor: [min, max],
+            getLineColor: [selected],
+            getLineWidth: [selected],
+            getRadius: [min],
+          },
+        }),
+      );
     }
 
     // Consequence Lens (M5a): ripple-highlight the downstream dependency cone
@@ -169,16 +242,17 @@ export default function ResiliencePage() {
       );
     }
     return ls;
-  }, [scores, showGrid, showFlood, mode, min, max, selected, hovered, consequence]);
+  }, [points, offlinePoints, isCurrent, showGrid, showFlood, viz, min, max, selected, hovered, consequence]);
 
   const getTooltip = (info: PickingInfo) => {
-    const d = info.object as SubstationScore | undefined;
+    const d = info.object as MapPoint | undefined;
     if (!d || info.layer?.id !== "substations") return null;
     return tip(
       [
-        ["Composite", fmtNum(d.composite_score, 1)],
-        ["Hazard P", fmtNum(d.hazard_score, 2)],
-        ["Cascade", fmtNum(d.cascade_impact, 1)],
+        [isCurrent ? "Consequence" : "Composite", fmtNum(d.value, 1)],
+        ...(d.is_offline
+          ? ([["", `⛔ Offline now${d.plant_name ? ` · ${d.plant_name}` : ""}`]] as [string, string][])
+          : []),
         ...(d.is_articulation ? ([["", "⚠ Single point of failure"]] as [string, string][]) : []),
       ],
       d.name ?? `Substation ${d.entity_id}`,
@@ -187,7 +261,7 @@ export default function ResiliencePage() {
 
   const onClick = (info: PickingInfo) => {
     if (info.layer?.id !== "substations") return;
-    const d = info.object as SubstationScore | undefined;
+    const d = info.object as MapPoint | undefined;
     setSelected(d?.entity_id ?? null);
   };
 
@@ -196,22 +270,56 @@ export default function ResiliencePage() {
       setHovered(null);
       return;
     }
-    const d = info.object as SubstationScore | undefined;
+    const d = info.object as MapPoint | undefined;
     setHovered(d?.entity_id ?? null);
   };
 
-  const top = scores ? [...scores].slice(0, 25) : [];
+  const top = [...points].slice(0, 25);
+  const detailScenario = isCurrent ? "cat3" : mode;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
       <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
         <MapCanvas layers={layers} getTooltip={getTooltip} onClick={onClick} onHover={onHover}>
+          {/* Headline card — live for current state, predictive for scenarios */}
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Substations at risk
-            </div>
-            <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(scores?.length)}</div>
-            <div className="text-[11px] text-muted-foreground">ring = single point of failure</div>
+            {isCurrent ? (
+              <>
+                <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Grid state now
+                  {current.data && current.data.plants_offline > 0 && (
+                    <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                  )}
+                </div>
+                {current.data && current.data.plants_offline > 0 ? (
+                  <>
+                    <div className="mt-0.5 flex items-baseline gap-1.5">
+                      <span className="text-2xl font-semibold tnum text-red-400">
+                        {current.data.plants_offline}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        plant{current.data.plants_offline === 1 ? "" : "s"} offline
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      ≈{fmtInt(current.data.population_affected_now)} people downstream
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-0.5 text-lg font-semibold text-emerald-400">
+                    All generation online
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-amber-400">
+                  Predicted · {MODES.find((m) => m.value === mode)?.label}
+                </div>
+                <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(points.length)}</div>
+                <div className="text-[11px] text-muted-foreground">substations at risk</div>
+              </>
+            )}
           </div>
 
           {/* Consequence Lens (M5a) — instant downstream-impact headline on hover */}
@@ -236,16 +344,22 @@ export default function ResiliencePage() {
                 { value: "points", label: "Points" },
                 { value: "heatmap", label: "Heatmap" },
               ]}
-              value={mode}
-              onChange={setMode}
+              value={viz}
+              onChange={setViz}
             />
             <LayerToggle label="Transmission grid" color={GRID_RGB} on={showGrid} onToggle={() => setShowGrid((v) => !v)} />
             <LayerToggle label="Flood zones (1%)" color={FLOOD_RGB} on={showFlood} onToggle={() => setShowFlood((v) => !v)} />
+            {isCurrent && offlinePoints.length > 0 && (
+              <div className="mt-2 flex items-center gap-2 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+                <span className="h-2.5 w-2.5 rounded-full ring-2 ring-red-500" />
+                Offline now (live)
+              </div>
+            )}
           </div>
 
           <GradientLegend
             className="absolute bottom-6 left-4"
-            title="Composite consequence score"
+            title={isCurrent ? "Consequence if it fails today" : "Predicted consequence score"}
             stops={RISK_STOPS}
             minLabel={fmtNum(min, 0)}
             maxLabel={fmtNum(max, 0)}
@@ -255,30 +369,37 @@ export default function ResiliencePage() {
 
       <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[380px] md:shrink-0 md:border-l md:border-t-0">
         <div className="border-b border-border/70 p-4">
-          <Segmented options={SCENARIOS as never} value={scenario} onChange={setScenario} className="w-full" />
+          <Segmented options={MODES as never} value={mode} onChange={setMode} className="w-full" />
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-            {scenario === "cat3" && "Category 3 hurricane — sustained 111–129 mph winds, storm surge up to 9 ft."}
-            {scenario === "slr2ft" && "2 ft of sea-level rise — permanent inundation of low-lying coastal infrastructure by mid-century."}
-            {scenario === "combined" && "Worst-case overlay — sea-level rise plus hurricane surge, the expected future baseline."}
+            {mode === "current" && (
+              <>
+                Live electricity posture. Every substation is sized and colored by its inherent
+                consequence — how much breaks if it fails today, regardless of weather. Red ring =
+                its generation is offline right now (live PREPA/Genera feed). Toggle a scenario to
+                overlay a hazard prediction on top.
+              </>
+            )}
+            {mode === "cat3" && "Category 3 hurricane — sustained 111–129 mph winds, storm surge up to 9 ft. Predicted on top of today's grid."}
+            {mode === "slr2ft" && "2 ft of sea-level rise — permanent inundation of low-lying coastal infrastructure by mid-century."}
+            {mode === "combined" && "Worst-case overlay — sea-level rise plus hurricane surge, the expected future baseline."}
           </p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {error && <div className="p-4"><ErrorBlock error={error} /></div>}
-          {isLoading && <LoadingBlock label="Scoring substations" />}
+          {isLoading && <LoadingBlock label={isCurrent ? "Reading live grid state" : "Scoring substations"} />}
           {selected == null && !isLoading && !error && (
             <div className="border-b border-border/50 px-4 py-3">
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Score = hazard probability × cascade impact × network centrality. A substation with hospitals
-                downstream and no backup path scores highest — failure there is both likely under the selected
-                scenario and catastrophic for real people. Ring outline = single point of failure (removing it
-                disconnects part of the grid).
+                {isCurrent
+                  ? "Consequence = cascade impact × network centrality — what's downstream and whether there's a backup path. A node feeding hospitals with no alternate route ranks highest. Switch to a scenario to see how a hazard reshapes the ranking."
+                  : "Score = hazard probability × cascade impact × network centrality. A substation with hospitals downstream and no backup path scores highest — failure there is both likely under this scenario and catastrophic. Ring = single point of failure."}
               </p>
             </div>
           )}
           {selected != null ? (
-            <DetailPanel id={selected} scenario={scenario} onBack={() => setSelected(null)} />
+            <DetailPanel id={selected} scenario={detailScenario} onBack={() => setSelected(null)} />
           ) : (
-            <TopList rows={top} selected={selected} onSelect={setSelected} />
+            <TopList rows={top} selected={selected} onSelect={setSelected} isCurrent={isCurrent} />
           )}
         </div>
       </aside>
@@ -325,16 +446,18 @@ function TopList({
   rows,
   selected,
   onSelect,
+  isCurrent,
 }: {
-  rows: SubstationScore[];
+  rows: MapPoint[];
   selected: number | null;
   onSelect: (id: number) => void;
+  isCurrent: boolean;
 }) {
   return (
     <div>
       <div className="flex items-center gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Highest consequence · top {rows.length}
-        <ProvenanceBadge table="resilience.scenario_scores" />
+        {isCurrent ? "Most critical nodes" : "Highest consequence"} · top {rows.length}
+        <ProvenanceBadge table={isCurrent ? "sync.generation_status" : "resilience.scenario_scores"} />
       </div>
       <ul>
         {rows.map((r, i) => (
@@ -350,11 +473,12 @@ function TopList({
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 truncate text-sm font-medium">
                   {r.name ?? `Substation ${r.entity_id}`}
+                  {r.is_offline && <PowerOff className="h-3 w-3 shrink-0 text-red-400" />}
                   {r.is_articulation && <TriangleAlert className="h-3 w-3 shrink-0 text-amber-400" />}
                 </span>
-                <SeverityLabel score={r.composite_score} />
+                <SeverityLabel score={r.value} />
               </span>
-              <span className="shrink-0 text-sm font-semibold tnum">{fmtNum(r.composite_score, 1)}</span>
+              <span className="shrink-0 text-sm font-semibold tnum">{fmtNum(r.value, 1)}</span>
             </button>
           </li>
         ))}

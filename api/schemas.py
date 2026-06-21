@@ -92,6 +92,32 @@ class SubstationDetail(SubstationScore):
     economic_benefit_usd: float | None = None
 
 
+class CurrentStateScore(BaseModel):
+    """A substation's live electricity posture: inherent (blue-sky) consequence
+    if it failed today, plus whether its generation is offline right now."""
+    entity_id: int
+    name: str | None
+    lon: float
+    lat: float
+    baseline_consequence: float
+    cascade_impact: float | None
+    betweenness: float | None
+    is_articulation: bool
+    is_generator: bool
+    is_offline: bool
+    population_affected: int | None = None
+    plant_name: str | None = None
+    site_total_mw: float | None = None
+
+
+class CurrentStateResponse(BaseModel):
+    """Default resilience view: live electricity state across all scored substations."""
+    plants_offline: int
+    population_affected_now: int | None = None
+    as_of: datetime | None = None
+    substations: list[CurrentStateScore]
+
+
 class ConsequenceEntity(BaseModel):
     entity_id: int
     kind: str

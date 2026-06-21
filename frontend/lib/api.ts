@@ -309,6 +309,17 @@ export interface GridSnapshot {
   reading_hour: string | null;
   as_of: string | null;
   fetched_at: string | null;
+  // Genera feed (dataSourceGenera.js) additions:
+  spinning_reserve_mw: number | null;
+  operational_reserve_mw: number | null;
+  available_capacity_mw: number | null;
+  prepa_pct: number | null;
+  ppoa_pct: number | null;
+  renewable_mw: number | null;
+  solar_mw: number | null;
+  wind_mw: number | null;
+  hydro_mw: number | null;
+  fuel_mix: Record<string, number> | null;
 }
 
 export interface GenerationStatus {
@@ -318,6 +329,31 @@ export interface GenerationStatus {
   total_plants: number;
   online: number;
   matched: number;
+}
+
+/** Live electricity posture for the default resilience view (hand-typed until
+ *  the OpenAPI client is regenerated). */
+export interface CurrentStateScore {
+  entity_id: number;
+  name: string | null;
+  lon: number;
+  lat: number;
+  baseline_consequence: number;
+  cascade_impact: number | null;
+  betweenness: number | null;
+  is_articulation: boolean;
+  is_generator: boolean;
+  is_offline: boolean;
+  population_affected: number | null;
+  plant_name: string | null;
+  site_total_mw: number | null;
+}
+
+export interface CurrentStateResponse {
+  plants_offline: number;
+  population_affected_now: number | null;
+  as_of: string | null;
+  substations: CurrentStateScore[];
 }
 
 /** Loose GeoJSON shape for Deck.gl ingestion. */
@@ -395,6 +431,7 @@ export const api = {
   scenarios: () => apiGet<ScenarioInfo[]>("/resilience/scenarios"),
   scores: (scenario: string, top = 400) =>
     apiGet<SubstationScore[]>("/resilience/scores", { scenario, top }),
+  currentState: () => apiGet<CurrentStateResponse>("/resilience/current"),
   spof: () => apiGet<SpofEntity[]>("/resilience/spof"),
   consequence: (entityId: number) => apiGet<ConsequenceSummary>(`/network/consequence/${entityId}`),
   generation: () => apiGet<GenerationStatus>("/network/generation"),

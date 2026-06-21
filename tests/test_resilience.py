@@ -180,6 +180,34 @@ def test_load_scenario_results(engine):
     assert loaded[0].rank == 1
 
 
+# ── Current-state API (live electricity posture) ─────────────────────────────
+
+def test_current_state_endpoint():
+    """GET /resilience/current returns baseline consequence per substation plus
+    a live offline summary derived from the PREPA/Genera feed."""
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    r = TestClient(app).get("/resilience/current")
+    assert r.status_code == 200
+    body = r.json()
+    assert {"plants_offline", "population_affected_now", "as_of", "substations"} <= set(body)
+    assert isinstance(body["substations"], list)
+    assert len(body["substations"]) > 0
+
+    s = body["substations"][0]
+    assert {"entity_id", "baseline_consequence", "is_offline", "is_generator", "lon", "lat"} <= set(s)
+    # baseline_consequence = cascade × (1 + betweenness) — always >= cascade_impact.
+    if s["cascade_impact"] is not None:
+        assert s["baseline_consequence"] >= s["cascade_impact"] - 1e-6
+    # Sorted by baseline consequence, descending.
+    vals = [x["baseline_consequence"] for x in body["substations"]]
+    assert vals == sorted(vals, reverse=True)
+    # plants_offline is the count of offline-flagged substations.
+    assert body["plants_offline"] == sum(1 for x in body["substations"] if x["is_offline"])
+
+
 # ── Exit-gate: Phase 3 "Done when" ───────────────────────────────────────────
 
 def test_phase3_exit_gate_storm_scenario(engine):

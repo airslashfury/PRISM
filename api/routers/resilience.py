@@ -55,6 +55,64 @@ def scores(
     )
 
 
+@router.get("/current", response_model=schemas.CurrentStateResponse)
+def current_state(engine: Engine = Depends(engine_dep)) -> dict:
+    """Live electricity posture — the default resilience view.
+
+    Each scored substation carries its *baseline* (blue-sky) consequence —
+    cascade impact × (1 + centrality), with NO hazard multiplier — so the map
+    always shows inherent criticality. Substations whose matched generation is
+    offline right now (per the live PREPA/Genera feed) are flagged `is_offline`.
+    Scenario scores (Cat-3/SLR) are a separate overlay layered on top of this.
+    """
+    rows = fetch_all(
+        engine,
+        f"""
+        WITH gen AS (
+            SELECT entity_id,
+                   bool_or(matched)                       AS is_generator,
+                   bool_and(status = 'offline')           AS all_offline,
+                   sum(site_total_mw)                     AS site_total_mw,
+                   string_agg(DISTINCT plant_name, ', ')  AS plant_name
+            FROM sync.generation_status
+            WHERE matched AND entity_id IS NOT NULL
+            GROUP BY entity_id
+        )
+        SELECT c.entity_id, e.name,
+               {_CENTROID_LON} AS lon, {_CENTROID_LAT} AS lat,
+               c.cascade_impact,
+               sp.betweenness,
+               COALESCE(sp.is_articulation, false) AS is_articulation,
+               c.cascade_impact * (1 + COALESCE(sp.betweenness, 0)) AS baseline_consequence,
+               COALESCE(g.is_generator, false) AS is_generator,
+               COALESCE(g.all_offline, false)  AS is_offline,
+               ds.population_affected,
+               g.plant_name, g.site_total_mw
+        FROM resilience.cascade_scores c
+        JOIN graph.entities e ON e.entity_id = c.entity_id
+        LEFT JOIN resilience.spof_scores sp ON sp.entity_id = c.entity_id
+        LEFT JOIN graph.downstream_summary ds ON ds.entity_id = c.entity_id
+        LEFT JOIN gen g ON g.entity_id = c.entity_id
+        ORDER BY baseline_consequence DESC
+        """,
+    )
+
+    snap = fetch_one(
+        engine,
+        "SELECT as_of FROM sync.grid_snapshot WHERE id = 1",
+    )
+    plants_offline = sum(1 for r in rows if r["is_offline"])
+    pop_now = sum(
+        r["population_affected"] or 0 for r in rows if r["is_offline"]
+    ) or None
+    return {
+        "plants_offline": plants_offline,
+        "population_affected_now": pop_now,
+        "as_of": snap["as_of"] if snap else None,
+        "substations": rows,
+    }
+
+
 @router.get("/spof", response_model=list[schemas.SpofEntity])
 def spof(engine: Engine = Depends(engine_dep)) -> list[dict]:
     """Single points of failure: articulation points + top-betweenness entities."""
