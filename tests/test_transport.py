@@ -296,3 +296,60 @@ def test_transport_catalog_positive_benefit(engine, transport_schema):
     from prism.optimize.catalog import build_transport_catalog
     catalog = build_transport_catalog(engine, top_n=20)
     assert all(iv.population_benefit_usd > 0 for iv in catalog)
+
+
+# ── NBI bridge spans (no network) ──────────────────────────────────────────
+
+
+def test_nbi_dms_to_dd_lat_lon():
+    from prism.transport.nbi import _dms_to_dd
+    # Real PR record: LAT_016=18210507 (18°21'05.07"N), LONG_017=066052961 (66°05'29.61"W)
+    lat = _dms_to_dd("18210507", is_lon=False)
+    lon = _dms_to_dd("066052961", is_lon=True)
+    assert lat == pytest.approx(18.3514, abs=1e-3)
+    assert lon == pytest.approx(-66.0915, abs=1e-3)   # West -> negative
+
+
+def test_nbi_dms_to_dd_rejects_zero_and_garbage():
+    from prism.transport.nbi import _dms_to_dd
+    assert _dms_to_dd("00000000", is_lon=False) is None
+    assert _dms_to_dd("", is_lon=False) is None
+    assert _dms_to_dd("N/A", is_lon=True) is None
+
+
+def test_nbi_parse_records_filters_and_normalizes(tmp_path):
+    from prism.transport.nbi import parse_records
+    header = "STRUCTURE_NUMBER_008,FEATURES_DESC_006A,FACILITY_CARRIED_007,OWNER_022,YEAR_BUILT_027,OPEN_CLOSED_POSTED_041,MAX_SPAN_LEN_MT_048,STRUCTURE_LEN_MT_049,LAT_016,LONG_017"
+    good = "000041,'FRAILES CREEK','PR 873 0.7 KM',01,1855,A,9.8,120.7,18210507,066052961"
+    off_island = "000099,'X','Y',01,1990,A,5.0,40.0,40000000,073000000"   # NYC-ish, filtered
+    no_coords = "000100,'Z','W',01,1990,A,5.0,40.0,00000000,000000000"     # filtered
+    (tmp_path / "PR25.txt").write_text("\n".join([header, good, off_island, no_coords]), encoding="latin-1")
+
+    rows = parse_records(tmp_path / "PR25.txt")
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["structure_number"] == "000041"
+    assert r["features_desc"] == "FRAILES CREEK"        # single quotes stripped
+    assert r["max_span_m"] == pytest.approx(9.8)
+    assert r["structure_len_m"] == pytest.approx(120.7)
+    assert 17.5 <= r["lat"] <= 18.8 and -68.2 <= r["lon"] <= -65.0
+
+
+def test_nbi_enrich_sql_runs_and_matches_only_existing(engine, transport_schema):
+    """Regression guard: enrich uses a correlated subquery (PostgreSQL forbids a
+    FROM-clause LATERAL from referencing the UPDATE target). Skips if no NBI data."""
+    with engine.connect() as conn:
+        n = conn.execute(text("SELECT count(*) FROM transport.nbi_bridges")).scalar()
+        b = conn.execute(text("SELECT count(*) FROM transport.bridge_inventory")).scalar()
+    if not n or not b:
+        pytest.skip("transport.nbi_bridges / bridge_inventory not populated")
+    from prism.transport.nbi import enrich_bridge_inventory
+    matched = enrich_bridge_inventory(engine, match_m=150.0)
+    assert matched >= 0
+    with engine.connect() as conn:
+        # every fhwa_nbi-sourced bridge has a real span; none are left NULL
+        bad = conn.execute(text(
+            "SELECT count(*) FROM transport.bridge_inventory "
+            "WHERE source='fhwa_nbi' AND span_m IS NULL"
+        )).scalar()
+    assert bad == 0

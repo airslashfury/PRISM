@@ -2048,14 +2048,47 @@
       "phase": 8,
       "schema": "transport",
       "table": "bridge_inventory",
-      "description": "Phase 8 bridge inventory from OSM Overpass API (Puerto Rico). 3168 bridge ways (bridge=yes or bridge=viaduct) with center-point geometry. SRID 32161. 2388 named (75%). Span data not available in OSM tags; BridgeAsset span_m defaults to 50m medium category. WFS source g35_viales_puentes_2010 unusable (all-Infinity coordinates). Loaded 2026-06-07 via Overpass API.",
-      "computed_by": "Overpass API + manual INSERT in prism.transport.schema",
+      "description": "Phase 8 bridge inventory from OSM Overpass API (Puerto Rico). 3168 bridge ways (bridge=yes or bridge=viaduct) with center-point geometry. SRID 32161. 2388 named (75%). As of 2026-06-22, span_m enriched from FHWA NBI (transport.nbi_bridges) via prism.transport.nbi --enrich: 2128/3168 (67%) carry a measured structure-length span (source='fhwa_nbi'); the remainder keep the OSM proxy with BridgeAsset's 50m medium default. WFS source g35_viales_puentes_2010 unusable (all-Infinity coordinates).",
+      "computed_by": "Overpass API + manual INSERT in prism.transport.schema; span enrichment via prism.transport.nbi",
       "row_count": 3168,
       "inputs": [
-        "OSM Overpass API overpass-api.de"
+        "OSM Overpass API overpass-api.de",
+        "FHWA NBI delimited PR file (span enrichment)"
       ],
       "generated": "2026-06-07",
       "license": "ODbL (OpenStreetMap contributors)"
+    },
+    "derived:transport.nbi_bridges": {
+      "source": "derived",
+      "phase": 8,
+      "schema": "transport",
+      "table": "nbi_bridges",
+      "description": "FHWA National Bridge Inventory (authoritative as-built) for Puerto Rico, 2025 vintage. 2431 geolocated structures with measured max span (Item 48) and structure length (Item 49) in metres; 100% have span data (median structure length 26.7m). Coordinates decoded from NBI DMS Items 16/17 and reprojected to SRID 32161. Used to enrich transport.bridge_inventory.span_m. Mirrored from https://www.fhwa.dot.gov/bridge/nbi/2025/delimited/PR25.txt (sha256-checksummed under data/raw/nbi/).",
+      "computed_by": "prism.transport.nbi (download + parse + load)",
+      "row_count": 2431,
+      "feature_count": 2431,
+      "inputs": [
+        "FHWA NBI delimited PR file fhwa.dot.gov/bridge/nbi"
+      ],
+      "generated": "2026-06-22",
+      "pulled_at": "2026-06-22",
+      "sha256": "5558477fb69596c4e7d988d4670334877854ebdb0df4bf87069be9293fbdceb7",
+      "license": "Public domain (U.S. Federal Highway Administration)"
+    },
+    "derived:graph.water_service_area": {
+      "source": "derived",
+      "phase": 2,
+      "schema": "graph",
+      "table": "water_service_area",
+      "description": "Power→water coupling: each barrio mapped to the AAA operating area(s) whose potable-water mains (g37_agua_w_main_2017) physically pass through it (ST_Intersects). 1119 (barrio, operarea) rows over 893/901 barrios. Backs WATER_SERVES edges (water source→barrio) so a substation failure cascades substation→pump→barrio (water loss). Built by prism.graph.water; AAA data 2017 vintage.",
+      "computed_by": "prism.graph.water.build_water_service_areas",
+      "row_count": 1119,
+      "inputs": [
+        "g37_agua_w_main_2017",
+        "graph.entities (barrios)"
+      ],
+      "generated": "2026-06-22",
+      "license": "AAA/PRASA (PR government open data)"
     },
     "derived:sync.data_sources": {
       "source": "derived",

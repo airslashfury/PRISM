@@ -118,3 +118,17 @@ def consequence(entity_id: int, engine: Engine = Depends(engine_dep)) -> dict:
     ) if downstream_ids else []
 
     return {**row, "downstream": downstream}
+
+
+@router.get("/water-consequence/{entity_id}", response_model=schemas.WaterConsequence)
+@cached_response("water_consequence", ttl=21600)
+def water_consequence(entity_id: int, engine: Engine = Depends(engine_dep)) -> dict:
+    """Power→water coupling: if this substation fails, which areas lose water?
+
+    Chain: substation →(POWERS) pump/well/plant →(WATER_SERVES) barrios. Built by
+    `prism.graph.water`. Proxy-tier (no real electric feeder / pipe routing) — the
+    barrio set is honest at operating-area granularity, not feeder-level.
+    """
+    from prism.graph.water import water_downstream_of
+
+    return water_downstream_of(engine, entity_id)

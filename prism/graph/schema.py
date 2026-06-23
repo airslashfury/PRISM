@@ -81,6 +81,23 @@ _DDL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_tx_network_geom ON graph.tx_network USING GIST (geom)",
 
+    # ── water service areas (power→water graph) ───────────────────────────────
+    # Each barrio mapped to the AAA operating area(s) whose potable-water mains
+    # physically pass through it. Backs WATER_SERVES edges; lets a substation
+    # failure cascade substation→pump→barrio (loss of water, not just power).
+    """
+    CREATE TABLE IF NOT EXISTS graph.water_service_area (
+        id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        barrio_entity_id BIGINT NOT NULL REFERENCES graph.entities(entity_id) ON DELETE CASCADE,
+        operarea         TEXT NOT NULL,
+        region           TEXT,
+        main_count       INT NOT NULL DEFAULT 0,
+        computed_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        CONSTRAINT uq_water_service_area UNIQUE (barrio_entity_id, operarea)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_water_service_barrio ON graph.water_service_area (barrio_entity_id)",
+
     # ── downstream summary (M5a — Consequence Lens) ───────────────────────────
     """
     CREATE TABLE IF NOT EXISTS graph.downstream_summary (
@@ -100,6 +117,7 @@ _DDL = [
 ]
 
 _DROP_DDL = [
+    "DROP TABLE IF EXISTS graph.water_service_area CASCADE",
     "DROP TABLE IF EXISTS graph.downstream_summary CASCADE",
     "DROP TABLE IF EXISTS graph.tx_network CASCADE",
     "DROP TABLE IF EXISTS graph.road_edges CASCADE",

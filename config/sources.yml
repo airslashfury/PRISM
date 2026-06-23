@@ -5601,6 +5601,15 @@ complements:
     license: ODbL (OpenStreetMap contributors)
     refresh: quarterly
     notes: 'Pull PR bridges for transport.bridge_inventory. Run: python -m prism.transport.bridges'
+  fhwa_nbi_bridges:
+    name: FHWA National Bridge Inventory - Puerto Rico
+    type: http_delimited
+    url: https://www.fhwa.dot.gov/bridge/nbi/{year}/delimited/PR{yy}.txt
+    target_table: transport.nbi_bridges
+    loader: prism.transport.nbi
+    license: Public domain (U.S. Federal Highway Administration)
+    refresh: annual
+    notes: 'Authoritative as-built bridge spans (Item 48 max span, Item 49 structure length). Run: python -m prism.transport.nbi --year 2025 --enrich. --enrich back-fills transport.bridge_inventory.span_m (Estimated 50m default -> measured).'
 sync_sources:
   wfs_flood_zones_1pct:
     layer_name: pr_geodata:g23_riesgo_inunda_floodzone_1pct_seamless_2017

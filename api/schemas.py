@@ -139,6 +139,21 @@ class ConsequenceSummary(BaseModel):
     downstream: list[ConsequenceEntity]
 
 
+class WaterBarrio(BaseModel):
+    entity_id: int
+    name: str | None
+
+
+class WaterConsequence(BaseModel):
+    entity_id: int
+    pump_stations: int
+    wells: int
+    water_plants: int
+    barrios_affected: int
+    headline: str
+    barrios: list[WaterBarrio]
+
+
 # --- PREPA live generation (operationdata.prepa.pr.gov) -------------------- #
 class GenerationPlant(BaseModel):
     plant_name: str

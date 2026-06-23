@@ -62,6 +62,11 @@ def get_table_provenance(table: str) -> dict[str, Any] | None:
         "title": (layer or {}).get("title", table),
         "description": (layer or {}).get("description"),
         "row_count": (layer or {}).get("row_count"),
+        # Surfaced for derived entries that are also raw mirrors (e.g. FHWA NBI):
+        # present in the catalog but otherwise dropped by the derived-table path.
+        "feature_count": (layer or {}).get("feature_count"),
+        "pulled_at": (layer or {}).get("pulled_at"),
+        "sha256": (layer or {}).get("sha256"),
         "inputs": (layer or {}).get("inputs", []),
         "compute_date": (layer or {}).get("compute_date"),
         "code_commit": (layer or {}).get("code_commit"),

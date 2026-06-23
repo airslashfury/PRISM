@@ -39,6 +39,25 @@ def create_schema(engine: Engine) -> None:
             )
         """))
 
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS transport.nbi_bridges (
+                nbi_id              bigint      PRIMARY KEY
+                    GENERATED ALWAYS AS IDENTITY,
+                structure_number    text,
+                features_desc       text,
+                facility_carried    text,
+                owner_code          text,
+                year_built          integer,
+                max_span_m          double precision,
+                structure_len_m     double precision,
+                posting_status      text,
+                geom                geometry(Point, 32161),
+                source              text        DEFAULT 'fhwa_nbi',
+                data_year           integer,
+                loaded_at           timestamptz NOT NULL DEFAULT now()
+            )
+        """))
+
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS idx_road_access_time "
             "ON transport.road_access_cost(travel_time_min)"
@@ -46,6 +65,10 @@ def create_schema(engine: Engine) -> None:
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS idx_bridge_inventory_geom "
             "ON transport.bridge_inventory USING GIST(geom)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_nbi_bridges_geom "
+            "ON transport.nbi_bridges USING GIST(geom)"
         ))
 
 

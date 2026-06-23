@@ -123,6 +123,20 @@ tables:
       population figures should render rounded (≈) rather than exact.
     upgrade_path: Same as graph.relationships — a feeder data-sharing agreement.
 
+  graph.water_service_area:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Each barrio mapped to the AAA operating area(s) whose potable-water mains
+      (g37_agua_w_main_2017, Authoritative geometry) physically pass through it
+      via ST_Intersects. The operarea grouping is AAA's own; the barrio↔area
+      overlay is a Modeled spatial join. Backs the WATER_SERVES edges, which —
+      like the substation→pump POWERS edges — remain Proxy (no real electric
+      feeder or pipe routing). 2017 vintage.
+    upgrade_path: >-
+      Replace operarea-nearest assignment with real AAA pressure-zone / pipe
+      network topology; a LUMA feeder agreement closes the substation→pump side.
+
   resilience.spof_scores:
     method: modeled
     confidence_tier: modeled
@@ -253,8 +267,26 @@ tables:
     assumptions: >-
       3,168 bridge ways from OSM Overpass — geometry and tags are Authoritative.
       Span length is not in the source data; the bridge asset model defaults
-      every bridge to a 50 m "medium" tier (Estimated) for cost purposes.
-    upgrade_path: Pull span data from an as-built bridge inventory (e.g. NBI/PRHTA).
+      every bridge to a 50 m "medium" tier (Estimated) for cost purposes. As of
+      2026-06-22, span_m is enriched from FHWA NBI (transport.nbi_bridges) for
+      2128/3168 (67%) of bridges via prism.transport.nbi --enrich — those rows
+      (source='fhwa_nbi') carry a measured span (Authoritative); the rest keep
+      the Estimated default.
+    upgrade_path: >-
+      Run `python -m prism.transport.nbi --enrich` to back-fill span_m from the
+      FHWA National Bridge Inventory (transport.nbi_bridges) — flips matched rows
+      to a measured (Authoritative) span. PRHTA as-built records would close the
+      remaining unmatched OSM bridges.
+
+  transport.nbi_bridges:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      FHWA National Bridge Inventory as-built records for Puerto Rico — span
+      length (Items 48/49) and location (Items 16/17) are reported by the owning
+      agency, not modeled. Coordinates are decoded from the NBI DMS encoding;
+      records with missing/zero or off-island coordinates are dropped.
+    upgrade_path: null
 
   sync.data_sources:
     method: measured
@@ -370,7 +402,7 @@ assumptions:
       - transport.bridge_inventory
       - prism.assets.bridge
     assumptions: OSM bridge ways carry no span attribute; every bridge defaults to the "medium" 50 m cost tier.
-    upgrade_path: Pull span data from NBI/PRHTA as-built records.
+    upgrade_path: Pull span data from FHWA NBI via `python -m prism.transport.nbi --enrich` (transport.nbi_bridges); PRHTA as-built records for the remainder.
 
   - key: hazard_probability_curve
     label: Hazard probability (cat3/slr2ft/combined)

@@ -30,6 +30,7 @@ from prism.graph.relationships import (
 )
 from prism.graph.query import downstream_of, find_entity, affected_population
 from prism.graph.downstream_summary import compute_downstream_summary
+from prism.graph import water as water_mod
 
 app = typer.Typer(add_completion=False)
 console = Console()
@@ -153,6 +154,39 @@ def build(
             )
 
     console.print("\n[bold green]Done.[/bold green]\n")
+
+
+@app.command("build-water")
+def build_water(
+    query: Annotated[Optional[str], typer.Option("--query", help="Substation name to run the water-consequence query")] = None,
+) -> None:
+    """Build the power→water coupling graph (pump/well entities, service areas,
+    POWERS substation→pump, WATER_SERVES source→barrio)."""
+    engine = get_engine()
+    _hdr("Water coupling graph")
+    create_schema(engine)
+    summary, elapsed = _run_stage("build_water_graph", water_mod.build_water_graph, engine)
+    tbl = Table("Stage", "Count", box=None, pad_edge=False)
+    for k, v in summary.items():
+        tbl.add_row(k, f"{v:,}")
+    console.print(tbl)
+    _ok(f"water graph built ({elapsed:.1f}s)")
+
+    if query:
+        _hdr(f"Water consequence: '{query}'")
+        matches = find_entity(engine, kind="substation", name=f"%{query}%")
+        if not matches:
+            console.print(f"  [red]No substation found matching '{query}'[/red]")
+            raise typer.Exit(1)
+        sub = matches[0]
+        res = water_mod.water_downstream_of(engine, sub.entity_id)
+        console.print(f"  Using: entity_id={sub.entity_id}  name={sub.name}")
+        console.print(
+            f"  [bold]{res['pump_stations']}[/bold] pump stations, "
+            f"[bold]{res['wells']}[/bold] wells, "
+            f"[bold]{res['barrios_affected']}[/bold] barrios"
+        )
+        console.print(f"  [cyan]{res['headline']}[/cyan]")
 
 
 @app.command("downstream-summary")
