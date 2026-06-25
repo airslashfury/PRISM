@@ -115,6 +115,60 @@ def create_schema(engine: Engine) -> None:
             )
         """))
 
+        # ── Append-only time series ──────────────────────────────────────────
+        # grid_snapshot / generation_status above hold only the LATEST reading
+        # (upsert-in-place). These two tables accumulate one row per distinct
+        # source reading (deduped on as_of) so we keep a real time series of the
+        # live feed. Inserted with ON CONFLICT (... as_of) DO NOTHING each sync.
+
+        # Island-wide reading per as_of (mirrors grid_snapshot, minus singleton).
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.grid_snapshot_history (
+                id                      bigserial        PRIMARY KEY,
+                generation_mw           double precision,
+                frequency_hz            double precision,
+                reading_hour            text,
+                as_of                   timestamptz      NOT NULL,
+                fetched_at              timestamptz      NOT NULL DEFAULT now(),
+                spinning_reserve_mw     double precision,
+                operational_reserve_mw  double precision,
+                available_capacity_mw   double precision,
+                prepa_pct               double precision,
+                ppoa_pct                double precision,
+                renewable_mw            double precision,
+                solar_mw                double precision,
+                wind_mw                 double precision,
+                hydro_mw                double precision,
+                fuel_mix                jsonb,
+                CONSTRAINT uq_snapshot_history_as_of UNIQUE (as_of)
+            )
+        """))
+
+        # Per-plant output per as_of. Natural key (plant, type, as_of) so the
+        # same reading replayed by a later poll is skipped, not duplicated.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.generation_status_history (
+                id              bigserial        PRIMARY KEY,
+                plant_name      text             NOT NULL,
+                plant_type      text             NOT NULL DEFAULT '',
+                entity_id       bigint           REFERENCES graph.entities(entity_id)
+                                                     ON DELETE SET NULL,
+                site_total_mw   double precision NOT NULL DEFAULT 0,
+                n_units         int              NOT NULL DEFAULT 0,
+                online_units    int              NOT NULL DEFAULT 0,
+                status          text             NOT NULL DEFAULT 'offline',
+                as_of           timestamptz      NOT NULL,
+                fetched_at      timestamptz      NOT NULL DEFAULT now(),
+                CONSTRAINT uq_gen_history UNIQUE (plant_name, plant_type, as_of)
+            )
+        """))
+        # as_of-leading index for time-slice queries ("all plants at time T");
+        # the unique constraint above already covers per-plant time scans.
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_gen_history_as_of "
+            "ON sync.generation_status_history (as_of)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

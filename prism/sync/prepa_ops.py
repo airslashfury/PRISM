@@ -319,8 +319,10 @@ def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, 
     renew = data["renewable"]
 
     matched = 0
+    plant_history_rows = 0
+    snapshot_history_rows = 0
     with engine.begin() as conn:
-        # Per-plant upsert (unchanged from original)
+        # Per-plant upsert (latest) + append to per-plant history (deduped on as_of)
         for p in plants:
             entity_id = _match_entity(conn, p["plant_name"])
             if entity_id is not None:
@@ -344,9 +346,33 @@ def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, 
             """), {**p, "entity_id": entity_id, "matched": entity_id is not None,
                    "as_of": as_of})
 
+            # Append-only history — only meaningful with a source timestamp.
+            if as_of is not None:
+                res = conn.execute(text("""
+                    INSERT INTO sync.generation_status_history
+                        (plant_name, plant_type, entity_id, site_total_mw,
+                         n_units, online_units, status, as_of, fetched_at)
+                    VALUES
+                        (:plant_name, :plant_type, :entity_id, :site_total_mw,
+                         :n_units, :online_units, :status, :as_of, now())
+                    ON CONFLICT (plant_name, plant_type, as_of) DO NOTHING
+                """), {**p, "entity_id": entity_id, "as_of": as_of})
+                plant_history_rows += res.rowcount or 0
+
         # Extended grid_snapshot (reserves, fuel mix, PREPA/PPOA split, renewables)
         sysd = data["system"]
         if sysd:
+            snap_params = {
+                **sysd,
+                "as_of": as_of,
+                "spinning_reserve_mw": metrics.get("Reserva en Rotación"),
+                "operational_reserve_mw": metrics.get("Reserva Operacional"),
+                "available_capacity_mw": metrics.get("Capacidad Disponible"),
+                "prepa_pct": metrics.get("PREPA"),
+                "ppoa_pct": metrics.get("PPOA"),
+                **renew,
+                "fuel_mix": json.dumps(fuel_mix),
+            }
             conn.execute(text("""
                 INSERT INTO sync.grid_snapshot
                     (id, generation_mw, frequency_hz, reading_hour, as_of, fetched_at,
@@ -373,17 +399,23 @@ def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, 
                     wind_mw                = EXCLUDED.wind_mw,
                     hydro_mw               = EXCLUDED.hydro_mw,
                     fuel_mix               = EXCLUDED.fuel_mix
-            """), {
-                **sysd,
-                "as_of": as_of,
-                "spinning_reserve_mw": metrics.get("Reserva en Rotación"),
-                "operational_reserve_mw": metrics.get("Reserva Operacional"),
-                "available_capacity_mw": metrics.get("Capacidad Disponible"),
-                "prepa_pct": metrics.get("PREPA"),
-                "ppoa_pct": metrics.get("PPOA"),
-                **renew,
-                "fuel_mix": json.dumps(fuel_mix),
-            })
+            """), snap_params)
+
+            # Append-only island-wide history (deduped on as_of).
+            if as_of is not None:
+                res = conn.execute(text("""
+                    INSERT INTO sync.grid_snapshot_history
+                        (generation_mw, frequency_hz, reading_hour, as_of, fetched_at,
+                         spinning_reserve_mw, operational_reserve_mw, available_capacity_mw,
+                         prepa_pct, ppoa_pct,
+                         renewable_mw, solar_mw, wind_mw, hydro_mw, fuel_mix)
+                    VALUES (:generation_mw, :frequency_hz, :reading_hour, :as_of, now(),
+                            :spinning_reserve_mw, :operational_reserve_mw, :available_capacity_mw,
+                            :prepa_pct, :ppoa_pct,
+                            :renewable_mw, :solar_mw, :wind_mw, :hydro_mw, :fuel_mix)
+                    ON CONFLICT (as_of) DO NOTHING
+                """), snap_params)
+                snapshot_history_rows = res.rowcount or 0
 
         # Rolling capacity history (upsert by period_type + period_label)
         for row in data["capacity_history"]:
@@ -405,6 +437,8 @@ def sync_generation_status(engine: Engine, *, mirror: bool = True) -> dict[str, 
         "spinning_reserve_mw": metrics.get("Reserva en Rotación"),
         "renewable_mw": renew["renewable_mw"],
         "capacity_history_rows": len(data["capacity_history"]),
+        "snapshot_history_rows": snapshot_history_rows,
+        "plant_history_rows": plant_history_rows,
     }
     log.info("PREPA/Genera sync: %s", summary)
     return summary
