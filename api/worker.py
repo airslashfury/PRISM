@@ -11,11 +11,18 @@ from __future__ import annotations
 import logging
 import os
 
+from arq import cron
 from arq.connections import RedisSettings
 
 from api.deps import get_engine
 
 log = logging.getLogger(__name__)
+
+# PREPA/Genera live feed refreshes every ~2-5 min (system graph at 5-min points,
+# per-plant timestamp ticks every couple minutes). We sync on a 10-min cadence —
+# the source interval plus a small buffer — so the snapshot is never more than
+# ~10 min stale. Tunable via PRISM_PREPA_SYNC_MINUTES.
+PREPA_SYNC_INTERVAL_MIN = int(os.getenv("PRISM_PREPA_SYNC_MINUTES", "10"))
 
 
 async def regenerate_corridors(ctx: dict) -> dict:
@@ -106,6 +113,29 @@ async def generate_playground_narrative(ctx: dict, scenario_a: int, scenario_b: 
     return {"narrative_id": result.narrative_id, "status": result.status}
 
 
+async def sync_prepa_generation(ctx: dict) -> dict:
+    """Scheduled pull of the PREPA/Genera live generation feed.
+
+    Runs on a cron (see WorkerSettings.cron_jobs) so the grid command center
+    tracks the live source instead of freezing at the last manual sync. Upserts
+    sync.generation_status / grid_snapshot / grid_capacity_history.
+
+    mirror=False: the worker container has no data/raw volume, so a durable
+    sovereignty mirror is left to the host CLI (`python -m prism.sync
+    --source prepa`); the DB upsert is what keeps the dashboard fresh.
+    """
+    from prism.sync.prepa_ops import sync_generation_status
+
+    engine = get_engine()
+    try:
+        summary = sync_generation_status(engine, mirror=False)
+        log.info("Scheduled PREPA sync: %s", summary)
+        return summary
+    except Exception as exc:  # don't let one bad fetch kill the cron
+        log.warning("Scheduled PREPA sync failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 class WorkerSettings:
     functions = [
         regenerate_corridors,
@@ -115,6 +145,15 @@ class WorkerSettings:
         evaluate_scenario,
         whatif_failure,
         generate_playground_narrative,
+        sync_prepa_generation,
+    ]
+    cron_jobs = [
+        # Track the live PREPA feed: run every PREPA_SYNC_INTERVAL_MIN minutes.
+        cron(
+            sync_prepa_generation,
+            minute=set(range(0, 60, PREPA_SYNC_INTERVAL_MIN)),
+            run_at_startup=True,
+        ),
     ]
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     max_jobs = 2

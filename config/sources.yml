@@ -5556,11 +5556,26 @@ complements:
     license: public domain
     refresh: yearly
   crim_parcels:
-    name: CRIM Catastro Digital (parcels + attributes)
+    name: CRIM Catastro Digital (parcel geometry, via JP mirror)
     type: arcgis_rest
-    url: https://www.satasgis.crimpr.net/crimgis/rest/services/
-    license: public
+    url: https://sigejp.pr.gov/server/rest/services/crim/crim_feb_2025/MapServer/0
+    license: public (CRIM PR, via Junta de Planificación)
     refresh: quarterly
+    # Full fabric ~1.45M features — disabled by default; set enabled: true to mirror.
+    # Geometry + NUM_CATASTRO only. Valuation (owner/sale price) is token-secured at
+    # catastro.crimpr.net (official export required) and joins on NUM_CATASTRO.
+    enabled: false
+  pr_zoning:
+    name: PR zoning — calificación vigente (Junta de Planificación)
+    type: arcgis_rest
+    url: https://sigejp.pr.gov/server/rest/services/calificacion/cali_vige/MapServer/0
+    license: public (Junta de Planificación PR)
+    refresh: quarterly
+    # Per-parcel zoning fabric; joins to CRIM on NUM_CATASTRO. Default pull is the
+    # business subset (industrial + commercial, ~69K parcels) — the Site Finder
+    # candidate set. Override `where` for a different slice (industrial-only, or
+    # "1=1" for the full ~1.49M fabric).
+    where: "(descrip LIKE '%Industrial%' OR descrip LIKE '%Comercial%')"
   usgs_3dep:
     name: USGS 3DEP DEM + 2018 post-Maria lidar
     type: download
@@ -5632,13 +5647,17 @@ sync_sources:
   prepa_generation:
     source_type: prepa
     url: https://operationdata.prepa.pr.gov
-    sync_interval_hours: 1
+    sync_interval_minutes: 10
     affects_resilience: false
     notes: >-
       PREPA/Genera live generation feed (dataSourceGenera.js + dataGraph.js).
       Per-plant MW, spinning/operational reserve, available capacity, PREPA/PPOA
       split, renewable breakdown (solar/wind/hydro), fuel mix, and rolling
-      daily/weekly/monthly capacity history. Run via `python -m prism.sync
-      --source prepa`. Updates sync.generation_status, sync.grid_snapshot, and
-      sync.grid_capacity_history. Supply-side authoritative; status inferred from
-      MW (Modeled). Does not fix the FEEDS/POWERS feeder proxy (delivery-side).
+      daily/weekly/monthly capacity history. The source refreshes every ~2-5 min
+      (system graph at 5-min points). Synced automatically every 10 min by the
+      arq worker cron (api.worker.sync_prepa_generation, tunable via
+      PRISM_PREPA_SYNC_MINUTES); the durable data-sovereignty mirror is written
+      by the host CLI `python -m prism.sync --source prepa`. Updates
+      sync.generation_status, sync.grid_snapshot, and sync.grid_capacity_history.
+      Supply-side authoritative; status inferred from MW (Modeled). Does not fix
+      the FEEDS/POWERS feeder proxy (delivery-side).
