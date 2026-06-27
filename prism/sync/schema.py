@@ -169,6 +169,43 @@ def create_schema(engine: Engine) -> None:
             "ON sync.generation_status_history (as_of)"
         ))
 
+        # ── LUMA delivery-side outages (miluma.lumapr.com regionsWithoutService) ──
+        # DELIVERY-side, complementing PREPA's SUPPLY-side feed. Per LUMA's 7
+        # operational regions: customers out / with service / planned / load-shed.
+        # The feed has no source timestamp, so we key history on a content change
+        # (see luma_ops.sync_luma_outages) rather than a feed as_of.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.luma_outages (
+                region                   text             PRIMARY KEY,
+                total_clients            int              NOT NULL DEFAULT 0,
+                clients_without_service  int              NOT NULL DEFAULT 0,
+                clients_with_service     int              NOT NULL DEFAULT 0,
+                clients_planned_outage   int              NOT NULL DEFAULT 0,
+                clients_load_shed        int              NOT NULL DEFAULT 0,
+                pct_without_service      double precision NOT NULL DEFAULT 0,
+                pct_with_service         double precision NOT NULL DEFAULT 0,
+                fetched_at               timestamptz      NOT NULL DEFAULT now()
+            )
+        """))
+
+        # Append-only history — one row per region per *change* in outage state.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.luma_outages_history (
+                id                       bigserial        PRIMARY KEY,
+                region                   text             NOT NULL,
+                total_clients            int              NOT NULL DEFAULT 0,
+                clients_without_service  int              NOT NULL DEFAULT 0,
+                clients_planned_outage   int              NOT NULL DEFAULT 0,
+                clients_load_shed        int              NOT NULL DEFAULT 0,
+                pct_without_service      double precision NOT NULL DEFAULT 0,
+                recorded_at              timestamptz      NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_luma_outages_history_region_time "
+            "ON sync.luma_outages_history (region, recorded_at)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

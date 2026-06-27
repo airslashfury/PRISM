@@ -23,7 +23,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--source", choices=["wfs", "osm", "noaa", "prepa"], default=None,
+        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma"], default=None,
         help="Limit sync to one source type (default: all)",
     )
     parser.add_argument(
@@ -68,6 +68,20 @@ def main() -> None:
             f"  history appended: {summary.get('snapshot_history_rows', 0)} island-wide + "
             f"{summary.get('plant_history_rows', 0)} per-plant rows  "
             f"as of {summary['as_of']}"
+        )
+        return
+
+    if args.source == "luma":
+        from prism.sync.luma_ops import sync_luma_outages
+        print("Fetching LUMA delivery-side outage feed ...")
+        summary = sync_luma_outages(engine, mirror=not args.dry_run)
+        print(
+            f"  regions: {summary['regions']}  "
+            f"customers without service: {summary.get('total_without_service')}"
+            f" ({summary.get('pct_without_service')}%)\n"
+            f"  planned: {summary.get('total_planned_outage')}  "
+            f"load-shed: {summary.get('total_load_shed')}  "
+            f"history appended: {summary.get('history_rows', 0)} region rows"
         )
         return
 

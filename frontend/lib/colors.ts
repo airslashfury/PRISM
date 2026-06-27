@@ -38,6 +38,22 @@ export function riskColor(value: number, min: number, max: number): RGB {
   return rampColor(RISK_STOPS, t);
 }
 
+// Suitability ramp: red (poor) -> amber -> green (best). Higher value = better,
+// the inverse direction of the risk ramp.
+const SUIT_STOPS: RGB[] = [
+  [220, 60, 55],
+  [249, 115, 22],
+  [250, 204, 21],
+  [34, 197, 158],
+];
+
+/** Suitability score in [0,1] -> red→amber→green (higher = better). */
+export function suitColor(value: number): RGB {
+  return rampColor(SUIT_STOPS, value);
+}
+
+export const SUIT_LEGEND_STOPS: RGB[] = SUIT_STOPS;
+
 export function sviColor(svi: number): RGB {
   return rampColor(SVI_STOPS, svi);
 }

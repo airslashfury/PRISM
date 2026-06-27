@@ -5661,3 +5661,23 @@ sync_sources:
       sync.generation_status, sync.grid_snapshot, and sync.grid_capacity_history.
       Supply-side authoritative; status inferred from MW (Modeled). Does not fix
       the FEEDS/POWERS feeder proxy (delivery-side).
+  luma_outages:
+    source_type: luma
+    url: https://api.miluma.lumapr.com/miluma-outage-api/outage/regionsWithoutService
+    sync_interval_minutes: 10
+    affects_resilience: false
+    notes: >-
+      LUMA DELIVERY-side outage feed — customers without service per LUMA's 7
+      operational regions (Arecibo, Bayamon, Carolina, Caguas, Mayaguez, Ponce,
+      San Juan). Authoritative for customer counts; complements PREPA's
+      supply-side generation feed (do NOT blend the two). Synced every 10 min by
+      the arq worker cron (api.worker.sync_luma_outages); durable mirror via the
+      host CLI `python -m prism.sync --source luma`. Updates sync.luma_outages +
+      sync.luma_outages_history (history keyed on per-region content change, as
+      the feed has no source timestamp). Region grain only — the API exposes no
+      municipio breakdown; a validated municipio crosswalk is a follow-up (the
+      authoritative per-municipio counts are mirrored at
+      data/raw/luma_ops/luma_operational_regions_2025.pdf, energia.pr.gov 2025).
+      The detailed point-level outage map (Kubra StormCenter, view
+      8fe9d356-96bc-41f1-b353-6720eb408936) is a separate, richer feed not yet
+      ingested.

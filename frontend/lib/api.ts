@@ -331,6 +331,30 @@ export interface GenerationStatus {
   matched: number;
 }
 
+/** LUMA delivery-side outages by operational region (hand-typed until the
+ *  OpenAPI client is regenerated). */
+export interface LumaRegionOutage {
+  region: string;
+  total_clients: number;
+  clients_without_service: number;
+  clients_with_service: number;
+  clients_planned_outage: number;
+  clients_load_shed: number;
+  pct_without_service: number;
+  pct_with_service: number;
+  fetched_at: string | null;
+}
+
+export interface LumaOutages {
+  regions: LumaRegionOutage[];
+  total_clients: number;
+  total_without_service: number;
+  total_planned_outage: number;
+  total_load_shed: number;
+  pct_without_service: number;
+  as_of: string | null;
+}
+
 /** Live electricity posture for the default resilience view (hand-typed until
  *  the OpenAPI client is regenerated). */
 export interface CurrentStateScore {
@@ -354,6 +378,90 @@ export interface CurrentStateResponse {
   population_affected_now: number | null;
   as_of: string | null;
   substations: CurrentStateScore[];
+}
+
+// Site Finder (industrial site suitability). Hand-typed pending OpenAPI client
+// regen — same standing cosmetic gap as the P1–P3 additions above.
+export interface SiteCriterion {
+  key: string;
+  label: string;
+  description: string;
+  tier: ConfidenceTierKey;
+  default_weight: number;
+}
+
+export interface SiteFinderMeta {
+  criteria: SiteCriterion[];
+  parcel_count: number;
+  use_type_counts: Record<string, number>;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface SiteResult {
+  parcel_id: number;
+  num_catastro: string | null;
+  municipio: string | null;
+  barrio: string | null;
+  cali: string | null;
+  use_type: string | null;
+  area_m2: number | null;
+  lon: number | null;
+  lat: number | null;
+  composite_score: number | null;
+  subscores: Record<string, number | null>;
+  dist_substation_m: number | null;
+  flood_frac: number | null;
+  dist_port_m: number | null;
+  port_name: string | null;
+}
+
+export interface SiteScorecard {
+  parcel_id: number;
+  num_catastro: string | null;
+  municipio: string | null;
+  barrio: string | null;
+  cali: string | null;
+  use_type: string | null;
+  descrip: string | null;
+  clasi: string | null;
+  clasi_desc: string | null;
+  area_m2: number | null;
+  lon: number | null;
+  lat: number | null;
+  composite_score: number | null;
+  subscores: Record<string, number | null>;
+  criteria_tiers: Record<string, ConfidenceTierKey>;
+  weights: Record<string, number>;
+  dist_substation_m: number | null;
+  substation_name: string | null;
+  substation_risk: number | null;
+  flood_frac: number | null;
+  dist_water_m: number | null;
+  water_name: string | null;
+  dist_port_m: number | null;
+  port_name: string | null;
+  dist_bulk_port_m: number | null;
+  bulk_port_name: string | null;
+  dist_airport_m: number | null;
+  road_access_min: number | null;
+  community_resil: number | null;
+  svi: number | null;
+}
+
+export interface SiteAccessPoint {
+  kind: "port" | "airport";
+  ap_class: "primary" | "bulk" | null;
+  name: string | null;
+  municipio: string | null;
+  lon: number | null;
+  lat: number | null;
+}
+
+export interface SiteScoreRequest {
+  weights?: Record<string, number>;
+  limit?: number;
+  municipio?: string;
+  use_type?: string;
 }
 
 /** Loose GeoJSON shape for Deck.gl ingestion. */
@@ -435,6 +543,7 @@ export const api = {
   spof: () => apiGet<SpofEntity[]>("/resilience/spof"),
   consequence: (entityId: number) => apiGet<ConsequenceSummary>(`/network/consequence/${entityId}`),
   generation: () => apiGet<GenerationStatus>("/network/generation"),
+  outages: () => apiGet<LumaOutages>("/network/outages"),
   substation: (id: number, scenario: string) =>
     apiGet<SubstationDetail>(`/resilience/substations/${id}`, { scenario }),
 
@@ -510,6 +619,11 @@ export const api = {
   civicCard: (barrioEntityId: number) => apiGet<CivicCard>(`/citizen/card/${barrioEntityId}`),
 
   ask: (query: string) => apiSend<AskResponse>("/ask", "POST", { query }),
+
+  siteFinderMeta: () => apiGet<SiteFinderMeta>("/sitefinder/meta"),
+  siteScore: (body: SiteScoreRequest) => apiSend<SiteResult[]>("/sitefinder/score", "POST", body),
+  siteParcel: (parcelId: number) => apiGet<SiteScorecard>(`/sitefinder/parcel/${parcelId}`),
+  siteAccessPoints: () => apiGet<SiteAccessPoint[]>("/sitefinder/access-points"),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

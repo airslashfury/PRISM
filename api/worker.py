@@ -113,6 +113,25 @@ async def generate_playground_narrative(ctx: dict, scenario_a: int, scenario_b: 
     return {"narrative_id": result.narrative_id, "status": result.status}
 
 
+async def sync_luma_outages(ctx: dict) -> dict:
+    """Scheduled pull of LUMA's delivery-side regional outage feed.
+
+    Complements the PREPA supply-side feed: upserts sync.luma_outages (latest
+    per region) and appends sync.luma_outages_history on any change. mirror=
+    False for the same reason as PREPA (no data/raw volume on the worker).
+    """
+    from prism.sync.luma_ops import sync_luma_outages as _sync_luma
+
+    engine = get_engine()
+    try:
+        summary = _sync_luma(engine, mirror=False)
+        log.info("Scheduled LUMA sync: %s", summary)
+        return summary
+    except Exception as exc:  # don't let one bad fetch kill the cron
+        log.warning("Scheduled LUMA sync failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 async def sync_prepa_generation(ctx: dict) -> dict:
     """Scheduled pull of the PREPA/Genera live generation feed.
 
@@ -146,12 +165,20 @@ class WorkerSettings:
         whatif_failure,
         generate_playground_narrative,
         sync_prepa_generation,
+        sync_luma_outages,
     ]
     cron_jobs = [
-        # Track the live PREPA feed: run every PREPA_SYNC_INTERVAL_MIN minutes.
+        # Track the live PREPA (supply) + LUMA (delivery) feeds every
+        # PREPA_SYNC_INTERVAL_MIN minutes. Offset LUMA by a few minutes so the
+        # two fetches don't fire in the same instant.
         cron(
             sync_prepa_generation,
             minute=set(range(0, 60, PREPA_SYNC_INTERVAL_MIN)),
+            run_at_startup=True,
+        ),
+        cron(
+            sync_luma_outages,
+            minute=set((m + 3) % 60 for m in range(0, 60, PREPA_SYNC_INTERVAL_MIN)),
             run_at_startup=True,
         ),
     ]

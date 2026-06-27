@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-06",
+  "generated": "2026-06-24",
   "layers": {
     "pr_geodata:g03_legales_barrios_2023": {
       "source": "ogp_prits_wfs",
@@ -2204,6 +2204,80 @@
       ],
       "compute_date": "2026-06-16",
       "license": "derived"
+    },
+    "pr_zoning:cali_vige_industrial": {
+      "source": "pr_zoning",
+      "url": "https://sigejp.pr.gov/server/rest/services/calificacion/cali_vige/MapServer/0",
+      "title": "PR zoning (calificación vigente) — industrial parcels",
+      "domain": "territorio",
+      "priority": "P1",
+      "license": "public (Junta de Planificación PR)",
+      "file": "C:\\Users\\Eric Ryan\\PRISM\\PRISM\\data\\raw\\pr_zoning\\2026-06-23\\cali_vige_industrial.geojson",
+      "feature_count": 7710,
+      "size_bytes": 26654995,
+      "sha256": "f2ab5df13227a8a10d75c5ca97bdce1e6216d591af7d3109196deb39bd54e5c5",
+      "pulled_at": "2026-06-24T00:46:20.456501+00:00",
+      "where": "descrip LIKE '%Industrial%'"
+    },
+    "pr_geodata:g35_maritima_puertos_2010": {
+      "source": "ogp_prits_wfs",
+      "url": "http://geoserver2.pr.gov/geoserver/pr_geodata/wfs",
+      "title": "g35_maritima_puertos_2010",
+      "domain": "transporte",
+      "priority": "P1",
+      "license": "PR government (public; terms vary)",
+      "file": "C:\\Users\\Eric Ryan\\PRISM\\PRISM\\data\\raw\\wfs\\2026-06-23\\pr_geodata_g35_maritima_puertos_2010.geojson",
+      "feature_count": 10,
+      "size_bytes": 2399,
+      "sha256": "aafd99166c37ce962c5fd56aca29a60966b51524fa686a52285ef27cd32e4979",
+      "pulled_at": "2026-06-24T02:00:24.467255+00:00"
+    },
+    "pr_geodata:g35_aerea_aeropuertos_helipuertos_faa_2021": {
+      "source": "ogp_prits_wfs",
+      "url": "http://geoserver2.pr.gov/geoserver/pr_geodata/wfs",
+      "title": "g35_aerea_aeropuertos_helipuertos_faa_2021",
+      "domain": "transporte",
+      "priority": "P1",
+      "license": "PR government (public; terms vary)",
+      "file": "C:\\Users\\Eric Ryan\\PRISM\\PRISM\\data\\raw\\wfs\\2026-06-23\\pr_geodata_g35_aerea_aeropuertos_helipuertos_faa_2021.geojson",
+      "feature_count": 49,
+      "size_bytes": 152647,
+      "sha256": "c030fedd7551ed0357c0ffa15b2456ea825da9901c64806d507ebab658457518",
+      "pulled_at": "2026-06-24T02:00:25.294259+00:00"
+    },
+    "derived:sitefinder.candidate_parcels": {
+      "source": "prism_sitefinder",
+      "title": "Site Finder candidate parcels (industrial + commercial)",
+      "domain": "territorio",
+      "priority": "P11",
+      "license": "PRISM derived",
+      "description": "Industrial + commercial zoned parcels loaded from the pr_zoning mirror (JP calificacion vigente, descrip LIKE Industrial OR Comercial). Columns: parcel_id, num_catastro, use_type (industrial|commercial), cali, descrip, clasi, clasi_desc, municipio, barrio, area_m2, geom (MULTIPOLYGON 32161), centroid (POINT 32161).",
+      "computed_by": "prism.sitefinder.load.load_parcels",
+      "pulled_at": "2026-06-23"
+    },
+    "derived:sitefinder.site_scores": {
+      "source": "prism_sitefinder",
+      "title": "Site Finder suitability scores",
+      "domain": "territorio",
+      "priority": "P11",
+      "license": "PRISM derived",
+      "description": "Per-parcel multi-criteria industrial site suitability. Criteria normalized to [0,1] (higher=better): power_access, grid_reliability, flood_safety, water_access, road_access, port_access (+ air_access, dev_impact off by default); null-aware weighted composite_score. Columns include dist_substation_m, substation_risk, flood_frac, dist_water_m, dist_port_m, port_name, road_access_min, svi, the s_* subscores, composite_score, weights (jsonb).",
+      "computed_by": "prism.sitefinder.score.score_sites",
+      "pulled_at": "2026-06-23"
+    },
+    "pr_zoning:cali_vige_business": {
+      "source": "pr_zoning",
+      "url": "https://sigejp.pr.gov/server/rest/services/calificacion/cali_vige/MapServer/0",
+      "title": "PR zoning (calificación vigente) — industrial + commercial parcels",
+      "domain": "territorio",
+      "priority": "P1",
+      "license": "public (Junta de Planificación PR)",
+      "file": "C:\\Users\\Eric Ryan\\PRISM\\PRISM\\data\\raw\\pr_zoning\\2026-06-24\\cali_vige_business.geojson",
+      "feature_count": 69054,
+      "size_bytes": 171187878,
+      "sha256": "bccccf531a203344e5c06c696566b7009e37855674bbd8d6ae44b76e5565dbd8",
+      "pulled_at": "2026-06-24T12:26:50.653846+00:00",
+      "where": "(descrip LIKE '%Industrial%' OR descrip LIKE '%Comercial%')"
     }
   }
 }

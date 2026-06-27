@@ -27,6 +27,7 @@ def mirror(
     page_size: int = typer.Option(500, help="WFS features per page"),
     no_complements: bool = typer.Option(False, "--no-complements", help="Skip complement sources"),
     only_complements: bool = typer.Option(False, "--only-complements", help="Skip WFS, run complements only"),
+    complement: str = typer.Option(None, "--complement", help="Run a single named complement (implies --only-complements)"),
 ) -> None:
     """Mirror WFS keystone layers and all complement sources into data/raw/ with provenance."""
     cfg = yaml.safe_load((REPO / "config" / "sources.yml").read_text(encoding="utf-8"))
@@ -64,7 +65,7 @@ def mirror(
     raw_dir = REPO / "data" / "raw"
 
     # ── WFS keystone ─────────────────────────────────────────────────────────
-    if not only_complements:
+    if not only_complements and not complement:
         ok = skipped = errors = 0
         _err.print(f"\n[bold]WFS keystone[/bold] — {len(to_mirror)} layers (priority ≤ {priority})")
 
@@ -105,6 +106,11 @@ def mirror(
     if not no_complements:
         from prism.mirror.complements import get_all
         complements = get_all()
+        if complement:
+            complements = {k: v for k, v in complements.items() if k == complement}
+            if not complements:
+                _err.print(f"[red]Complement not found:[/red] {complement}")
+                raise typer.Exit(1)
         _err.print(f"\n[bold]Complement sources[/bold] — {len(complements)} sources")
 
         comp_cfg = cfg.get("complements", {})

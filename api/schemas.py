@@ -197,6 +197,29 @@ class GenerationStatus(BaseModel):
     matched: int
 
 
+class LumaRegionOutage(BaseModel):
+    region: str
+    total_clients: int
+    clients_without_service: int
+    clients_with_service: int
+    clients_planned_outage: int
+    clients_load_shed: int
+    pct_without_service: float
+    pct_with_service: float
+    fetched_at: datetime | None
+
+
+class LumaOutages(BaseModel):
+    """LUMA delivery-side outages by operational region (miluma.lumapr.com)."""
+    regions: list[LumaRegionOutage]
+    total_clients: int
+    total_without_service: int
+    total_planned_outage: int
+    total_load_shed: int
+    pct_without_service: float
+    as_of: datetime | None
+
+
 class SpofEntity(BaseModel):
     entity_id: int
     name: str | None
@@ -670,3 +693,88 @@ class AskResponse(BaseModel):
     map_points: list[AskMapPoint] = Field(default_factory=list)
     model_used: str
     status: str
+
+
+# ── Site Finder (industrial site suitability) ───────────────────────────────
+
+
+class SiteCriterion(BaseModel):
+    key: str
+    label: str
+    description: str
+    tier: str
+    default_weight: float
+
+
+class SiteFinderMeta(BaseModel):
+    criteria: list[SiteCriterion]
+    parcel_count: int
+    use_type_counts: dict[str, int] = Field(default_factory=dict)
+    confidence_tier: str
+
+
+class SiteScoreRequest(BaseModel):
+    weights: dict[str, float] | None = None
+    limit: int = Field(default=50, ge=1, le=500)
+    municipio: str | None = None
+    use_type: str | None = None
+
+
+class SiteResult(BaseModel):
+    parcel_id: int
+    num_catastro: str | None = None
+    municipio: str | None = None
+    barrio: str | None = None
+    cali: str | None = None
+    use_type: str | None = None
+    area_m2: float | None = None
+    lon: float | None = None
+    lat: float | None = None
+    composite_score: float | None = None
+    subscores: dict[str, float | None] = Field(default_factory=dict)
+    dist_substation_m: float | None = None
+    flood_frac: float | None = None
+    dist_port_m: float | None = None
+    port_name: str | None = None
+
+
+class SiteScorecard(BaseModel):
+    parcel_id: int
+    num_catastro: str | None = None
+    municipio: str | None = None
+    barrio: str | None = None
+    cali: str | None = None
+    use_type: str | None = None
+    descrip: str | None = None
+    clasi: str | None = None
+    clasi_desc: str | None = None
+    area_m2: float | None = None
+    lon: float | None = None
+    lat: float | None = None
+    composite_score: float | None = None
+    subscores: dict[str, float | None] = Field(default_factory=dict)
+    criteria_tiers: dict[str, str] = Field(default_factory=dict)
+    weights: dict[str, float] = Field(default_factory=dict)
+    dist_substation_m: float | None = None
+    substation_name: str | None = None
+    substation_risk: float | None = None
+    flood_frac: float | None = None
+    dist_water_m: float | None = None
+    water_name: str | None = None
+    dist_port_m: float | None = None
+    port_name: str | None = None
+    dist_bulk_port_m: float | None = None
+    bulk_port_name: str | None = None
+    dist_airport_m: float | None = None
+    road_access_min: float | None = None
+    community_resil: float | None = None
+    svi: float | None = None
+
+
+class SiteAccessPoint(BaseModel):
+    kind: str
+    ap_class: str | None = None
+    name: str | None = None
+    municipio: str | None = None
+    lon: float | None = None
+    lat: float | None = None

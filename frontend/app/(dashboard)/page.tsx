@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { NAV } from "@/components/layout/nav";
 import { GenerationPanel } from "@/components/generation-panel";
+import { OutagesPanel } from "@/components/outages-panel";
 import { useOverview } from "@/lib/hooks";
 import { fmtInt, fmtNum, fmtRelative } from "@/lib/utils";
 
@@ -59,6 +60,9 @@ export default function OverviewPage() {
         <>
           {/* Live PREPA / Genera grid command center — the operational headline */}
           <GenerationPanel />
+
+          {/* Live LUMA delivery-side outages — the complement to generation */}
+          <OutagesPanel />
 
           {/* Operational risk + twin freshness */}
           <div className="grid gap-4 sm:grid-cols-2">

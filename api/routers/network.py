@@ -53,6 +53,39 @@ def generation(engine: Engine = Depends(engine_dep)) -> dict:
     }
 
 
+@router.get("/outages", response_model=schemas.LumaOutages)
+@cached_response("outages", ttl=120)
+def outages(engine: Engine = Depends(engine_dep)) -> dict:
+    """Live LUMA delivery-side outages by operational region.
+
+    DELIVERY-side AUTHORITATIVE data (miluma.lumapr.com) — customers without
+    service per LUMA region. Complements /network/generation (supply-side):
+    generation tells us MW produced, this tells us customers actually served.
+    Read of sync.luma_outages, refreshed by the luma_ops sync.
+    """
+    regions = fetch_all(
+        engine,
+        """
+        SELECT region, total_clients, clients_without_service, clients_with_service,
+               clients_planned_outage, clients_load_shed,
+               pct_without_service, pct_with_service, fetched_at
+        FROM sync.luma_outages
+        ORDER BY clients_without_service DESC, region
+        """,
+    )
+    total_clients = sum(r["total_clients"] for r in regions)
+    total_out = sum(r["clients_without_service"] for r in regions)
+    return {
+        "regions": regions,
+        "total_clients": total_clients,
+        "total_without_service": total_out,
+        "total_planned_outage": sum(r["clients_planned_outage"] for r in regions),
+        "total_load_shed": sum(r["clients_load_shed"] for r in regions),
+        "pct_without_service": round(100.0 * total_out / total_clients, 3) if total_clients else 0.0,
+        "as_of": max((r["fetched_at"] for r in regions), default=None),
+    }
+
+
 @router.get("/transmission", response_model=schemas.FeatureCollection)
 @cached_response("transmission", ttl=21600)
 def transmission(engine: Engine = Depends(engine_dep)) -> dict:

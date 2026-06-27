@@ -1,8 +1,9 @@
 "use client";
 /** TanStack Query hooks, one per API surface. staleTime tuned per domain. */
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { api } from "./api";
+import type { SiteScoreRequest } from "./api";
 
 const MIN = 60_000;
 
@@ -14,6 +15,9 @@ export const useScenarios = () =>
 
 export const useGeneration = () =>
   useQuery({ queryKey: ["generation"], queryFn: api.generation, staleTime: 2 * MIN });
+
+export const useOutages = () =>
+  useQuery({ queryKey: ["outages"], queryFn: api.outages, staleTime: 2 * MIN });
 
 export const useScores = (scenario: string, top = 400) =>
   useQuery({
@@ -153,3 +157,26 @@ export const useCivicCard = (barrioEntityId: number | null) =>
     enabled: barrioEntityId != null,
     staleTime: 10 * MIN,
   });
+
+/** Site Finder: criterion catalogue, live re-rank, parcel scorecard, access points. */
+export const useSiteFinderMeta = () =>
+  useQuery({ queryKey: ["siteFinderMeta"], queryFn: api.siteFinderMeta, staleTime: 60 * MIN });
+
+export const useSiteScore = (req: SiteScoreRequest) =>
+  useQuery({
+    queryKey: ["siteScore", req],
+    queryFn: () => api.siteScore(req),
+    staleTime: 5 * MIN,
+    placeholderData: keepPreviousData, // hold the map steady while sliders move
+  });
+
+export const useSiteParcel = (parcelId: number | null) =>
+  useQuery({
+    queryKey: ["siteParcel", parcelId],
+    queryFn: () => api.siteParcel(parcelId as number),
+    enabled: parcelId != null,
+    staleTime: 10 * MIN,
+  });
+
+export const useSiteAccessPoints = () =>
+  useQuery({ queryKey: ["siteAccessPoints"], queryFn: api.siteAccessPoints, staleTime: 60 * MIN });

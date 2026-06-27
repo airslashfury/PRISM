@@ -316,6 +316,31 @@ tables:
     assumptions: Per-segment terrain-type breakdown of corridor.routes — same tier and caveats.
     upgrade_path: null
 
+  sitefinder.candidate_parcels:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      Faithful load of the JP calificacion-vigente industrial parcels
+      (descrip LIKE '%Industrial%') from the pr_zoning mirror. Geometry and
+      zoning are authoritative; the only transform is reprojection to 32161
+      and centroid/area computation.
+    upgrade_path: null
+
+  sitefinder.site_scores:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      Weighted multi-criteria overlay. Inputs mix tiers — substation, water,
+      port, and FEMA flood locations are Authoritative, but grid_reliability
+      rides the Proxy feeder-assignment scores (resilience.scenario_scores),
+      so the composite inherits Proxy per the weakest-input rule. Criterion
+      weights are a documented default, not calibrated. Land cost is not yet a
+      criterion (no CRIM valuation).
+    upgrade_path: >-
+      Join CRIM valuation (owner/sale price) on num_catastro for a land-cost
+      criterion; calibrate weights with stakeholder input; upgrade grid_reliability
+      once feeder topology is authoritative.
+
   validation.backtest_results:
     method: modeled
     confidence_tier: modeled

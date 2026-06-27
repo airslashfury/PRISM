@@ -17,6 +17,7 @@ def get_all() -> dict[str, MirrorFn]:
         hifld,
         noaa_slr,
         osm,
+        pr_zoning,
         usgs_3dep,
     )
 
@@ -27,6 +28,7 @@ def get_all() -> dict[str, MirrorFn]:
         "usgs_3dep": usgs_3dep.mirror,
         "noaa_slr": noaa_slr.mirror,
         "crim_parcels": crim.mirror,
+        "pr_zoning": pr_zoning.mirror,
         "census_acs": census_acs.mirror,
         "hifld_next": hifld.mirror,
     }
