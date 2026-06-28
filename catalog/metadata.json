@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-24",
+  "generated": "2026-06-28",
   "layers": {
     "pr_geodata:g03_legales_barrios_2023": {
       "source": "ogp_prits_wfs",
@@ -2278,6 +2278,46 @@
       "sha256": "bccccf531a203344e5c06c696566b7009e37855674bbd8d6ae44b76e5565dbd8",
       "pulled_at": "2026-06-24T12:26:50.653846+00:00",
       "where": "(descrip LIKE '%Industrial%' OR descrip LIKE '%Comercial%')"
+    },
+    "raw:crim.parcelas": {
+      "title": "CRIM Catastro Digital — full parcel fabric",
+      "description": "1,535,837 cadastral parcels for all of Puerto Rico from the CRIM Catastro Digital register. Attributes: num_catastro, catastro, municipio, owner (contact), physical address, lot area (cabida, cuerdas), assessed land/structure/machinery/total value, deed references, last sale price and date. Downloaded 2026-06-28 via ArcGIS proxy.ashx on catastro.crimpr.net/cdprpc/.",
+      "source": "CRIM (Centro de Recaudacion de Ingresos Municipales), via catastro.crimpr.net proxy",
+      "domain": "territorio",
+      "license": "Puerto Rico government — public cadastral record",
+      "priority": "P0",
+      "pulled_at": "2026-06-28",
+      "computed_by": "prism.mirror.crim_catastro + prism.crim.load"
+    },
+    "derived:crim.parcelas": {
+      "title": "crim.parcelas — CRIM parcels loaded into PostGIS (EPSG:32161)",
+      "description": "Full 1.53M-row CRIM parcel table reprojected from WGS84 to EPSG:32161, with GIST index on geom and B-tree indexes on num_catastro, municipio, contact, totalval. Join key to sitefinder.candidate_parcels: num_catastro.",
+      "source": "CRIM Catastro Digital (raw:crim.parcelas)",
+      "domain": "territorio",
+      "license": "Puerto Rico government — public cadastral record",
+      "priority": "P0",
+      "pulled_at": "2026-06-28",
+      "computed_by": "prism.crim.load.load_parcelas"
+    },
+    "derived:crim.parcelas_dedup": {
+      "title": "crim.parcelas_dedup — one row per catastro, most recent deed",
+      "description": "Materialized view over crim.parcelas: DISTINCT ON (num_catastro) ORDER BY objectid DESC, keeping most recent CRIM record per parcel. 1.3M rows. Used for current ownership/value lookups and sitefinder land-value join.",
+      "source": "derived:crim.parcelas",
+      "domain": "territorio",
+      "license": "Puerto Rico government — public cadastral record",
+      "priority": "P0",
+      "pulled_at": "2026-06-28",
+      "computed_by": "SQL materialized view — crim.parcelas_dedup"
+    },
+    "derived:crim.parcelas_history": {
+      "title": "crim.parcelas_history — up to 5 most recent deed records per catastro",
+      "description": "Materialized view over crim.parcelas: top 5 records per catastro ordered by objectid DESC, with sale_rank (1=most recent). 1.36M rows covering 1.3M catastros. Enables price-change queries: 57,882 historical records with prior deed page, 32,454 with a prior sale amount. Condos naturally bounded to max 5 units per shared catastro.",
+      "source": "derived:crim.parcelas",
+      "domain": "territorio",
+      "license": "Puerto Rico government — public cadastral record",
+      "priority": "P0",
+      "pulled_at": "2026-06-28",
+      "computed_by": "SQL materialized view — crim.parcelas_history"
     }
   }
 }

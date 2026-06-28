@@ -240,7 +240,7 @@ export default function SiteFinderPage() {
                   },
                   {
                     title: "Accuracy",
-                    body: "Proxy tier — grid reliability rides PRISM's feeder-assignment proxy. Land cost is not yet a criterion (pending CRIM valuation data); suitability reflects logistics and risk, not price.",
+                    body: "Proxy tier — grid reliability rides PRISM's feeder-assignment proxy. Land affordability uses CRIM Catastro assessed land value (authoritative) — lower value per m² scores higher. Assessed value ≠ market price.",
                   },
                 ]}
               />
@@ -399,6 +399,26 @@ function Scorecard({ parcelId, onBack }: { parcelId: number; onBack: () => void 
               )}
             </div>
           </div>
+
+          {(data.crim_owner || data.crim_totalval != null) && (
+            <div className="rounded-lg border border-border/60 bg-background/30 p-3">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                CRIM Catastro (authoritative)
+              </div>
+              <div className="space-y-1.5">
+                {data.crim_owner && <Row label="Registered owner" value={data.crim_owner} />}
+                {data.crim_totalval != null && (
+                  <Row label="Total assessed value" value={`$${fmtInt(data.crim_totalval)}`} />
+                )}
+                {data.land_value != null && (
+                  <Row label="Land value (assessed)" value={`$${fmtInt(data.land_value)}`} />
+                )}
+                {data.land_per_m2 != null && (
+                  <Row label="Land value per m²" value={`$${fmtNum(data.land_per_m2, 2)}/m²`} />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

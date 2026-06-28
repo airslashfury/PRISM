@@ -10,7 +10,8 @@ Criteria (default weights):
   flood_safety      0.20  share of the parcel OUTSIDE the FEMA 1% flood zone
   water_access      0.12  proximity to a water plant / pump station
   road_access       0.15  barrio road connectivity (travel-time proxy, inverted)
-  port_access       0.20  proximity to a PRIMARY cargo port (San Juan / Ponce) — HEADLINE
+  port_access       0.15  proximity to a PRIMARY cargo port (San Juan / Ponce) — HEADLINE
+  land_value        0.05  land affordability (lower CRIM assessed value/m² = better)
   bulk_port_access  0.00  proximity to a BULK/petro port (Yabucoa / Guayanilla / Peñuelas)
   air_access        0.00  proximity to a commercial airport (SJU / Aguadilla / Ponce)
   dev_impact        0.00  eco-dev / equity (barrio SVI) — available, off by default
@@ -18,9 +19,13 @@ Criteria (default weights):
 from __future__ import annotations
 
 import json
+import logging
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+log = logging.getLogger(__name__)
 
 DEFAULT_WEIGHTS: dict[str, float] = {
     "power_access": 0.18,
@@ -28,7 +33,8 @@ DEFAULT_WEIGHTS: dict[str, float] = {
     "flood_safety": 0.20,
     "water_access": 0.12,
     "road_access": 0.15,
-    "port_access": 0.20,
+    "port_access": 0.15,
+    "land_value": 0.05,
     "bulk_port_access": 0.00,
     "air_access": 0.00,
     "dev_impact": 0.00,
@@ -42,18 +48,30 @@ _SUBSCORES = {
     "water_access": "s_water_access",
     "road_access": "s_road_access",
     "port_access": "s_port_access",
+    "land_value": "s_land_value",
     "bulk_port_access": "s_bulk_port_access",
     "air_access": "s_air_access",
     "dev_impact": "s_dev_impact",
 }
 
+# Detect whether crim.parcelas is available so land_value join is optional.
+_CRIM_EXISTS_SQL = """
+SELECT EXISTS (
+    SELECT 1 FROM pg_matviews
+    WHERE schemaname = 'crim' AND matviewname = 'parcelas_dedup'
+)
+"""
+
 # Compute raw criteria per parcel and insert score rows.
-_RAW_SQL = """
+# The crim.parcelas LEFT JOIN is appended at runtime only when the table exists.
+_RAW_SQL_BASE = """
 INSERT INTO sitefinder.site_scores (
     parcel_id, dist_substation_m, substation_name, substation_risk,
     flood_frac, dist_water_m, water_name, dist_port_m, port_name,
     dist_bulk_port_m, bulk_port_name, dist_airport_m,
-    barrio_id, road_access_min, community_resil, svi, weights
+    barrio_id, road_access_min, community_resil, svi,
+    land_value, land_per_m2, crim_owner, crim_totalval,
+    weights
 )
 WITH sub AS (
     SELECT e.entity_id, e.name, e.geom, ss.composite_score
@@ -71,7 +89,7 @@ SELECT
     s.d                                          AS dist_substation_m,
     s.name                                       AS substation_name,
     s.composite_score                            AS substation_risk,
-    LEAST(COALESCE(fl.fa, 0) / NULLIF(p.area_m2, 0), 1.0) AS flood_frac,
+    COALESCE(p.flood_frac, 0)                             AS flood_frac,
     w.d                                          AS dist_water_m,
     w.name                                       AS water_name,
     pt.d                                          AS dist_port_m,
@@ -83,6 +101,7 @@ SELECT
     rac.travel_time_min                          AS road_access_min,
     cr.resilience_score                          AS community_resil,
     be.svi_score                                 AS svi,
+    {land_cols}
     CAST(:weights AS JSONB)                      AS weights
 FROM sitefinder.candidate_parcels p
 LEFT JOIN LATERAL (
@@ -109,10 +128,6 @@ LEFT JOIN LATERAL (
     ORDER BY p.centroid <-> ap.geom LIMIT 1
 ) ai ON TRUE
 LEFT JOIN LATERAL (
-    SELECT COALESCE(SUM(ST_Area(ST_Intersection(p.geom, f.geom))), 0) AS fa
-    FROM flood_zones f WHERE ST_Intersects(p.geom, f.geom)
-) fl ON TRUE
-LEFT JOIN LATERAL (
     SELECT cr.barrio_id, cr.resilience_score
     FROM resilience.community_resilience cr
     WHERE ST_Contains(cr.geom, p.centroid) LIMIT 1
@@ -122,7 +137,24 @@ LEFT JOIN LATERAL (
     SELECT be.svi_score FROM economy.barrio_economics be
     WHERE ST_Contains(be.geom, p.centroid) LIMIT 1
 ) be ON TRUE
+{crim_join}
 """
+
+# CRIM land-value columns when crim.parcelas is present
+_LAND_COLS_CRIM = """\
+    cv.land                                      AS land_value,
+    cv.land / NULLIF(p.area_m2, 0)               AS land_per_m2,
+    cv.contact                                   AS crim_owner,
+    cv.totalval                                  AS crim_totalval,"""
+
+_LAND_COLS_NULL = """\
+    NULL::DOUBLE PRECISION                       AS land_value,
+    NULL::DOUBLE PRECISION                       AS land_per_m2,
+    NULL::TEXT                                   AS crim_owner,
+    NULL::DOUBLE PRECISION                       AS crim_totalval,"""
+
+_CRIM_JOIN = """\
+LEFT JOIN crim.parcelas_dedup cv ON cv.num_catastro = p.num_catastro"""
 
 # Normalize each raw criterion to [0,1] (higher = better) via percentile rank.
 _NORM_SQL = """
@@ -144,7 +176,9 @@ WITH r AS (
         CASE WHEN dist_airport_m IS NULL THEN NULL
              ELSE 1 - percent_rank() OVER (ORDER BY dist_airport_m) END    AS s_air_access,
         CASE WHEN svi IS NULL THEN NULL
-             ELSE percent_rank() OVER (ORDER BY svi) END                   AS s_dev_impact
+             ELSE percent_rank() OVER (ORDER BY svi) END                   AS s_dev_impact,
+        CASE WHEN land_per_m2 IS NULL THEN NULL
+             ELSE 1 - percent_rank() OVER (ORDER BY land_per_m2) END       AS s_land_value
     FROM sitefinder.site_scores
 )
 UPDATE sitefinder.site_scores t SET
@@ -156,7 +190,8 @@ UPDATE sitefinder.site_scores t SET
     s_port_access = r.s_port_access,
     s_bulk_port_access = r.s_bulk_port_access,
     s_air_access = r.s_air_access,
-    s_dev_impact = r.s_dev_impact
+    s_dev_impact = r.s_dev_impact,
+    s_land_value = r.s_land_value
 FROM r WHERE t.parcel_id = r.parcel_id
 """
 
@@ -175,12 +210,64 @@ def _composite_sql(weights: dict[str, float]) -> str:
     return f"UPDATE sitefinder.site_scores SET composite_score = ({num}) / NULLIF({den}, 0)"
 
 
+def _build_raw_sql(crim_available: bool) -> str:
+    land_cols = _LAND_COLS_CRIM if crim_available else _LAND_COLS_NULL
+    crim_join = _CRIM_JOIN if crim_available else ""
+    return _RAW_SQL_BASE.format(land_cols=land_cols, crim_join=crim_join)
+
+
+
+
+def _ensure_flood_frac(conn: Any) -> None:
+    """Pre-compute flood_frac on candidate_parcels if not already done (one-time cost)."""
+    # Add column if missing (idempotent)
+    conn.execute(text(
+        "ALTER TABLE sitefinder.candidate_parcels "
+        "ADD COLUMN IF NOT EXISTS flood_frac DOUBLE PRECISION"
+    ))
+    needs_compute = conn.execute(text(
+        "SELECT COUNT(*) FROM sitefinder.candidate_parcels WHERE flood_frac IS NULL"
+    )).scalar()
+    if needs_compute:
+        log.info("Pre-computing flood fractions for %s parcels (one-time)...", needs_compute)
+        conn.execute(text("SET max_parallel_workers_per_gather = 16"))
+        conn.execute(text("SET parallel_setup_cost = 10"))
+        conn.execute(text("SET parallel_tuple_cost = 0.005"))
+        conn.execute(text("""
+            UPDATE sitefinder.candidate_parcels p
+            SET flood_frac = sub.frac
+            FROM (
+                SELECT
+                    cp.parcel_id,
+                    LEAST(
+                        COALESCE(SUM(ST_Area(ST_Intersection(cp.geom, f.geom))), 0)
+                        / NULLIF(cp.area_m2, 0),
+                    1.0) AS frac
+                FROM sitefinder.candidate_parcels cp
+                LEFT JOIN g23_riesgo_inunda_floodzone_1pct_seamless_2017 f
+                    ON ST_Intersects(cp.geom, f.geom)
+                WHERE cp.flood_frac IS NULL
+                GROUP BY cp.parcel_id, cp.area_m2
+            ) sub
+            WHERE p.parcel_id = sub.parcel_id
+        """))
+
+
 def score_sites(engine: Engine, weights: dict[str, float] | None = None) -> int:
     """Compute suitability scores for all candidate parcels. Returns row count."""
     w = {**DEFAULT_WEIGHTS, **(weights or {})}
+
+    # Phase 1: pre-compute flood_frac once (persisted on candidate_parcels)
     with engine.begin() as conn:
+        _ensure_flood_frac(conn)
+
+    # Phase 2: score using the cached flood_frac — fast subsequent runs
+    with engine.begin() as conn:
+        conn.execute(text("SET max_parallel_workers_per_gather = 16"))
+        conn.execute(text("SET parallel_setup_cost = 10"))
+        crim_available = conn.execute(text(_CRIM_EXISTS_SQL)).scalar()
         conn.execute(text("TRUNCATE sitefinder.site_scores"))
-        conn.execute(text(_RAW_SQL), {"weights": json.dumps(w)})
+        conn.execute(text(_build_raw_sql(bool(crim_available))), {"weights": json.dumps(w)})
         conn.execute(text(_NORM_SQL))
         conn.execute(text(_composite_sql(w)))
         n = conn.execute(text("SELECT count(*) FROM sitefinder.site_scores")).scalar()
@@ -192,7 +279,8 @@ def top_sites(engine: Engine, limit: int = 10) -> list[dict]:
         SELECT p.num_catastro, p.municipio, p.barrio, p.cali, p.area_m2,
                s.composite_score, s.dist_substation_m, s.substation_name,
                s.flood_frac, s.dist_water_m, s.road_access_min,
-               s.dist_port_m, s.port_name
+               s.dist_port_m, s.port_name,
+               s.land_value, s.land_per_m2, s.crim_owner, s.crim_totalval
         FROM sitefinder.site_scores s
         JOIN sitefinder.candidate_parcels p USING (parcel_id)
         ORDER BY s.composite_score DESC NULLS LAST

@@ -64,6 +64,17 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "description": "The full citizen civic card for a barrio or municipio — power, flood, emergency access, planned investments. Use this for 'what about my area / neighborhood' questions.",
         "params": {"query": "string, required — barrio or municipio name"},
     },
+    {
+        "name": "parcel_query",
+        "description": (
+            "Query the CRIM Catastro parcel register (1.53M parcels, all of Puerto Rico) for "
+            "ownership, land area, assessed value, sale history, or price trends over time. "
+            "Use for questions like 'who owns the most land in PR', 'what is the largest parcel "
+            "in Ponce', 'how has land value changed in Mayagüez', 'show recent sales in Humacao', "
+            "'what did this parcel sell for previously'."
+        ),
+        "params": {"question": "string, required — the natural-language question to translate to SQL"},
+    },
 ]
 
 _TOOL_FUNCS = {
@@ -74,6 +85,7 @@ _TOOL_FUNCS = {
     "corridor_compare": tools.corridor_compare,
     "svi_lookup": tools.svi_lookup,
     "address_lookup": tools.address_lookup,
+    "parcel_query": tools.parcel_query,
 }
 
 _ROUTE_SYSTEM = (

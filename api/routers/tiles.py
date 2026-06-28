@@ -42,6 +42,17 @@ _LAYERS: dict[str, dict] = {
         "where": "t.geom IS NOT NULL",
         "ttl": 21600,
     },
+    # CRIM parcel fabric — 1.53M polygons; only rendered at z>=15 by the client
+    "parcelas": {
+        "table": "crim.parcelas",
+        "props": (
+            "t.num_catastro AS num_catastro, t.municipio AS municipio, "
+            "t.contact AS contact, t.totalval AS totalval, "
+            "t.land AS land, t.cabida AS cabida, t.tipo AS tipo"
+        ),
+        "where": "t.geom IS NOT NULL",
+        "ttl": 86400,  # parcel fabric changes rarely — cache 24h
+    },
 }
 
 _TILE_SQL = """

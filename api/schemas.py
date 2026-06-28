@@ -769,6 +769,11 @@ class SiteScorecard(BaseModel):
     road_access_min: float | None = None
     community_resil: float | None = None
     svi: float | None = None
+    # CRIM valuation fields (populated once crim.parcelas is loaded)
+    crim_owner: str | None = None
+    crim_totalval: float | None = None
+    land_value: float | None = None
+    land_per_m2: float | None = None
 
 
 class SiteAccessPoint(BaseModel):

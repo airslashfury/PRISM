@@ -50,10 +50,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: "*"
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      PRISM_LLM_BACKEND: ${PRISM_LLM_BACKEND:-}
-      PRISM_OLLAMA_MODEL: ${PRISM_OLLAMA_MODEL:-}
-      PRISM_OLLAMA_BASE_URL: ${PRISM_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      PRISM_LLM_BASE_URL: http://host.docker.internal:11434
+      PRISM_LLM_API_KEY: ${PRISM_LLM_API_KEY:-}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -86,10 +85,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-prism}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
       REDIS_URL: redis://redis:6379/0
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      PRISM_LLM_BACKEND: ${PRISM_LLM_BACKEND:-}
-      PRISM_OLLAMA_MODEL: ${PRISM_OLLAMA_MODEL:-}
-      PRISM_OLLAMA_BASE_URL: ${PRISM_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      PRISM_LLM_BASE_URL: http://host.docker.internal:11434
+      PRISM_LLM_API_KEY: ${PRISM_LLM_API_KEY:-}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

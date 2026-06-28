@@ -70,6 +70,7 @@ runtime_routing:
   playground_comparison:       sonnet   # M4 scenario-vs-scenario narrative
   nl_query_parse:              haiku    # M5b Ask-PRISM intent + tool routing
   nl_query_answer:             sonnet   # M5b Ask-PRISM composed answer
+  nl_parcel_sql:               haiku    # CRIM parcel text-to-SQL generation
   storm_timeline_caption:      haiku    # M5c per-timestep captions
   board_pack_report:           opus     # M5d flagship PDF narrative
 
@@ -93,30 +94,32 @@ escalation:
   fall_back_down:
     when: a prompt pattern is proven; pin the routine high-volume version to the cheapest tier that holds quality
 
-# --- Ollama (local / production) backend ---
-# Used when PRISM_LLM_BACKEND=ollama (or auto-detected when no ANTHROPIC_API_KEY).
-# PRISM_OLLAMA_MODEL env var overrides all tiers to a single model.
-# PRISM_OLLAMA_BASE_URL overrides base_url (default: http://localhost:11434).
+# --- Ollama (local) backend ---
+# Activated by setting PRISM_LLM_BASE_URL in .env (e.g. http://localhost:11434).
+# Per-task routing: each tier maps to a different model so fast/small tasks
+# don't waste the large model and vice versa.
 #
-# Model rationale (from `ollama list` 2026-06-06):
-#   qwen2.5-coder:14b  — dense 14B, coding-focused; reliable at structured JSON output → haiku bulk passes
-#   qwen3.6:35b-a3b    — MoE 35B/3.6B-active, general reasoning; fast + strong narrative quality → sonnet/opus
-#   qwen2.5-coder:32b  — NOT used: coding-focused, redundant given qwen3 covers reasoning better at same size
+# Model rationale (from `ollama list` 2026-06-28):
+#   qwen2.5-coder:14b  — 8.5 GB dense; coding-focused, reliable structured JSON →
+#                         haiku tier (SQL gen, query routing, metadata, bulk passes)
+#   qwen3.6:35b-a3b    — 22.8 GB MoE (3.6B active); strong narrative + reasoning →
+#                         sonnet tier (answers, comparisons, narratives)
+#   qwen3.6:35b-a3b    — same model with think=true for chain-of-thought →
+#                         opus tier (flagship reports, complex cross-domain reasoning)
 #
-# qwen3 thinking mode: set think: true on a tier to prepend /think to the prompt,
-# enabling Qwen3's chain-of-thought reasoning (costs more tokens, worth it for opus).
+# Do NOT set a single-model override — always let the tier route to the right model.
 ollama:
-  base_url: http://localhost:11434
+  base_url: http://localhost:11434    # overridden by PRISM_LLM_BASE_URL env var
   tier_models:
     haiku:
-      model: qwen2.5-coder:14b
+      model: qwen2.5-coder:14b       # fast, structured tasks (SQL, routing, tagging)
       think: false
     sonnet:
-      model: qwen3.6:35b-a3b
+      model: qwen3.6:35b-a3b         # balanced narrative + analysis
       think: false
     opus:
-      model: qwen3.6:35b-a3b
-      think: true             # enables Qwen3 chain-of-thought for flagship calls
+      model: qwen3.6:35b-a3b         # same model; thinking mode for hard reasoning
+      think: true
 
 # Machine-readable thresholds the runtime router (prism/llm.py) reads to auto-escalate.
 escalation_thresholds:

@@ -75,6 +75,13 @@ _DDL = [
     )
     """,
 
+    # Land-value columns added when crim.parcelas is available (idempotent ALTER TABLE)
+    "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS land_value    DOUBLE PRECISION",
+    "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS land_per_m2   DOUBLE PRECISION",
+    "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS crim_owner    TEXT",
+    "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS crim_totalval DOUBLE PRECISION",
+    "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS s_land_value  DOUBLE PRECISION",
+
     "CREATE INDEX IF NOT EXISTS idx_sf_parcels_geom     ON sitefinder.candidate_parcels USING GIST (geom)",
     "CREATE INDEX IF NOT EXISTS idx_sf_parcels_centroid ON sitefinder.candidate_parcels USING GIST (centroid)",
     "CREATE INDEX IF NOT EXISTS idx_sf_parcels_catastro ON sitefinder.candidate_parcels (num_catastro)",

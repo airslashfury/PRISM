@@ -446,6 +446,10 @@ export interface SiteScorecard {
   road_access_min: number | null;
   community_resil: number | null;
   svi: number | null;
+  crim_owner: string | null;
+  crim_totalval: number | null;
+  land_value: number | null;
+  land_per_m2: number | null;
 }
 
 export interface SiteAccessPoint {

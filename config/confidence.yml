@@ -331,15 +331,29 @@ tables:
     confidence_tier: proxy
     assumptions: >-
       Weighted multi-criteria overlay. Inputs mix tiers — substation, water,
-      port, and FEMA flood locations are Authoritative, but grid_reliability
-      rides the Proxy feeder-assignment scores (resilience.scenario_scores),
-      so the composite inherits Proxy per the weakest-input rule. Criterion
-      weights are a documented default, not calibrated. Land cost is not yet a
-      criterion (no CRIM valuation).
+      port, FEMA flood locations, and CRIM land value are Authoritative, but
+      grid_reliability rides the Proxy feeder-assignment scores
+      (resilience.scenario_scores), so the composite inherits Proxy per the
+      weakest-input rule. Criterion weights are a documented default, not
+      calibrated. Land affordability criterion (s_land_value) uses CRIM assessed
+      land value per m² — authoritative assessment, not market price.
     upgrade_path: >-
-      Join CRIM valuation (owner/sale price) on num_catastro for a land-cost
-      criterion; calibrate weights with stakeholder input; upgrade grid_reliability
-      once feeder topology is authoritative.
+      Calibrate criterion weights with stakeholder input; upgrade grid_reliability
+      once feeder topology is authoritative; add market transaction price once
+      CRIM sales data becomes consistently available.
+
+  crim.parcelas:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      Official CRIM Catastro Digital parcel register, Puerto Rico — 1,535,837
+      parcels downloaded 2026-06-28 via catastro.crimpr.net. Assessed values
+      (TOTALVAL, LAND, STRUCTURE) are CRIM's official assessed valuations, not
+      market prices. Coverage: ~93% have owner name, ~92% have valuation, ~49%
+      have a sale record. Geometry reprojected from WGS84 to EPSG:32161.
+    upgrade_path: >-
+      Complement with CRIM transaction registry for market-price data; periodic
+      re-download to pick up reassessments and new parcels.
 
   validation.backtest_results:
     method: modeled

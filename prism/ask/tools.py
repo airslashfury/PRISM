@@ -262,3 +262,90 @@ def address_lookup(engine: Engine, *, query: str) -> dict[str, Any]:
         "map_points": [{"entity_id": match["entity_id"], "name": match["name"], "kind": "barrio", "lon": loc["lon"], "lat": loc["lat"]}] if loc else [],
         "confidence_tiers": tiers,
     }
+
+
+# Schema description fed to Haiku for SQL generation — kept short to fit in 256-token budget
+_PARCEL_SCHEMA = """\
+Two tables for CRIM Catastro Digital parcel data (Puerto Rico):
+
+Table: crim.parcelas_dedup  (1.3M rows — one row per catastro, most recent record)
+  Use for: current ownership, assessed value, area lookups.
+  num_catastro TEXT   — parcel ID (###-###-###-##)
+  municipio    TEXT   — municipality in Title Case (e.g. "Ponce", "San Juan", "Mayagüez")
+  contact      TEXT   — registered owner name
+  cabida       FLOAT  — lot area in cuerdas (1 cuerda ≈ 3,930 m²)
+  land         FLOAT  — assessed land value (USD)
+  structure    FLOAT  — assessed structure value (USD)
+  totalval     FLOAT  — total assessed value (USD)
+  salesamt     FLOAT  — most recent recorded sale price (USD, often NULL)
+  salesdttm    TIMESTAMPTZ — most recent sale date
+
+Table: crim.parcelas_history  (1.36M rows — up to 5 most recent records per catastro)
+  Use for: sale price trends, ownership history, price changes over time.
+  Same columns as parcelas_dedup PLUS:
+  sale_rank    INT    — 1 = most recent, 2 = previous, … up to 5
+  sellername   TEXT   — seller at time of sale
+  byername     TEXT   — buyer at time of sale
+  deedbook, deedpage, deednum TEXT — deed reference
+
+Rules:
+- SELECT only. Always include LIMIT (max 50).
+- For current value/ownership: use crim.parcelas_dedup.
+- For price history/trends: use crim.parcelas_history WHERE sale_rank <= N.
+- Filter NULL contact when grouping by owner.
+- For price change: self-join on num_catastro comparing sale_rank=1 vs sale_rank=2.
+- Always use ILIKE for municipio and contact filters (case varies in the data).
+"""
+
+_PARCEL_SQL_SYSTEM = (
+    "You generate a single read-only PostgreSQL SELECT query against CRIM Catastro tables "
+    "based on a natural-language question. Output ONLY the SQL — no explanation, no markdown, "
+    "no semicolons at the end. Maximum LIMIT is 50. Never use INSERT/UPDATE/DELETE/DROP/TRUNCATE. "
+    f"Table schema:\n{_PARCEL_SCHEMA}"
+)
+
+
+def parcel_query(engine: Engine, *, question: str) -> dict:
+    """Run a natural-language question as a SQL query against crim.parcelas (ownership, value, area)."""
+    from prism import llm
+
+    # Check table exists
+    with engine.connect() as conn:
+        exists = conn.execute(text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema='crim' AND table_name='parcelas')"
+        )).scalar()
+    if not exists:
+        return {
+            "tool": "parcel_query",
+            "error": "crim.parcelas has not been loaded yet. Run `python -m prism.crim` to load the CRIM parcel fabric.",
+            "confidence_tiers": {},
+        }
+
+    completion = llm.complete("nl_parcel_sql", question, system=_PARCEL_SQL_SYSTEM, max_tokens=300)
+    sql = (completion.text or "").strip().rstrip(";")
+
+    # Safety: only allow SELECT
+    first_word = sql.split()[0].upper() if sql.split() else ""
+    if first_word != "SELECT":
+        return {"tool": "parcel_query", "error": "could not generate a valid SELECT query for that question", "confidence_tiers": {}}
+
+    # Enforce LIMIT if missing
+    if "LIMIT" not in sql.upper():
+        sql = f"{sql} LIMIT 20"
+
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text(sql)).mappings().fetchall()
+        results = [dict(r) for r in rows]
+    except Exception as exc:
+        return {"tool": "parcel_query", "error": f"SQL error: {exc}", "generated_sql": sql, "confidence_tiers": {}}
+
+    return {
+        "tool": "parcel_query",
+        "question": question,
+        "generated_sql": sql,
+        "row_count": len(results),
+        "results": results,
+        "confidence_tiers": {"crim.parcelas": "authoritative"},
+    }
