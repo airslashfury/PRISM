@@ -468,6 +468,32 @@ export interface SiteScoreRequest {
   use_type?: string;
 }
 
+// ── Seismic (live USGS earthquakes) ─────────────────────────────────────────
+
+export interface SeismicEvent {
+  event_id: string;
+  mag: number | null;
+  place: string | null;
+  depth_km: number | null;
+  event_time: string;
+  updated_at: string | null;
+  felt: number | null;
+  tsunami: boolean;
+  url: string | null;
+  lon: number | null;
+  lat: number | null;
+}
+
+export interface SeismicResponse {
+  events: SeismicEvent[];
+  count: number;
+  max_mag: number | null;
+  felt_count: number;
+  window_days: number;
+  latest: string | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
 // ── CRIM parcel browser ─────────────────────────────────────────────────────
 
 export interface ParcelSearchHit {
@@ -649,7 +675,7 @@ export interface FeatureCollection {
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
 
 /** MVT tile URL template for a `/tiles/{layer}/{z}/{x}/{y}.mvt` layer (deck.gl MVTLayer `data`). */
-export function tileUrl(layer: "flood" | "transmission" | "tracts" | "parcelas"): string {
+export function tileUrl(layer: "flood" | "transmission" | "tracts" | "parcelas" | "faults"): string {
   return `${BASE}/tiles/${layer}/{z}/{x}/{y}.mvt`;
 }
 
@@ -716,6 +742,7 @@ export const api = {
   consequence: (entityId: number) => apiGet<ConsequenceSummary>(`/network/consequence/${entityId}`),
   generation: () => apiGet<GenerationStatus>("/network/generation"),
   outages: () => apiGet<LumaOutages>("/network/outages"),
+  seismic: (days = 30) => apiGet<SeismicResponse>("/network/seismic", { days }),
   substation: (id: number, scenario: string) =>
     apiGet<SubstationDetail>(`/resilience/substations/${id}`, { scenario }),
 

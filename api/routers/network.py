@@ -86,6 +86,39 @@ def outages(engine: Engine = Depends(engine_dep)) -> dict:
     }
 
 
+@router.get("/seismic", response_model=schemas.SeismicResponse)
+@cached_response("seismic", ttl=300)
+def seismic(days: int = 30, engine: Engine = Depends(engine_dep)) -> dict:
+    """Live USGS earthquakes for the PR / USVI region (last `days`).
+
+    AUTHORITATIVE (USGS is the seismic authority), no key. Read of
+    sync.seismic_events, refreshed by the usgs_quakes sync. The SW (Guánica)
+    cluster dominates — PR's active aftershock zone since the 2020 sequence.
+    """
+    events = fetch_all(
+        engine,
+        """
+        SELECT event_id, mag, place, depth_km, event_time, updated_at, felt,
+               tsunami, url, lon, lat
+        FROM sync.seismic_events
+        WHERE event_time >= now() - make_interval(days => :days)
+        ORDER BY event_time DESC
+        """,
+        days=days,
+    )
+    mags = [e["mag"] for e in events if e["mag"] is not None]
+    felt = sum(1 for e in events if (e["felt"] or 0) > 0)
+    return {
+        "events": events,
+        "count": len(events),
+        "max_mag": max(mags) if mags else None,
+        "felt_count": felt,
+        "window_days": days,
+        "latest": max((e["event_time"] for e in events), default=None),
+        "confidence_tier": "authoritative",
+    }
+
+
 @router.get("/transmission", response_model=schemas.FeatureCollection)
 @cached_response("transmission", ttl=21600)
 def transmission(engine: Engine = Depends(engine_dep)) -> dict:

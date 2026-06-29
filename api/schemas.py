@@ -220,6 +220,31 @@ class LumaOutages(BaseModel):
     as_of: datetime | None
 
 
+class SeismicEvent(BaseModel):
+    event_id: str
+    mag: float | None = None
+    place: str | None = None
+    depth_km: float | None = None
+    event_time: datetime
+    updated_at: datetime | None = None
+    felt: int | None = None
+    tsunami: bool = False
+    url: str | None = None
+    lon: float | None = None
+    lat: float | None = None
+
+
+class SeismicResponse(BaseModel):
+    """Live USGS earthquakes for the PR / USVI region (sync.seismic_events)."""
+    events: list[SeismicEvent]
+    count: int
+    max_mag: float | None = None
+    felt_count: int
+    window_days: int
+    latest: datetime | None = None
+    confidence_tier: str
+
+
 class SpofEntity(BaseModel):
     entity_id: int
     name: str | None

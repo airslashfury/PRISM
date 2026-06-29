@@ -46,6 +46,7 @@ const GRID_RGB: RGB = [34, 211, 238];
 const FLOOD_RGB: RGB = [37, 99, 235];
 const CONSEQUENCE_RGB: RGB = [250, 204, 21];
 const OFFLINE_RGB: RGB = [239, 68, 68];
+const FAULT_RGB: RGB = [249, 115, 22];
 
 /** One normalized map point, fed from either the live current-state feed or a
  *  scenario score. `value` drives color + radius; `is_offline` marks live outages. */
@@ -69,6 +70,7 @@ export default function ResiliencePage() {
   const [viz, setViz] = useState<string>("points");
   const [showGrid, setShowGrid] = useState(false);
   const [showFlood, setShowFlood] = useState(false);
+  const [showFaults, setShowFaults] = useState(false);
 
   const isCurrent = mode === "current";
   const current = useCurrentState();
@@ -129,6 +131,24 @@ export default function ResiliencePage() {
           filled: true,
           stroked: false,
           getFillColor: [...FLOOD_RGB, 60] as [number, number, number, number],
+          pickable: false,
+        }),
+      );
+    }
+
+    if (showFaults) {
+      ls.push(
+        new MVTLayer({
+          id: "faults",
+          data: tileUrl("faults"),
+          minZoom: 0,
+          maxZoom: 14,
+          filled: false,
+          stroked: true,
+          getLineColor: [...FAULT_RGB, 150] as [number, number, number, number],
+          getLineWidth: 1.2,
+          lineWidthUnits: "pixels",
+          lineWidthMinPixels: 0.8,
           pickable: false,
         }),
       );
@@ -242,7 +262,7 @@ export default function ResiliencePage() {
       );
     }
     return ls;
-  }, [points, offlinePoints, isCurrent, showGrid, showFlood, viz, min, max, selected, hovered, consequence]);
+  }, [points, offlinePoints, isCurrent, showGrid, showFlood, showFaults, viz, min, max, selected, hovered, consequence]);
 
   const getTooltip = (info: PickingInfo) => {
     const d = info.object as MapPoint | undefined;
@@ -349,6 +369,7 @@ export default function ResiliencePage() {
             />
             <LayerToggle label="Transmission grid" color={GRID_RGB} on={showGrid} onToggle={() => setShowGrid((v) => !v)} />
             <LayerToggle label="Flood zones (1%)" color={FLOOD_RGB} on={showFlood} onToggle={() => setShowFlood((v) => !v)} />
+            <LayerToggle label="Fault lines" color={FAULT_RGB} on={showFaults} onToggle={() => setShowFaults((v) => !v)} />
             {isCurrent && offlinePoints.length > 0 && (
               <div className="mt-2 flex items-center gap-2 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
                 <span className="h-2.5 w-2.5 rounded-full ring-2 ring-red-500" />

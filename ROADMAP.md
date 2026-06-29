@@ -139,26 +139,29 @@ significant quake triggers a rescore.
 
 ---
 
-### Item 5 — Refresh-cadence audit  *(folds in as feeds land)*
-Produce a **sync cadence table** in this file covering every feed + recommended interval, and
-wire the gaps as `SYNC_SOURCES` entries. Working draft:
+### Item 5 — Refresh-cadence audit
+The finalized sync cadence table. Each feed has a recommended interval, how it's triggered
+today, and whether automating it further is worth it.
 
-| Feed | Cadence | Status |
-|---|---|---|
-| USGS earthquakes | live (minutes) | new (item 4) |
-| PREPA generation | live / hourly | exists |
-| LUMA outages | live / hourly | exists |
-| Flood / marejada (WFS) | daily | exists |
-| Roads (WFS) | weekly | exists |
-| USGS NWIS water gauges | weekly | backlog (net-new water live feed) |
-| CRIM catastro | monthly (Sun AM) | new (item 6) |
-| NBI bridges | monthly / on-release | exists (manual) |
-| Census ACS | on-release | manual |
+| Feed | Recommended cadence | Trigger today | Automate further? |
+|---|---|---|---|
+| USGS earthquakes (`--source usgs`) | live / 15–60 min | CLI (item 4) | **Yes** — cheap, no key; good arq-cron candidate |
+| PREPA generation (`--source prepa`) | live / hourly | CLI | Yes — needs host `data/raw/` mount |
+| LUMA outages (`--source luma`) | live / hourly | CLI | Yes — pure HTTP, easy arq cron |
+| Flood / marejada (WFS) | daily | `python -m prism.sync` (checksum) | Already auto (rescore on change) |
+| Roads (WFS) | weekly | `python -m prism.sync` | Already auto |
+| CRIM catastro (`--snapshot`) | monthly (Sun AM AST) | host script (item 6, `docs/catastro_monthly.md`) | Host-side only (2.3 GB load) |
+| USGS NWIS water gauges | weekly | **not built** | Backlog — net-new water live feed |
+| NBI bridges | on-release (~yearly) | manual (`prism.transport.nbi`) | No — rarely changes |
+| Census ACS | on-release (~yearly) | manual | No — annual vintage |
 
-Flag which are genuinely worth automating vs. left manual.
+**Recommendation:** the three live HTTP feeds (USGS quakes, LUMA, PREPA) are the worthwhile
+arq-cron candidates — small, keyless/host-light, and time-sensitive. The WFS checksum sweep is
+already automated with rescore-on-change. CRIM stays host-side (download size). NBI/Census are
+correctly manual (annual). NWIS is the one genuine gap → tracked in `BACKLOG.md` (water domain).
 
-**Done when:** the cadence table is complete, gaps are either wired as `SYNC_SOURCES` or
-explicitly logged as manual in `BACKLOG.md`.
+**Done when:** the cadence table is complete, gaps are either wired or explicitly logged as
+manual/backlog. ✅ (USGS quakes wired this batch; NWIS logged in `BACKLOG.md`.)
 
 ---
 

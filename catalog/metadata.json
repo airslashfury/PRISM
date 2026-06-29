@@ -2338,6 +2338,33 @@
       "priority": "P1",
       "pulled_at": "2026-06-29",
       "computed_by": "prism.crim.snapshots.compute_deltas"
+    },
+    "derived:sync.seismic_events": {
+      "source": "derived",
+      "title": "sync.seismic_events",
+      "schema": "sync",
+      "table": "seismic_events",
+      "description": "Live USGS earthquakes for the PR / USVI region (mag, depth, place, time, geom). Pulled from earthquake.usgs.gov FDSN (no key), upserted on the USGS event id. Authoritative — USGS is the seismic authority.",
+      "inputs": [
+        "earthquake.usgs.gov/fdsnws/event/1/query",
+        "prism/sync/usgs_quakes.py"
+      ],
+      "compute_date": "2026-06-29",
+      "license": "derived"
+    },
+    "derived:fault_lines": {
+      "source": "derived",
+      "title": "fault_lines",
+      "schema": "public",
+      "table": "fault_lines",
+      "description": "PR geologic fault traces (normal + thrust/concealed) mirrored from the WFS keystone layers g15_geologia_faults_normal / _thrust_concealed, reprojected to EPSG:32161. Drives the seismic (quake-scenario) component of the hazard model via distance-to-nearest-fault.",
+      "inputs": [
+        "pr_geodata:g15_geologia_faults_normal",
+        "pr_geodata:g15_geologia_faults_thrust_concealed",
+        "prism/resilience/faults.py"
+      ],
+      "compute_date": "2026-06-29",
+      "license": "derived"
     }
   }
 }

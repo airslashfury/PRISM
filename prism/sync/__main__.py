@@ -23,7 +23,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma"], default=None,
+        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma", "usgs"], default=None,
         help="Limit sync to one source type (default: all)",
     )
     parser.add_argument(
@@ -83,6 +83,27 @@ def main() -> None:
             f"load-shed: {summary.get('total_load_shed')}  "
             f"history appended: {summary.get('history_rows', 0)} region rows"
         )
+        return
+
+    if args.source == "usgs":
+        from prism.sync.usgs_quakes import sync_seismic_events
+        print("Fetching USGS earthquake feed (PR / USVI) ...")
+        summary = sync_seismic_events(engine, mirror=not args.dry_run)
+        print(
+            f"  events: {summary['events']}  new: {summary['new']}  "
+            f"max mag: {summary.get('max_mag')}\n"
+            f"  latest: {summary.get('latest')}  "
+            f"significant new (>=4.5): {summary.get('significant_new')}"
+        )
+        # A significant new quake re-scores resilience under the seismic scenario.
+        if summary.get("significant_new") and not args.dry_run:
+            from prism.sync.trigger import trigger_rescore
+            try:
+                print("Significant earthquake -- triggering 'quake' resilience re-score ...")
+                trigger_rescore(engine, scenario="quake")
+                print("Re-score complete.")
+            except Exception as exc:
+                print(f"Quake re-score skipped: {exc}", file=sys.stderr)
         return
 
     if args.show_only:

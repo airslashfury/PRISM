@@ -6,10 +6,14 @@ Three hazard components are summed (clamped to 0.95):
   2. Sea-level-rise inundation extent (NOAA/PR WFS layers 0–10 ft)
   3. Terrain slope            (landslide/erosion proxy)
 
+A fourth component — seismic fault proximity — applies only to the "quake"
+scenario (distance to the nearest mapped fault trace in public.fault_lines).
+
 Scenarios defined here:
   "cat3"     — Cat-3 hurricane (storm-surge proxy via marejada + flood × 1.5, no SLR)
   "slr2ft"   — 2 ft sea-level rise (SLR inundation + base flood, no surge multiplier)
   "combined" — Cat-3 + 2 ft SLR (worst-case composite)
+  "quake"    — Major earthquake (fault-proximity ground failure + co-seismic slope, no flood)
 
 Flood zone base probabilities (above-ground infrastructure):
   VE  (coastal velocity):  0.85
@@ -56,6 +60,14 @@ _SLOPE_MED   = (10.0, 0.08)   # 10–20°
 # Nearest-neighbour radius for slope lookup (metres, same CRS as everything)
 _SLOPE_RADIUS_M = 500
 
+# Seismic: additive P(failure) by distance to the nearest mapped fault trace.
+# Closer to a mapped fault → stronger ground shaking + surface-rupture exposure.
+_FAULT_NEAR = (500.0,  0.30)   # ≤ 500 m
+_FAULT_MED  = (2000.0, 0.15)   # 500 m – 2 km
+_FAULT_FAR  = (5000.0, 0.05)   # 2 km – 5 km
+# beyond 5 km: 0.0
+_FAULT_RADIUS_M = _FAULT_FAR[0]
+
 
 @dataclass
 class HazardScenario:
@@ -64,6 +76,7 @@ class HazardScenario:
     cat3_surge: bool            # include marejada (Cat-2 proxy) × Cat-3 scale
     flood_multiplier: float     # scalar applied to flood zone base probability
     description: str = ""
+    seismic: bool = False       # include distance-to-fault ground-failure risk
 
 
 SCENARIOS: dict[str, HazardScenario] = {
@@ -87,6 +100,14 @@ SCENARIOS: dict[str, HazardScenario] = {
         cat3_surge=True,
         flood_multiplier=_CAT3_FLOOD_MULTIPLIER,
         description="Cat-3 hurricane under 2 ft SLR (worst-case)",
+    ),
+    "quake": HazardScenario(
+        name="quake",
+        use_slr_ft=None,
+        cat3_surge=False,
+        flood_multiplier=0.0,   # an earthquake is not a flood — seismic + slope dominate
+        seismic=True,
+        description="Major earthquake — fault-proximity ground shaking + co-seismic slope failure",
     ),
 }
 
@@ -190,6 +211,35 @@ def compute_hazard_scores(
         else:
             slope_map[eid] = _SLOPE_HIGH[1]
 
+    # ── Step 5: seismic — distance to nearest mapped fault (quake scenario) ───
+    fault_map: dict[int, float] = {}
+    if scenario.seismic:
+        log.info("  Step 5: seismic fault-proximity overlay …")
+        fault_sql = text(f"""
+            SELECT e.entity_id,
+                   (SELECT ST_Distance(fl.geom, e.geom)
+                    FROM fault_lines fl
+                    WHERE ST_DWithin(fl.geom, e.geom, :radius)
+                    ORDER BY fl.geom <-> e.geom
+                    LIMIT 1) AS nearest_fault_m
+            FROM graph.entities e
+            WHERE TRUE {entity_filter}
+        """)
+        fault_params = {"radius": _FAULT_RADIUS_M, **filter_params}
+        with engine.connect() as conn:
+            fault_rows = conn.execute(fault_sql, fault_params).fetchall()
+        for eid, dist in fault_rows:
+            if dist is None or dist > _FAULT_FAR[0]:
+                fault_map[eid] = 0.0
+            elif dist <= _FAULT_NEAR[0]:
+                fault_map[eid] = _FAULT_NEAR[1]
+            elif dist <= _FAULT_MED[0]:
+                fault_map[eid] = _FAULT_MED[1]
+            else:
+                fault_map[eid] = _FAULT_FAR[1]
+        log.info("    %d entities within %dm of a mapped fault",
+                 sum(1 for v in fault_map.values() if v > 0), int(_FAULT_RADIUS_M))
+
     # ── Combine components ────────────────────────────────────────────────────
     scored_ids = {eid for eid, _ in flood_rows}
     scores: dict[int, float] = {}
@@ -200,6 +250,7 @@ def compute_hazard_scores(
         if eid in surge_set:
             p += _SURGE_ADDITIVE
         p += slope_map.get(eid, 0.0)
+        p += fault_map.get(eid, 0.0)
         scores[eid] = min(p, 0.95)
 
     log.info(

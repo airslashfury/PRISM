@@ -206,6 +206,37 @@ def create_schema(engine: Engine) -> None:
             "ON sync.luma_outages_history (region, recorded_at)"
         ))
 
+        # ── USGS live earthquake feed (earthquake.usgs.gov FDSN, no key) ──────
+        # Append-only event log for the PR / USVI region. Each quake is a distinct
+        # USGS event id; a later poll may revise mag/depth, so we upsert on id.
+        # Authoritative (USGS is the seismic authority). geom in the working CRS.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.seismic_events (
+                event_id    text             PRIMARY KEY,
+                mag         double precision,
+                place       text,
+                depth_km    double precision,
+                event_time  timestamptz      NOT NULL,
+                updated_at  timestamptz,
+                felt        int,
+                tsunami     boolean          NOT NULL DEFAULT false,
+                url         text,
+                lon         double precision,
+                lat         double precision,
+                geom        geometry(Point, 32161),
+                fetched_at  timestamptz      NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_seismic_time ON sync.seismic_events (event_time DESC)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_seismic_mag ON sync.seismic_events (mag)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_seismic_geom ON sync.seismic_events USING GIST (geom)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

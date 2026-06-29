@@ -42,6 +42,13 @@ _LAYERS: dict[str, dict] = {
         "where": "t.geom IS NOT NULL",
         "ttl": 21600,
     },
+    # Geologic fault lines (12.7k segments) — seismic-hazard context layer
+    "faults": {
+        "table": "fault_lines",
+        "props": "t.fault_type AS fault_type, t.lntype AS lntype",
+        "where": "t.geom IS NOT NULL",
+        "ttl": 86400,
+    },
     # CRIM parcel fabric — 1.53M polygons; only rendered at z>=15 by the client
     "parcelas": {
         "table": "crim.parcelas",

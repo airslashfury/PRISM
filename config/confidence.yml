@@ -403,6 +403,32 @@ tables:
       Cross-check inferred sales against the CRIM transaction registry for exact
       recording dates and market prices.
 
+  sync.seismic_events:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Located earthquakes from the USGS FDSN event service (no key) for the PR /
+      USVI bounding box — USGS is the seismic authority. Magnitude/depth are
+      revised by USGS as more data arrives, so events are upserted on the USGS
+      event id. Coverage is the USGS catalog (PRSN-contributed for PR).
+    upgrade_path: >-
+      Add ShakeMap intensity polygons per significant event for ground-motion
+      exposure rather than epicentre proximity alone.
+
+  fault_lines:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      Mapped geologic fault traces (normal + thrust/concealed) from the PR
+      government WFS geology layers — the authoritative PR fault source (the USGS
+      Quaternary Fault DB does not cover Puerto Rico). Mapped-fault geometry, not
+      a probabilistic seismic-source model; slip rates / recurrence are not
+      attached, so the seismic hazard component uses distance-to-fault as a
+      proxy for shaking + surface-rupture exposure.
+    upgrade_path: >-
+      Attach slip rates / a probabilistic seismic hazard model (e.g. PRSN / USGS
+      NSHM offshore sources) to weight faults by activity, not just proximity.
+
   validation.backtest_results:
     method: modeled
     confidence_tier: modeled

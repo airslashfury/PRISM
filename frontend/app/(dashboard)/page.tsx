@@ -9,6 +9,7 @@ import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { NAV } from "@/components/layout/nav";
 import { GenerationPanel } from "@/components/generation-panel";
 import { OutagesPanel } from "@/components/outages-panel";
+import { SeismicPanel } from "@/components/seismic-panel";
 import { useOverview } from "@/lib/hooks";
 import { fmtInt, fmtNum, fmtRelative } from "@/lib/utils";
 
@@ -63,6 +64,9 @@ export default function OverviewPage() {
 
           {/* Live LUMA delivery-side outages — the complement to generation */}
           <OutagesPanel />
+
+          {/* Live USGS seismic feed — PR's active SW (Guánica) zone */}
+          <SeismicPanel />
 
           {/* Operational risk + twin freshness */}
           <div className="grid gap-4 sm:grid-cols-2">

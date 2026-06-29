@@ -19,6 +19,9 @@ export const useGeneration = () =>
 export const useOutages = () =>
   useQuery({ queryKey: ["outages"], queryFn: api.outages, staleTime: 2 * MIN });
 
+export const useSeismic = (days = 30) =>
+  useQuery({ queryKey: ["seismic", days], queryFn: () => api.seismic(days), staleTime: 5 * MIN });
+
 export const useScores = (scenario: string, top = 400) =>
   useQuery({
     queryKey: ["scores", scenario, top],
