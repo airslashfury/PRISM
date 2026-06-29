@@ -32,20 +32,27 @@ knowledge graph 48,801 nodes / 68K+ edges; confidence/provenance spine on every 
 Sequencing: **1 → 2 → 6 → 3+4 → 5**. Each chunk is phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-### Item 1 — MD consolidation  *(in progress)*
+### Item 1 — MD consolidation  *(✅ DONE)*
 Collapse the plan sprawl to two living files.
 - [x] Archive `PRISM_Refined_Plan`, `FRONTEND_PLAN`, `UI_PHASE_PLAN`, `MVP2_PLAN`,
   `MVP3_PLAN` → `docs/archive/`.
 - [x] Create this `ROADMAP.md` (canonical) + `BACKLOG.md` (stretch).
-- [ ] Trim `CLAUDE.md`'s long per-phase log to a pointer into this file + archive.
+- [x] Trim `CLAUDE.md`'s long per-phase log to a pointer into this file + archive.
 
 **Done when:** exactly two living plan files in root (`ROADMAP.md` + `BACKLOG.md`);
 `CLAUDE.md` points here for forward plan.
 
 ---
 
-### Item 2 — CRIM parcel browse + search  *(Priority 1)*
+### Item 2 — CRIM parcel browse + search  *(Priority 1)* — ✅ DONE (2026-06-29, Opus GO)
 Universal parcel explorer: **browse → click → enriched record**, with map highlight on search.
+
+> Shipped on branch `feat/crim-parcel-browse`: `/parcels` page + `prism/crim/query.py` +
+> `/crim/parcels/search` & `/crim/parcel/{nc}` + pg_trgm search indexes + 13 tests. Multi-field
+> search (catastro/owner/address), all-matches highlight + fit-bounds, enriched confidence-tagged
+> detail (CRIM record + serving substation/consequence, flood, community resilience, road access,
+> Site Finder rank, sale history). v2 enrichments deferred to item 6. One residual: deck.gl
+> rendering not visually eyeballed (no browser extension this session).
 Distinct from Site Finder (which ranks a ~7,710 industrial subset); this covers all 1.53M
 parcels and answers "tell me everything about *this* parcel."
 
