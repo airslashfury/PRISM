@@ -355,6 +355,30 @@ tables:
       Complement with CRIM transaction registry for market-price data; periodic
       re-download to pick up reassessments and new parcels.
 
+  crim.parcelas_dedup:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      One row per num_catastro, derived from crim.parcelas by keeping the most
+      recent CRIM record per parcel (DISTINCT ON, ORDER BY objectid DESC). Same
+      authoritative CRIM assessed values; no geometry. Used for current
+      ownership/value lookups and the Site Finder land-value join.
+    upgrade_path: >-
+      Rebuild on each monthly CRIM re-download; formalize as a reproducible
+      materialized view when item 6 (monthly snapshots + trends) lands.
+
+  crim.parcelas_history:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      Recorded sales per parcel (sale_rank within num_catastro) from the CRIM
+      Catastro register — official recorded transactions, not market appraisals.
+      Sale amounts of 0 occur (transfers, corrections). Feeds the parcel-detail
+      sale history and the future sales-trend tracking.
+    upgrade_path: >-
+      Accumulate across monthly re-downloads to build a true longitudinal
+      transaction history (item 6).
+
   validation.backtest_results:
     method: modeled
     confidence_tier: modeled

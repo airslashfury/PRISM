@@ -783,3 +783,118 @@ class SiteAccessPoint(BaseModel):
     municipio: str | None = None
     lon: float | None = None
     lat: float | None = None
+
+
+# ── CRIM parcel browser (full Catastro fabric — search + enriched detail) ────
+
+
+class ParcelSearchHit(BaseModel):
+    num_catastro: str
+    municipio: str | None = None
+    owner: str | None = None
+    address: str | None = None
+    totalval: float | None = None
+    tipo: str | None = None
+    lon: float | None = None
+    lat: float | None = None
+
+
+class ParcelSearchResult(BaseModel):
+    query: str
+    mode: str | None = None          # 'catastro' | 'owner_address' | None
+    count: int                       # true number of distinct matched parcels
+    capped: bool                     # True if more matched than the returned list
+    bbox: list[float] | None = None  # [min_lon, min_lat, max_lon, max_lat], WGS84
+    parcels: list[ParcelSearchHit] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class ParcelCrimRecord(BaseModel):
+    owner: str | None = None
+    physical_address: str | None = None
+    postal_address: str | None = None
+    tipo: str | None = None
+    area_cuerdas: float | None = None
+    subparcel_count: int
+    land_value: float | None = None
+    structure_value: float | None = None
+    machinery_value: float | None = None
+    total_value: float | None = None
+    exemption: float | None = None
+    exoneration: float | None = None
+    taxable_value: float | None = None
+    deed_book: str | None = None
+    deed_page: str | None = None
+    deed_number: str | None = None
+    estate: str | None = None
+    last_sale_amount: float | None = None
+    last_sale_date: str | None = None
+    last_seller: str | None = None
+    last_buyer: str | None = None
+    confidence_tier: str
+
+
+class ParcelSale(BaseModel):
+    amount: float | None = None
+    date: str | None = None
+    seller: str | None = None
+    buyer: str | None = None
+    deed_book: str | None = None
+    deed_page: str | None = None
+    deed_number: str | None = None
+
+
+class ParcelPower(BaseModel):
+    substation_id: int
+    substation_name: str | None = None
+    edge_confidence: float
+    cat3_composite: float | None = None
+    headline: str | None = None
+    population_affected: int | None = None
+    hospitals: int | None = None
+    water_plants: int | None = None
+    health_centers: int | None = None
+    confidence_tier: str
+
+
+class ParcelFlood(BaseModel):
+    fraction_in_flood_zone: float
+    level: str
+    worst_zone: str | None = None
+    confidence_tier: str
+
+
+class ParcelCommunity(BaseModel):
+    score: float
+    percentile: float
+    confidence_tier: str
+
+
+class ParcelRoadAccess(BaseModel):
+    nearest_hospital: str
+    travel_time_min: float
+    confidence_tier: str
+
+
+class ParcelSiteFinder(BaseModel):
+    parcel_id: int
+    use_type: str | None = None
+    composite_score: float | None = None
+    confidence_tier: str
+
+
+class ParcelDetail(BaseModel):
+    num_catastro: str
+    catastro: str | None = None
+    municipio: str | None = None
+    barrio_entity_id: int | None = None
+    barrio_name: str | None = None
+    lon: float | None = None
+    lat: float | None = None
+    crim: ParcelCrimRecord
+    sale_history: list[ParcelSale] = Field(default_factory=list)
+    power: ParcelPower | None = None
+    flood: ParcelFlood
+    community: ParcelCommunity | None = None
+    road_access: ParcelRoadAccess | None = None
+    site_finder: ParcelSiteFinder | None = None

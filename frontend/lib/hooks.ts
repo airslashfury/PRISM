@@ -180,3 +180,21 @@ export const useSiteParcel = (parcelId: number | null) =>
 
 export const useSiteAccessPoints = () =>
   useQuery({ queryKey: ["siteAccessPoints"], queryFn: api.siteAccessPoints, staleTime: 60 * MIN });
+
+/** CRIM parcel browser: multi-field search (matched set + bbox) and enriched detail. */
+export const useParcelSearch = (q: string | null) =>
+  useQuery({
+    queryKey: ["parcelSearch", q],
+    queryFn: () => api.parcelSearch(q as string),
+    enabled: !!q && q.trim().length > 0,
+    staleTime: 5 * MIN,
+    placeholderData: keepPreviousData,
+  });
+
+export const useParcelDetail = (numCatastro: string | null) =>
+  useQuery({
+    queryKey: ["parcelDetail", numCatastro],
+    queryFn: () => api.parcelDetail(numCatastro as string),
+    enabled: numCatastro != null,
+    staleTime: 10 * MIN,
+  });

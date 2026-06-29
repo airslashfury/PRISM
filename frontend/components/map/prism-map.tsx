@@ -77,6 +77,8 @@ export interface PrismMapProps {
   satellite?: boolean;
   /** When set, drives the camera directly (e.g. a fly-through tour) — applied with no transition. */
   viewStateOverride?: MapViewState | null;
+  /** Called with the current zoom whenever the view changes (e.g. to gate a heavy layer). */
+  onZoom?: (zoom: number) => void;
   /** Called once the map (and its API) is ready. */
   onMapReady?: (api: PrismMapApi) => void;
   /** Called once the terrain DEM tiles for the current view have finished loading. */
@@ -94,6 +96,7 @@ export function PrismMap({
   exaggeration = 1.7,
   satellite = false,
   viewStateOverride = null,
+  onZoom,
   onMapReady,
   onTerrainTilesLoaded,
 }: PrismMapProps) {
@@ -260,6 +263,7 @@ export function PrismMap({
             (interactionState as Record<string, boolean>)?.isRotating
           ) {
             setViewState(vs as MapViewState);
+            onZoom?.((vs as MapViewState).zoom ?? 0);
           }
         }}
         controller={{

@@ -468,6 +468,120 @@ export interface SiteScoreRequest {
   use_type?: string;
 }
 
+// ── CRIM parcel browser ─────────────────────────────────────────────────────
+
+export interface ParcelSearchHit {
+  num_catastro: string;
+  municipio: string | null;
+  owner: string | null;
+  address: string | null;
+  totalval: number | null;
+  tipo: string | null;
+  lon: number | null;
+  lat: number | null;
+}
+
+export interface ParcelSearchResult {
+  query: string;
+  mode: "catastro" | "owner_address" | null;
+  count: number;
+  capped: boolean;
+  bbox: [number, number, number, number] | null;
+  parcels: ParcelSearchHit[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelCrimRecord {
+  owner: string | null;
+  physical_address: string | null;
+  postal_address: string | null;
+  tipo: string | null;
+  area_cuerdas: number | null;
+  subparcel_count: number;
+  land_value: number | null;
+  structure_value: number | null;
+  machinery_value: number | null;
+  total_value: number | null;
+  exemption: number | null;
+  exoneration: number | null;
+  taxable_value: number | null;
+  deed_book: string | null;
+  deed_page: string | null;
+  deed_number: string | null;
+  estate: string | null;
+  last_sale_amount: number | null;
+  last_sale_date: string | null;
+  last_seller: string | null;
+  last_buyer: string | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelSale {
+  amount: number | null;
+  date: string | null;
+  seller: string | null;
+  buyer: string | null;
+  deed_book: string | null;
+  deed_page: string | null;
+  deed_number: string | null;
+}
+
+export interface ParcelPower {
+  substation_id: number;
+  substation_name: string | null;
+  edge_confidence: number;
+  cat3_composite: number | null;
+  headline: string | null;
+  population_affected: number | null;
+  hospitals: number | null;
+  water_plants: number | null;
+  health_centers: number | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelFlood {
+  fraction_in_flood_zone: number;
+  level: string;
+  worst_zone: string | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelCommunity {
+  score: number;
+  percentile: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelRoadAccess {
+  nearest_hospital: string;
+  travel_time_min: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelSiteFinder {
+  parcel_id: number;
+  use_type: string | null;
+  composite_score: number | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelDetail {
+  num_catastro: string;
+  catastro: string | null;
+  municipio: string | null;
+  barrio_entity_id: number | null;
+  barrio_name: string | null;
+  lon: number | null;
+  lat: number | null;
+  crim: ParcelCrimRecord;
+  sale_history: ParcelSale[];
+  power: ParcelPower | null;
+  flood: ParcelFlood;
+  community: ParcelCommunity | null;
+  road_access: ParcelRoadAccess | null;
+  site_finder: ParcelSiteFinder | null;
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -481,7 +595,7 @@ export interface FeatureCollection {
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
 
 /** MVT tile URL template for a `/tiles/{layer}/{z}/{x}/{y}.mvt` layer (deck.gl MVTLayer `data`). */
-export function tileUrl(layer: "flood" | "transmission" | "tracts"): string {
+export function tileUrl(layer: "flood" | "transmission" | "tracts" | "parcelas"): string {
   return `${BASE}/tiles/${layer}/{z}/{x}/{y}.mvt`;
 }
 
@@ -628,6 +742,10 @@ export const api = {
   siteScore: (body: SiteScoreRequest) => apiSend<SiteResult[]>("/sitefinder/score", "POST", body),
   siteParcel: (parcelId: number) => apiGet<SiteScorecard>(`/sitefinder/parcel/${parcelId}`),
   siteAccessPoints: () => apiGet<SiteAccessPoint[]>("/sitefinder/access-points"),
+
+  parcelSearch: (q: string) => apiGet<ParcelSearchResult>("/crim/parcels/search", { q }),
+  parcelDetail: (numCatastro: string) =>
+    apiGet<ParcelDetail>(`/crim/parcel/${encodeURIComponent(numCatastro)}`),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

@@ -49,7 +49,22 @@ _DDL = [
     "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_municipio   ON crim.parcelas (municipio)",
     "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_contact     ON crim.parcelas (contact)",
     "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_totalval    ON crim.parcelas (totalval)",
+
+    # Trigram indexes — fast case-insensitive owner / address substring search
+    # (the parcel browser's search box). pg_trgm is a stock PostGIS-image extension.
+    "CREATE EXTENSION IF NOT EXISTS pg_trgm",
+    "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_contact_trgm   ON crim.parcelas USING gin (contact gin_trgm_ops)",
+    "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_dirfisica_trgm ON crim.parcelas USING gin (direccion_fisica gin_trgm_ops)",
 ]
+
+# Note: two derived tables also live in the `crim` schema but are built outside
+# this module (ad-hoc, during the CRIM/Site Finder work) and are queried
+# defensively (guarded by to_regclass) where used:
+#   crim.parcelas_dedup   — one row per num_catastro (no geom)
+#   crim.parcelas_history — recorded sales per parcel (sale_rank), feeds the
+#                           parcel-detail sale history + the future trends work.
+# Formalize these as first-class, reproducible tables when item 6 (monthly
+# snapshots + trends) lands.
 
 _DROP_DDL = [
     "DROP TABLE IF EXISTS crim.parcelas CASCADE",
