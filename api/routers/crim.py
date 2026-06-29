@@ -8,12 +8,14 @@ joined with PRISM's model outputs for that ground — not a 1:1 dupe. Distinct f
 """
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.engine import Engine
 
 from api import schemas
 from api.deps import engine_dep
-from prism.crim import query
+from prism.crim import query, trends
 
 router = APIRouter(prefix="/crim", tags=["crim"])
 
@@ -35,3 +37,36 @@ def parcel(num_catastro: str, engine: Engine = Depends(engine_dep)) -> dict:
     if detail is None:
         raise HTTPException(status_code=404, detail=f"no parcel with catastro {num_catastro}")
     return detail
+
+
+@router.get("/trends", response_model=schemas.TrendsResponse)
+def sales_trends(
+    months: int = Query(12, ge=1, le=120, description="Trailing window for the hot-spot ranking"),
+    since: int = Query(2010, ge=1980, le=2100, description="First year of the time series"),
+    top: int = Query(25, ge=1, le=78, description="How many top municipios to return"),
+    engine: Engine = Depends(engine_dep),
+) -> dict:
+    """Sales-trend analytics over the CRIM recorded-sales history (cached 1h).
+
+    Hot-spot municipios by recent activity, an island-wide sales/median-price
+    time series, and recent month-over-month parcel deltas once tracking has
+    ≥2 monthly snapshots.
+    """
+    cache_key = f"crim:trends:{months}:{since}:{top}"
+    try:
+        from prism.cache import get_client
+        client = get_client()
+    except Exception:
+        client = None
+    if client is not None:
+        cached = client.get(cache_key)
+        if cached is not None:
+            return json.loads(cached)
+
+    result = trends.trends(engine, months=months, since=since, top=top)
+    if client is not None:
+        try:
+            client.set(cache_key, json.dumps(result), ex=3600)
+        except Exception:
+            pass
+    return result

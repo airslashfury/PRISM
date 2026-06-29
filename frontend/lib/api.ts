@@ -582,6 +582,60 @@ export interface ParcelDetail {
   site_finder: ParcelSiteFinder | null;
 }
 
+// ── CRIM sales trends ───────────────────────────────────────────────────────
+
+export interface TrendsSummary {
+  sales_12mo: number;
+  sales_total: number;
+  median_price_12mo: number | null;
+  median_price_all: number | null;
+  earliest: string | null;
+  latest: string | null;
+  municipios: number;
+  snapshots: number;
+  deltas_available: boolean;
+  latest_delta_month: string | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface MunicipioTrend {
+  municipio: string;
+  sales: number;
+  prior_sales: number;
+  median_price: number | null;
+  volume: number | null;
+  lon: number | null;
+  lat: number | null;
+}
+
+export interface YearTrend {
+  year: number;
+  sales: number;
+  median_price: number | null;
+}
+
+export interface ParcelDeltaItem {
+  to_month: string | null;
+  num_catastro: string;
+  municipio: string | null;
+  change_type: string;
+  old_value: string | null;
+  new_value: string | null;
+  delta_num: number | null;
+}
+
+export interface RecentDeltas {
+  by_type: Record<string, number>;
+  items: ParcelDeltaItem[];
+}
+
+export interface TrendsResponse {
+  summary: TrendsSummary;
+  by_municipio: MunicipioTrend[];
+  by_year: YearTrend[];
+  recent_deltas: RecentDeltas;
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -746,6 +800,8 @@ export const api = {
   parcelSearch: (q: string) => apiGet<ParcelSearchResult>("/crim/parcels/search", { q }),
   parcelDetail: (numCatastro: string) =>
     apiGet<ParcelDetail>(`/crim/parcel/${encodeURIComponent(numCatastro)}`),
+  crimTrends: (months = 12, since = 2010, top = 25) =>
+    apiGet<TrendsResponse>("/crim/trends", { months, since, top }),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

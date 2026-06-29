@@ -898,3 +898,58 @@ class ParcelDetail(BaseModel):
     community: ParcelCommunity | None = None
     road_access: ParcelRoadAccess | None = None
     site_finder: ParcelSiteFinder | None = None
+
+
+# ── CRIM sales trends (item 6 — monthly snapshots + deltas) ──────────────────
+
+
+class TrendsSummary(BaseModel):
+    sales_12mo: int
+    sales_total: int
+    median_price_12mo: float | None = None
+    median_price_all: float | None = None
+    earliest: str | None = None
+    latest: str | None = None
+    municipios: int
+    snapshots: int                      # monthly snapshots captured so far
+    deltas_available: bool              # True once ≥2 snapshots exist
+    latest_delta_month: str | None = None
+    confidence_tier: str
+
+
+class MunicipioTrend(BaseModel):
+    municipio: str
+    sales: int                          # in the trailing window
+    prior_sales: int                    # the window before that (momentum)
+    median_price: float | None = None
+    volume: float | None = None         # capped sum (outliers excluded)
+    lon: float | None = None
+    lat: float | None = None
+
+
+class YearTrend(BaseModel):
+    year: int
+    sales: int
+    median_price: float | None = None
+
+
+class ParcelDeltaItem(BaseModel):
+    to_month: str | None = None
+    num_catastro: str
+    municipio: str | None = None
+    change_type: str                    # new_parcel | sale | value_change | owner_change
+    old_value: str | None = None
+    new_value: str | None = None
+    delta_num: float | None = None
+
+
+class RecentDeltas(BaseModel):
+    by_type: dict[str, int] = Field(default_factory=dict)
+    items: list[ParcelDeltaItem] = Field(default_factory=list)
+
+
+class TrendsResponse(BaseModel):
+    summary: TrendsSummary
+    by_municipio: list[MunicipioTrend] = Field(default_factory=list)
+    by_year: list[YearTrend] = Field(default_factory=list)
+    recent_deltas: RecentDeltas

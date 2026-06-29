@@ -2318,6 +2318,26 @@
       "priority": "P0",
       "pulled_at": "2026-06-28",
       "computed_by": "SQL materialized view — crim.parcelas_history"
+    },
+    "derived:crim.parcela_snapshots": {
+      "title": "crim.parcela_snapshots — monthly versioned parcel state",
+      "description": "One frozen row per parcel per monthly CRIM pull (snapshot_month, num_catastro → owner, totalval, land, structure, last sale). The versioned record that powers month-over-month delta capture. Seeded 2026-06 baseline (1.3M parcels).",
+      "source": "derived:crim.parcelas_dedup",
+      "domain": "territorio",
+      "license": "Puerto Rico government — public cadastral record",
+      "priority": "P1",
+      "pulled_at": "2026-06-29",
+      "computed_by": "prism.crim.snapshots.take_snapshot"
+    },
+    "derived:crim.parcel_deltas": {
+      "title": "crim.parcel_deltas — month-over-month parcel changes",
+      "description": "Append-only diff between consecutive monthly snapshots: new_parcel, sale, value_change, owner_change, with old/new values and a numeric delta. The longitudinal signal behind the Market Trends page. Empty until a second snapshot exists.",
+      "source": "derived:crim.parcela_snapshots",
+      "domain": "territorio",
+      "license": "Puerto Rico government — public cadastral record",
+      "priority": "P1",
+      "pulled_at": "2026-06-29",
+      "computed_by": "prism.crim.snapshots.compute_deltas"
     }
   }
 }

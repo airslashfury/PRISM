@@ -379,6 +379,30 @@ tables:
       Accumulate across monthly re-downloads to build a true longitudinal
       transaction history (item 6).
 
+  crim.parcela_snapshots:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      Monthly frozen copy of each parcel's CRIM state (owner, assessed values,
+      last sale) — one row per num_catastro per snapshot_month, sourced from
+      crim.parcelas_dedup. Authoritative CRIM values, not market prices.
+    upgrade_path: >-
+      Accumulates one snapshot per monthly pull; the longer the series, the
+      richer the trend and reassessment tracking.
+
+  crim.parcel_deltas:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      Computed diff between two consecutive monthly snapshots (new_parcel / sale
+      / value_change / owner_change). Authoritative inputs, but the change
+      classification is PRISM's — a sale is inferred from a newer sale date, a
+      value change from a totalval difference ≥ $1. Reflects what CRIM published
+      between pulls, not necessarily the legal transaction date.
+    upgrade_path: >-
+      Cross-check inferred sales against the CRIM transaction registry for exact
+      recording dates and market prices.
+
   validation.backtest_results:
     method: modeled
     confidence_tier: modeled

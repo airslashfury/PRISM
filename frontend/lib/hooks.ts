@@ -198,3 +198,10 @@ export const useParcelDetail = (numCatastro: string | null) =>
     enabled: numCatastro != null,
     staleTime: 10 * MIN,
   });
+
+export const useCrimTrends = (months = 12, since = 2010, top = 25) =>
+  useQuery({
+    queryKey: ["crimTrends", months, since, top],
+    queryFn: () => api.crimTrends(months, since, top),
+    staleTime: 30 * MIN,
+  });
