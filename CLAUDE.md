@@ -142,12 +142,15 @@ live PREPA/LUMA feeds, NBI bridge spans, and a Site Finder over industrial parce
 work. The older plan docs (`PRISM_Refined_Plan`, `FRONTEND_PLAN`, `UI_PHASE_PLAN`, `MVP2_PLAN`,
 `MVP3_PLAN`) are archived in `docs/archive/`.
 
-**Active queue (see `ROADMAP.md` for full specs):**
-1. MD consolidation *(in progress)*
-2. CRIM parcel browse + search — enriched detail, map highlight on search *(Priority 1)*
-3+4. Fault lines (seismic hazard) + USGS earthquake live tracker
-5. Refresh-cadence audit
-6. Monthly catastro pull → delta capture → sales/value trend tracking
+**Active queue (see `ROADMAP.md` for full specs) — ALL 6 DONE (2026-06-29, each Opus GO):**
+1. ✅ MD consolidation
+2. ✅ CRIM parcel browse + search — `/parcels`, enriched detail, owner-footprint map highlight
+3+4. ✅ Fault lines (`public.fault_lines` + seismic `quake` scenario) + USGS earthquake live tracker (`/network/seismic`, SeismicPanel)
+5. ✅ Refresh-cadence audit (table in ROADMAP)
+6. ✅ Monthly catastro snapshots/deltas + Market Trends page (`/trends`)
+
+All on branch `feat/crim-parcel-browse` (unmerged). Next work: `BACKLOG.md` (CRIM v2
+owner/address normalization; P3-gov/eng; P4 water/telecom/multi-hazard).
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

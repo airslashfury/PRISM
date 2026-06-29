@@ -32,6 +32,13 @@ knowledge graph 48,801 nodes / 68K+ edges; confidence/provenance spine on every 
 Sequencing: **1 → 2 → 6 → 3+4 → 5**. Each chunk is phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
+> **Status (2026-06-29): all six items DONE** — every one Opus phase-gate GO, on branch
+> `feat/crim-parcel-browse` (commits `2c17530`, `494b520`, `f299beb`, `d4b3df6`, `3c4b81c`).
+> The queue is clear; next work comes from `BACKLOG.md` (near-term: CRIM v2 owner/address
+> normalization; P3-gov/eng surfaces; P4 water/telecom/multi-hazard breadth). One cross-cutting
+> residual: the new deck.gl maps/panels weren't visually eyeballed (no browser extension this
+> session) — glance before any demo.
+
 ### Item 1 — MD consolidation  *(✅ DONE)*
 Collapse the plan sprawl to two living files.
 - [x] Archive `PRISM_Refined_Plan`, `FRONTEND_PLAN`, `UI_PHASE_PLAN`, `MVP2_PLAN`,
@@ -96,9 +103,15 @@ map with bounds fit, and clicks one to get the enriched, confidence-tagged recor
 
 ---
 
-### Item 6 — Monthly catastro pull + delta & trend tracking  *(high-value, novel)*
+### Item 6 — Monthly catastro pull + delta & trend tracking  *(high-value, novel)* — ✅ DONE (2026-06-29, Opus GO)
 Capture CRIM monthly, diff it, and surface sale/value **trends** nobody else is publishing.
 Builds directly on item 2's CRIM layer.
+
+> Shipped (`d4b3df6`): `crim.parcela_snapshots` (2026-06 baseline, 1.3M parcels) + `crim.parcel_deltas`
+> (new_parcel/sale/value_change/owner_change, idempotent); `prism/crim/trends.py` (median + outlier
+> clamp — raw salesamt is corrupt); `/crim/trends` + Market Trends page; `python -m prism.crim
+> --snapshot` CLI; `docs/catastro_monthly.md` (Sunday-AM cadence). First MoM deltas land on the next
+> monthly pull. v2 owner-entity + address normalization still deferred here (see `BACKLOG.md`).
 
 - **Cadence:** monthly, weekend, **early-Sunday AM AST** by default. Probe `sigejp.pr.gov` /
   CRIM ArcGIS response latency across a weekend to confirm Sat vs Sun lower-traffic window
@@ -119,9 +132,16 @@ sale/value/owner changes; a Market Trends page shows top municipios by sales and
 
 ---
 
-### Items 3 + 4 — Fault lines (static hazard) + earthquake tracker (live feed)
+### Items 3 + 4 — Fault lines (static hazard) + earthquake tracker (live feed) — ✅ DONE (2026-06-29, Opus GO)
 Built together — same seismic domain. PR's defining recent shock is the 2020 Guánica sequence;
 the current hazard model (`prism/resilience/hazard.py`) is flood/SLR/surge/slope only.
+
+> Shipped (`3c4b81c`): **faults** — `public.fault_lines` (12,759 segments) mirrored from the WFS
+> keystone geology layers (USGS QFaults doesn't cover PR); seismic component in `hazard.py`
+> (distance-to-fault additive) + `quake` scenario (332 substations scored); faults toggle on
+> Resilience. **quakes** — `sync.seismic_events` + `prism/sync/usgs_quakes.py` (USGS FDSN, no key);
+> `/network/seismic`; SeismicPanel on Overview; `--source usgs` CLI; mag≥4.5 triggers a `quake`
+> rescore. Residual: deck.gl rendering not visually eyeballed.
 
 - **Fault lines (3, static):** mirror USGS Quaternary Faults + PRSN traces → `hazard.fault_lines`.
   Add a **seismic component** to `hazard.py` (distance-to-fault → additive P(failure)) and a new
@@ -139,7 +159,7 @@ significant quake triggers a rescore.
 
 ---
 
-### Item 5 — Refresh-cadence audit
+### Item 5 — Refresh-cadence audit — ✅ DONE (2026-06-29)
 The finalized sync cadence table. Each feed has a recommended interval, how it's triggered
 today, and whether automating it further is worth it.
 
