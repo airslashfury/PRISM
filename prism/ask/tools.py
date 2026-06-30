@@ -288,20 +288,39 @@ Table: crim.parcelas_history  (1.36M rows — up to 5 most recent records per ca
   byername     TEXT   — buyer at time of sale
   deedbook, deedpage, deednum TEXT — deed reference
 
+Column mapping (CRITICAL — always use the right column):
+- "expensive" / "valuable" / "worth" / "assessed value" / "highest value" / "most costly" → totalval
+- "large" / "biggest" / "area" / "size" / "biggest lot" / "most land" → cabida
+- "sale price" / "sold for" / "purchase price" → salesamt
+- "owner" / "who owns" / "registered to" → contact
+
 Rules:
 - SELECT only. Always include LIMIT (max 50).
 - For current value/ownership: use crim.parcelas_dedup.
 - For price history/trends: use crim.parcelas_history WHERE sale_rank <= N.
-- Filter NULL contact when grouping by owner.
+- ALWAYS SELECT contact, municipio, totalval, num_catastro (plus any other relevant columns). Never select only one column.
+- ALWAYS add WHERE contact IS NOT NULL AND totalval IS NOT NULL when ordering by totalval.
 - For price change: self-join on num_catastro comparing sale_rank=1 vs sale_rank=2.
 - Always use ILIKE for municipio and contact filters (case varies in the data).
+- "most expensive" / "highest value" / "most valuable" lot ALWAYS means ORDER BY totalval DESC — never cabida.
 """
 
 _PARCEL_SQL_SYSTEM = (
     "You generate a single read-only PostgreSQL SELECT query against CRIM Catastro tables "
     "based on a natural-language question. Output ONLY the SQL — no explanation, no markdown, "
     "no semicolons at the end. Maximum LIMIT is 50. Never use INSERT/UPDATE/DELETE/DROP/TRUNCATE. "
-    f"Table schema:\n{_PARCEL_SCHEMA}"
+    f"Table schema:\n{_PARCEL_SCHEMA}\n\n"
+    "Examples:\n"
+    "Q: Who owns the most expensive lot in PR?\n"
+    "A: SELECT contact, municipio, totalval, num_catastro FROM crim.parcelas_dedup WHERE contact IS NOT NULL AND totalval IS NOT NULL ORDER BY totalval DESC LIMIT 5\n\n"
+    "Q: What are the largest parcels in Ponce?\n"
+    "A: SELECT contact, municipio, cabida, totalval, num_catastro FROM crim.parcelas_dedup WHERE municipio ILIKE 'Ponce' AND cabida IS NOT NULL ORDER BY cabida DESC LIMIT 10\n\n"
+    "Q: Show recent sales in Humacao\n"
+    "A: SELECT contact, municipio, salesamt, salesdttm, num_catastro FROM crim.parcelas_dedup WHERE municipio ILIKE 'Humacao' AND salesamt IS NOT NULL ORDER BY salesdttm DESC LIMIT 20\n\n"
+    "Q: Who owns the most parcels in PR? Exclude municipio and autoridad\n"
+    "A: SELECT contact, COUNT(*) AS parcel_count FROM crim.parcelas_dedup WHERE contact IS NOT NULL AND contact NOT ILIKE '%municipio%' AND contact NOT ILIKE '%autoridad%' AND contact NOT ILIKE '%departamento%' AND contact NOT ILIKE '%administracion%' AND contact NOT ILIKE '%john doe%' GROUP BY contact ORDER BY parcel_count DESC LIMIT 20\n\n"
+    "Q: Top owner of land per municipio, private only\n"
+    "A: SELECT DISTINCT ON (municipio) municipio, contact, SUM(cabida) AS total_cabida FROM crim.parcelas_dedup WHERE contact IS NOT NULL AND contact NOT ILIKE '%municipio%' AND contact NOT ILIKE '%autoridad%' AND contact NOT ILIKE '%departamento%' AND contact NOT ILIKE '%administracion%' AND contact NOT ILIKE '%john doe%' GROUP BY municipio, contact ORDER BY municipio, total_cabida DESC LIMIT 78\n"
 )
 
 
@@ -322,24 +341,115 @@ def parcel_query(engine: Engine, *, question: str) -> dict:
             "confidence_tiers": {},
         }
 
-    completion = llm.complete("nl_parcel_sql", question, system=_PARCEL_SQL_SYSTEM, max_tokens=300)
-    sql = (completion.text or "").strip().rstrip(";")
+    import re as _re
+
+    def _clean_sql(raw: str) -> str:
+        s = (raw or "").strip().rstrip(";")
+        if s.startswith("```"):
+            s = "\n".join(ln for ln in s.splitlines() if not ln.startswith("```")).strip()
+        return s
+
+    def _patch_sql(s: str, q: str) -> str:
+        """Apply deterministic corrections to common LLM SQL mistakes."""
+        up = s.upper()
+        # "expensive/value" question but ordering by area → fix to totalval
+        _value_terms = {"expensive", "valuable", "value", "worth", "costly", "assessed", "price"}
+        if _value_terms & set(q.lower().split()):
+            if _re.search(r'ORDER\s+BY\s+\w*cabida', s, _re.IGNORECASE):
+                s = _re.sub(r'(ORDER\s+BY\s+)\w*cabida\b', r'\1totalval', s, flags=_re.IGNORECASE)
+                up = s.upper()
+                if "TOTALVAL" not in up:
+                    s = _re.sub(r'\bSELECT\b', 'SELECT totalval,', s, count=1, flags=_re.IGNORECASE)
+                    up = s.upper()
+        # "exclude municipio/autoridad/government" → inject NOT ILIKE filters
+        _exclude_terms = {"exclude", "private", "non-government", "nongovernment"}
+        _govt_terms = {"municipio", "autoridad", "gobierno", "government"}
+        if (_exclude_terms & set(q.lower().split())) or (_govt_terms & set(q.lower().split())):
+            if "NOT ILIKE '%MUNICIPIO%'" not in up and "NOT ILIKE '%municipio%'" not in up:
+                excl = (
+                    " contact NOT ILIKE '%municipio%'"
+                    " AND contact NOT ILIKE '%autoridad%'"
+                    " AND contact NOT ILIKE '%gobierno%'"
+                    " AND contact NOT ILIKE '%departamento%'"
+                    " AND contact NOT ILIKE '%administracion%'"
+                    " AND contact NOT ILIKE '%john doe%'"
+                    " AND contact IS NOT NULL"
+                )
+                where_m = _re.search(r'\bWHERE\b', s, _re.IGNORECASE)
+                group_m = _re.search(r'\bGROUP\s+BY\b', s, _re.IGNORECASE)
+                order_m = _re.search(r'\bORDER\s+BY\b', s, _re.IGNORECASE)
+                if where_m:
+                    ins = where_m.end()
+                    s = s[:ins] + excl + " AND" + s[ins:]
+                elif group_m:
+                    s = s[:group_m.start()] + "WHERE" + excl + "\n" + s[group_m.start():]
+                elif order_m:
+                    s = s[:order_m.start()] + "WHERE" + excl + "\n" + s[order_m.start():]
+                up = s.upper()
+        # cabida aggregated but not null-filtered
+        if _re.search(r'\b(SUM|AVG|MAX|MIN)\s*\(\s*cabida\s*\)', s, _re.IGNORECASE) and "CABIDA IS NOT NULL" not in up:
+            where_m2 = _re.search(r'\bWHERE\b', s, _re.IGNORECASE)
+            group_m2 = _re.search(r'\bGROUP\s+BY\b', s, _re.IGNORECASE)
+            order_m2 = _re.search(r'\bORDER\s+BY\b', s, _re.IGNORECASE)
+            if where_m2:
+                ins = where_m2.end()
+                s = s[:ins] + " cabida IS NOT NULL AND" + s[ins:]
+            elif group_m2:
+                s = s[:group_m2.start()] + "WHERE cabida IS NOT NULL\n" + s[group_m2.start():]
+            elif order_m2:
+                s = s[:order_m2.start()] + "WHERE cabida IS NOT NULL\n" + s[order_m2.start():]
+            up = s.upper()
+
+        # totalval used but not null-filtered
+        if "TOTALVAL" in up and "TOTALVAL IS NOT NULL" not in up:
+            where_m = _re.search(r'\bWHERE\b', s, _re.IGNORECASE)
+            group_m = _re.search(r'\bGROUP\s+BY\b', s, _re.IGNORECASE)
+            order_m = _re.search(r'\bORDER\s+BY\b', s, _re.IGNORECASE)
+            if where_m:
+                ins = where_m.end()
+                s = s[:ins] + " totalval IS NOT NULL AND" + s[ins:]
+            elif group_m:
+                s = s[:group_m.start()] + "WHERE totalval IS NOT NULL\n" + s[group_m.start():]
+            elif order_m:
+                s = s[:order_m.start()] + "WHERE totalval IS NOT NULL\n" + s[order_m.start():]
+        # Enforce LIMIT
+        if "LIMIT" not in s.upper():
+            s = s + " LIMIT 20"
+        return s
+
+    completion = llm.complete("nl_parcel_sql", question, system=_PARCEL_SQL_SYSTEM, max_tokens=400)
+    sql = _clean_sql(completion.text)
 
     # Safety: only allow SELECT
     first_word = sql.split()[0].upper() if sql.split() else ""
     if first_word != "SELECT":
         return {"tool": "parcel_query", "error": "could not generate a valid SELECT query for that question", "confidence_tiers": {}}
 
-    # Enforce LIMIT if missing
-    if "LIMIT" not in sql.upper():
-        sql = f"{sql} LIMIT 20"
+    sql = _patch_sql(sql, question)
+
+    def _run_sql(s: str):
+        with engine.connect() as conn:
+            return [dict(r) for r in conn.execute(text(s)).mappings().fetchall()]
 
     try:
-        with engine.connect() as conn:
-            rows = conn.execute(text(sql)).mappings().fetchall()
-        results = [dict(r) for r in rows]
+        results = _run_sql(sql)
     except Exception as exc:
-        return {"tool": "parcel_query", "error": f"SQL error: {exc}", "generated_sql": sql, "confidence_tiers": {}}
+        # Retry once: send the error back to the LLM to fix
+        fix_prompt = (
+            f"The following SQL failed with this error:\n\nSQL:\n{sql}\n\nError:\n{exc}\n\n"
+            f"Original question: {question}\n\nFix the SQL so it runs correctly. Output ONLY the corrected SQL."
+        )
+        fix = llm.complete("nl_parcel_sql", fix_prompt, system=_PARCEL_SQL_SYSTEM, max_tokens=400)
+        sql2 = _clean_sql(fix.text)
+        if sql2.split()[0].upper() == "SELECT":
+            sql2 = _patch_sql(sql2, question)
+            try:
+                results = _run_sql(sql2)
+                sql = sql2
+            except Exception as exc2:
+                return {"tool": "parcel_query", "error": f"SQL error: {exc2}", "generated_sql": sql2, "confidence_tiers": {}}
+        else:
+            return {"tool": "parcel_query", "error": f"SQL error: {exc}", "generated_sql": sql, "confidence_tiers": {}}
 
     return {
         "tool": "parcel_query",

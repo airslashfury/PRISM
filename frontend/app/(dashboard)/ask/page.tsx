@@ -133,7 +133,6 @@ export default function AskPage() {
                   <>
                     <NarrativePanel
                       markdown={turn.response.answer_md}
-                      modelUsed={turn.response.status === "ok" ? turn.response.model_used : null}
                     />
                     {Object.keys(turn.response.confidence_tiers).length > 0 && (
                       <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
