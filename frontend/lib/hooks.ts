@@ -10,6 +10,9 @@ const MIN = 60_000;
 export const useOverview = () =>
   useQuery({ queryKey: ["overview"], queryFn: api.overview, staleTime: 2 * MIN });
 
+export const useWhatsNew = () =>
+  useQuery({ queryKey: ["whatsnew"], queryFn: api.whatsnew, staleTime: 2 * MIN });
+
 export const useScenarios = () =>
   useQuery({ queryKey: ["scenarios"], queryFn: api.scenarios, staleTime: 30 * MIN });
 

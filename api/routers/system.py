@@ -79,6 +79,14 @@ def overview(engine: Engine = Depends(engine_dep)) -> dict:
     }
 
 
+@router.get("/whatsnew", response_model=schemas.WhatsNewResponse)
+def whatsnew(engine: Engine = Depends(engine_dep)) -> dict:
+    """Feed freshness + a newest-first typed change stream for the overview cockpit."""
+    from prism.sync.changes import whatsnew as _whatsnew
+
+    return _whatsnew(engine)
+
+
 def _distinct_scenarios(engine: Engine) -> list[dict]:
     from api.db import fetch_all
 

@@ -668,6 +668,44 @@ export interface OwnerDetail {
   top_parcels: OwnerPortfolioParcel[];
 }
 
+// ── What's new (overview cockpit: what-changed + stale-data) ─────────────────
+
+export interface FeedFreshness {
+  source_name: string;
+  source_type: string | null;
+  layer_name: string | null;
+  status: string | null;
+  row_count: number | null;
+  interval_hours: number | null;
+  last_fetched_at: string | null;
+  age_seconds: number | null;
+  stale: boolean;
+}
+
+export type ChangeKind = "sync" | "rescore" | "quake" | "crim";
+
+export interface ChangeEvent {
+  kind: ChangeKind;
+  headline: string;
+  detail: string | null;
+  at: string | null;
+  href: string | null;
+}
+
+export interface CrimBaseline {
+  snapshot_month: string | null;
+  snapshots: number;
+  deltas_available: boolean;
+  latest_delta_month: string | null;
+}
+
+export interface WhatsNewResponse {
+  feeds: FeedFreshness[];
+  stale_count: number;
+  changes: ChangeEvent[];
+  crim_baseline: CrimBaseline;
+}
+
 // ── CRIM sales trends ───────────────────────────────────────────────────────
 
 export interface TrendsSummary {
@@ -793,6 +831,7 @@ async function apiSend<T>(path: string, method: "POST" | "DELETE", body?: unknow
 export const api = {
   health: () => apiGet<HealthResponse>("/health"),
   overview: () => apiGet<Overview>("/overview"),
+  whatsnew: () => apiGet<WhatsNewResponse>("/whatsnew"),
 
   scenarios: () => apiGet<ScenarioInfo[]>("/resilience/scenarios"),
   scores: (scenario: string, top = 400) =>

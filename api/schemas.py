@@ -58,6 +58,43 @@ class OverviewResponse(BaseModel):
     phases: list[PhaseStatus]
 
 
+# ── What's new (F2 — what-changed + stale-data surfacing) ────────────────────
+
+
+class FeedFreshness(BaseModel):
+    source_name: str
+    source_type: str | None = None
+    layer_name: str | None = None
+    status: str | None = None
+    row_count: int | None = None
+    interval_hours: float | None = None
+    last_fetched_at: str | None = None
+    age_seconds: float | None = None
+    stale: bool
+
+
+class ChangeEvent(BaseModel):
+    kind: str                           # sync | rescore | quake | crim
+    headline: str
+    detail: str | None = None
+    at: str | None = None               # ISO timestamp (or month for CRIM deltas)
+    href: str | None = None
+
+
+class CrimBaseline(BaseModel):
+    snapshot_month: str | None = None
+    snapshots: int
+    deltas_available: bool
+    latest_delta_month: str | None = None
+
+
+class WhatsNewResponse(BaseModel):
+    feeds: list[FeedFreshness] = Field(default_factory=list)
+    stale_count: int
+    changes: list[ChangeEvent] = Field(default_factory=list)
+    crim_baseline: CrimBaseline
+
+
 # --------------------------------------------------------------------------- #
 # Resilience                                                                   #
 # --------------------------------------------------------------------------- #

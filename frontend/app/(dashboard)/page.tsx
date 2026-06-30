@@ -10,6 +10,7 @@ import { NAV } from "@/components/layout/nav";
 import { GenerationPanel } from "@/components/generation-panel";
 import { OutagesPanel } from "@/components/outages-panel";
 import { SeismicPanel } from "@/components/seismic-panel";
+import { WhatsNew } from "@/components/whats-new";
 import { useOverview } from "@/lib/hooks";
 import { fmtInt, fmtNum, fmtRelative } from "@/lib/utils";
 
@@ -35,30 +36,21 @@ export default function OverviewPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-xl border border-border/70 bg-gradient-to-br from-card via-card to-primary/5 p-8">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-        <div className="relative">
-          <Badge variant="outline" className="mb-4 gap-1.5 border-primary/30 text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Puerto Rico Infrastructure Simulation Model
-          </Badge>
-          <h1 className="max-w-2xl text-3xl font-semibold tracking-tight">
-            The consequences of infrastructure decisions, made easy to see.
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            PRISM models power, water, roads, telecom, and emergency response as one interconnected
-            system — optimizing for long-term societal value, not the cheapest path. Power, economy,
-            optimization, and rail corridors, queryable in real time.
-          </p>
-        </div>
-      </section>
+      <div>
+        <h1 className="text-lg font-semibold tracking-tight">Island posture</h1>
+        <p className="text-sm text-muted-foreground">
+          What changed, what&apos;s live, and where the risk sits right now.
+        </p>
+      </div>
 
       {error && <ErrorBlock error={error} />}
       {isLoading && <LoadingBlock label="Loading system posture" />}
 
       {data && (
         <>
+          {/* Lead: what changed since last sync + which feeds are fresh/stale */}
+          <WhatsNew />
+
           {/* Live PREPA / Genera grid command center — the operational headline */}
           <GenerationPanel />
 
@@ -134,6 +126,23 @@ export default function OverviewPage() {
                   </Link>
                 );
               })}
+            </div>
+          </section>
+
+          {/* Brand statement — demoted below the operational fold */}
+          <section className="relative overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/5 p-6">
+            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
+            <div className="relative">
+              <Badge variant="outline" className="mb-3 gap-1.5 border-primary/30 text-primary">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                Puerto Rico Infrastructure Simulation Model
+              </Badge>
+              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                PRISM models power, water, roads, telecom, and emergency response as one
+                interconnected system — optimizing for long-term societal value, not the cheapest
+                path. The objective is not to make decisions; it is to make their consequences easy
+                to see.
+              </p>
             </div>
           </section>
         </>
