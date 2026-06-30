@@ -925,6 +925,67 @@ class ParcelDetail(BaseModel):
     site_finder: ParcelSiteFinder | None = None
 
 
+# ── CRIM owner intelligence (F1 — normalized owner entities) ─────────────────
+
+
+class OwnerSearchHit(BaseModel):
+    owner_key: str
+    display_name: str | None = None
+    parcel_count: int
+    total_val: float | None = None
+    municipio_count: int
+
+
+class OwnerSearchResult(BaseModel):
+    query: str
+    count: int                          # total entities matching the fragment
+    owners: list[OwnerSearchHit] = Field(default_factory=list)
+    confidence_tier: str
+    available: bool                     # False until `prism.crim --normalize` has run
+
+
+class OwnerFootprintParcel(BaseModel):
+    num_catastro: str
+    municipio: str | None = None
+    totalval: float | None = None
+    lon: float | None = None
+    lat: float | None = None
+
+
+class OwnerMunicipio(BaseModel):
+    municipio: str | None = None
+    parcel_count: int
+    total_val: float | None = None
+
+
+class OwnerTimelinePoint(BaseModel):
+    snapshot_month: str
+    parcels: int
+    total_val: float | None = None
+
+
+class OwnerPortfolioParcel(BaseModel):
+    num_catastro: str
+    municipio: str | None = None
+    totalval: float | None = None
+    address_norm: str | None = None
+
+
+class OwnerDetail(BaseModel):
+    owner_key: str
+    display_name: str | None = None
+    parcel_count: int
+    total_val: float | None = None
+    municipio_count: int
+    confidence_tier: str
+    bbox: list[float] | None = None     # [min_lon, min_lat, max_lon, max_lat], WGS84
+    footprint_capped: bool
+    footprint: list[OwnerFootprintParcel] = Field(default_factory=list)
+    by_municipio: list[OwnerMunicipio] = Field(default_factory=list)
+    timeline: list[OwnerTimelinePoint] = Field(default_factory=list)
+    top_parcels: list[OwnerPortfolioParcel] = Field(default_factory=list)
+
+
 # ── CRIM sales trends (item 6 — monthly snapshots + deltas) ──────────────────
 
 

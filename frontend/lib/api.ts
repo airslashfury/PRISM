@@ -608,6 +608,66 @@ export interface ParcelDetail {
   site_finder: ParcelSiteFinder | null;
 }
 
+// ── CRIM owner intelligence (normalized entities) ───────────────────────────
+
+export interface OwnerSearchHit {
+  owner_key: string;
+  display_name: string | null;
+  parcel_count: number;
+  total_val: number | null;
+  municipio_count: number;
+}
+
+export interface OwnerSearchResult {
+  query: string;
+  count: number;
+  owners: OwnerSearchHit[];
+  confidence_tier: ConfidenceTierKey;
+  available: boolean;
+}
+
+export interface OwnerFootprintParcel {
+  num_catastro: string;
+  municipio: string | null;
+  totalval: number | null;
+  lon: number | null;
+  lat: number | null;
+}
+
+export interface OwnerMunicipio {
+  municipio: string | null;
+  parcel_count: number;
+  total_val: number | null;
+}
+
+export interface OwnerTimelinePoint {
+  snapshot_month: string;
+  parcels: number;
+  total_val: number | null;
+}
+
+export interface OwnerPortfolioParcel {
+  num_catastro: string;
+  municipio: string | null;
+  totalval: number | null;
+  address_norm: string | null;
+}
+
+export interface OwnerDetail {
+  owner_key: string;
+  display_name: string | null;
+  parcel_count: number;
+  total_val: number | null;
+  municipio_count: number;
+  confidence_tier: ConfidenceTierKey;
+  bbox: [number, number, number, number] | null;
+  footprint_capped: boolean;
+  footprint: OwnerFootprintParcel[];
+  by_municipio: OwnerMunicipio[];
+  timeline: OwnerTimelinePoint[];
+  top_parcels: OwnerPortfolioParcel[];
+}
+
 // ── CRIM sales trends ───────────────────────────────────────────────────────
 
 export interface TrendsSummary {
@@ -827,6 +887,9 @@ export const api = {
   parcelSearch: (q: string) => apiGet<ParcelSearchResult>("/crim/parcels/search", { q }),
   parcelDetail: (numCatastro: string) =>
     apiGet<ParcelDetail>(`/crim/parcel/${encodeURIComponent(numCatastro)}`),
+  ownerSearch: (q: string) => apiGet<OwnerSearchResult>("/crim/owners/search", { q }),
+  ownerDetail: (ownerKey: string) =>
+    apiGet<OwnerDetail>(`/crim/owner/${encodeURIComponent(ownerKey)}`),
   crimTrends: (months = 12, since = 2010, top = 25) =>
     apiGet<TrendsResponse>("/crim/trends", { months, since, top }),
 };

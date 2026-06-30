@@ -1,6 +1,7 @@
 """CLI: python -m prism.crim [--drop] [--show-only]
         python -m prism.crim --snapshot          # monthly: freeze state + compute deltas
         python -m prism.crim --snapshot-month 2026-07-01
+        python -m prism.crim --normalize         # (re)build owner_key + normalized address tables
 """
 from __future__ import annotations
 
@@ -26,10 +27,19 @@ def main() -> None:
                     help="Run the monthly cycle: freeze the current state + compute deltas vs last month")
     ap.add_argument("--snapshot-month", metavar="YYYY-MM-DD",
                     help="Month to snapshot (default: current month); implies --snapshot")
+    ap.add_argument("--normalize", action="store_true",
+                    help="(Re)build crim.parcel_owner + crim.owner_entities (owner key + address)")
     args = ap.parse_args()
 
     engine = get_engine()
     raw_dir = _REPO_ROOT / "data" / "raw"
+
+    if args.normalize:
+        from prism.crim.normalize import build
+        res = build(engine)
+        print(f"crim.parcel_owner: {res['parcels']:,} rows  |  "
+              f"crim.owner_entities: {res['entities']:,} keys  (source {res['source']})")
+        return
 
     if args.snapshot or args.snapshot_month:
         from prism.crim.snapshots import run_monthly

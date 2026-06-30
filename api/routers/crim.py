@@ -15,7 +15,7 @@ from sqlalchemy.engine import Engine
 
 from api import schemas
 from api.deps import engine_dep
-from prism.crim import query, trends
+from prism.crim import owners, query, trends
 
 router = APIRouter(prefix="/crim", tags=["crim"])
 
@@ -36,6 +36,25 @@ def parcel(num_catastro: str, engine: Engine = Depends(engine_dep)) -> dict:
     detail = query.get_parcel_detail(engine, num_catastro)
     if detail is None:
         raise HTTPException(status_code=404, detail=f"no parcel with catastro {num_catastro}")
+    return detail
+
+
+@router.get("/owners/search", response_model=schemas.OwnerSearchResult)
+def owner_search(
+    q: str = Query(..., min_length=1, description="Owner name fragment"),
+    limit: int = Query(25, ge=1, le=100),
+    engine: Engine = Depends(engine_dep),
+) -> dict:
+    """Resolve a name fragment to normalized owner entities (variants collapsed)."""
+    return owners.search_owners(engine, q, limit=limit)
+
+
+@router.get("/owner/{owner_key:path}", response_model=schemas.OwnerDetail)
+def owner_detail(owner_key: str, engine: Engine = Depends(engine_dep)) -> dict:
+    """One owner's footprint, municipio split, holdings timeline, and portfolio."""
+    detail = owners.get_owner_detail(engine, owner_key)
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"no owner entity {owner_key!r}")
     return detail
 
 

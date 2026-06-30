@@ -27,17 +27,153 @@ knowledge graph 48,801 nodes / 68K+ edges; confidence/provenance spine on every 
 
 ---
 
-## Active work queue
+## Active work queue — frontend product arc (converged review, 2026-06-29)
 
-Sequencing: **1 → 2 → 6 → 3+4 → 5**. Each chunk is phase-gated by the Opus
+Source: two independent frontend reviews — [`PRISM_FRONTEND_RECOMMENDATIONS.md`](PRISM_FRONTEND_RECOMMENDATIONS.md)
+(GPT5.5) and [`PRISM_FRONTEND_REFUTAL.md`](PRISM_FRONTEND_REFUTAL.md) (Opus) — **converged** on the
+same sequence after one rebuttal pass. The bet, in one line:
+
+> Don't redesign PRISM first — make it more alive first.
+
+Owner intelligence + what-changed + stale-data honesty come **before** any broad UI refactor;
+reusable workspace patterns get introduced later, lazily, on the water build, behind a Playwright
+net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** (what-changed) and
+**F3** (Playwright) are net-new.
+
+Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-06-29): all six items DONE** — every one Opus phase-gate GO, on branch
-> `feat/crim-parcel-browse` (commits `2c17530`, `494b520`, `f299beb`, `d4b3df6`, `3c4b81c`).
-> The queue is clear; next work comes from `BACKLOG.md` (near-term: CRIM v2 owner/address
-> normalization; P3-gov/eng surfaces; P4 water/telecom/multi-hazard breadth). One cross-cutting
-> residual: the new deck.gl maps/panels weren't visually eyeballed (no browser extension this
-> session) — glance before any demo.
+> **Status (2026-06-30):** F1 DONE (Opus GO). **F2 (what-changed + stale-data, light overview
+> cockpit) is next.** All on `feat/crim-parcel-browse`, uncommitted.
+
+### Item F1 — CRIM owner/address normalization + owner UI  *(Priority 1)* — ✅ DONE (2026-06-30, Opus GO)
+The highest-value new surface, on data already loaded (`crim.parcelas`, 1.53M parcels). Was the
+top BACKLOG near-term item; both reviews ranked it #1.
+
+> Shipped on `feat/crim-parcel-browse`: `prism/crim/normalize.py` (conservative deterministic
+> `normalize_owner`/`normalize_address` + derived `crim.parcel_owner` 1,239,298 rows /
+> `crim.owner_entities` 887,708 keys; `--normalize` CLI) + `prism/crim/owners.py` +
+> `/crim/owners/search` & `/crim/owner/{key}` (modeled tier, JOHN-DOE sentinel filtered) + 7 schemas.
+> `/parcels` extended: owner-mode search → Owners strip → owner drawer (footprint map + Holdings +
+> by-municipio + snapshot timeline + largest-parcels portfolio). 27 tests (22 normalize + 5 owner).
+> Build: 908,557 raw owners → 887,708 keys (~21K variants merged). Opus gate GO; fixed one latent
+> bug at gate (JOHN-DOE filter case-sensitivity → `NOT ILIKE`). Deferred: aggressive fuzzy owner
+> merge (govt-agency variants stay split by design); geocoding-grade address v2; owner drawer not
+> visually eyeballed (→ F3 Playwright).
+- **Owner entity key** — normalize `contact` (uppercase, strip punctuation/accents/legal suffixes
+  `LLC`/`L.L.C.`/`INC`) so spelling variants collapse to one entity. Persist as a normalized key
+  (e.g. `crim.owner_entities` + per-parcel FK) so it survives monthly snapshots.
+- **Address normalization** — `direccion_fisica` is dirty; backfill the missing municipio from the
+  `municipio` column, standardize formatting. Unblocks reliable geocoding.
+- **Owner UI** — owner detail view: island-wide **footprint map** (all parcels for the entity),
+  **portfolio table** (parcel count, total/assessed value), **timeline** from `crim.parcela_snapshots`,
+  and a **top-owners-by-municipio/barrio** rollup. Parcel search "owner" mode resolves to the entity.
+
+**Decisions (2026-06-29):** owner UI **extends `/parcels`** (owner-mode search → owner-summary card →
+owner detail drawer; reuses the existing MapCanvas + highlight layer) rather than a standalone
+`/owners` route. Owner-name normalization is **conservative/deterministic** (uppercase, accent-fold,
+strip punctuation + known legal suffixes, collapse whitespace) — no fuzzy clustering, to avoid false
+merges; `owner_key` is tagged a notch below the authoritative raw CRIM record (normalization is
+best-effort). Build order: data layer (`prism/crim/normalize.py` + derived tables + `--normalize`
+CLI + tests) first — UI-agnostic — then the `/parcels` owner surface.
+
+**Done when:** searching an owner collapses spelling variants to one entity; the owner view shows a
+footprint map + portfolio table (count, total/assessed value) + a snapshot-derived timeline; and a
+top-owners-by-municipio query is trustworthy on the normalized key.
+
+### Item F2 — What-changed + stale-data surfacing (light overview cockpit)  *(net-new)*
+The cheapest path to "the twin feels alive" — backing data already exists. **Not** a cockpit rebuild.
+- **What-changed strip** sourced from real deltas: `crim.parcel_deltas` since last snapshot,
+  rescore **rank movement** (e.g. "substation 8→3 under quake"), owner deltas, recent quakes,
+  feed-freshness changes.
+- **Stale-data honesty:** feed-age chips on the live panels ("PREPA current: 12 min", "LUMA stale:
+  3 h"), "CRIM baseline 2026-06, next delta pending", and proxy disclaimers (feeder Voronoi).
+- **Light overview pass:** keep the existing Generation/Outages/Seismic panels, lead with live
+  exceptions + the what-changed strip, demote the hero + module-card grid below the fold.
+
+**Done when:** the overview leads with live exceptions + a what-changed strip sourced from real
+deltas (CRIM / rescore / feed-age); every live feed shows its freshness; the module grid is below the
+fold — with no from-scratch rebuild of the working panels.
+
+### Item F3 — Playwright smoke tests for map routes  *(net-new; the safety net)*
+Zero E2E exists today; map pages pass `tsc` and still render blank. This is the prerequisite for the
+lazy MapWorkspace extraction at F6.
+- Playwright config + smoke specs for every map route (`/resilience`, `/parcels`, `/sitefinder`,
+  `/trends`, `/corridor`, `/economy`, overview). Assert a **non-empty canvas** + key overlays
+  visible, at **desktop + mobile** widths.
+- Runnable locally; wire into the frontend lint/typecheck/build flow to the extent the dataset allows
+  (CI lacks the 3.6 GB local data — seed/mock or mark local-only as needed).
+
+**Done when:** a Playwright suite renders each map route and asserts a non-empty canvas + a key
+overlay at desktop and mobile widths, runnable locally.
+
+### Item F4 — Scenario library + comparison → Report Studio / exports
+The "decision record system" arc. Pulls up BACKLOG P3-gov scenario library + Report Studio and
+P3-eng provenance-stamped exports — and closes the real provenance gap (it must **travel with
+exports**).
+- **Scenario library** — save / name / clone / permalink / diff (extends Playground M4 +
+  `report.scenario_comparison`); diff shows changed assets, objective-value delta, and the
+  population/equity/facilities exposure delta with the SVI equity lens.
+- **Report Studio** — one-click board-pack PDF (maps, ranked tables, objective breakdown, flagship
+  Opus narrative, every figure's confidence tier, source/vintage appendix).
+- **Provenance-stamped exports** — any table/map → CSV/GeoPackage with a provenance sidecar.
+
+**Done when:** scenarios persist (save/name/clone/permalink) and diff A-vs-B with objective + equity
+deltas; a board-pack PDF generates with confidence tiers + a source appendix; tables/maps export to
+CSV/GeoPackage with a provenance sidecar.
+
+### Item F5 — Engineer assumptions + robust-vs-sensitive surfacing
+Pulls up BACKLOG P3-eng assumptions panel. The sleeper feature is the sensitivity flag, and the
+backend already exists (`api/routers/validate.py`, `SensitivityResult`) — this is mostly "expose what's
+built."
+- **Global assumptions panel** — edit VOLL, discount rate, feeder radius, hazard params → re-run
+  affected scores via the M3 job queue → rankings shift live.
+- **Robust-vs-sensitive indicator** on each ranking, sourced from the existing sensitivity backend.
+
+**Done when:** editing a global assumption re-runs affected scores and shows the rank shifts; each
+ranking flags whether it is robust or sensitive to those assumptions.
+
+### Item F6 — Water cascade page (+ lazy MapWorkspace / entity-drawer extraction)
+Pulls up BACKLOG P4 water domain — and is the deliberate moment to extract the shared workspace
+shell, now that F3's net exists. Right idea, right timing.
+- **Water domain** (`prism/assets/water.py`) — load the PRASA network (`g37_agua_*` / `ww_*`, already
+  mirrored), build `POWERS`→pump/plant + plant→barrio `SERVES` edges, water-resilience scoring,
+  `/water` page, **power→water cascade**. **USGS NWIS gauges** = the net-new water live feed.
+- **Lazy extraction** — build `/water` on a newly extracted `MapWorkspace` + entity-drawer grammar
+  (What is it / Where / What depends on it / What hazards / What data / What changed / What actions);
+  migrate **one** existing map page onto it as proof. The other pages follow opportunistically — no
+  standalone six-page refactor.
+
+**Done when:** `/water` shows the PRASA network with a power→water cascade + water-resilience scoring;
+NWIS gauges land as a live feed; the page is built on an extracted MapWorkspace + entity-drawer shell
+with one existing page migrated onto it as proof.
+
+### Item F7 — Telecom cascade page
+Pulls up BACKLOG P4 telecom domain — the "Comms" rung of the dependency chain, on the F6 shell.
+- `prism/assets/telecom.py`; tower/fiber entities (`cellular`, `antenas`, `conductos_fibra_optica`);
+  **power→telecom cascade**; coverage-loss scoring; `/telecom` page on the shared workspace shell.
+
+**Done when:** `/telecom` shows towers/fiber with a power→telecom cascade + coverage-loss scoring,
+built on the shared workspace shell.
+
+**Demoted / parked — explicit non-goals for now** (both reviews agreed):
+- **Role modes** — premature segmentation; ship role-shaped *pages* (`/citizen` is the model), not a
+  global mode switch. Defer until real cohorts exist.
+- **Standalone six-page MapWorkspace refactor** — right idea, wrong timing; extract lazily at F6.
+- **`any` / `as never` cleanup** — ~5 occurrences, all justified deck.gl `GeoJsonLayer` casts; dropped.
+- **Confirm-modal + font warning** — opportunistic polish; not scheduled.
+- **"Make provenance visible"** — already visible (`ProvenanceBadge`/`InfoPanel`); the real gap
+  (provenance traveling with exports) is folded into **F4**.
+
+---
+
+## Completed queue — CRIM / seismic batch (2026-06-29, all Opus GO)
+
+> All six items DONE — every one Opus phase-gate GO, on branch `feat/crim-parcel-browse`
+> (commits `2c17530`, `494b520`, `f299beb`, `d4b3df6`, `3c4b81c`). The one cross-cutting residual —
+> the new deck.gl maps/panels were never visually eyeballed — is now addressed by **F3** above.
+
+Sequencing was **1 → 2 → 6 → 3+4 → 5**.
 
 ### Item 1 — MD consolidation  *(✅ DONE)*
 Collapse the plan sprawl to two living files.

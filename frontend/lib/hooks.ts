@@ -202,6 +202,24 @@ export const useParcelDetail = (numCatastro: string | null) =>
     staleTime: 10 * MIN,
   });
 
+/** CRIM owner intelligence: normalized-entity search + per-owner footprint/portfolio. */
+export const useOwnerSearch = (q: string | null) =>
+  useQuery({
+    queryKey: ["ownerSearch", q],
+    queryFn: () => api.ownerSearch(q as string),
+    enabled: !!q && q.trim().length > 0,
+    staleTime: 5 * MIN,
+    placeholderData: keepPreviousData,
+  });
+
+export const useOwnerDetail = (ownerKey: string | null) =>
+  useQuery({
+    queryKey: ["ownerDetail", ownerKey],
+    queryFn: () => api.ownerDetail(ownerKey as string),
+    enabled: ownerKey != null,
+    staleTime: 10 * MIN,
+  });
+
 export const useCrimTrends = (months = 12, since = 2010, top = 25) =>
   useQuery({
     queryKey: ["crimTrends", months, since, top],
