@@ -43,8 +43,9 @@ net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** 
 Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-06-30):** F1 + F2 DONE (each Opus GO), committed + pushed to
-> `origin/feat/crim-parcel-browse`. **F3 (Playwright smoke tests for map routes) is next.**
+> **Status (2026-06-30):** F1 + F2 + F3 DONE (each Opus GO), committed + pushed to
+> `origin/feat/crim-parcel-browse`. **F4 (scenario library + comparison → Report Studio / exports)
+> is next.**
 
 ### Item F1 — CRIM owner/address normalization + owner UI  *(Priority 1)* — ✅ DONE (2026-06-30, Opus GO)
 The highest-value new surface, on data already loaded (`crim.parcelas`, 1.53M parcels). Was the
@@ -103,9 +104,20 @@ The cheapest path to "the twin feels alive" — backing data already exists. **N
 deltas (CRIM / rescore / feed-age); every live feed shows its freshness; the module grid is below the
 fold — with no from-scratch rebuild of the working panels.
 
-### Item F3 — Playwright smoke tests for map routes  *(net-new; the safety net)*
+### Item F3 — Playwright smoke tests for map routes  *(net-new; the safety net)* — ✅ DONE (2026-06-30, Opus GO)
 Zero E2E exists today; map pages pass `tsc` and still render blank. This is the prerequisite for the
 lazy MapWorkspace extraction at F6.
+
+> Shipped (`59fd38a` + overlay hardening): `frontend/playwright.config.ts` (desktop 1440×900 + mobile
+> Pixel 7, baseURL = live nginx) + `frontend/e2e/maps.spec.ts`. For all 7 map routes (resilience,
+> parcels, sitefinder, trends, corridor, economy, playground): assert the largest canvas **actually
+> painted** (screenshot decoded via pngjs for color variance — blank = 1–2 colors, real map = 38–239)
+> **plus a route-specific overlay anchor** + no uncaught page errors. Overview what-changed cockpit +
+> /parcels owner-drawer flow also covered. 18 tests (9 × desktop/mobile), green twice at the gate;
+> `npm run e2e` / `e2e:install`; local-only (needs live stack + dataset), like pytest. **Closes the
+> standing "deck.gl maps never visually eyeballed" residual.** Deferred: the color check is
+> basemap-dominated so it can't isolate a single silent *data-layer* miss (overlay-text assertion
+> mitigates); no CI wiring (no dataset in CI).
 - Playwright config + smoke specs for every map route (`/resilience`, `/parcels`, `/sitefinder`,
   `/trends`, `/corridor`, `/economy`, overview). Assert a **non-empty canvas** + key overlays
   visible, at **desktop + mobile** widths.

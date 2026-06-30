@@ -114,6 +114,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | MVP3 P3-shared — Ask PRISM | **COMPLETE** | 2026-06-13 | Opus GO (after one fix) |
 | F1 — CRIM owner intelligence | **COMPLETE** | 2026-06-30 | Opus GO (after one fix) |
 | F2 — What-changed / overview cockpit | **COMPLETE** | 2026-06-30 | Opus GO |
+| F3 — Playwright map smoke tests | **COMPLETE** | 2026-06-30 | Opus GO |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -151,8 +152,9 @@ work. The older plan docs (`PRISM_Refined_Plan`, `FRONTEND_PLAN`, `UI_PHASE_PLAN
 `PRISM_FRONTEND_REFUTAL.md` (Opus), which converged on one sequence). Status (2026-06-30):
 1. ✅ **F1 — CRIM owner/address normalization + owner UI** (Opus GO) — `prism/crim/normalize.py`+`owners.py`, `crim.owner_entities`/`parcel_owner`, `/crim/owners/*`, `/parcels` owner drawer
 2. ✅ **F2 — What-changed + stale-data (overview cockpit)** (Opus GO) — `prism/sync/changes.py`, `/whatsnew`, `WhatsNew` card leads the overview
-3. ⏭️ **F3 — Playwright smoke tests for map routes** *(next)*
-4. F4 scenario library + Report Studio/exports · 5. F5 assumptions + sensitivity · 6. F6 water cascade (+ lazy MapWorkspace extract) · 7. F7 telecom
+3. ✅ **F3 — Playwright smoke tests for map routes** (Opus GO) — `frontend/e2e/maps.spec.ts` (18 tests, canvas-paint + overlay per route, desktop+mobile); closes the "maps never eyeballed" residual
+4. ⏭️ **F4 — scenario library + comparison → Report Studio / exports** *(next)*
+5. F5 assumptions + sensitivity · 6. F6 water cascade (+ lazy MapWorkspace extract) · 7. F7 telecom
 
 All on branch `feat/crim-parcel-browse` (unmerged, pushed to origin).
 
