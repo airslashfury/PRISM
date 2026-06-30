@@ -43,8 +43,8 @@ net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** 
 Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-06-30):** F1 DONE (Opus GO). **F2 (what-changed + stale-data, light overview
-> cockpit) is next.** All on `feat/crim-parcel-browse`, uncommitted.
+> **Status (2026-06-30):** F1 + F2 DONE (each Opus GO), committed + pushed to
+> `origin/feat/crim-parcel-browse`. **F3 (Playwright smoke tests for map routes) is next.**
 
 ### Item F1 — CRIM owner/address normalization + owner UI  *(Priority 1)* — ✅ DONE (2026-06-30, Opus GO)
 The highest-value new surface, on data already loaded (`crim.parcelas`, 1.53M parcels). Was the
@@ -81,8 +81,16 @@ CLI + tests) first — UI-agnostic — then the `/parcels` owner surface.
 footprint map + portfolio table (count, total/assessed value) + a snapshot-derived timeline; and a
 top-owners-by-municipio query is trustworthy on the normalized key.
 
-### Item F2 — What-changed + stale-data surfacing (light overview cockpit)  *(net-new)*
+### Item F2 — What-changed + stale-data surfacing (light overview cockpit)  *(net-new)* — ✅ DONE (2026-06-30, Opus GO)
 The cheapest path to "the twin feels alive" — backing data already exists. **Not** a cockpit rebuild.
+
+> Shipped (`1be087a`): `prism/sync/changes.py` `whatsnew()` + `GET /whatsnew` — `feeds` (6: PREPA/LUMA/USGS
+> live from their own tables + WFS registry, each with age + stale flag at 1.5× interval), newest-first
+> typed `changes` (sync_log re-syncs/rescores, mag≥3.5 quakes, CRIM month deltas), `crim_baseline`
+> (honest "baseline 2026-06, next delta pending"). Overview leads with a `WhatsNew` card (freshness chips
+> + change stream + stale-count badge); brand hero demoted below the module grid; live panels + module grid
+> kept (restructure, not rebuild). 7 tests. Deferred: per-substation rescore rank-movement (no historical
+> rank table to diff — only "a rescore fired" surfaced); overview not visually eyeballed (→ F3).
 - **What-changed strip** sourced from real deltas: `crim.parcel_deltas` since last snapshot,
   rescore **rank movement** (e.g. "substation 8→3 under quake"), owner deltas, recent quakes,
   feed-freshness changes.

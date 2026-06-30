@@ -112,17 +112,20 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | MVP3 P2 — Calibration & Validation | **COMPLETE** | 2026-06-13 | Opus GO (conditional) |
 | MVP3 P3-cit — Citizen civic card | **COMPLETE** | 2026-06-13 | Opus GO (after one fix) |
 | MVP3 P3-shared — Ask PRISM | **COMPLETE** | 2026-06-13 | Opus GO (after one fix) |
+| F1 — CRIM owner intelligence | **COMPLETE** | 2026-06-30 | Opus GO (after one fix) |
+| F2 — What-changed / overview cockpit | **COMPLETE** | 2026-06-30 | Opus GO |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
 > history and summarized in `memory/project_state.md`. This file now keeps only the phase-log
 > table above and the condensed live state below.
 
-## Current state (2026-06-29)
+## Current state (2026-06-30)
 
 PRISM is a full-stack Puerto Rico infrastructure simulation model with a
 confidence/provenance/validation spine, a citizen civic card, a natural-language query bar,
-live PREPA/LUMA feeds, NBI bridge spans, and a Site Finder over industrial parcels.
+live PREPA/LUMA feeds, NBI bridge spans, a Site Finder over industrial parcels, CRIM owner
+intelligence, and a what-changed/stale-data overview cockpit.
 
 **PRISM live state:**
 - **Data layer:** 3.6 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; ~166 catalog entries
@@ -132,7 +135,8 @@ live PREPA/LUMA feeds, NBI bridge spans, and a Site Finder over industrial parce
 - **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (equity-aware)
 - **Transport:** pgRouting road-access (892/901 barrios reachable); 3,168 bridges, NBI spans for ~67%
 - **Digital Twin / live feeds:** WFS re-sync spine; auto rescore on hazard-layer change; PREPA generation + LUMA outage feeds
-- **CRIM:** `crim.parcelas` — 1.53M-parcel fabric (owner, addresses, valuation, sale history) loaded + trusted, not yet surfaced in UI
+- **CRIM:** `crim.parcelas` — 1.53M-parcel fabric surfaced at `/parcels` (browse + enriched detail); **owner intelligence (F1)** — normalized `crim.owner_entities` (887K keys) + `/crim/owners/*` + owner drawer (footprint/portfolio/timeline)
+- **Overview cockpit (F2):** `/whatsnew` — feed-freshness chips + typed change stream; overview leads with "What changed", hero demoted
 - **Trust Center / Citizen / Ask PRISM:** `/methods`, `/citizen`, `/ask` — confidence-tiered throughout
 - **Site Finder:** industrial-parcel suitability ranking (`/sitefinder`)
 
@@ -142,15 +146,15 @@ live PREPA/LUMA feeds, NBI bridge spans, and a Site Finder over industrial parce
 work. The older plan docs (`PRISM_Refined_Plan`, `FRONTEND_PLAN`, `UI_PHASE_PLAN`, `MVP2_PLAN`,
 `MVP3_PLAN`) are archived in `docs/archive/`.
 
-**Active queue (see `ROADMAP.md` for full specs) — ALL 6 DONE (2026-06-29, each Opus GO):**
-1. ✅ MD consolidation
-2. ✅ CRIM parcel browse + search — `/parcels`, enriched detail, owner-footprint map highlight
-3+4. ✅ Fault lines (`public.fault_lines` + seismic `quake` scenario) + USGS earthquake live tracker (`/network/seismic`, SeismicPanel)
-5. ✅ Refresh-cadence audit (table in ROADMAP)
-6. ✅ Monthly catastro snapshots/deltas + Market Trends page (`/trends`)
+**Original CRIM/seismic queue (items 1–6) — ALL DONE (2026-06-29).** The active plan is now the
+**converged frontend product arc F1–F7** (from `PRISM_FRONTEND_RECOMMENDATIONS.md` (GPT5.5) +
+`PRISM_FRONTEND_REFUTAL.md` (Opus), which converged on one sequence). Status (2026-06-30):
+1. ✅ **F1 — CRIM owner/address normalization + owner UI** (Opus GO) — `prism/crim/normalize.py`+`owners.py`, `crim.owner_entities`/`parcel_owner`, `/crim/owners/*`, `/parcels` owner drawer
+2. ✅ **F2 — What-changed + stale-data (overview cockpit)** (Opus GO) — `prism/sync/changes.py`, `/whatsnew`, `WhatsNew` card leads the overview
+3. ⏭️ **F3 — Playwright smoke tests for map routes** *(next)*
+4. F4 scenario library + Report Studio/exports · 5. F5 assumptions + sensitivity · 6. F6 water cascade (+ lazy MapWorkspace extract) · 7. F7 telecom
 
-All on branch `feat/crim-parcel-browse` (unmerged). Next work: `BACKLOG.md` (CRIM v2
-owner/address normalization; P3-gov/eng; P4 water/telecom/multi-hazard).
+All on branch `feat/crim-parcel-browse` (unmerged, pushed to origin).
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
