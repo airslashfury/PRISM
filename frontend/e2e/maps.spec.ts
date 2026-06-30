@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import { PNG } from "pngjs";
 
 /**
@@ -9,14 +9,17 @@ import { PNG } from "pngjs";
  * errors. Runs against the live stack at both desktop and mobile widths.
  */
 
-const MAP_ROUTES = [
-  "/resilience",
-  "/parcels",
-  "/sitefinder",
-  "/trends",
-  "/corridor",
-  "/economy",
-  "/playground",
+// Each map route + a stable, route-specific overlay anchor. The canvas color
+// check proves the basemap painted; the overlay assertion proves the route's
+// own chrome rendered (so a "basemap-only, data/UI missing" regression fails).
+const MAP_ROUTES: { path: string; overlay: (p: Page) => Locator }[] = [
+  { path: "/resilience", overlay: (p) => p.getByText("Transmission grid").first() },
+  { path: "/parcels", overlay: (p) => p.getByPlaceholder("Catastro, owner, or address…") },
+  { path: "/sitefinder", overlay: (p) => p.getByText("Weight the criteria").first() },
+  { path: "/trends", overlay: (p) => p.getByText(/property market/i).first() },
+  { path: "/corridor", overlay: (p) => p.getByText(/societal-value objective/i).first() },
+  { path: "/economy", overlay: (p) => p.getByText("Social vulnerability").first() },
+  { path: "/playground", overlay: (p) => p.getByPlaceholder(/scenario/i).first() },
 ];
 
 /** Number of distinct (quantized) colors in the biggest canvas's screenshot. */
@@ -47,12 +50,12 @@ async function canvasColorCount(page: Page): Promise<number> {
   return colors.size;
 }
 
-for (const route of MAP_ROUTES) {
-  test(`${route} renders a painted map`, async ({ page }) => {
+for (const { path, overlay } of MAP_ROUTES) {
+  test(`${path} renders a painted map`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
 
-    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await page.goto(path, { waitUntil: "domcontentloaded" });
 
     // The map canvas mounts and is visible.
     const canvas = page.locator("canvas").first();
@@ -62,12 +65,15 @@ for (const route of MAP_ROUTES) {
     expect(box!.width).toBeGreaterThan(100);
     expect(box!.height).toBeGreaterThan(100);
 
+    // The route's own overlay chrome rendered (not just the shared basemap).
+    await expect(overlay(page)).toBeVisible();
+
     // Give the basemap + deck layers a beat to paint, then assert real content.
     await page.waitForTimeout(2500);
     const colors = await canvasColorCount(page);
-    expect(colors, `${route} canvas looks blank (${colors} colors)`).toBeGreaterThan(4);
+    expect(colors, `${path} canvas looks blank (${colors} colors)`).toBeGreaterThan(4);
 
-    expect(errors, `uncaught page errors on ${route}: ${errors.join("; ")}`).toEqual([]);
+    expect(errors, `uncaught page errors on ${path}: ${errors.join("; ")}`).toEqual([]);
   });
 }
 
