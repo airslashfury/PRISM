@@ -137,7 +137,7 @@ de-navved (route stays live, linked from WhatsNew + Trust Center instead of prim
 - **Knowledge graph:** 48,801 nodes, 68,272+ edges; `graph.downstream_summary` (961 substations, M5a)
 - **Resilience:** 315 substations scored across 3 scenarios; top composite 84.10 (PALO SECO SP TC)
 - **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with real per-tract ACS; 5-component SVI
-- **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (equity-aware)
+- **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (equity-aware); budget allocator live on `/portfolio` (budget + equity sliders → job-queue ILP re-run + A/B diff panel, since 2026-06-15)
 - **Transport:** pgRouting road-access (892/901 barrios reachable); 3,168 bridges, NBI spans for ~67%
 - **Digital Twin / live feeds:** WFS re-sync spine; auto rescore on hazard-layer change; PREPA generation + LUMA outage feeds
 - **CRIM:** `crim.parcelas` — 1.53M-parcel fabric surfaced at `/parcels` (browse + enriched detail); **owner intelligence (F1)** — normalized `crim.owner_entities` (887K keys) + `/crim/owners/*` + owner drawer (footprint/portfolio/timeline)
@@ -160,7 +160,7 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
 2. ✅ **F2 — What-changed + stale-data (overview cockpit)** (Opus GO) — `prism/sync/changes.py`, `/whatsnew`, `WhatsNew` card leads the overview
 3. ✅ **F3 — Playwright smoke tests for map routes** (Opus GO) — `frontend/e2e/maps.spec.ts` (18 tests, canvas-paint + overlay per route, desktop+mobile); closes the "maps never eyeballed" residual
 4. ✅ **UI-B — opportunistic UI batch** (2026-07-01, no gate) — nav grouped (Live/Explore/Decide/Reference), `/sync` de-navved, stale-copy sweep
-5. ⏭️ **F4 (revised) — interactive model: budget allocator + assumptions/sensitivity + permalinks** *(next)*
+5. ⏭️ **F4 (revised) — interactive model: assumptions/sensitivity + permalinks + portfolio-diff AI narrative** *(next; the budget allocator was dropped from F4 at drafting-correction — it already shipped 2026-06-15, `2f8a319`)*
 6. F5 (new) — live storm: NHC advisory feed + alerting · 7. F6 water cascade (+ lazy MapWorkspace extract) · 8. F7 telecom
 
 All on branch `feat/crim-parcel-browse` (unmerged, pushed to origin). See `ROADMAP.md` for the

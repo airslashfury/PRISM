@@ -16,10 +16,13 @@ it gets scheduled.
 > multi-hazard / distribution geometry, and (as of 2026-07-01) the parked output-shaped features
 > below.
 >
-> **2026-07-01 — the budget allocator was pulled up into the revised ROADMAP F4** (no longer
-> backlog — see F4 in ROADMAP.md). Scenario library, Report Studio, and provenance-stamped
-> exports were **parked** to the new "wait for external demand" group below; the F4 permalink
-> fragment was kept and folded into the revised F4.
+> **2026-07-01 — the budget allocator entry was removed: it already shipped 2026-06-15**
+> (`2f8a319` — budget + equity sliders on `/portfolio`, exact ILP re-run via the arq job queue,
+> before/after diff panel). The backlog entry claiming "portfolio page is currently a results
+> viewer" was stale when the F1–F7 arc was drafted. The one open remnant — an AI narrative on
+> the portfolio A/B diff — is now a ROADMAP F4 sub-item. Scenario library, Report Studio, and
+> provenance-stamped exports were **parked** to the new "wait for external demand" group below;
+> the F4 permalink fragment was kept and folded into the revised F4.
 
 ### CRIM enrichment v2 — owner + address normalization  **→ SCHEDULED as ROADMAP F1**
 - **Owner entity key** — normalize `contact` (uppercase, strip punctuation/accents/legal
@@ -86,9 +89,11 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
 ## Standing data / quality carry-forwards
 - **CRIM valuation official export** — valuation/sales loaded and trusted for now; the
   token-secured official export (`sigejp.pr.gov`) would harden it. Join key `NUM_CATASTRO`.
-- **`~50% eid=XXX` name-resolution gap** — **→ folded into ROADMAP F4 (2026-07-01)** — ~half of
-  portfolio/validation items show a raw entity id instead of a name; pre-resolve so provenance
-  popovers, citizen card, parcel detail, and Ask PRISM never show a raw id.
+- **`eid=XXX` name-resolution gap — mostly RESOLVED (2026-06-15, `3d736ca`)** — entity-name
+  normalization at ingest + an idempotent backfill cleaned 896 rows across 6 tables; the old
+  "~50% show a raw id" claim is stale. Residual: **14 substations whose HIFLD source name is a
+  bare number** (e.g. "6774") — an upstream data gap with no local fix; display-only mitigation
+  (e.g. "Substation 6774 (unnamed)") at most, unscheduled.
 - **Checksum is count-based** — `sha256("{layer}:{count}")` detects add/remove but not in-place
   geometry edits at constant feature count. Fine for current cadence; revisit if content-level
   drift detection is needed.

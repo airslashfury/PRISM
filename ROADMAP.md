@@ -45,7 +45,7 @@ Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-ga
 
 > **Status (2026-07-01):** F1 + F2 + F3 DONE (each Opus GO), plus an opportunistic **UI-B**
 > polish batch, committed + pushed to `origin/feat/crim-parcel-browse`. **F4 (revised —
-> interactive model: budget allocator + assumptions/sensitivity + permalinks) is next.**
+> interactive model: assumptions & sensitivity + permalinks) is next.**
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -139,34 +139,42 @@ lazy MapWorkspace extraction at F6.
 **Done when:** a Playwright suite renders each map route and asserts a non-empty canvas + a key
 overlay at desktop and mobile widths, runnable locally.
 
-### Item F4 (revised) — Interactive model: budget allocator + assumptions & sensitivity + permalinks
+### Item F4 (revised) — Interactive model: assumptions & sensitivity + permalinks
 Replaces the old "decision record system" arc (scenario library / Report Studio / exports —
 now parked in `BACKLOG.md`, see the 2026-07-01 revision note above). This F4 is about making
 the model something you *push on*, not something that produces a document.
-- **Budget allocator** (pulled up from BACKLOG P3-gov) — a budget slider that re-runs the ILP
-  via the M3 job queue and animates the portfolio change ("where the next $500M does the most
-  good"), with the SVI equity lens on the delta. Upgrades `/portfolio` from a results viewer to
-  an instrument — this is the north star's founding question ("what does this decision cost us,
-  and who does it protect?") as a first-class control.
+
+> **Correction (2026-07-01):** this item was first drafted with the **budget allocator** as its
+> lead sub-item, per a stale BACKLOG entry claiming `/portfolio` was "currently a results
+> viewer". That was wrong — the allocator **already shipped 2026-06-15** (`2f8a319`): budget
+> slider ($50M–$2B) + equity-weight slider, exact ILP re-run via the arq job queue
+> (`POST /jobs/portfolio/optimize`), and a before/after diff panel (`GET /portfolio/compare`:
+> capital/uplift/interventions/people deltas + newly-funded vs dropped lists). The only piece
+> of that arc still open is the **AI narrative on the diff**, kept below.
 - **Assumptions panel + robust-vs-sensitive flags** (old F5, absorbed here) — edit VOLL,
   discount rate, feeder radius, hazard params → re-run affected scores via the job queue →
   rankings shift live; each ranking flags robust-vs-sensitive. Backend largely exists
   (`api/routers/validate.py`, `SensitivityResult`) — mostly "expose what's built."
 - **Permalinks / URL state** (the surviving fragment of the old F4) — map viewport + scenario +
   selection encoded in the URL so every view is bookmarkable and shareable.
+- **AI narrative on the portfolio A/B diff** (the remaining allocator gap) — the diff plumbing
+  exists (`prism/report/compare.py::compare_runs` → `GET /portfolio/compare`); wire the existing
+  `NarrativePanel` + a `playground_comparison`-style prompt so the diff explains itself ("the
+  extra $150M buys 6 interventions, all in SVI > 0.8 barrios…").
 - **Folded quality residuals:**
-  - the `~50% eid=XXX` name-resolution gap (BACKLOG standing carry-forward) — pre-resolve so
-    portfolio/validation/parcel-detail/Ask PRISM never show a raw entity id;
   - a score/rank **history table** persisted per rescore — closes F2's deferred "rank movement"
     residual (WhatsNew can then say "substation 8→3 under quake" instead of just "a rescore
     fired");
   - **Ask PRISM tool coverage audit** — add owner-intelligence (F1) and what-changed (F2) tools
     so the natural-language bar covers those surfaces too.
+  - *(Dropped from this list, 2026-07-01: the "~50% eid=XXX name-resolution gap" — stale; it was
+    closed by the 2026-06-15 data-quality sprint (`3d736ca`). The only residual is 14 substations
+    whose HIFLD source name is a bare number, e.g. "6774" — an upstream data gap; display-only
+    mitigation at most. See BACKLOG standing carry-forwards.)*
 
-**Done when:** the budget slider re-runs the ILP and animates portfolio + equity deltas; editing
-a global assumption re-runs affected scores and shows rank shifts with robust-vs-sensitive flags;
-map/scenario/selection state is URL-encoded and bookmarkable; rankings resolve names (no raw
-eids); rank movement appears in WhatsNew.
+**Done when:** editing a global assumption re-runs affected scores and shows rank shifts with
+robust-vs-sensitive flags; map/scenario/selection state is URL-encoded and bookmarkable; the
+portfolio A/B diff carries an AI narrative; rank movement appears in WhatsNew.
 
 ### Item F5 (new) — Live storm: NHC advisory feed + alerting
 Scheduled ahead of water (old F6) deliberately — hurricane season is underway and this is
