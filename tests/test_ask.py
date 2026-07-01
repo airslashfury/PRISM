@@ -296,6 +296,55 @@ def test_api_ask_backend_down_returns_200_not_500(client, monkeypatch):
     assert body["answer_md"].strip()
 
 
+# ── parcel_query text-to-SQL patching (LLM mocked) ───────────────────────────
+
+
+def _mock_sql(monkeypatch, sql: str):
+    from prism.llm import Completion
+    monkeypatch.setattr("prism.llm.complete", lambda *a, **k: Completion(
+        text=sql, tier="haiku", model="claude-haiku-4-5", backend="anthropic",
+    ))
+
+
+def _has_table(engine, table: str) -> bool:
+    from sqlalchemy import text
+    with engine.connect() as c:
+        return c.execute(text("SELECT to_regclass(:t)"), {"t": table}).scalar() is not None
+
+
+def test_parcel_query_previously_owned_not_inverted(engine, monkeypatch):
+    """"previously owned by the municipio" must NOT get government owners excluded."""
+    from prism.ask.tools import parcel_query
+
+    if not _has_table(engine, "crim.parcelas_history"):
+        pytest.skip("crim.parcelas_history not present")
+    _mock_sql(
+        monkeypatch,
+        "SELECT DISTINCT num_catastro, municipio, contact, sellername, byername, salesamt, salesdttm "
+        "FROM crim.parcelas_history WHERE (sellername ILIKE '%municipio%' OR sellername ILIKE '%autoridad%') "
+        "ORDER BY salesdttm DESC LIMIT 50",
+    )
+    r = parcel_query(engine, question="Find parcels previously owned by the municipio or autoridad")
+    assert "error" not in r, r.get("error")
+    sql = r["generated_sql"].lower()
+    assert "not ilike '%municipio%'" not in sql   # the inversion bug is gone
+    assert "parcelas_history" in sql and "sellername" in sql
+
+
+def test_parcel_query_explicit_exclude_still_injects(engine, monkeypatch):
+    """An explicit "exclude municipio" still injects the government-owner filter."""
+    from prism.ask.tools import parcel_query
+
+    _mock_sql(
+        monkeypatch,
+        "SELECT contact, COUNT(*) AS n FROM crim.parcelas_dedup WHERE contact IS NOT NULL "
+        "GROUP BY contact ORDER BY n DESC LIMIT 20",
+    )
+    r = parcel_query(engine, question="Who owns the most parcels in PR, exclude municipio and autoridad")
+    assert "error" not in r, r.get("error")
+    assert "not ilike '%municipio%'" in r["generated_sql"].lower()
+
+
 # ── API ──────────────────────────────────────────────────────────────────────
 
 

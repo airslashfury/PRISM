@@ -292,12 +292,15 @@ Column mapping (CRITICAL — always use the right column):
 - "expensive" / "valuable" / "worth" / "assessed value" / "highest value" / "most costly" → totalval
 - "large" / "biggest" / "area" / "size" / "biggest lot" / "most land" → cabida
 - "sale price" / "sold for" / "purchase price" → salesamt
-- "owner" / "who owns" / "registered to" → contact
+- "owner" / "who owns" / "registered to" / "currently owned by" → contact (in crim.parcelas_dedup)
+- "previously owned by" / "used to own" / "former owner" / "sold by" → crim.parcelas_history.sellername (the seller at a past sale = who owned it before)
+- "bought by" / "sold to" / "new owner" → crim.parcelas_history.byername
 
 Rules:
 - SELECT only. Always include LIMIT (max 50).
 - For current value/ownership: use crim.parcelas_dedup.
 - For price history/trends: use crim.parcelas_history WHERE sale_rank <= N.
+- For "previously / formerly owned by X" (or "X used to own"): SELECT from crim.parcelas_history WHERE sellername ILIKE '%X%' — X was the SELLER, so X owned it before that sale. Do NOT exclude X.
 - ALWAYS SELECT contact, municipio, totalval, num_catastro (plus any other relevant columns). Never select only one column.
 - ALWAYS add WHERE contact IS NOT NULL AND totalval IS NOT NULL when ordering by totalval.
 - For price change: self-join on num_catastro comparing sale_rank=1 vs sale_rank=2.
@@ -317,6 +320,8 @@ _PARCEL_SQL_SYSTEM = (
     "A: SELECT contact, municipio, cabida, totalval, num_catastro FROM crim.parcelas_dedup WHERE municipio ILIKE 'Ponce' AND cabida IS NOT NULL ORDER BY cabida DESC LIMIT 10\n\n"
     "Q: Show recent sales in Humacao\n"
     "A: SELECT contact, municipio, salesamt, salesdttm, num_catastro FROM crim.parcelas_dedup WHERE municipio ILIKE 'Humacao' AND salesamt IS NOT NULL ORDER BY salesdttm DESC LIMIT 20\n\n"
+    "Q: Find parcels previously owned by the municipio or autoridad\n"
+    "A: SELECT DISTINCT num_catastro, municipio, contact, sellername, byername, salesamt, salesdttm FROM crim.parcelas_history WHERE (sellername ILIKE '%municipio%' OR sellername ILIKE '%autoridad%') ORDER BY salesdttm DESC LIMIT 50\n\n"
     "Q: Who owns the most parcels in PR? Exclude municipio and autoridad\n"
     "A: SELECT contact, COUNT(*) AS parcel_count FROM crim.parcelas_dedup WHERE contact IS NOT NULL AND contact NOT ILIKE '%municipio%' AND contact NOT ILIKE '%autoridad%' AND contact NOT ILIKE '%departamento%' AND contact NOT ILIKE '%administracion%' AND contact NOT ILIKE '%john doe%' GROUP BY contact ORDER BY parcel_count DESC LIMIT 20\n\n"
     "Q: Top owner of land per municipio, private only\n"
@@ -361,10 +366,14 @@ def parcel_query(engine: Engine, *, question: str) -> dict:
                 if "TOTALVAL" not in up:
                     s = _re.sub(r'\bSELECT\b', 'SELECT totalval,', s, count=1, flags=_re.IGNORECASE)
                     up = s.upper()
-        # "exclude municipio/autoridad/government" → inject NOT ILIKE filters
-        _exclude_terms = {"exclude", "private", "non-government", "nongovernment"}
-        _govt_terms = {"municipio", "autoridad", "gobierno", "government"}
-        if (_exclude_terms & set(q.lower().split())) or (_govt_terms & set(q.lower().split())):
+        # "exclude government owners" → inject NOT ILIKE filters, but ONLY when the
+        # user EXPLICITLY asks to exclude them. The mere presence of "municipio" /
+        # "autoridad" must NOT trigger exclusion — the user may be asking FOR
+        # government-owned parcels (e.g. "parcels owned by the municipio").
+        _ql = q.lower()
+        _exclude_terms = {"exclude", "excluding", "private", "privately", "non-government", "nongovernment"}
+        _wants_exclude = bool(_exclude_terms & set(_ql.split())) or "not owned by" in _ql
+        if _wants_exclude:
             if "NOT ILIKE '%MUNICIPIO%'" not in up and "NOT ILIKE '%municipio%'" not in up:
                 excl = (
                     " contact NOT ILIKE '%municipio%'"
