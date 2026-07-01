@@ -296,6 +296,36 @@ def test_api_ask_backend_down_returns_200_not_500(client, monkeypatch):
     assert body["answer_md"].strip()
 
 
+def test_parcel_query_uses_original_question_not_router_rephrase(engine, monkeypatch):
+    """The router must not clobber parcel_query's question with a rephrase."""
+    from prism.ask import agent
+    from prism.llm import Completion
+
+    monkeypatch.setattr("prism.llm.backend_available", lambda: True)
+
+    def fake_complete(task, *a, **k):
+        if task == "nl_query_parse":
+            return Completion(
+                text='{"tool": "parcel_query", "args": {"question": "who owns the most land in PR"}}',
+                tier="haiku", model="m", backend="ollama",
+            )
+        return Completion(text="ok", tier="sonnet", model="m", backend="ollama")
+
+    captured: dict[str, str] = {}
+
+    def fake_pq(engine, *, question):
+        captured["q"] = question
+        return {"tool": "parcel_query", "question": question, "row_count": 0,
+                "results": [], "confidence_tiers": {}}
+
+    monkeypatch.setattr("prism.llm.complete", fake_complete)
+    monkeypatch.setitem(agent._TOOL_FUNCS, "parcel_query", fake_pq)
+
+    user_q = "Find parcels previously owned by the municipio or autoridad"
+    agent.answer_query(engine, user_q)
+    assert captured["q"] == user_q   # original, not the router's "who owns the most land"
+
+
 def test_parcel_answer_prompt_includes_interpretation_hint(engine, monkeypatch):
     """The answer step gets a column-meaning guide so it doesn't misread sellername."""
     from prism.ask import answer_query

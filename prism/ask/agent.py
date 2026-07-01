@@ -108,7 +108,10 @@ _ANSWER_SYSTEM = (
     "Proxy estimate, not a measured figure\" — Proxy/Estimated figures should read as "
     "approximate\n"
     "- if the JSON contains an \"error\" key, say so honestly and suggest how to rephrase\n"
-    "Do not add a title, do not repeat the question, do not mention the tool name."
+    "Write 2-4 short prose sentences. Do NOT output tables, bullet lists, or section headers. "
+    "Name at most 2-3 concrete examples inline, and state the total number of results accurately "
+    "(count the rows — do not guess). Do not add a title, do not repeat the question, do not "
+    "mention the tool name."
 )
 
 
@@ -119,7 +122,10 @@ _ANSWER_HINTS = {
     "parcel_query": (
         "This is CRIM parcel data. In each row: 'sellername' is the PRIOR owner who sold the parcel, "
         "'byername' is the buyer, 'contact' is the CURRENT owner. Use the column the question is about "
-        "(e.g. 'previously owned by X' → sellername). State the exact number of rows returned — do not "
+        "(e.g. 'previously owned by X' → sellername, NOT contact). The rows are ALREADY filtered to "
+        "match the question, so every row satisfies it — e.g. for 'previously owned by the municipio/"
+        "autoridad', every row's sellername already IS a municipio or authority; affirm that, and never "
+        "say the prior owners are missing or unlisted. State the exact number of rows returned — do not "
         "guess a different count. 'salesamt'/'salesdttm' are often null (many transfers record no "
         "price/date); do NOT conclude the data is invalid or inconclusive just because those are null."
     ),
@@ -171,7 +177,8 @@ def _extract_json(text_: str) -> dict[str, Any] | None:
 def route_query(query: str) -> dict[str, Any] | None:
     """Haiku: parse a natural-language question into {"tool": name, "args": {...}}."""
     completion = llm.complete(
-        "nl_query_parse", query, system=_ROUTE_SYSTEM, max_tokens=256, cache_system=True,
+        "nl_query_parse", query, system=_ROUTE_SYSTEM, max_tokens=256,
+        cache_system=True, temperature=0.0,  # deterministic tool routing
     )
     return _extract_json(completion.text)
 
@@ -214,6 +221,13 @@ def answer_query(engine: Engine, query: str) -> AskResult:
     args = routed.get("args") or {}
     args = {k: v for k, v in args.items() if v is not None}
 
+    # parcel_query's "question" arg is meant to BE the user's own question — the
+    # router (picking a tool) tends to substitute a tool-description example
+    # (e.g. "who owns the most land in PR"), which then generates the wrong SQL.
+    # Always hand parcel_query the original question verbatim.
+    if tool_name == "parcel_query":
+        args["question"] = query
+
     try:
         result = _TOOL_FUNCS[tool_name](engine, **args)
     except TypeError as exc:
@@ -226,15 +240,23 @@ def answer_query(engine: Engine, query: str) -> AskResult:
     map_points = result.get("map_points") or [] if isinstance(result, dict) else []
 
     hint = _ANSWER_HINTS.get(tool_name, "")
+    count_note = ""
+    if isinstance(result, dict) and isinstance(result.get("row_count"), int):
+        count_note = (
+            f"The result contains EXACTLY {result['row_count']} rows — state this number as the "
+            "count; do not recount or report a different total.\n"
+        )
     prompt = (
         f"Question: {query}\n\n"
         f"Tool used: {tool_name}\n"
         + (f"Interpretation guide: {hint}\n" if hint else "")
+        + count_note
         + f"Tool result (JSON):\n{json.dumps(result, default=str)}"
     )
     try:
         completion = llm.complete(
-            "nl_query_answer", prompt, system=_ANSWER_SYSTEM, max_tokens=512, cache_system=True,
+            "nl_query_answer", prompt, system=_ANSWER_SYSTEM, max_tokens=512,
+            cache_system=True, temperature=0.2,  # low temp → faithful to the data, low drift
         )
     except Exception as exc:
         # The query ran — only the write-up failed. Surface the failure AND the

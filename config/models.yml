@@ -102,9 +102,11 @@ escalation:
 # Model rationale (from `ollama list` 2026-06-28):
 #   qwen2.5-coder:14b  — 8.5 GB dense; coding-focused, reliable structured JSON →
 #                         haiku tier (SQL gen, query routing, metadata, bulk passes)
-#   qwen3.6:35b-a3b    — 22.8 GB MoE (3.6B active); strong narrative + reasoning →
+#   gemma4:12b         — 7.6 GB dense; benchmarked winner for narrative composition
+#                         (2x faster + more faithful than qwen3.6:35b-a3b, which as a
+#                         3.6B-active MoE under-followed instructions) →
 #                         sonnet tier (answers, comparisons, narratives)
-#   qwen3.6:35b-a3b    — same model with think=true for chain-of-thought →
+#   qwen3.6:35b-a3b    — 22.8 GB MoE with think=true for chain-of-thought →
 #                         opus tier (flagship reports, complex cross-domain reasoning)
 #
 # Do NOT set a single-model override — always let the tier route to the right model.
@@ -115,8 +117,8 @@ ollama:
       model: qwen2.5-coder:14b       # fast, structured tasks (SQL, routing, tagging)
       think: false
     sonnet:
-      model: qwen3.6:35b-a3b         # balanced narrative + analysis
-      think: false
+      model: gemma4:12b              # benchmarked winner (2026-07): ~2x faster + more faithful
+      think: false                   #   than qwen3.6:35b-a3b MoE for narrative/answer composition
     opus:
       model: qwen3.6:35b-a3b         # same model; thinking mode for hard reasoning
       think: true

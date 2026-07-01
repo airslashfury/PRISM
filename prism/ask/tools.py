@@ -426,7 +426,8 @@ def parcel_query(engine: Engine, *, question: str) -> dict:
             s = s + " LIMIT 20"
         return s
 
-    completion = llm.complete("nl_parcel_sql", question, system=_PARCEL_SQL_SYSTEM, max_tokens=400)
+    completion = llm.complete("nl_parcel_sql", question, system=_PARCEL_SQL_SYSTEM,
+                              max_tokens=400, temperature=0.0)  # deterministic SQL
     sql = _clean_sql(completion.text)
 
     # Safety: only allow SELECT
@@ -448,7 +449,8 @@ def parcel_query(engine: Engine, *, question: str) -> dict:
             f"The following SQL failed with this error:\n\nSQL:\n{sql}\n\nError:\n{exc}\n\n"
             f"Original question: {question}\n\nFix the SQL so it runs correctly. Output ONLY the corrected SQL."
         )
-        fix = llm.complete("nl_parcel_sql", fix_prompt, system=_PARCEL_SQL_SYSTEM, max_tokens=400)
+        fix = llm.complete("nl_parcel_sql", fix_prompt, system=_PARCEL_SQL_SYSTEM,
+                           max_tokens=400, temperature=0.0)
         sql2 = _clean_sql(fix.text)
         if sql2.split()[0].upper() == "SELECT":
             sql2 = _patch_sql(sql2, question)

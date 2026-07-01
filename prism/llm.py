@@ -167,6 +167,7 @@ def _complete_anthropic(
     model: str,
     max_tokens: int,
     cache_system: bool,
+    temperature: float | None = None,
 ) -> str:
     import anthropic  # lazy import
 
@@ -179,6 +180,8 @@ def _complete_anthropic(
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
     if system:
         kwargs["system"] = (
             [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
@@ -195,6 +198,7 @@ def _complete_ollama(
     model: str,
     max_tokens: int,
     think: bool = False,
+    temperature: float | None = None,
 ) -> str:
     import requests
 
@@ -204,12 +208,15 @@ def _complete_ollama(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
+    options: dict[str, Any] = {"num_predict": max_tokens}
+    if temperature is not None:
+        options["temperature"] = temperature
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "stream": False,
         "think": think,
-        "options": {"num_predict": max_tokens},
+        "options": options,
     }
 
     headers: dict[str, str] = {}
@@ -315,11 +322,14 @@ def complete(
     force_tier: str | None = None,
     max_tokens: int = 1024,
     cache_system: bool = True,
+    temperature: float | None = None,
 ) -> Completion:
     """Route one prompt to the right model and backend, return its text.
 
     Backend is selected from PRISM_LLM_BASE_URL / PRISM_LLM_API_KEY.
     Per-task model mapping comes from config/models.yml ollama.tier_models.
+    Pass ``temperature=0.0`` for deterministic, reproducible output (routing,
+    text-to-SQL) so the same question yields the same result every time.
     """
     tier = resolve_tier(
         task, stage=stage, confidence=confidence,
@@ -330,11 +340,11 @@ def complete(
     if be == "anthropic":
         model = _anthropic_model_id(tier)
         log.debug("LLM: backend=anthropic tier=%s model=%s", tier, model)
-        text = _complete_anthropic(prompt, system, model, max_tokens, cache_system)
+        text = _complete_anthropic(prompt, system, model, max_tokens, cache_system, temperature)
     else:
         model = _ollama_model_id(tier)
         think = _ollama_think(tier)
         log.debug("LLM: backend=ollama tier=%s model=%s think=%s", tier, model, think)
-        text = _complete_ollama(prompt, system, model, max_tokens, think=think)
+        text = _complete_ollama(prompt, system, model, max_tokens, think=think, temperature=temperature)
 
     return Completion(text=text, tier=tier, model=model, backend=be)
