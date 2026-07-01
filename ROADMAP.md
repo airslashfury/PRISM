@@ -54,10 +54,9 @@ Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-ga
 > panel); a new F5 (live storm + alerting) takes the old F5 slot, scheduled ahead of water
 > because hurricane season is already underway. F6/F7 unchanged.
 
-**M0 — merge `feat/crim-parcel-browse` → `main`** *(pre-item note, not gated)*: nine gated
-items (the CRIM/seismic batch + F1–F3 + UI-B) now sit on this one unmerged branch. Merge to
-`main` before the F4 build starts — not performed as part of this revision, just recorded here
-so it isn't lost.
+**M0 — merge `feat/crim-parcel-browse` → `main`** *(pre-item note, not gated)* — ✅ DONE
+(2026-07-01): the nine gated items (CRIM/seismic batch + F1–F3 + UI-B) were fast-forward-merged
+into `main` (`878d35e`) and pushed. New work branches off `main` from here.
 
 ### Item F1 — CRIM owner/address normalization + owner UI  *(Priority 1)* — ✅ DONE (2026-06-30, Opus GO)
 The highest-value new surface, on data already loaded (`crim.parcelas`, 1.53M parcels). Was the
