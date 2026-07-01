@@ -81,12 +81,17 @@ export function WhatsNew() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             What changed
           </h2>
-          {stale_count > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[11px] text-amber-300/90">
-              <TriangleAlert className="h-3 w-3" />
-              {stale_count} feed{stale_count === 1 ? "" : "s"} stale
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {stale_count > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[11px] text-amber-300/90">
+                <TriangleAlert className="h-3 w-3" />
+                {stale_count} feed{stale_count === 1 ? "" : "s"} stale
+              </span>
+            )}
+            <Link href="/sync" className="text-[11px] text-primary hover:underline">
+              Feed details →
+            </Link>
+          </div>
         </div>
 
         {/* Feed freshness — honest about what's current and what's behind. */}

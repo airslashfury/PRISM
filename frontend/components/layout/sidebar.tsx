@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { BrandWordmark } from "@/components/brand";
-import { NAV } from "./nav";
+import { NAV, type NavGroup } from "./nav";
 import { cn } from "@/lib/utils";
+
+const GROUPS: NavGroup[] = ["Live", "Explore", "Decide", "Reference"];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -18,36 +20,42 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-          Modules
-        </div>
-        {NAV.map((item) => {
-          const active =
-            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-              )}
-            >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  active ? "text-primary" : "text-muted-foreground/70 group-hover:text-foreground",
-                )}
-              />
-              <span className="font-medium">{item.label}</span>
-              {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+        {GROUPS.map((group) => (
+          <div key={group}>
+            <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {group}
+            </div>
+            <div className="space-y-1">
+              {NAV.filter((item) => item.group === group).map((item) => {
+                const active =
+                  item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                      active
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        active ? "text-primary" : "text-muted-foreground/70 group-hover:text-foreground",
+                      )}
+                    />
+                    <span className="font-medium">{item.label}</span>
+                    {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-border/70 p-4">
@@ -60,7 +68,7 @@ export function Sidebar() {
             <span className="text-muted-foreground">Model online</span>
           </div>
           <div className="mt-1 text-[10px] text-muted-foreground/70">
-            Phases 0–10 complete · EPSG:32161
+            PostGIS · EPSG:32161
           </div>
         </div>
       </div>

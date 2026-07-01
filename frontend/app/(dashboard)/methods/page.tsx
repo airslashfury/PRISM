@@ -66,6 +66,14 @@ export default function MethodsPage() {
         >
           Calibration &amp; Validation — event backtests, sensitivity sweeps, and per-model cards →
         </Link>
+        <div>
+          <Link
+            href="/sync"
+            className="mt-1 inline-flex items-center text-sm text-primary hover:underline"
+          >
+            Data source registry — sync intervals, last-fetched times, and rescore history →
+          </Link>
+        </div>
       </div>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

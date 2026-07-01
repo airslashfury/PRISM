@@ -25,7 +25,7 @@ const SOURCE_INFO: Record<string, string> = {
   wfs_marejada:
     "Storm-surge / marejada hazard zones. Feeds the resilience hazard model.",
   wfs_roads_primary:
-    "Primary road network. Used for road-access travel-time scoring (Phase 8).",
+    "Primary road network. Used for road-access travel-time scoring.",
 };
 
 export default function SyncPage() {
@@ -55,11 +55,11 @@ export default function SyncPage() {
           },
           {
             title: "How it's calculated",
-            body: "Each source below has a re-sync interval (24h for hazard layers, weekly for roads). A checksum based on feature count is compared to the last pull. If a hazard layer (flood zones or marejada) changes, all 315 substations are automatically re-scored against the new boundary under the Cat-3 scenario, and the run is logged below.",
+            body: "Each source below has a re-sync interval (24h for hazard layers, weekly for roads). A checksum based on feature count is compared to the last pull. If a hazard layer (flood zones or marejada) changes, every substation is automatically re-scored against the new boundary under the Cat-3 scenario, and the run is logged below. Separately, a new earthquake of magnitude 4.5 or higher triggers a re-score under the quake scenario — the two triggers are independent, each re-scoring its own scenario.",
           },
           {
             title: "Data sources & accuracy",
-            body: "Checksums are feature-count based, so an in-place geometry edit at a constant feature count won't trigger a re-sync. Auto-rescore currently covers the Cat-3 scenario only — SLR/combined scenarios are not re-triggered automatically.",
+            body: "Checksums are feature-count based, so an in-place geometry edit at a constant feature count won't trigger a re-sync. Auto-rescore covers the Cat-3 (hazard-layer change) and quake (mag ≥ 4.5) scenarios; the SLR and combined scenarios are not re-triggered automatically and only reflect a rescore run by hand.",
           },
         ]}
       />
@@ -74,8 +74,8 @@ export default function SyncPage() {
             <p className="text-xs text-muted-foreground">
               PRISM re-fetches flood zones every 24 h and roads every 7 days. When a feed&apos;s
               feature count changes, the layer reloads and — if it feeds the hazard model —
-              all 315 substations are automatically re-scored against the new boundary. Stale
-              flood maps = stale risk scores.
+              every substation is automatically re-scored against the new boundary (the count
+              scored varies slightly by scenario). Stale flood maps = stale risk scores.
             </p>
           </div>
           <div className="overflow-x-auto">
