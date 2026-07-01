@@ -296,6 +296,37 @@ def test_api_ask_backend_down_returns_200_not_500(client, monkeypatch):
     assert body["answer_md"].strip()
 
 
+def test_parcel_answer_prompt_includes_interpretation_hint(engine, monkeypatch):
+    """The answer step gets a column-meaning guide so it doesn't misread sellername."""
+    from prism.ask import answer_query
+    from prism.llm import Completion
+
+    captured: dict[str, str] = {}
+
+    def fake_complete(task, prompt=None, *a, **k):
+        p = prompt if prompt is not None else (a[0] if a else "")
+        if task == "nl_query_parse":
+            return Completion(
+                text='{"tool": "parcel_query", "args": {"question": "parcels previously owned by the municipio"}}',
+                tier="haiku", model="m", backend="ollama",
+            )
+        if task == "nl_parcel_sql":
+            return Completion(
+                text="SELECT num_catastro, municipio, contact FROM crim.parcelas_dedup LIMIT 5",
+                tier="haiku", model="m", backend="ollama",
+            )
+        captured["answer_prompt"] = p
+        return Completion(text="ok", tier="sonnet", model="m", backend="ollama")
+
+    monkeypatch.setattr("prism.llm.backend_available", lambda: True)
+    monkeypatch.setattr("prism.llm.complete", fake_complete)
+
+    r = answer_query(engine, "Find parcels previously owned by the municipio")
+    assert r.status == "ok"
+    ap = captured.get("answer_prompt", "")
+    assert "sellername" in ap and "PRIOR owner" in ap   # the interpretation guide is present
+
+
 # ── parcel_query text-to-SQL patching (LLM mocked) ───────────────────────────
 
 

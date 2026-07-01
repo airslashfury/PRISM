@@ -112,6 +112,20 @@ _ANSWER_SYSTEM = (
 )
 
 
+# Per-tool interpretation guides appended to the answer prompt so the write-up
+# model reads columns correctly (esp. weaker local models). Column-meaning +
+# null-handling notes prevent it from misreading the data it was handed.
+_ANSWER_HINTS = {
+    "parcel_query": (
+        "This is CRIM parcel data. In each row: 'sellername' is the PRIOR owner who sold the parcel, "
+        "'byername' is the buyer, 'contact' is the CURRENT owner. Use the column the question is about "
+        "(e.g. 'previously owned by X' → sellername). State the exact number of rows returned — do not "
+        "guess a different count. 'salesamt'/'salesdttm' are often null (many transfers record no "
+        "price/date); do NOT conclude the data is invalid or inconclusive just because those are null."
+    ),
+}
+
+
 @dataclass
 class AskResult:
     answer_md: str
@@ -211,10 +225,12 @@ def answer_query(engine: Engine, query: str) -> AskResult:
     tiers = result.get("confidence_tiers") or {} if isinstance(result, dict) else {}
     map_points = result.get("map_points") or [] if isinstance(result, dict) else []
 
+    hint = _ANSWER_HINTS.get(tool_name, "")
     prompt = (
         f"Question: {query}\n\n"
         f"Tool used: {tool_name}\n"
-        f"Tool result (JSON):\n{json.dumps(result, default=str)}"
+        + (f"Interpretation guide: {hint}\n" if hint else "")
+        + f"Tool result (JSON):\n{json.dumps(result, default=str)}"
     )
     try:
         completion = llm.complete(
