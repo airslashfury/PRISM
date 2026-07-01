@@ -240,6 +240,62 @@ def test_answer_query_tool_error_is_handled(engine, monkeypatch):
     assert "error" in (result.tool_result or {})
 
 
+def test_answer_query_backend_down_does_not_fail_silently(engine, monkeypatch):
+    """Backend configured but unreachable (e.g. Ollama stopped): surface, don't raise."""
+    from prism.ask import answer_query
+
+    monkeypatch.setattr("prism.llm.backend_available", lambda: True)
+
+    def boom(*a, **kwargs):
+        raise RuntimeError("Cannot connect to Ollama at http://localhost:11434. Is Ollama running?")
+
+    monkeypatch.setattr("prism.llm.complete", boom)
+
+    result = answer_query(engine, "Find parcels previously owned by the municipio")
+    assert result.status == "llm_error"          # not a silent blank, not an exception
+    assert result.answer_md.strip()              # a real, non-empty message
+    assert "Ollama" in result.answer_md          # the actionable detail is surfaced
+
+
+def test_answer_query_answer_stage_failure_keeps_tool_result(engine, monkeypatch):
+    """If only the write-up call fails, the tool data is still surfaced, honestly."""
+    from prism.ask import answer_query
+    from prism.llm import Completion
+
+    monkeypatch.setattr("prism.llm.backend_available", lambda: True)
+
+    def fake_complete(task, *a, **kwargs):
+        if task == "nl_query_parse":
+            return Completion(
+                text='{"tool": "top_resilience", "args": {"scenario": "cat3", "top": 3}}',
+                tier="haiku", model="claude-haiku-4-5", backend="anthropic",
+            )
+        raise RuntimeError("backend dropped mid-answer")
+
+    monkeypatch.setattr("prism.llm.complete", fake_complete)
+
+    result = answer_query(engine, "What are the top 3 highest-risk substations?")
+    assert result.status == "llm_error"
+    assert result.tool == "top_resilience"
+    assert result.tool_result is not None        # the query ran; data isn't lost
+
+
+def test_api_ask_backend_down_returns_200_not_500(client, monkeypatch):
+    """The endpoint surfaces a backend outage as a rendered answer, never an opaque 500."""
+    monkeypatch.setattr("prism.llm.backend_available", lambda: True)
+
+    def boom(*a, **kwargs):
+        raise RuntimeError("Cannot connect to Ollama at http://localhost:11434. Is Ollama running?")
+
+    monkeypatch.setattr("prism.llm.complete", boom)
+
+    r = client.post("/ask", json={"query": "Find parcels previously owned by the municipio"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "llm_error"
+    assert body["answer_md"].strip()
+
+
 # ── API ──────────────────────────────────────────────────────────────────────
 
 

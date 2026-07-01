@@ -124,6 +124,26 @@ class AskResult:
     status: str = "ok"  # "ok" | "no_backend" | "no_match"
 
 
+def _llm_error_result(exc: Exception, **extra: Any) -> AskResult:
+    """Honest, actionable result when an LLM backend call fails — never a silent blank.
+
+    The RuntimeError raised by the Ollama/Anthropic dispatch is already written to
+    be user-facing (e.g. "Cannot connect to Ollama at …. Is Ollama running?"), so
+    surface it rather than swallow it.
+    """
+    log.warning("Ask PRISM LLM call failed: %s", exc)
+    extra.setdefault("tool", None)  # AskResult.tool is required and has no default
+    detail = str(exc).strip()
+    msg = (
+        "**Ask PRISM couldn't reach the language-model backend — rather than fail "
+        "silently, here's what happened.**\n\n"
+        + (detail or "The model backend did not respond.")
+        + "\n\nThis is a backend/connection issue, not a data problem — PRISM's "
+        "underlying model is unaffected. Once the backend is reachable again, retry."
+    )
+    return AskResult(answer_md=msg, model_used="stub", status="llm_error", **extra)
+
+
 def _extract_json(text_: str) -> dict[str, Any] | None:
     match = re.search(r"\{.*\}", text_, re.DOTALL)
     if not match:
@@ -159,7 +179,11 @@ def answer_query(engine: Engine, query: str) -> AskResult:
             status="no_backend",
         )
 
-    routed = route_query(query)
+    try:
+        routed = route_query(query)
+    except Exception as exc:  # backend unreachable / LLM error — surface, don't 500
+        return _llm_error_result(exc)
+
     if not routed or not routed.get("tool") or routed["tool"] not in _TOOL_FUNCS:
         return AskResult(
             answer_md=(
@@ -184,17 +208,25 @@ def answer_query(engine: Engine, query: str) -> AskResult:
         log.exception("Ask PRISM tool %s failed", tool_name)
         result = {"tool": tool_name, "error": f"{tool_name} failed to run against the live model"}
 
+    tiers = result.get("confidence_tiers") or {} if isinstance(result, dict) else {}
+    map_points = result.get("map_points") or [] if isinstance(result, dict) else []
+
     prompt = (
         f"Question: {query}\n\n"
         f"Tool used: {tool_name}\n"
         f"Tool result (JSON):\n{json.dumps(result, default=str)}"
     )
-    completion = llm.complete(
-        "nl_query_answer", prompt, system=_ANSWER_SYSTEM, max_tokens=512, cache_system=True,
-    )
-
-    tiers = result.get("confidence_tiers") or {} if isinstance(result, dict) else {}
-    map_points = result.get("map_points") or [] if isinstance(result, dict) else []
+    try:
+        completion = llm.complete(
+            "nl_query_answer", prompt, system=_ANSWER_SYSTEM, max_tokens=512, cache_system=True,
+        )
+    except Exception as exc:
+        # The query ran — only the write-up failed. Surface the failure AND the
+        # tool result so the data isn't lost to a backend hiccup.
+        return _llm_error_result(
+            exc, tool=tool_name, tool_args=args, tool_result=result,
+            confidence_tiers=tiers, map_points=map_points,
+        )
 
     return AskResult(
         answer_md=completion.text,
