@@ -12,8 +12,14 @@ it gets scheduled.
 > **2026-06-29 — the frontend product arc is now scheduled in [`ROADMAP.md`](ROADMAP.md) as
 > F1–F7** (converged GPT5.5 / Opus review). Items below that have been pulled up are marked
 > **→ SCHEDULED**; ROADMAP is the authoritative spec, the detail here is the appendix. What
-> remains genuinely backlog (not in F1–F7): the **budget allocator**, **public methods + API
-> docs**, and everything under P4 multi-hazard / distribution geometry.
+> remains genuinely backlog (not in F1–F7): **public methods + API docs**, everything under P4
+> multi-hazard / distribution geometry, and (as of 2026-07-01) the parked output-shaped features
+> below.
+>
+> **2026-07-01 — the budget allocator was pulled up into the revised ROADMAP F4** (no longer
+> backlog — see F4 in ROADMAP.md). Scenario library, Report Studio, and provenance-stamped
+> exports were **parked** to the new "wait for external demand" group below; the F4 permalink
+> fragment was kept and folded into the revised F4.
 
 ### CRIM enrichment v2 — owner + address normalization  **→ SCHEDULED as ROADMAP F1**
 - **Owner entity key** — normalize `contact` (uppercase, strip punctuation/accents/legal
@@ -25,24 +31,28 @@ it gets scheduled.
   normalized address (street + municipio backfill, standardized formatting). Unblocks reliable
   geocoding.
 
-### MVP3 P3-gov — government / planner surface
-- **Budget allocator** *(still backlog)* — a budget slider that re-runs the ILP via the M3 job
-  queue and animates the portfolio change ("where the next $500M does the most good"). The north
-  star's founding question as a first-class control; portfolio page is currently a results viewer.
-- **Scenario library + comparison**  **→ SCHEDULED as ROADMAP F4** — save / name / permalink /
-  diff scenarios (extends Playground M4 + `report.scenario_comparison`), with the SVI equity lens
-  surfaced in the diff.
-- **Report Studio (MVP2 M5d)**  **→ SCHEDULED as ROADMAP F4** — one-click board-pack PDF (maps,
-  tables, objective breakdown, flagship Opus narrative), every figure carrying its confidence tier.
-
 ### MVP3 P3-eng — engineer surface
-- **Assumptions panel (global)**  **→ SCHEDULED as ROADMAP F5** — edit VOLL, discount rate, feeder
-  radius, hazard params → re-run affected scores via the job queue → rankings shift live. (P2
-  sensitivity already proved which assumptions move rankings; F5 surfaces robust-vs-sensitive.)
-- **Provenance-stamped exports**  **→ SCHEDULED as ROADMAP F4** — any table/map → CSV/GeoPackage
-  with a provenance sidecar (source, vintage, method, confidence).
 - **Public methods + API docs** *(still backlog)* — document the FastAPI OpenAPI surface, link
   from `/methods`.
+
+---
+
+## Parked — wait for external demand (2026-07-01)
+
+Rejected from the active queue on the grounds that all three package existing PRISM answers for
+external stakeholders who don't exist yet — PRISM currently has one user. Revisit each when a
+real external stakeholder actually asks for the artifact, not before.
+
+- **Scenario library** — save / name / clone / diff scenarios (extends Playground M4 +
+  `report.scenario_comparison`), with the SVI equity lens surfaced in the diff. The M4 Playground
+  already covers solo exploration; full persistence is per-user state — the same trigger as M6
+  auth (below). The permalink fragment of this (URL-encoded viewport/scenario/selection) was kept
+  and folded into the revised ROADMAP F4.
+- **Report Studio (MVP2 M5d)** — one-click board-pack PDF (maps, ranked tables, objective
+  breakdown, flagship Opus narrative, confidence tiers, source/vintage appendix). Revisit when a
+  real external stakeholder asks for a document.
+- **Provenance-stamped exports** — any table/map → CSV/GeoPackage with a provenance sidecar
+  (source, vintage, method, confidence). Same audience problem as Report Studio.
 
 ---
 
@@ -65,20 +75,20 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
 ---
 
 ## MVP2 leftovers
-- **M5c Storm Timeline** — animated Cat-3 sweep; doubles as a visual backtest over a real track
-  (pairs with P2 / multi-hazard). Closes the cat3-only rescore carry-forward (multi-scenario
-  auto-rescore).
+- **M5c Storm Timeline** — **→ subsumed by ROADMAP F5 (2026-07-01)**: F5's NHC advisory
+  cone/track overlay replaces this with a real, live-data storm track instead of a synthetic
+  Cat-3 sweep.
 - **M6 Auth / multi-user / K8s** — elective; the real trigger is the first feature wanting
-  per-user state (P3-eng assumptions, P3-gov saved scenarios).
+  per-user state (P3-eng assumptions, the parked scenario library above).
 
 ---
 
 ## Standing data / quality carry-forwards
 - **CRIM valuation official export** — valuation/sales loaded and trusted for now; the
   token-secured official export (`sigejp.pr.gov`) would harden it. Join key `NUM_CATASTRO`.
-- **`~50% eid=XXX` name-resolution gap** — ~half of portfolio/validation items show a raw
-  entity id instead of a name; pre-resolve so provenance popovers, citizen card, parcel detail,
-  and Ask PRISM never show a raw id.
+- **`~50% eid=XXX` name-resolution gap** — **→ folded into ROADMAP F4 (2026-07-01)** — ~half of
+  portfolio/validation items show a raw entity id instead of a name; pre-resolve so provenance
+  popovers, citizen card, parcel detail, and Ask PRISM never show a raw id.
 - **Checksum is count-based** — `sha256("{layer}:{count}")` detects add/remove but not in-place
   geometry edits at constant feature count. Fine for current cadence; revisit if content-level
   drift detection is needed.
@@ -94,9 +104,9 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
   afternoon, opportunistically (fold into F4 export work). Cosmetic.
 - **CI does not run pytest** — the 342-test suite needs the 3.6 GB local dataset; CI runs
   ruff + alembic idempotency + frontend lint/typecheck/build only.
-- **M5a cache-coherence** — `/network/consequence/{id}` cached 6h but not invalidated on
-  sync-triggered rescore; can serve a stale headline up to 6h. Fold invalidation into the next
-  rescore-trigger change.
+- **M5a cache-coherence** — **→ folded into ROADMAP F5 (2026-07-01)** — `/network/consequence/{id}`
+  cached 6h but not invalidated on sync-triggered rescore; can serve a stale headline up to 6h.
+  F5's NHC trigger work is the next rescore-trigger change, so invalidation lands there.
 
 ---
 

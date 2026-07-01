@@ -43,9 +43,21 @@ net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** 
 Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-06-30):** F1 + F2 + F3 DONE (each Opus GO), committed + pushed to
-> `origin/feat/crim-parcel-browse`. **F4 (scenario library + comparison → Report Studio / exports)
-> is next.**
+> **Status (2026-07-01):** F1 + F2 + F3 DONE (each Opus GO), plus an opportunistic **UI-B**
+> polish batch, committed + pushed to `origin/feat/crim-parcel-browse`. **F4 (revised —
+> interactive model: budget allocator + assumptions/sensitivity + permalinks) is next.**
+
+> **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
+> exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
+> exist yet (PRISM has one user; nobody outside is waiting on a board-pack PDF or a CSV
+> export). F4 is now the interactive-model item (absorbing old F5's assumptions/sensitivity
+> panel); a new F5 (live storm + alerting) takes the old F5 slot, scheduled ahead of water
+> because hurricane season is already underway. F6/F7 unchanged.
+
+**M0 — merge `feat/crim-parcel-browse` → `main`** *(pre-item note, not gated)*: nine gated
+items (the CRIM/seismic batch + F1–F3 + UI-B) now sit on this one unmerged branch. Merge to
+`main` before the F4 build starts — not performed as part of this revision, just recorded here
+so it isn't lost.
 
 ### Item F1 — CRIM owner/address normalization + owner UI  *(Priority 1)* — ✅ DONE (2026-06-30, Opus GO)
 The highest-value new surface, on data already loaded (`crim.parcelas`, 1.53M parcels). Was the
@@ -127,31 +139,55 @@ lazy MapWorkspace extraction at F6.
 **Done when:** a Playwright suite renders each map route and asserts a non-empty canvas + a key
 overlay at desktop and mobile widths, runnable locally.
 
-### Item F4 — Scenario library + comparison → Report Studio / exports
-The "decision record system" arc. Pulls up BACKLOG P3-gov scenario library + Report Studio and
-P3-eng provenance-stamped exports — and closes the real provenance gap (it must **travel with
-exports**).
-- **Scenario library** — save / name / clone / permalink / diff (extends Playground M4 +
-  `report.scenario_comparison`); diff shows changed assets, objective-value delta, and the
-  population/equity/facilities exposure delta with the SVI equity lens.
-- **Report Studio** — one-click board-pack PDF (maps, ranked tables, objective breakdown, flagship
-  Opus narrative, every figure's confidence tier, source/vintage appendix).
-- **Provenance-stamped exports** — any table/map → CSV/GeoPackage with a provenance sidecar.
+### Item F4 (revised) — Interactive model: budget allocator + assumptions & sensitivity + permalinks
+Replaces the old "decision record system" arc (scenario library / Report Studio / exports —
+now parked in `BACKLOG.md`, see the 2026-07-01 revision note above). This F4 is about making
+the model something you *push on*, not something that produces a document.
+- **Budget allocator** (pulled up from BACKLOG P3-gov) — a budget slider that re-runs the ILP
+  via the M3 job queue and animates the portfolio change ("where the next $500M does the most
+  good"), with the SVI equity lens on the delta. Upgrades `/portfolio` from a results viewer to
+  an instrument — this is the north star's founding question ("what does this decision cost us,
+  and who does it protect?") as a first-class control.
+- **Assumptions panel + robust-vs-sensitive flags** (old F5, absorbed here) — edit VOLL,
+  discount rate, feeder radius, hazard params → re-run affected scores via the job queue →
+  rankings shift live; each ranking flags robust-vs-sensitive. Backend largely exists
+  (`api/routers/validate.py`, `SensitivityResult`) — mostly "expose what's built."
+- **Permalinks / URL state** (the surviving fragment of the old F4) — map viewport + scenario +
+  selection encoded in the URL so every view is bookmarkable and shareable.
+- **Folded quality residuals:**
+  - the `~50% eid=XXX` name-resolution gap (BACKLOG standing carry-forward) — pre-resolve so
+    portfolio/validation/parcel-detail/Ask PRISM never show a raw entity id;
+  - a score/rank **history table** persisted per rescore — closes F2's deferred "rank movement"
+    residual (WhatsNew can then say "substation 8→3 under quake" instead of just "a rescore
+    fired");
+  - **Ask PRISM tool coverage audit** — add owner-intelligence (F1) and what-changed (F2) tools
+    so the natural-language bar covers those surfaces too.
 
-**Done when:** scenarios persist (save/name/clone/permalink) and diff A-vs-B with objective + equity
-deltas; a board-pack PDF generates with confidence tiers + a source appendix; tables/maps export to
-CSV/GeoPackage with a provenance sidecar.
+**Done when:** the budget slider re-runs the ILP and animates portfolio + equity deltas; editing
+a global assumption re-runs affected scores and shows rank shifts with robust-vs-sensitive flags;
+map/scenario/selection state is URL-encoded and bookmarkable; rankings resolve names (no raw
+eids); rank movement appears in WhatsNew.
 
-### Item F5 — Engineer assumptions + robust-vs-sensitive surfacing
-Pulls up BACKLOG P3-eng assumptions panel. The sleeper feature is the sensitivity flag, and the
-backend already exists (`api/routers/validate.py`, `SensitivityResult`) — this is mostly "expose what's
-built."
-- **Global assumptions panel** — edit VOLL, discount rate, feeder radius, hazard params → re-run
-  affected scores via the M3 job queue → rankings shift live.
-- **Robust-vs-sensitive indicator** on each ranking, sourced from the existing sensitivity backend.
+### Item F5 (new) — Live storm: NHC advisory feed + alerting
+Scheduled ahead of water (old F6) deliberately — hurricane season is underway and this is
+seasonally urgent in a way water isn't. Subsumes the backlogged M5c Storm Timeline with real
+data instead of a synthetic Cat-3 sweep.
+- `prism/sync/nhc.py` — pull NOAA National Hurricane Center advisory forecast cones/tracks (free
+  GeoJSON/shapefile per advisory), filtered to the PR region, into sync tables (same pattern as
+  the PREPA/LUMA/USGS live feeds).
+- **Cone/track map overlay + grid intersection** → a pre-landfall **consequence headline** ("if
+  this track holds: N substations, M hospitals in the wind/surge field"), reusing the existing
+  SLOSH/surge hazard data, `graph.downstream_summary`, and the `trigger.py` rescore pattern.
+- **Alerting** — a small notifier (email/webhook via the arq worker) on events already detected:
+  a new NHC advisory, a quake ≥ threshold rescore, a feed gone stale, a monthly CRIM delta
+  landing. "The twin tells you" instead of requiring the app to be open.
+- **Folded residual:** M5a cache-coherence — invalidate `/network/consequence/{id}` on rescore
+  (folded into this item's trigger work, since NHC lands a new rescore path).
 
-**Done when:** editing a global assumption re-runs affected scores and shows the rank shifts; each
-ranking flags whether it is robust or sensitive to those assumptions.
+**Done when:** a current or replayed NHC advisory renders as a cone/track with a consequence
+headline; alerts fire on new-advisory / quake-rescore / stale-feed / CRIM-delta events; the
+consequence cache invalidates on rescore. Verified against at least one historical advisory
+replay.
 
 ### Item F6 — Water cascade page (+ lazy MapWorkspace / entity-drawer extraction)
 Pulls up BACKLOG P4 water domain — and is the deliberate moment to extract the shared workspace
@@ -184,6 +220,26 @@ built on the shared workspace shell.
 - **Confirm-modal + font warning** — opportunistic polish; not scheduled.
 - **"Make provenance visible"** — already visible (`ProvenanceBadge`/`InfoPanel`); the real gap
   (provenance traveling with exports) is folded into **F4**.
+- **Report Studio / scenario library / provenance-stamped exports** *(parked 2026-07-01)* —
+  output-shaped features for an audience that doesn't exist yet; moved to `BACKLOG.md` under an
+  explicit wait-for-external-demand trigger. The permalink fragment survived into the revised F4.
+- **Rail Corridor** *(frozen 2026-07-01)* — kept as a demo showpiece under nav "Reference"; no
+  further investment scheduled.
+
+---
+
+## UI-B — opportunistic UI batch  *(2026-07-01, executed alongside this plan revision)*
+
+A small frontend polish pass, done in the same session as this revision rather than as its own
+gated item. Contains:
+- **Nav grouping** — sidebar nav grouped into labeled sections (Live / Explore / Decide /
+  Reference) replacing the single flat "Modules" label.
+- **Corridor demotion** — Rail Corridor moved under the "Reference" group (see frozen note above).
+- **`/sync` de-navved** — removed the standalone "Digital Twin" nav entry; the route stays live,
+  linked from the WhatsNew card and the Trust Center instead of occupying primary nav real estate.
+- **Stale-copy sweep** — footer "Phases 0–10 complete" replaced with non-phase-pinned copy; the
+  `/sync` InfoPanel's rescore-coverage claim corrected to reflect the `quake` scenario trigger that
+  already exists; other phase-pinned strings checked for staleness.
 
 ---
 

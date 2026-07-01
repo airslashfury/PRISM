@@ -121,12 +121,16 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 > history and summarized in `memory/project_state.md`. This file now keeps only the phase-log
 > table above and the condensed live state below.
 
-## Current state (2026-06-30)
+## Current state (2026-07-01)
 
 PRISM is a full-stack Puerto Rico infrastructure simulation model with a
 confidence/provenance/validation spine, a citizen civic card, a natural-language query bar,
 live PREPA/LUMA feeds, NBI bridge spans, a Site Finder over industrial parcels, CRIM owner
 intelligence, and a what-changed/stale-data overview cockpit.
+
+**UI batch (2026-07-01):** sidebar nav grouped into Live / Explore / Decide / Reference; Rail
+Corridor demoted under "Reference" (frozen — demo showpiece, no further investment); `/sync`
+de-navved (route stays live, linked from WhatsNew + Trust Center instead of primary nav).
 
 **PRISM live state:**
 - **Data layer:** 3.6 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; ~166 catalog entries
@@ -149,14 +153,18 @@ work. The older plan docs (`PRISM_Refined_Plan`, `FRONTEND_PLAN`, `UI_PHASE_PLAN
 
 **Original CRIM/seismic queue (items 1–6) — ALL DONE (2026-06-29).** The active plan is now the
 **converged frontend product arc F1–F7** (from `PRISM_FRONTEND_RECOMMENDATIONS.md` (GPT5.5) +
-`PRISM_FRONTEND_REFUTAL.md` (Opus), which converged on one sequence). Status (2026-06-30):
+`PRISM_FRONTEND_REFUTAL.md` (Opus), which converged on one sequence). **Revised 2026-07-01:** the
+original F4 (scenario library + Report Studio + provenance exports) was parked to `BACKLOG.md` —
+output-shaped features for an audience that doesn't exist yet. Status (2026-07-01):
 1. ✅ **F1 — CRIM owner/address normalization + owner UI** (Opus GO) — `prism/crim/normalize.py`+`owners.py`, `crim.owner_entities`/`parcel_owner`, `/crim/owners/*`, `/parcels` owner drawer
 2. ✅ **F2 — What-changed + stale-data (overview cockpit)** (Opus GO) — `prism/sync/changes.py`, `/whatsnew`, `WhatsNew` card leads the overview
 3. ✅ **F3 — Playwright smoke tests for map routes** (Opus GO) — `frontend/e2e/maps.spec.ts` (18 tests, canvas-paint + overlay per route, desktop+mobile); closes the "maps never eyeballed" residual
-4. ⏭️ **F4 — scenario library + comparison → Report Studio / exports** *(next)*
-5. F5 assumptions + sensitivity · 6. F6 water cascade (+ lazy MapWorkspace extract) · 7. F7 telecom
+4. ✅ **UI-B — opportunistic UI batch** (2026-07-01, no gate) — nav grouped (Live/Explore/Decide/Reference), `/sync` de-navved, stale-copy sweep
+5. ⏭️ **F4 (revised) — interactive model: budget allocator + assumptions/sensitivity + permalinks** *(next)*
+6. F5 (new) — live storm: NHC advisory feed + alerting · 7. F6 water cascade (+ lazy MapWorkspace extract) · 8. F7 telecom
 
-All on branch `feat/crim-parcel-browse` (unmerged, pushed to origin).
+All on branch `feat/crim-parcel-browse` (unmerged, pushed to origin). See `ROADMAP.md` for the
+full revised spec of F4/F5.
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
