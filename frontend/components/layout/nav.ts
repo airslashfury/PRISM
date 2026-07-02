@@ -12,6 +12,7 @@ import {
   LandPlot,
   TrendingUp,
   SlidersHorizontal,
+  Wind,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const NAV: NavItem[] = [
   { href: "/", label: "Overview", icon: LayoutDashboard, desc: "What's at stake across Puerto Rico's infrastructure", group: "Live" },
   { href: "/ask", label: "Ask PRISM", icon: Sparkles, desc: "Ask a question in plain language and get an answer with confidence tiers, drawn from PRISM's models", group: "Live" },
   { href: "/citizen", label: "My Area", icon: Home, desc: "Pick your barrio for a plain-language card on power, flood risk, and emergency access", group: "Live" },
+  { href: "/storm", label: "Storm", icon: Wind, desc: "When a storm approaches: the live NHC forecast cone over PRISM's grid — which substations, hospitals, and people are in its path", group: "Live" },
 
   { href: "/resilience", label: "Resilience", icon: Zap, desc: "Which substations cut power to the most hospitals and people when they fail", group: "Explore" },
   { href: "/economy", label: "Economy", icon: Users, desc: "Who's most vulnerable and how much it costs when the lights go out", group: "Explore" },

@@ -721,6 +721,52 @@ export interface OwnerDetail {
   top_parcels: OwnerPortfolioParcel[];
 }
 
+// ── Live storm (F5: NHC advisory feed + pre-landfall consequence) ──────────
+
+/** Hand-typed pending OpenAPI client regen — mirrors api.schemas.Storm*
+ *  (api/routers/network.py `def storm`). */
+export interface StormTrackPoint {
+  seq: number;
+  valid_at: string | null;
+  lat: number | null;
+  lon: number | null;
+  max_wind_kt: number | null;
+  label: string | null;
+}
+
+export interface StormAdvisory {
+  storm_id: string;
+  advisory_num: string;
+  storm_name: string | null;
+  classification: string | null;
+  max_wind_kt: number | null;
+  min_pressure_mb: number | null;
+  issued_at: string | null;
+  replay: boolean;
+  fetched_at: string | null;
+  cone_geojson: { type: string; coordinates: unknown } | null;
+  track_geojson: { type: string; coordinates: unknown } | null;
+}
+
+export interface StormConsequence {
+  n_substations: number;
+  n_hospitals: number;
+  n_water_plants: number;
+  n_health_centers: number;
+  n_barrios: number;
+  n_substations_surge: number;
+  population_served: number;
+  headline: string;
+  computed_at: string | null;
+}
+
+export interface StormResponse {
+  active: boolean;
+  advisory: StormAdvisory | null;
+  track_points: StormTrackPoint[];
+  consequence: StormConsequence | null;
+}
+
 // ── What's new (overview cockpit: what-changed + stale-data) ─────────────────
 
 export interface FeedFreshness {
@@ -895,6 +941,7 @@ export const api = {
   generation: () => apiGet<GenerationStatus>("/network/generation"),
   outages: () => apiGet<LumaOutages>("/network/outages"),
   seismic: (days = 30) => apiGet<SeismicResponse>("/network/seismic", { days }),
+  storm: () => apiGet<StormResponse>("/network/storm"),
   substation: (id: number, scenario: string) =>
     apiGet<SubstationDetail>(`/resilience/substations/${id}`, { scenario }),
 

@@ -90,3 +90,24 @@ test("/portfolio diff panel offers the AI explanation", async ({ page }) => {
 
   expect(errors, `uncaught page errors on /portfolio: ${errors.join("; ")}`).toEqual([]);
 });
+
+test("/storm renders the advisory or the calm state", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/storm", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Storm", level: 1 })).toBeVisible();
+
+  // Either a replayed/live advisory renders, or the calm empty state does.
+  await expect(
+    page
+      .getByText("HISTORICAL REPLAY")
+      .or(page.getByText("No storm on the board"))
+      .or(page.getByText(/advisory #/))
+      .first(),
+  ).toBeVisible({ timeout: 30_000 });
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+
+  expect(errors, `uncaught page errors on /storm: ${errors.join("; ")}`).toEqual([]);
+});

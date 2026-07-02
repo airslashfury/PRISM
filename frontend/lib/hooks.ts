@@ -28,6 +28,10 @@ export const useOutages = () =>
 export const useSeismic = (days = 30) =>
   useQuery({ queryKey: ["seismic", days], queryFn: () => api.seismic(days), staleTime: 5 * MIN });
 
+/** Live storm (F5): latest NHC advisory + cone/track + pre-landfall consequence. */
+export const useStorm = () =>
+  useQuery({ queryKey: ["storm"], queryFn: api.storm, staleTime: 2 * MIN });
+
 export const useScores = (scenario: string, top = 400) =>
   useQuery({
     queryKey: ["scores", scenario, top],
