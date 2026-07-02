@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo, MapViewState } from "@deck.gl/core";
@@ -20,6 +20,7 @@ import type {
   OwnerDetail,
 } from "@/lib/api";
 import { fmtInt, fmtUsd, fmtNum, fmtPct, fmtDateTime } from "@/lib/utils";
+import { patchUrl, readParam } from "@/lib/url-state";
 
 const PARCEL_MVT_MIN_ZOOM = 15; // 1.5M polygons — only fetch tiles when zoomed right in
 const HL: [number, number, number, number] = [34, 211, 238, 230]; // cyan highlight
@@ -46,6 +47,31 @@ export default function ParcelsPage() {
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
   const [view, setView] = useState<MapViewState | null>(null);
   const [zoom, setZoom] = useState(8.3);
+
+  // ── Permalinks (F4): search + parcel/owner selection live in the URL ──────
+  // Read on mount (see lib/url-state.ts for why not in the initializers).
+  const hydrated = useRef(false);
+  useEffect(() => {
+    const q = readParam("q");
+    if (q) {
+      setInput(q);
+      setSubmitted(q);
+    }
+    const sel = readParam("sel");
+    if (sel) setSelected(sel);
+    const owner = readParam("owner");
+    if (owner) setOwnerKey(owner);
+    hydrated.current = true;
+  }, []);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ q: submitted ?? null });
+  }, [submitted]);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ sel: selected ?? null });
+  }, [selected]);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ owner: ownerKey ?? null });
+  }, [ownerKey]);
 
   const search = useParcelSearch(submitted);
   const result = search.data;

@@ -74,7 +74,7 @@ class FeedFreshness(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    kind: str                           # sync | rescore | quake | crim
+    kind: str                           # sync | rescore | rank | quake | crim
     headline: str
     detail: str | None = None
     at: str | None = None               # ISO timestamp (or month for CRIM deltas)
@@ -649,6 +649,19 @@ class SensitivityResult(BaseModel):
     stability: str
     notes: str | None = None
     computed_at: datetime | None = None
+
+
+class EditableAssumption(BaseModel):
+    """One knob on the F4 assumptions panel."""
+    key: str
+    label: str
+    unit: str | None = None
+    baseline: float | None = None
+    min: float
+    max: float
+    step: float
+    affects_ranking: bool
+    stored_stability: str | None = None    # robust | sensitive | unknown (P2 sweeps)
 
 
 class ModelCardSensitivity(BaseModel):

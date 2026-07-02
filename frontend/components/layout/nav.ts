@@ -11,6 +11,7 @@ import {
   Factory,
   LandPlot,
   TrendingUp,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ export const NAV: NavItem[] = [
 
   { href: "/portfolio", label: "Portfolio", icon: Wallet, desc: "The best combination of hardening investments within a fixed budget", group: "Decide" },
   { href: "/playground", label: "Playground", icon: FlaskConical, desc: "Sketch infrastructure onto the live model and see cost, capacity, and resilience impact instantly", group: "Decide" },
+  { href: "/assumptions", label: "Assumptions", icon: SlidersHorizontal, desc: "Push on the model's load-bearing assumptions — dial VOLL, hazard, or feeder confidence and see which rankings hold and which flip", group: "Decide" },
 
   { href: "/methods", label: "Trust Center", icon: ShieldCheck, desc: "Every model and data layer, with its method, confidence tier, and what would upgrade it", group: "Reference" },
   { href: "/corridor", label: "Rail Corridor", icon: Route, desc: "Ranked routes balancing construction cost, terrain, and population served", group: "Reference" },

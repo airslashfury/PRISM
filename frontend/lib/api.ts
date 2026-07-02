@@ -150,6 +150,59 @@ export interface ModelCardSensitivity {
   results: SensitivityResult[];
 }
 
+/** F4 — interactive assumptions panel (api/routers/validate.py + jobs.py). */
+export interface EditableAssumption {
+  key: string;
+  label: string;
+  unit: string | null;
+  baseline: number | null;
+  min: number;
+  max: number;
+  step: number;
+  affects_ranking: boolean;
+  stored_stability: SensitivityStability | null;
+}
+
+export interface AssumptionRankShift {
+  entity_id: number;
+  entity_name: string | null;
+  baseline_rank: number | null;
+  new_rank: number;
+  baseline_composite: number;
+  new_composite: number;
+}
+
+export interface AssumptionEvalResult {
+  scenario: string;
+  error?: string;
+  edited: Record<string, { baseline: number; value: number }>;
+  ranking: {
+    touched: boolean;
+    spearman_rho: number | null;
+    top10_overlap: number | null;
+    n_compared: number;
+    stability: SensitivityStability | "unchanged";
+    moved_in_top: number;
+    shifts: AssumptionRankShift[];
+  };
+  economics: {
+    benefit_multiplier: number;
+    baseline_total_exposure_usd: number;
+    perturbed_total_exposure_usd: number;
+    note: string;
+  } | null;
+  stored_stability: Record<string, SensitivityStability>;
+}
+
+export interface AssumptionEvalParams {
+  scenario?: string;
+  voll_usd_per_kwh?: number;
+  discount_rate?: number;
+  outage_hours_per_year?: number;
+  feeder_confidence_min?: number;
+  hazard_scale?: number;
+}
+
 export interface ModelCard {
   id: string;
   name: string;
@@ -682,7 +735,7 @@ export interface FeedFreshness {
   stale: boolean;
 }
 
-export type ChangeKind = "sync" | "rescore" | "quake" | "crim";
+export type ChangeKind = "sync" | "rescore" | "rank" | "quake" | "crim";
 
 export interface ChangeEvent {
   kind: ChangeKind;
@@ -854,6 +907,11 @@ export const api = {
     ),
   portfolioCompare: (runIdA: number, runIdB: number) =>
     apiGet<PortfolioCompare>("/portfolio/compare", { run_id_a: runIdA, run_id_b: runIdB }),
+  enqueuePortfolioDiffNarrative: (runIdA: number, runIdB: number) =>
+    apiSend<JobEnqueued>(
+      `/jobs/narratives/portfolio-diff?run_id_a=${runIdA}&run_id_b=${runIdB}`,
+      "POST",
+    ),
 
   economyTracts: () => apiGet<FeatureCollection>("/economy/tracts"),
   economyCommunity: () => apiGet<FeatureCollection>("/economy/community"),
@@ -910,6 +968,14 @@ export const api = {
 
   validationBacktests: () => apiGet<BacktestResult[]>("/validate/backtests"),
   validationSensitivity: () => apiGet<SensitivityResult[]>("/validate/sensitivity"),
+  editableAssumptions: () => apiGet<EditableAssumption[]>("/validate/assumptions"),
+  enqueueAssumptionEval: (params: AssumptionEvalParams) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null) qs.set(k, String(v));
+    }
+    return apiSend<JobEnqueued>(`/jobs/validate/assumptions?${qs.toString()}`, "POST");
+  },
   modelCards: () => apiGet<ModelCard[]>("/validate/model-cards"),
   modelCard: (id: string) => apiGet<ModelCard>(`/validate/model-cards/${encodeURIComponent(id)}`),
 

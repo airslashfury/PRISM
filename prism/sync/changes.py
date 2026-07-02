@@ -165,6 +165,36 @@ def _quake_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
     ]
 
 
+def _rank_changes(engine: Engine) -> list[dict[str, Any]]:
+    """Substations that moved inside the top-10 ranking between the two most
+    recent rescores of a scenario (F4 — reads resilience.score_history)."""
+    if not _exists(engine, "resilience.score_runs"):
+        return []
+    from datetime import datetime, timedelta, timezone
+
+    from prism.resilience.history import rank_movements
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+    out = []
+    for m in rank_movements(engine):
+        if m.run_at is None or m.run_at < cutoff:
+            continue
+        name = m.entity_name or f"substation {m.entity_id}"
+        if m.prev_rank is None:
+            headline = f"{name} entered the top 10 at #{m.new_rank}"
+        else:
+            verb = "rose" if m.new_rank < m.prev_rank else "fell"
+            headline = f"{name} {verb} #{m.prev_rank} → #{m.new_rank}"
+        out.append({
+            "kind": "rank",
+            "headline": headline,
+            "detail": f"under the {m.scenario_name} scenario",
+            "at": m.run_at.isoformat() if m.run_at else None,
+            "href": "/resilience",
+        })
+    return out
+
+
 def _crim_changes(engine: Engine) -> list[dict[str, Any]]:
     """One headline per change type in the most recent CRIM delta month."""
     if not _exists(engine, "crim.parcel_deltas"):
@@ -227,6 +257,7 @@ def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
     changes = (
         _sync_changes(engine, change_limit)
         + _quake_changes(engine, change_limit)
+        + _rank_changes(engine)
         + _crim_changes(engine)
     )
     # Newest first; None timestamps sink to the bottom.

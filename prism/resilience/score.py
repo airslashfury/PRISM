@@ -171,6 +171,10 @@ def _save_scenario(engine: Engine, scenario_name: str, ranked: list[RankedAsset]
     with engine.begin() as conn:
         conn.execute(upsert_sql, rows)
 
+    # F4: snapshot the ranking so WhatsNew can report rank movement between rescores.
+    from prism.resilience.history import record_score_run
+    record_score_run(engine, scenario_name, rows)
+
     log.info("Saved %d rows for scenario '%s'", len(rows), scenario_name)
 
 

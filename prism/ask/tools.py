@@ -264,6 +264,77 @@ def address_lookup(engine: Engine, *, query: str) -> dict[str, Any]:
     }
 
 
+def owner_lookup(engine: Engine, *, name: str, top: int = 5) -> dict[str, Any]:
+    """Resolve a person/company name to its normalized CRIM owner entity (F1) —
+    island-wide parcel count, assessed value, municipio breakdown, largest holdings."""
+    from prism.crim.owners import get_owner_detail, search_owners
+
+    top = min(max(top, 1), 10)
+    found = search_owners(engine, name, limit=top)
+    if not found.get("available"):
+        return {
+            "tool": "owner_lookup",
+            "error": "the owner-entity layer is not built yet (run `python -m prism.crim --normalize`)",
+        }
+    if not found["count"]:
+        return {"tool": "owner_lookup", "error": f"no owner entity matching '{name}'"}
+
+    owners = found["owners"]
+    detail = get_owner_detail(engine, owners[0]["owner_key"]) or {}
+    # Trim the heavy footprint (up to 4K centroids) — the LLM needs the rollups.
+    best = {
+        "owner_key": detail.get("owner_key"),
+        "display_name": detail.get("display_name"),
+        "parcel_count": detail.get("parcel_count"),
+        "total_val": detail.get("total_val"),
+        "municipio_count": detail.get("municipio_count"),
+        "by_municipio": (detail.get("by_municipio") or [])[:5],
+        "largest_parcels": (detail.get("top_parcels") or [])[:3],
+    }
+    return {
+        "tool": "owner_lookup",
+        "query": name,
+        "total_matching_entities": found["count"],
+        "owners": owners,
+        "best_match_detail": best,
+        "note": (
+            "Owner entities are normalized keys — spelling variants of the same name are "
+            "collapsed, but distinct legal entities (e.g. government agencies with different "
+            "official names) stay separate."
+        ),
+        "confidence_tiers": {"crim.owner_entities": _tier("crim.owner_entities")},
+    }
+
+
+def whats_new(engine: Engine, *, limit: int = 10) -> dict[str, Any]:
+    """What changed recently: feed freshness/staleness, re-syncs, hazard rescores,
+    rank movements, significant quakes, and CRIM parcel deltas (F2)."""
+    from prism.sync.changes import whatsnew
+
+    data = whatsnew(engine, change_limit=min(max(limit, 1), 20))
+    feeds = [
+        {
+            "source_name": f["source_name"],
+            "stale": f["stale"],
+            "age_seconds": f["age_seconds"],
+            "last_fetched_at": f["last_fetched_at"],
+            "interval_hours": f["interval_hours"],
+        }
+        for f in data["feeds"]
+    ]
+    return {
+        "tool": "whats_new",
+        "feeds": feeds,
+        "stale_count": data["stale_count"],
+        "changes": [
+            {"kind": c["kind"], "headline": c["headline"], "detail": c["detail"], "at": c["at"]}
+            for c in data["changes"]
+        ],
+        "crim_baseline": data["crim_baseline"],
+        "confidence_tiers": {},
+    }
+
+
 # Schema description fed to Haiku for SQL generation — kept short to fit in 256-token budget
 _PARCEL_SCHEMA = """\
 Two tables for CRIM Catastro Digital parcel data (Puerto Rico):

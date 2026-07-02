@@ -16,6 +16,9 @@ export const useWhatsNew = () =>
 export const useScenarios = () =>
   useQuery({ queryKey: ["scenarios"], queryFn: api.scenarios, staleTime: 30 * MIN });
 
+export const useEditableAssumptions = () =>
+  useQuery({ queryKey: ["editableAssumptions"], queryFn: api.editableAssumptions, staleTime: 30 * MIN });
+
 export const useGeneration = () =>
   useQuery({ queryKey: ["generation"], queryFn: api.generation, staleTime: 2 * MIN });
 

@@ -25,6 +25,15 @@ def backtests(engine: Engine = Depends(engine_dep)) -> list[dict]:
     return load_backtest_results(engine)
 
 
+@router.get("/assumptions", response_model=list[schemas.EditableAssumption])
+def assumptions(engine: Engine = Depends(engine_dep)) -> list[dict]:
+    """Editable global assumptions for the F4 panel: baseline, slider range,
+    whether the knob can reorder the ranking, and the standing P2 stability badge."""
+    from prism.validate.assumptions import editable_assumptions
+
+    return editable_assumptions(engine)
+
+
 @router.get("/sensitivity", response_model=list[schemas.SensitivityResult])
 def sensitivity(engine: Engine = Depends(engine_dep)) -> list[dict]:
     """Sensitivity sweeps over PRISM's load-bearing assumptions (VOLL, discount rate, ...)."""

@@ -432,3 +432,54 @@ def test_api_ask_empty_query(client):
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "no_match"
+
+
+# ── F4 tool-coverage audit: owner intelligence (F1) + what-changed (F2) ──────
+
+
+def test_owner_lookup_resolves_entity(engine):
+    from prism.ask.tools import owner_lookup
+
+    result = owner_lookup(engine, name="AUTORIDAD DE CARRETERAS")
+    if "error" in result and "not built" in result["error"]:
+        pytest.skip("owner-entity layer not built in this database")
+    assert result["total_matching_entities"] >= 1
+    assert result["owners"][0]["parcel_count"] >= 1
+    best = result["best_match_detail"]
+    assert best["display_name"]
+    assert best["parcel_count"] >= 1
+    assert isinstance(best["by_municipio"], list)
+    # the heavy footprint must NOT be handed to the LLM
+    assert "footprint" not in best
+    assert result["confidence_tiers"]["crim.owner_entities"]
+
+
+def test_owner_lookup_no_match(engine):
+    from prism.ask.tools import owner_lookup
+
+    result = owner_lookup(engine, name="ZZZZ NOT A REAL OWNER 9999")
+    assert "error" in result
+
+
+def test_whats_new_tool(engine):
+    from prism.ask.tools import whats_new
+
+    result = whats_new(engine)
+    assert isinstance(result["feeds"], list)
+    assert isinstance(result["stale_count"], int)
+    assert isinstance(result["changes"], list)
+    for c in result["changes"]:
+        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim"}
+        assert c["headline"]
+    for f in result["feeds"]:
+        assert isinstance(f["stale"], bool)
+
+
+def test_new_tools_registered_in_router(engine):
+    from prism.ask.agent import TOOL_SPECS, _TOOL_FUNCS
+
+    spec_names = {s["name"] for s in TOOL_SPECS}
+    assert {"owner_lookup", "whats_new"} <= spec_names
+    assert {"owner_lookup", "whats_new"} <= set(_TOOL_FUNCS)
+    # every advertised tool is callable, and vice versa
+    assert spec_names == set(_TOOL_FUNCS)

@@ -56,7 +56,7 @@ def test_changes_are_newest_first(result):
 
 def test_change_kinds_valid(result):
     for c in result["changes"]:
-        assert c["kind"] in {"sync", "rescore", "quake", "crim"}
+        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim"}
         assert c["headline"]
 
 

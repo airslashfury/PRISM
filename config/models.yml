@@ -68,6 +68,7 @@ runtime_routing:
   narrative_stream:            sonnet   # M1 SSE-streamed narratives
   playground_summary:          haiku    # M4 scorecard one-liners
   playground_comparison:       sonnet   # M4 scenario-vs-scenario narrative
+  portfolio_comparison:        sonnet   # F4 portfolio A/B diff narrative
   nl_query_parse:              haiku    # M5b Ask-PRISM intent + tool routing
   nl_query_answer:             sonnet   # M5b Ask-PRISM composed answer
   nl_parcel_sql:               haiku    # CRIM parcel text-to-SQL generation

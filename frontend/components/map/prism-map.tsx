@@ -79,6 +79,8 @@ export interface PrismMapProps {
   viewStateOverride?: MapViewState | null;
   /** Called with the current zoom whenever the view changes (e.g. to gate a heavy layer). */
   onZoom?: (zoom: number) => void;
+  /** Called with the full view state on every user gesture (e.g. to encode the viewport in the URL). */
+  onViewChange?: (vs: MapViewState) => void;
   /** Called once the map (and its API) is ready. */
   onMapReady?: (api: PrismMapApi) => void;
   /** Called once the terrain DEM tiles for the current view have finished loading. */
@@ -97,6 +99,7 @@ export function PrismMap({
   satellite = false,
   viewStateOverride = null,
   onZoom,
+  onViewChange,
   onMapReady,
   onTerrainTilesLoaded,
 }: PrismMapProps) {
@@ -264,6 +267,7 @@ export function PrismMap({
           ) {
             setViewState(vs as MapViewState);
             onZoom?.((vs as MapViewState).zoom ?? 0);
+            onViewChange?.(vs as MapViewState);
           }
         }}
         controller={{

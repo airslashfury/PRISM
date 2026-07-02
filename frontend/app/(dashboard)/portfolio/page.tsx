@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/stat-card";
 import { InfoPanel } from "@/components/info-panel";
+import { NarrativePanel } from "@/components/narrative-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_STROKE } from "@/components/charts";
@@ -50,6 +51,52 @@ export default function PortfolioPage() {
   const [optimizeError, setOptimizeError] = useState<Error | null>(null);
   const [compare, setCompare] = useState<PortfolioCompare | null>(null);
 
+  // F4 — AI narrative on the diff: the numbers say what moved, this says why it matters.
+  const [explaining, setExplaining] = useState(false);
+  const [explainError, setExplainError] = useState<string | null>(null);
+  const [diffNarrative, setDiffNarrative] = useState<{
+    markdown: string;
+    model: string | null;
+    generatedAt: string | null;
+    status: string | null;
+  } | null>(null);
+
+  async function explainDiff() {
+    if (!compare) return;
+    setExplaining(true);
+    setExplainError(null);
+    setDiffNarrative(null);
+    try {
+      const { job_id } = await api.enqueuePortfolioDiffNarrative(
+        compare.run_a.run_id,
+        compare.run_b.run_id,
+      );
+      const result = await pollJob<{ narrative_id: number | null; status: string }>(job_id, {
+        timeoutMs: 180_000,
+      });
+      if (!result?.narrative_id) {
+        setExplainError("Narrative generation failed (no LLM backend available).");
+        return;
+      }
+      const narratives = await api.narratives(50);
+      const match = narratives.find((n) => n.narrative_id === result.narrative_id);
+      if (match?.text) {
+        setDiffNarrative({
+          markdown: match.text,
+          model: match.model_used ?? null,
+          generatedAt: match.generated_at ?? null,
+          status: match.status ?? null,
+        });
+      } else {
+        setExplainError("Narrative was generated but could not be loaded.");
+      }
+    } catch (e) {
+      setExplainError((e as Error).message);
+    } finally {
+      setExplaining(false);
+    }
+  }
+
   // Sync the slider to the selected run's budget whenever a (different) run loads,
   // unless we're mid-optimize (the slider value is what we just submitted).
   useEffect(() => {
@@ -65,6 +112,8 @@ export default function PortfolioPage() {
     setOptimizing(true);
     setOptimizeError(null);
     setCompare(null);
+    setDiffNarrative(null);
+    setExplainError(null);
     try {
       const { job_id } = await api.enqueuePortfolioOptimize(
         Math.round(budgetM * 1e6),
@@ -240,6 +289,36 @@ export default function PortfolioPage() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <DiffList title={`Newly funded (${compare.items_only_in_b.length})`} accent="emerald" items={compare.items_only_in_b} />
                 <DiffList title={`Dropped (${compare.items_only_in_a.length})`} accent="rose" items={compare.items_only_in_a} />
+              </div>
+
+              {/* AI narrative on the diff (F4): what the marginal dollars buy, for whom. */}
+              <div className="mt-4 border-t border-border/50 pt-4">
+                {!diffNarrative && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button size="sm" variant="outline" onClick={explainDiff} disabled={explaining}>
+                      {explaining ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Explaining…
+                        </>
+                      ) : (
+                        <>Explain this diff</>
+                      )}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      AI summary of who gains or loses protection between these runs (~10–30s).
+                    </span>
+                  </div>
+                )}
+                {explainError && <p className="mt-2 text-xs text-destructive">{explainError}</p>}
+                {explaining && <NarrativePanel loading className="mt-3" />}
+                {diffNarrative && (
+                  <NarrativePanel
+                    markdown={diffNarrative.markdown}
+                    modelUsed={diffNarrative.model}
+                    generatedAt={diffNarrative.generatedAt}
+                    status={diffNarrative.status}
+                  />
+                )}
               </div>
             </div>
           )}

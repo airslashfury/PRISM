@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import { ChevronLeft, PowerOff, TriangleAlert } from "lucide-react";
 
-import { MapCanvas, tip } from "@/components/map/map-canvas";
+import { MapCanvas, tip, PR_VIEW } from "@/components/map/map-canvas";
+import { formatViewport, parseViewport, patchUrl, patchUrlDebounced, readParam } from "@/lib/url-state";
 import { GradientLegend } from "@/components/legend";
 import { Segmented } from "@/components/ui/segmented";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,32 @@ export default function ResiliencePage() {
   const [showGrid, setShowGrid] = useState(false);
   const [showFlood, setShowFlood] = useState(false);
   const [showFaults, setShowFaults] = useState(false);
+
+  // ── Permalinks (F4): scenario + selection + viewport live in the URL ──────
+  // Read on mount (not in initializers — the server render has no URL and a
+  // diverging first client render would be a hydration mismatch).
+  const hydrated = useRef(false);
+  const initialView = useMemo(
+    () => {
+      const v = parseViewport(readParam("view"));
+      return v ? { ...PR_VIEW, ...v } : PR_VIEW;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  useEffect(() => {
+    const m = readParam("scenario");
+    if (m && MODES.some((x) => x.value === m)) setMode(m);
+    const sel = Number(readParam("sel"));
+    if (Number.isFinite(sel) && sel > 0) setSelected(sel);
+    hydrated.current = true;
+  }, []);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ scenario: mode === "current" ? null : mode });
+  }, [mode]);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ sel: selected ?? null });
+  }, [selected]);
 
   const isCurrent = mode === "current";
   const current = useCurrentState();
@@ -300,7 +327,14 @@ export default function ResiliencePage() {
   return (
     <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
       <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
-        <MapCanvas layers={layers} getTooltip={getTooltip} onClick={onClick} onHover={onHover}>
+        <MapCanvas
+          layers={layers}
+          getTooltip={getTooltip}
+          onClick={onClick}
+          onHover={onHover}
+          initialViewState={initialView}
+          onViewChange={(vs) => patchUrlDebounced({ view: formatViewport(vs) })}
+        >
           {/* Headline card — live for current state, predictive for scenarios */}
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             {isCurrent ? (

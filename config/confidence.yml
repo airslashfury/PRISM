@@ -166,6 +166,17 @@ tables:
       population claims.
     upgrade_path: Same as graph.relationships.
 
+  resilience.score_history:
+    method: derived
+    confidence_tier: proxy
+    assumptions: >-
+      Append-only snapshot of resilience.scenario_scores taken at every
+      (re)score: one score_runs row per rescore + the full ranked list in
+      score_history. Inherits the composite score's Proxy tier — it records
+      what the model said, it computes nothing new. Rank-movement headlines in
+      the overview's What-changed stream diff the two most recent runs.
+    upgrade_path: Same as resilience.scenario_scores.
+
   resilience.community_resilience:
     method: modeled
     confidence_tier: proxy

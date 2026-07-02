@@ -75,6 +75,35 @@ async def optimize_portfolio(
     }
 
 
+async def evaluate_assumptions(
+    ctx: dict,
+    scenario: str = "cat3",
+    voll_usd_per_kwh: float | None = None,
+    discount_rate: float | None = None,
+    outage_hours_per_year: float | None = None,
+    feeder_confidence_min: float | None = None,
+    hazard_scale: float | None = None,
+) -> dict:
+    """Recompute the substation ranking under user-edited global assumptions (F4).
+
+    Read-only: returns rank shifts + robust/sensitive stats without touching
+    scenario_scores. The feeder-confidence knob re-derives cascade impact over
+    the graph (recursive CTE), which is why this runs in the worker.
+    """
+    from prism.validate.assumptions import evaluate_assumptions as _evaluate
+
+    engine = get_engine()
+    return _evaluate(
+        engine,
+        scenario=scenario,
+        voll_usd_per_kwh=voll_usd_per_kwh,
+        discount_rate=discount_rate,
+        outage_hours_per_year=outage_hours_per_year,
+        feeder_confidence_min=feeder_confidence_min,
+        hazard_scale=hazard_scale,
+    )
+
+
 async def generate_narrative(ctx: dict, kind: str = "corridor", flagship: bool = False) -> dict:
     """Generate an AI narrative and persist it to report.narratives."""
     from prism.report.narrative import generate_corridor_narrative
@@ -110,6 +139,15 @@ async def generate_playground_narrative(ctx: dict, scenario_a: int, scenario_b: 
 
     engine = get_engine()
     result = generate_comparison_narrative(engine, scenario_a, scenario_b)
+    return {"narrative_id": result.narrative_id, "status": result.status}
+
+
+async def generate_portfolio_diff_narrative(ctx: dict, run_id_a: int, run_id_b: int) -> dict:
+    """Generate an AI narrative explaining a portfolio A/B diff (F4)."""
+    from prism.report.portfolio_narrative import generate_portfolio_diff_narrative as _generate
+
+    engine = get_engine()
+    result = _generate(engine, run_id_a, run_id_b)
     return {"narrative_id": result.narrative_id, "status": result.status}
 
 
@@ -160,10 +198,12 @@ class WorkerSettings:
         regenerate_corridors,
         rescore_resilience,
         optimize_portfolio,
+        evaluate_assumptions,
         generate_narrative,
         evaluate_scenario,
         whatif_failure,
         generate_playground_narrative,
+        generate_portfolio_diff_narrative,
         sync_prepa_generation,
         sync_luma_outages,
     ]

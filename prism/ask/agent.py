@@ -65,6 +65,32 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "params": {"query": "string, required — barrio or municipio name"},
     },
     {
+        "name": "owner_lookup",
+        "description": (
+            "Who owns what across Puerto Rico: resolve a person/company name to its normalized "
+            "CRIM owner entity — island-wide parcel count, total assessed value, municipio "
+            "breakdown, and largest holdings. Prefer this over parcel_query when the question "
+            "is about a NAMED owner's overall holdings ('what does X own', 'how many parcels "
+            "does X have', 'where does X own land') — it collapses spelling variants that raw "
+            "SQL would miss."
+        ),
+        "params": {
+            "name": "string, required — the owner name, partial ok",
+            "top": "integer, optional — how many matching entities to list (default 5)",
+        },
+    },
+    {
+        "name": "whats_new",
+        "description": (
+            "What changed recently in PRISM's data and model: live-feed freshness and stale "
+            "flags (PREPA generation, LUMA outages, USGS quakes, WFS layers), recent re-syncs, "
+            "hazard rescores, substation rank movements, significant earthquakes, and monthly "
+            "CRIM parcel deltas. Use for 'what's new', 'is the data fresh/stale', 'did anything "
+            "change today', 'any recent earthquakes or rescores'."
+        ),
+        "params": {"limit": "integer, optional — max change events to return (default 10)"},
+    },
+    {
         "name": "parcel_query",
         "description": (
             "Query the CRIM Catastro parcel register (1.53M parcels, all of Puerto Rico) for "
@@ -85,6 +111,8 @@ _TOOL_FUNCS = {
     "corridor_compare": tools.corridor_compare,
     "svi_lookup": tools.svi_lookup,
     "address_lookup": tools.address_lookup,
+    "owner_lookup": tools.owner_lookup,
+    "whats_new": tools.whats_new,
     "parcel_query": tools.parcel_query,
 }
 

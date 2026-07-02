@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCw, Waves, Building2, TriangleAlert, Dot, type LucideIcon } from "lucide-react";
+import { RefreshCw, Waves, Building2, TriangleAlert, TrendingUp, Dot, type LucideIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { useWhatsNew } from "@/lib/hooks";
@@ -11,6 +11,7 @@ import type { ChangeEvent, ChangeKind, FeedFreshness } from "@/lib/api";
 const KIND_ICON: Record<ChangeKind, LucideIcon> = {
   sync: RefreshCw,
   rescore: TriangleAlert,
+  rank: TrendingUp,
   quake: Waves,
   crim: Building2,
 };
@@ -18,6 +19,7 @@ const KIND_ICON: Record<ChangeKind, LucideIcon> = {
 const KIND_COLOR: Record<ChangeKind, string> = {
   sync: "text-sky-400",
   rescore: "text-red-400",
+  rank: "text-violet-400",
   quake: "text-amber-400",
   crim: "text-emerald-400",
 };

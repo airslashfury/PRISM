@@ -69,11 +69,51 @@ async def enqueue_portfolio_optimize(
     return JobEnqueued(job_id=job.job_id)
 
 
+@router.post("/validate/assumptions", response_model=JobEnqueued)
+@limiter.limit("5/minute")
+async def enqueue_assumption_evaluation(
+    request: Request,
+    scenario: str = "cat3",
+    voll_usd_per_kwh: float | None = Query(None, ge=0.5, le=50.0),
+    discount_rate: float | None = Query(None, ge=0.001, le=0.25),
+    outage_hours_per_year: float | None = Query(None, ge=1.0, le=1000.0),
+    feeder_confidence_min: float | None = Query(None, ge=0.4, le=0.7),
+    hazard_scale: float | None = Query(None, ge=0.1, le=3.0),
+) -> JobEnqueued:
+    """Recompute the substation ranking under edited global assumptions (F4).
+
+    Read-only what-if: the result reports rank shifts + a robust/sensitive
+    verdict for this exact perturbation; scenario_scores is never written.
+    """
+    redis = await _pool()
+    job = await redis.enqueue_job(
+        "evaluate_assumptions",
+        scenario,
+        voll_usd_per_kwh,
+        discount_rate,
+        outage_hours_per_year,
+        feeder_confidence_min,
+        hazard_scale,
+    )
+    return JobEnqueued(job_id=job.job_id)
+
+
 @router.post("/narratives/corridor", response_model=JobEnqueued)
 @limiter.limit("5/minute")
 async def enqueue_corridor_narrative(request: Request, flagship: bool = False) -> JobEnqueued:
     redis = await _pool()
     job = await redis.enqueue_job("generate_narrative", "corridor", flagship)
+    return JobEnqueued(job_id=job.job_id)
+
+
+@router.post("/narratives/portfolio-diff", response_model=JobEnqueued)
+@limiter.limit("5/minute")
+async def enqueue_portfolio_diff_narrative(
+    request: Request, run_id_a: int, run_id_b: int
+) -> JobEnqueued:
+    """AI narrative explaining what changed between two portfolio runs (F4)."""
+    redis = await _pool()
+    job = await redis.enqueue_job("generate_portfolio_diff_narrative", run_id_a, run_id_b)
     return JobEnqueued(job_id=job.job_id)
 
 

@@ -1883,6 +1883,20 @@
       "code_commit": "1da1ca4",
       "license": "derived"
     },
+    "derived:resilience.score_history": {
+      "source": "derived",
+      "title": "resilience.score_history",
+      "description": "F4 per-rescore ranking snapshots: resilience.score_runs (one row per rescore) + score_history (full ranked list per run, 332 substations); seeded from scenario_scores at migration 0007; feeds rank-movement headlines in the overview's What-changed stream",
+      "schema": "resilience",
+      "table": "score_history",
+      "row_count": 1660,
+      "inputs": [
+        "resilience.scenario_scores",
+        "prism/resilience/history.py"
+      ],
+      "compute_date": "2026-07-02",
+      "license": "derived"
+    },
     "derived:optimize.intervention_catalog": {
       "source": "derived",
       "title": "optimize.intervention_catalog",
