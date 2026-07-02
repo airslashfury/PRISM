@@ -308,7 +308,8 @@ def owner_lookup(engine: Engine, *, name: str, top: int = 5) -> dict[str, Any]:
 
 def whats_new(engine: Engine, *, limit: int = 10) -> dict[str, Any]:
     """What changed recently: feed freshness/staleness, re-syncs, hazard rescores,
-    rank movements, significant quakes, and CRIM parcel deltas (F2)."""
+    rank movements, significant quakes, live storm advisories, and CRIM parcel
+    deltas (F2/F5)."""
     from prism.sync.changes import whatsnew
 
     data = whatsnew(engine, change_limit=min(max(limit, 1), 20))

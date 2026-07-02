@@ -195,6 +195,38 @@ def _rank_changes(engine: Engine) -> list[dict[str, Any]]:
     return out
 
 
+def _storm_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
+    """PR-affecting NHC advisories from the last 14 days (F5 — live storm).
+
+    Replayed advisories (e.g. Fiona) have fetched_at=now() so they surface
+    here too — that's intentional, they're labeled by storm name and are
+    real evidence, not noise.
+    """
+    if not _exists(engine, "sync.nhc_advisories"):
+        return []
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT a.storm_id, a.advisory_num, a.storm_name, a.classification,
+                   COALESCE(a.issued_at, a.fetched_at) AS at, c.headline
+            FROM sync.nhc_advisories a
+            LEFT JOIN sync.nhc_consequences c ON c.advisory_pk = a.advisory_pk
+            WHERE a.affects_pr = true
+              AND COALESCE(a.issued_at, a.fetched_at) >= now() - interval '14 days'
+            ORDER BY COALESCE(a.issued_at, a.fetched_at) DESC
+            LIMIT :lim
+        """), {"lim": limit}).mappings().fetchall()
+    return [
+        {
+            "kind": "storm",
+            "headline": f"{r['storm_name'] or r['storm_id']} advisory #{r['advisory_num']}",
+            "detail": r["headline"] or r["classification"],
+            "at": r["at"].isoformat() if r["at"] else None,
+            "href": "/storm",
+        }
+        for r in rows
+    ]
+
+
 def _crim_changes(engine: Engine) -> list[dict[str, Any]]:
     """One headline per change type in the most recent CRIM delta month."""
     if not _exists(engine, "crim.parcel_deltas"):
@@ -258,6 +290,7 @@ def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
         _sync_changes(engine, change_limit)
         + _quake_changes(engine, change_limit)
         + _rank_changes(engine)
+        + _storm_changes(engine, change_limit)
         + _crim_changes(engine)
     )
     # Newest first; None timestamps sink to the bottom.

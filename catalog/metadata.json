@@ -1911,6 +1911,22 @@
       "compute_date": "2026-07-02",
       "license": "public domain (NOAA)"
     },
+    "derived:sync.nhc_consequences": {
+      "source": "derived",
+      "title": "sync.nhc_consequences",
+      "description": "F5 chunk B pre-landfall consequence intersection: for every PR-affecting NHC advisory, the count of substations/hospitals/water plants/health centers/barrios inside the forecast cone, the subset of those substations also in the Cat-2 storm-surge proxy field, the population served (via graph.downstream_summary), and a one-line consequence headline. Recomputed on every new PR-affecting advisory insert.",
+      "schema": "sync",
+      "table": "nhc_consequences",
+      "inputs": [
+        "sync.nhc_advisories",
+        "graph.entities",
+        "graph.downstream_summary",
+        "g23_riesgo_inunda_model_intrusion_marejada_cic_cat2",
+        "prism/resilience/storm.py"
+      ],
+      "compute_date": "2026-07-02",
+      "license": "derived"
+    },
     "derived:optimize.intervention_catalog": {
       "source": "derived",
       "title": "optimize.intervention_catalog",

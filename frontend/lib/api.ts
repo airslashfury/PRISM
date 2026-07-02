@@ -735,7 +735,7 @@ export interface FeedFreshness {
   stale: boolean;
 }
 
-export type ChangeKind = "sync" | "rescore" | "rank" | "quake" | "crim";
+export type ChangeKind = "sync" | "rescore" | "rank" | "quake" | "crim" | "storm";
 
 export interface ChangeEvent {
   kind: ChangeKind;

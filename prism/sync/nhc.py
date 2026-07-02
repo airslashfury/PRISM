@@ -158,6 +158,7 @@ def parse_advisory_zip(data: bytes) -> dict[str, Any]:
             "cone_wkt": None,
             "track_wkt": None,
             "points": [],
+            "storm_name": None,
             "n_members": len(names),
         }
 
@@ -192,6 +193,14 @@ def parse_advisory_zip(data: bytes) -> dict[str, Any]:
                 valid_raw = _first_present(attrs, "VALIDTIME", "ADVDATE", "DATELBL", "FLDATELBL")
                 wind_raw = _first_present(attrs, "MAXWIND", "MAX_WIND", "INTENSITY")
                 label = _first_present(attrs, "TCDVLP", "DVLBL", "STORMTYPE", "STORMNAME")
+                # The proper name lives in STORMNAME specifically — the label
+                # fallbacks above prefer storm *type* ("Hurricane"), which must
+                # never be mistaken for the name.
+                if result["storm_name"] is None:
+                    name_raw = _first_present(attrs, "STORMNAME")
+                    if name_raw:
+                        s = str(name_raw).strip()
+                        result["storm_name"] = s.title() if s.isupper() else s
                 try:
                     wind = int(float(wind_raw)) if wind_raw is not None else None
                 except (TypeError, ValueError):
@@ -214,6 +223,21 @@ def parse_advisory_zip(data: bytes) -> dict[str, Any]:
             result["points"] = ordered
 
         return result
+
+
+def _compute_consequence_safe(engine: Engine, advisory_pk: int) -> None:
+    """Compute the pre-landfall consequence intersection for a new PR advisory.
+
+    Best-effort — a failure here (e.g. the graph tables aren't loaded in a
+    partial dev environment) must not fail the sync itself.
+    """
+    from prism.resilience.storm import compute_storm_consequence
+
+    try:
+        compute_storm_consequence(engine, advisory_pk)
+    except Exception as exc:
+        log.warning("NHC sync: consequence computation failed for advisory_pk=%s: %s",
+                    advisory_pk, exc)
 
 
 def affects_pr(cone_wkt: str | None) -> bool:
@@ -367,6 +391,7 @@ def sync_nhc(engine: Engine, *, mirror: bool = True) -> dict[str, Any]:
             advisories_new += 1
             if result["affects_pr"]:
                 new_pr_advisory = True
+                _compute_consequence_safe(engine, result["advisory_pk"])
             if meta["issued_at"]:
                 latest = meta["issued_at"].isoformat()
 
@@ -437,13 +462,8 @@ def replay_storm(
             mirror_raw(storm_id, filename, data)
 
         parsed = parse_advisory_zip(data)
-        storm_name = None
-        for pt in parsed.get("points") or []:
-            if pt.get("label") and not pt["label"].replace(".", "").isdigit():
-                storm_name = pt["label"]
-                break
         meta = {
-            "storm_name": storm_name,
+            "storm_name": parsed.get("storm_name"),
             "classification": None,
             "max_wind_kt": None,
             "min_pressure_mb": None,
@@ -463,6 +483,7 @@ def replay_storm(
             inserted += 1
             if result["affects_pr"]:
                 affects_pr_count += 1
+                _compute_consequence_safe(engine, result["advisory_pk"])
 
     summary = {
         "requested": requested,

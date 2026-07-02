@@ -96,7 +96,7 @@ def test_api_inventory(client):
     r = client.get("/provenance/inventory")
     assert r.status_code == 200
     body = r.json()
-    assert len(body) == 183
+    assert len(body) == 184
     assert all("confidence_tier" in e for e in body)
 
 

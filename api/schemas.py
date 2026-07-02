@@ -74,7 +74,7 @@ class FeedFreshness(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    kind: str                           # sync | rescore | rank | quake | crim
+    kind: str                           # sync | rescore | rank | quake | crim | storm
     headline: str
     detail: str | None = None
     at: str | None = None               # ISO timestamp (or month for CRIM deltas)
@@ -280,6 +280,50 @@ class SeismicResponse(BaseModel):
     window_days: int
     latest: datetime | None = None
     confidence_tier: str
+
+
+class StormTrackPoint(BaseModel):
+    seq: int
+    valid_at: datetime | None = None
+    lat: float | None = None
+    lon: float | None = None
+    max_wind_kt: int | None = None
+    label: str | None = None
+
+
+class StormAdvisory(BaseModel):
+    storm_id: str
+    advisory_num: str
+    storm_name: str | None = None
+    classification: str | None = None
+    max_wind_kt: int | None = None
+    min_pressure_mb: int | None = None
+    issued_at: datetime | None = None
+    replay: bool
+    fetched_at: datetime | None = None
+    cone_geojson: dict | None = None
+    track_geojson: dict | None = None
+
+
+class StormConsequence(BaseModel):
+    n_substations: int
+    n_hospitals: int
+    n_water_plants: int
+    n_health_centers: int
+    n_barrios: int
+    n_substations_surge: int
+    population_served: int
+    headline: str
+    computed_at: datetime | None = None
+
+
+class StormResponse(BaseModel):
+    """Pre-landfall live storm state (ROADMAP F5): latest PR-affecting NHC
+    advisory + its forecast cone/track + the consequence intersection."""
+    active: bool
+    advisory: StormAdvisory | None = None
+    track_points: list[StormTrackPoint] = Field(default_factory=list)
+    consequence: StormConsequence | None = None
 
 
 class SpofEntity(BaseModel):

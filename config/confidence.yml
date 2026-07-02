@@ -443,6 +443,28 @@ tables:
       footprint instead of the cone-bbox proxy; layer in forecast-advisory
       text for storm-surge / rainfall guidance.
 
+  sync.nhc_consequences:
+    method: modeled
+    confidence_tier: proxy
+    assumptions: >-
+      Pre-landfall consequence intersection: counts substations, hospitals,
+      water plants, health centers, and barrios whose point/polygon geometry
+      falls inside the NHC forecast cone. The cone is track-error probability,
+      not a wind field, so being "inside the cone" does not mean an entity
+      will actually experience damaging conditions — it is a screening
+      overlay, not an impact forecast. The surge-overlap count reuses the
+      Cat-2 marejada proxy from prism/resilience/hazard.py (an existing
+      inundation extent, not a storm-specific surge model for this
+      particular cyclone). population_served inherits the feeder-proxy tier
+      from graph.downstream_summary (operating-area, not real electric
+      feeder topology) — it is an upper bound, not a measured exposure.
+    upgrade_path: >-
+      Layer in NHC wind-radii products to narrow "in cone" to "in damaging
+      wind field"; replace the Cat-2 marejada proxy with a storm-specific
+      surge model (e.g. SLOSH MEOW/MOM) scaled to the advisory's forecast
+      intensity; replace downstream_summary's feeder proxy with real electric
+      topology once available.
+
   fault_lines:
     method: authoritative
     confidence_tier: authoritative

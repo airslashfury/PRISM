@@ -469,7 +469,7 @@ def test_whats_new_tool(engine):
     assert isinstance(result["stale_count"], int)
     assert isinstance(result["changes"], list)
     for c in result["changes"]:
-        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim"}
+        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim", "storm"}
         assert c["headline"]
     for f in result["feeds"]:
         assert isinstance(f["stale"], bool)

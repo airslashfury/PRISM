@@ -281,6 +281,26 @@ def create_schema(engine: Engine) -> None:
             "ON sync.nhc_advisories (affects_pr, issued_at DESC)"
         ))
 
+        # ── Pre-landfall consequence intersection (F5 chunk B) ─────────────────
+        # For every PR-affecting advisory, precomputed: what sits inside the
+        # forecast cone right now, so the site can say something concrete before
+        # landfall instead of just "a storm is coming." One row per advisory,
+        # refreshed on insert (see prism/resilience/storm.py).
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.nhc_consequences (
+                advisory_pk          BIGINT PRIMARY KEY REFERENCES sync.nhc_advisories(advisory_pk) ON DELETE CASCADE,
+                n_substations        INT NOT NULL DEFAULT 0,
+                n_hospitals          INT NOT NULL DEFAULT 0,
+                n_water_plants       INT NOT NULL DEFAULT 0,
+                n_health_centers     INT NOT NULL DEFAULT 0,
+                n_barrios            INT NOT NULL DEFAULT 0,
+                n_substations_surge  INT NOT NULL DEFAULT 0,
+                population_served    BIGINT NOT NULL DEFAULT 0,
+                headline             TEXT NOT NULL,
+                computed_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

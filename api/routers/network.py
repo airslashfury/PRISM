@@ -198,3 +198,77 @@ def water_consequence(entity_id: int, engine: Engine = Depends(engine_dep)) -> d
     from prism.graph.water import water_downstream_of
 
     return water_downstream_of(engine, entity_id)
+
+
+@router.get("/storm", response_model=schemas.StormResponse)
+@cached_response("storm", ttl=300)
+def storm(engine: Engine = Depends(engine_dep)) -> dict:
+    """Live storm state (F5): latest PR-affecting NHC advisory + pre-landfall
+    consequence intersection. Live polls beat replays; newest issued_at wins.
+
+    `active` is true only for a genuinely live (non-replay) advisory fetched
+    within the last 12 hours — the Fiona replay evidence is always available
+    to read but never reported as an active storm.
+    """
+    from prism.resilience.storm import compute_missing_consequences
+
+    adv = fetch_one(
+        engine,
+        """
+        SELECT advisory_pk, storm_id, advisory_num, storm_name, classification,
+               max_wind_kt, min_pressure_mb, issued_at, replay, fetched_at,
+               ST_AsGeoJSON(ST_Transform(cone, 4326))::json AS cone_geojson,
+               ST_AsGeoJSON(ST_Transform(track, 4326))::json AS track_geojson,
+               (NOT replay AND fetched_at >= now() - interval '12 hours') AS active
+        FROM sync.nhc_advisories
+        WHERE affects_pr = true
+        ORDER BY replay ASC, issued_at DESC NULLS LAST, fetched_at DESC
+        LIMIT 1
+        """,
+    )
+    if not adv:
+        return {"active": False, "advisory": None, "track_points": [], "consequence": None}
+
+    advisory_pk = adv.pop("advisory_pk")
+    active = adv.pop("active")
+
+    track_points = fetch_all(
+        engine,
+        """
+        SELECT seq, valid_at, lat, lon, max_wind_kt, label
+        FROM sync.nhc_track_points
+        WHERE advisory_pk = :pk
+        ORDER BY seq
+        """,
+        pk=advisory_pk,
+    )
+
+    consequence = fetch_one(
+        engine,
+        """
+        SELECT n_substations, n_hospitals, n_water_plants, n_health_centers,
+               n_barrios, n_substations_surge, population_served, headline, computed_at
+        FROM sync.nhc_consequences
+        WHERE advisory_pk = :pk
+        """,
+        pk=advisory_pk,
+    )
+    if consequence is None:
+        compute_missing_consequences(engine)
+        consequence = fetch_one(
+            engine,
+            """
+            SELECT n_substations, n_hospitals, n_water_plants, n_health_centers,
+                   n_barrios, n_substations_surge, population_served, headline, computed_at
+            FROM sync.nhc_consequences
+            WHERE advisory_pk = :pk
+            """,
+            pk=advisory_pk,
+        )
+
+    return {
+        "active": bool(active),
+        "advisory": adv,
+        "track_points": track_points,
+        "consequence": consequence,
+    }
