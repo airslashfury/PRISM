@@ -426,6 +426,23 @@ tables:
       Add ShakeMap intensity polygons per significant event for ground-motion
       exposure rather than epicentre proximity alone.
 
+  sync.nhc_advisories:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      NHC forecast-cone advisories for active/replayed tropical cyclones — NHC
+      is the tropical-cyclone authority. The cone is the historical
+      track-error probability area (where the center is likely to travel),
+      NOT a wind-field or impact footprint — a location inside the cone is
+      not necessarily inside damaging winds, and one outside it is not
+      necessarily safe. PR relevance (affects_pr) is a simple bounding-box
+      intersection against the cone geometry, not a wind-radii or
+      distance-to-track calculation.
+    upgrade_path: >-
+      Add NHC wind-radii (34/50/64kt) products for an actual exposure
+      footprint instead of the cone-bbox proxy; layer in forecast-advisory
+      text for storm-surge / rainfall guidance.
+
   fault_lines:
     method: authoritative
     confidence_tier: authoritative

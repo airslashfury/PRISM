@@ -237,6 +237,50 @@ def create_schema(engine: Engine) -> None:
             "CREATE INDEX IF NOT EXISTS ix_seismic_geom ON sync.seismic_events USING GIST (geom)"
         ))
 
+        # ── NHC live tropical cyclone feed (nhc.noaa.gov, ROADMAP F5) ──────────
+        # NHC is the tropical-cyclone authority. One row per (storm, advisory);
+        # advisories are immutable once issued, so a later poll only ever adds
+        # new advisory_num rows for a storm, never revises an existing one.
+        # `replay` distinguishes historical archive backfills (e.g. Fiona 2022)
+        # from live polls of CurrentStorms.json.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.nhc_advisories (
+                advisory_pk     BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                storm_id        TEXT NOT NULL,
+                advisory_num    TEXT NOT NULL,
+                storm_name      TEXT,
+                classification  TEXT,
+                max_wind_kt     INT,
+                min_pressure_mb INT,
+                issued_at       TIMESTAMPTZ,
+                affects_pr      BOOLEAN NOT NULL DEFAULT FALSE,
+                cone            GEOMETRY(MULTIPOLYGON, 32161),
+                track           GEOMETRY(GEOMETRY, 32161),
+                raw_sha256      TEXT,
+                source_url      TEXT,
+                replay          BOOLEAN NOT NULL DEFAULT FALSE,
+                fetched_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT uq_nhc_storm_adv UNIQUE (storm_id, advisory_num)
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.nhc_track_points (
+                advisory_pk  BIGINT NOT NULL REFERENCES sync.nhc_advisories(advisory_pk) ON DELETE CASCADE,
+                seq          INT NOT NULL,
+                valid_at     TIMESTAMPTZ,
+                lat          DOUBLE PRECISION,
+                lon          DOUBLE PRECISION,
+                max_wind_kt  INT,
+                label        TEXT,
+                geom         GEOMETRY(POINT, 32161),
+                PRIMARY KEY (advisory_pk, seq)
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_nhc_advisories_pr_time "
+            "ON sync.nhc_advisories (affects_pr, issued_at DESC)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

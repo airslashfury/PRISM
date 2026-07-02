@@ -23,7 +23,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma", "usgs"], default=None,
+        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma", "usgs", "nhc"], default=None,
         help="Limit sync to one source type (default: all)",
     )
     parser.add_argument(
@@ -37,6 +37,14 @@ def main() -> None:
     parser.add_argument(
         "--show-only", action="store_true",
         help="Print registered sources and last-sync status then exit",
+    )
+    parser.add_argument(
+        "--replay", metavar="STORM_ID",
+        help="Replay a historical NHC storm from the archive (e.g. al072022 = Fiona), with --source nhc",
+    )
+    parser.add_argument(
+        "--advisories", default="1-50",
+        help="Advisory range/list for --replay, e.g. '14-26' or '14,15,22' (default: 1-50)",
     )
     args = parser.parse_args()
 
@@ -104,6 +112,28 @@ def main() -> None:
                 print("Re-score complete.")
             except Exception as exc:
                 print(f"Quake re-score skipped: {exc}", file=sys.stderr)
+        return
+
+    if args.source == "nhc":
+        from prism.sync.nhc import parse_advisory_range, replay_storm, sync_nhc
+
+        if args.replay:
+            print(f"Replaying NHC storm {args.replay} (advisories {args.advisories}) ...")
+            advisories = parse_advisory_range(args.advisories)
+            summary = replay_storm(engine, args.replay, advisories, mirror=not args.dry_run)
+            print(
+                f"  requested: {summary['requested']}  fetched: {summary['fetched']}  "
+                f"inserted: {summary['inserted']}  affects PR: {summary['affects_pr']}"
+            )
+            return
+
+        print("Fetching NHC live storm feed ...")
+        summary = sync_nhc(engine, mirror=not args.dry_run)
+        print(
+            f"  active storms: {summary['storms']}  new advisories: {summary['advisories_new']}\n"
+            f"  latest: {summary.get('latest')}  "
+            f"new PR-affecting advisory: {summary.get('new_pr_advisory')}"
+        )
         return
 
     if args.show_only:

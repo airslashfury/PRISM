@@ -1898,6 +1898,19 @@
       "code_commit": "9a12b8e",
       "license": "derived"
     },
+    "derived:sync.nhc_advisories": {
+      "source": "derived",
+      "title": "sync.nhc_advisories",
+      "description": "F5 live storm feed: NHC forecast-cone advisories per active Atlantic/Pacific storm, upserted on (storm_id, advisory_num); sync.nhc_track_points holds the per-advisory forecast track. Supports historical replay (replay=true) to seed evidence for storms like Fiona (al092022) that predate this feed going live.",
+      "schema": "sync",
+      "table": "nhc_advisories",
+      "inputs": [
+        "nhc.noaa.gov CurrentStorms.json + gis/forecast/archive",
+        "prism/sync/nhc.py"
+      ],
+      "compute_date": "2026-07-02",
+      "license": "public domain (NOAA)"
+    },
     "derived:optimize.intervention_catalog": {
       "source": "derived",
       "title": "optimize.intervention_catalog",
