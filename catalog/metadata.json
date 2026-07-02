@@ -1895,6 +1895,7 @@
         "prism/resilience/history.py"
       ],
       "compute_date": "2026-07-02",
+      "code_commit": "9a12b8e",
       "license": "derived"
     },
     "derived:optimize.intervention_catalog": {

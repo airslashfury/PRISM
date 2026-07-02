@@ -115,18 +115,27 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F1 — CRIM owner intelligence | **COMPLETE** | 2026-06-30 | Opus GO (after one fix) |
 | F2 — What-changed / overview cockpit | **COMPLETE** | 2026-06-30 | Opus GO |
 | F3 — Playwright map smoke tests | **COMPLETE** | 2026-06-30 | Opus GO |
+| F4 — Interactive model | **COMPLETE** | 2026-07-02 | Opus GO |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
 > history and summarized in `memory/project_state.md`. This file now keeps only the phase-log
 > table above and the condensed live state below.
 
-## Current state (2026-07-01)
+## Current state (2026-07-02)
 
 PRISM is a full-stack Puerto Rico infrastructure simulation model with a
 confidence/provenance/validation spine, a citizen civic card, a natural-language query bar,
 live PREPA/LUMA feeds, NBI bridge spans, a Site Finder over industrial parcels, CRIM owner
-intelligence, and a what-changed/stale-data overview cockpit.
+intelligence, a what-changed/stale-data overview cockpit, and an interactive assumptions lab.
+
+**F4 batch (2026-07-02, `feat/f4-interactive-model` @ `9a12b8e`, Opus GO):** `/assumptions`
+page (dial VOLL / discount rate / outage hours / feeder-confidence floor / hazard scale →
+job-queue re-run → rank shifts + robust-vs-sensitive verdict); permalinks on `/resilience`
+(scenario+selection+viewport) and `/parcels` (q+sel+owner) via `frontend/lib/url-state.ts`;
+"Explain this diff" AI narrative on the `/portfolio` A/B panel; per-rescore rank history
+(`resilience.score_runs`/`score_history`, alembic 0007) feeding "X rose #8→#3" WhatsNew
+events; Ask PRISM gained `owner_lookup` + `whats_new` tools.
 
 **UI batch (2026-07-01):** sidebar nav grouped into Live / Explore / Decide / Reference; Rail
 Corridor demoted under "Reference" (frozen — demo showpiece, no further investment); `/sync`
@@ -155,16 +164,21 @@ work. The older plan docs (`PRISM_Refined_Plan`, `FRONTEND_PLAN`, `UI_PHASE_PLAN
 **converged frontend product arc F1–F7** (from `PRISM_FRONTEND_RECOMMENDATIONS.md` (GPT5.5) +
 `PRISM_FRONTEND_REFUTAL.md` (Opus), which converged on one sequence). **Revised 2026-07-01:** the
 original F4 (scenario library + Report Studio + provenance exports) was parked to `BACKLOG.md` —
-output-shaped features for an audience that doesn't exist yet. Status (2026-07-01):
+output-shaped features for an audience that doesn't exist yet. Status (2026-07-02):
 1. ✅ **F1 — CRIM owner/address normalization + owner UI** (Opus GO) — `prism/crim/normalize.py`+`owners.py`, `crim.owner_entities`/`parcel_owner`, `/crim/owners/*`, `/parcels` owner drawer
 2. ✅ **F2 — What-changed + stale-data (overview cockpit)** (Opus GO) — `prism/sync/changes.py`, `/whatsnew`, `WhatsNew` card leads the overview
 3. ✅ **F3 — Playwright smoke tests for map routes** (Opus GO) — `frontend/e2e/maps.spec.ts` (18 tests, canvas-paint + overlay per route, desktop+mobile); closes the "maps never eyeballed" residual
 4. ✅ **UI-B — opportunistic UI batch** (2026-07-01, no gate) — nav grouped (Live/Explore/Decide/Reference), `/sync` de-navved, stale-copy sweep
-5. ⏭️ **F4 (revised) — interactive model: assumptions/sensitivity + permalinks + portfolio-diff AI narrative** *(next; the budget allocator was dropped from F4 at drafting-correction — it already shipped 2026-06-15, `2f8a319`)*
-6. F5 (new) — live storm: NHC advisory feed + alerting · 7. F6 water cascade (+ lazy MapWorkspace extract) · 8. F7 telecom
+5. ✅ **F4 (revised) — interactive model** (2026-07-02, Opus GO) — `/assumptions` lab
+   (`prism/validate/assumptions.py` + job queue), permalinks (`frontend/lib/url-state.ts`),
+   portfolio-diff AI narrative (`prism/report/portfolio_narrative.py`), rank history
+   (`resilience.score_history` + WhatsNew `rank` kind), Ask `owner_lookup`/`whats_new` tools
+6. ⏭️ **F5 (new) — live storm: NHC advisory feed + alerting** *(next; fold in the F4-gate
+   carry-forward that job-driven rescores don't write `sync.sync_log`)* · 7. F6 water cascade
+   (+ lazy MapWorkspace extract) · 8. F7 telecom
 
-All on branch `feat/crim-parcel-browse` (unmerged, pushed to origin). See `ROADMAP.md` for the
-full revised spec of F4/F5.
+F1–F3/UI-B are merged to `main` (M0, `878d35e`); F4 is on `feat/f4-interactive-model`
+(pushed, unmerged). See `ROADMAP.md` for the full F5 spec.
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

@@ -43,9 +43,9 @@ net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** 
 Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-07-01):** F1 + F2 + F3 DONE (each Opus GO), plus an opportunistic **UI-B**
-> polish batch, committed + pushed to `origin/feat/crim-parcel-browse`. **F4 (revised —
-> interactive model: assumptions & sensitivity + permalinks) is next.**
+> **Status (2026-07-02):** F1 + F2 + F3 + **F4** DONE (each Opus GO), plus the **UI-B**
+> polish batch. F1–F3/UI-B merged to `main` at M0; F4 on `feat/f4-interactive-model`
+> (`9a12b8e`, pushed). **F5 (live storm: NHC advisory feed + alerting) is next.**
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -138,10 +138,25 @@ lazy MapWorkspace extraction at F6.
 **Done when:** a Playwright suite renders each map route and asserts a non-empty canvas + a key
 overlay at desktop and mobile widths, runnable locally.
 
-### Item F4 (revised) — Interactive model: assumptions & sensitivity + permalinks
+### Item F4 (revised) — Interactive model: assumptions & sensitivity + permalinks — ✅ DONE (2026-07-02, Opus GO)
 Replaces the old "decision record system" arc (scenario library / Report Studio / exports —
 now parked in `BACKLOG.md`, see the 2026-07-01 revision note above). This F4 is about making
 the model something you *push on*, not something that produces a document.
+
+> Shipped (`9a12b8e` on `feat/f4-interactive-model`): **assumptions lab** —
+> `prism/validate/assumptions.py` (`editable_assumptions` + `evaluate_assumptions`: arbitrary-value
+> perturbation vs the stored ranking, rho/top-10-overlap/robust-vs-sensitive verdict, read-only) +
+> `GET /validate/assumptions` + `POST /jobs/validate/assumptions` + `/assumptions` page (Decide nav);
+> dollar knobs honestly report "ranking unchanged by construction". **Permalinks** —
+> `frontend/lib/url-state.ts`; `/resilience` (scenario+sel+viewport) + `/parcels` (q+sel+owner).
+> **Diff narrative** — `prism/report/portfolio_narrative.py` (`portfolio_comparison` Sonnet tier) +
+> "Explain this diff" NarrativePanel on `/portfolio`. **Rank history** — `resilience.score_runs`/
+> `score_history` (alembic 0007, seeded), `record_score_run` on every rescore, `rank_movements` →
+> new `rank` WhatsNew kind. **Ask audit** — `owner_lookup` + `whats_new` tools. 14 new backend tests
+> + 5 Playwright specs (28/28 e2e); full pytest 485/1-skip; live-verified end-to-end (rho 0.889
+> "sensitive" at hazard×1.5+feeder 0.6; gemma4 narrative 108). Gate carry-forwards (non-blocking):
+> permalinks on other map routes opportunistic; job-driven rescores don't write sync_log (fold into
+> F5 trigger work); 19 pre-existing ruff errors in old test files.
 
 > **Correction (2026-07-01):** this item was first drafted with the **budget allocator** as its
 > lead sub-item, per a stale BACKLOG entry claiming `/portfolio` was "currently a results
