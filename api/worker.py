@@ -207,6 +207,27 @@ async def sync_prepa_generation(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def sync_nhc_feed(ctx: dict) -> dict:
+    """Scheduled poll of the NHC CurrentStorms.json index (F5).
+
+    Cheap when quiet (one small JSON GET; zip downloads only happen when a new
+    advisory number appears). A newly inserted PR-affecting advisory fires the
+    storm_advisory alert from inside sync_nhc. mirror=False for the same
+    reason as PREPA/LUMA (no data/raw volume on the worker); durable mirrors
+    come from the host CLI (`python -m prism.sync --source nhc`).
+    """
+    from prism.sync.nhc import sync_nhc
+
+    engine = get_engine()
+    try:
+        summary = sync_nhc(engine, mirror=False)
+        log.info("Scheduled NHC sync: %s", summary)
+        return summary
+    except Exception as exc:  # don't let one bad fetch kill the cron
+        log.warning("Scheduled NHC sync failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 class WorkerSettings:
     functions = [
         regenerate_corridors,
@@ -220,6 +241,7 @@ class WorkerSettings:
         generate_portfolio_diff_narrative,
         sync_prepa_generation,
         sync_luma_outages,
+        sync_nhc_feed,
         check_stale_feeds,
     ]
     cron_jobs = [
@@ -236,6 +258,9 @@ class WorkerSettings:
             minute=set((m + 3) % 60 for m in range(0, 60, PREPA_SYNC_INTERVAL_MIN)),
             run_at_startup=True,
         ),
+        # NHC advisories land ~every 3-6h with a live storm; a 30-min poll is
+        # a comfortable margin and near-free when the tropics are quiet (F5).
+        cron(sync_nhc_feed, minute={5, 35}, run_at_startup=True),
         # Alert on stale feeds once an hour (F5 chunk D).
         cron(check_stale_feeds, minute={15}),
     ]

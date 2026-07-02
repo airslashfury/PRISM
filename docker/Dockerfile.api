@@ -41,6 +41,7 @@ COPY api ./api
 COPY prism/__init__.py ./prism/__init__.py
 COPY prism/config.py ./prism/config.py
 COPY prism/cache.py ./prism/cache.py
+COPY prism/alerts.py ./prism/alerts.py
 COPY prism/llm.py ./prism/llm.py
 COPY prism/report ./prism/report
 COPY prism/load ./prism/load
