@@ -170,6 +170,20 @@ async def sync_luma_outages(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def check_stale_feeds(ctx: dict) -> dict:
+    """Hourly sweep: alert on any live/registry feed that's gone stale (F5 chunk D)."""
+    from prism.alerts import check_stale_feeds as _check_stale_feeds
+
+    engine = get_engine()
+    try:
+        n = _check_stale_feeds(engine)
+        log.info("Stale-feed check: %d alert(s) sent", n)
+        return {"status": "ok", "alerts_sent": n}
+    except Exception as exc:  # don't let one bad pass kill the cron
+        log.warning("Stale-feed check failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 async def sync_prepa_generation(ctx: dict) -> dict:
     """Scheduled pull of the PREPA/Genera live generation feed.
 
@@ -206,6 +220,7 @@ class WorkerSettings:
         generate_portfolio_diff_narrative,
         sync_prepa_generation,
         sync_luma_outages,
+        check_stale_feeds,
     ]
     cron_jobs = [
         # Track the live PREPA (supply) + LUMA (delivery) feeds every
@@ -221,6 +236,8 @@ class WorkerSettings:
             minute=set((m + 3) % 60 for m in range(0, 60, PREPA_SYNC_INTERVAL_MIN)),
             run_at_startup=True,
         ),
+        # Alert on stale feeds once an hour (F5 chunk D).
+        cron(check_stale_feeds, minute={15}),
     ]
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     max_jobs = 2

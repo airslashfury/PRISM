@@ -64,3 +64,21 @@ def invalidate_layer(table: str) -> int:
             if keys:
                 deleted += client.delete(*keys)
     return deleted
+
+
+def invalidate_prefix(prefix: str) -> int:
+    """Delete cached responses for a `cached_response(prefix)`-decorated endpoint.
+
+    `api.cache.cached_response` keys as `geojson:{prefix}:{digest}` (one key per
+    distinct kwargs combo); some legacy tile responses key as `tiles:{prefix}:*`.
+    Matches both patterns. Silent no-op (returns 0) without Redis.
+    """
+    client = get_client()
+    if client is None:
+        return 0
+    deleted = 0
+    for pattern in (f"geojson:{prefix}:*", f"tiles:{prefix}:*"):
+        keys = client.keys(pattern)
+        if keys:
+            deleted += client.delete(*keys)
+    return deleted

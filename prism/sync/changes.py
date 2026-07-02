@@ -124,13 +124,25 @@ def _sync_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
     for r in rows:
         at = r["run_at"].isoformat() if r["run_at"] else None
         if r["triggered_rescore"]:
-            out.append({
-                "kind": "rescore",
-                "headline": f"Hazard rescore ({r['triggered_rescore']}) triggered",
-                "detail": f"by a change in {r['source_name']}",
-                "at": at,
-                "href": "/resilience",
-            })
+            src = r["source_name"] or ""
+            if src.startswith("rescore:"):
+                # Job/CLI-driven rescore (F5): trigger_rescore's own carry-forward
+                # row, source_name = "rescore:{scenario}".
+                out.append({
+                    "kind": "rescore",
+                    "headline": f"Hazard rescore completed ({src.split(':', 1)[1]})",
+                    "detail": None,
+                    "at": at,
+                    "href": "/resilience",
+                })
+            else:
+                out.append({
+                    "kind": "rescore",
+                    "headline": "Hazard rescore triggered",
+                    "detail": f"by a change in {src}",
+                    "at": at,
+                    "href": "/resilience",
+                })
         elif r["rows_updated"]:
             out.append({
                 "kind": "sync",

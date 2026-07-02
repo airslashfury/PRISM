@@ -224,4 +224,20 @@ def run_monthly(engine: Engine, month: date | None = None) -> dict:
     """
     snap = take_snapshot(engine, month)
     deltas = compute_deltas(engine, month)
+
+    n = deltas.get("deltas") or 0
+    if n > 0 and deltas.get("to_month"):
+        try:
+            from prism.alerts import send_alert
+
+            send_alert(
+                engine,
+                kind="crim_delta",
+                dedup_key=deltas["to_month"],
+                headline=f"CRIM monthly delta landed: {n:,} parcel changes",
+                href="/trends",
+            )
+        except Exception as exc:  # must not break the CLI when alerts fail
+            log.warning("run_monthly: crim_delta alert failed: %s", exc)
+
     return {"snapshot": snap, "deltas": deltas}

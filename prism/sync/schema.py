@@ -301,6 +301,28 @@ def create_schema(engine: Engine) -> None:
             )
         """))
 
+        # ── Alert notification log (F5 chunk D) ────────────────────────────────
+        # "The twin tells you" — every alert PRISM fires (storm advisory, rescore,
+        # stale feed, CRIM delta) is logged here regardless of whether a delivery
+        # channel is configured, so the trail exists even with webhook/SMTP unset.
+        # dedup_key scopes repeats within a kind (e.g. "{storm_id}:{advisory_num}").
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.alert_log (
+                alert_id   BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                kind       TEXT NOT NULL,          -- storm_advisory | rescore | stale_feed | crim_delta
+                dedup_key  TEXT NOT NULL,
+                headline   TEXT NOT NULL,
+                detail     TEXT,
+                href       TEXT,
+                sent_via   TEXT[] NOT NULL DEFAULT '{}',   -- log | webhook | smtp
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_alert_log_dedup "
+            "ON sync.alert_log (kind, dedup_key, created_at DESC)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

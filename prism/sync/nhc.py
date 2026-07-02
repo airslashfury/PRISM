@@ -19,8 +19,9 @@ Two entry points:
     for storms like Fiona that predate this feed going live.
 
 A newly-inserted advisory whose cone intersects Puerto Rico
-(`new_pr_advisory` in the sync summary) is the alerting hook for a future
-chunk of F5.
+(`new_pr_advisory` in the sync summary) fires a `storm_advisory` alert via
+`prism.alerts` (F5 chunk D) — live polls only; `replay_storm` backfills never
+alert.
 """
 from __future__ import annotations
 
@@ -225,19 +226,43 @@ def parse_advisory_zip(data: bytes) -> dict[str, Any]:
         return result
 
 
-def _compute_consequence_safe(engine: Engine, advisory_pk: int) -> None:
+def _compute_consequence_safe(engine: Engine, advisory_pk: int) -> dict | None:
     """Compute the pre-landfall consequence intersection for a new PR advisory.
 
     Best-effort — a failure here (e.g. the graph tables aren't loaded in a
-    partial dev environment) must not fail the sync itself.
+    partial dev environment) must not fail the sync itself. Returns the
+    consequence row (incl. headline) on success, else None.
     """
     from prism.resilience.storm import compute_storm_consequence
 
     try:
-        compute_storm_consequence(engine, advisory_pk)
+        return compute_storm_consequence(engine, advisory_pk)
     except Exception as exc:
         log.warning("NHC sync: consequence computation failed for advisory_pk=%s: %s",
                     advisory_pk, exc)
+        return None
+
+
+def _alert_new_advisory(
+    engine: Engine, *, storm_id: str, advisory_num: str, storm_name: str | None,
+    classification: str | None, consequence: dict | None,
+) -> None:
+    """Fire the storm_advisory alert for a newly-inserted, PR-affecting advisory.
+
+    Live polls only (sync_nhc) — replay_storm backfills historical advisories
+    and must never alert on them.
+    """
+    from prism.alerts import send_alert
+
+    detail = (consequence or {}).get("headline") or classification
+    send_alert(
+        engine,
+        kind="storm_advisory",
+        dedup_key=f"{storm_id}:{advisory_num}",
+        headline=f"NHC advisory #{advisory_num} for {storm_name or storm_id}",
+        detail=detail,
+        href="/storm",
+    )
 
 
 def affects_pr(cone_wkt: str | None) -> bool:
@@ -391,7 +416,15 @@ def sync_nhc(engine: Engine, *, mirror: bool = True) -> dict[str, Any]:
             advisories_new += 1
             if result["affects_pr"]:
                 new_pr_advisory = True
-                _compute_consequence_safe(engine, result["advisory_pk"])
+                consequence = _compute_consequence_safe(engine, result["advisory_pk"])
+                _alert_new_advisory(
+                    engine,
+                    storm_id=storm_id,
+                    advisory_num=str(adv_num),
+                    storm_name=meta.get("storm_name"),
+                    classification=meta.get("classification"),
+                    consequence=consequence,
+                )
             if meta["issued_at"]:
                 latest = meta["issued_at"].isoformat()
 
