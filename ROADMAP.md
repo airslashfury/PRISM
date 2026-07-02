@@ -43,9 +43,10 @@ net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** 
 Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-07-02):** F1 + F2 + F3 + **F4** DONE (each Opus GO), plus the **UI-B**
-> polish batch. F1–F3/UI-B merged to `main` at M0; F4 on `feat/f4-interactive-model`
-> (`9a12b8e`, pushed). **F5 (live storm: NHC advisory feed + alerting) is next.**
+> **Status (2026-07-02):** F1 + F2 + F3 + F4 + **F5** DONE (each Opus GO), plus the **UI-B**
+> polish batch. F1–F4 merged to `main`; F5 on `feat/f5-live-storm` (pushed). F5 was the
+> first item built under the Fable-plans / Sonnet-implements protocol (CLAUDE.md
+> "Fable-era override"). **F6 (water cascade + lazy MapWorkspace extraction) is next.**
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -190,10 +191,30 @@ the model something you *push on*, not something that produces a document.
 robust-vs-sensitive flags; map/scenario/selection state is URL-encoded and bookmarkable; the
 portfolio A/B diff carries an AI narrative; rank movement appears in WhatsNew.
 
-### Item F5 (new) — Live storm: NHC advisory feed + alerting
+### Item F5 (new) — Live storm: NHC advisory feed + alerting — ✅ DONE (2026-07-02, Opus GO)
 Scheduled ahead of water (old F6) deliberately — hurricane season is underway and this is
 seasonally urgent in a way water isn't. Subsumes the backlogged M5c Storm Timeline with real
 data instead of a synthetic Cat-3 sweep.
+
+> Shipped on `feat/f5-live-storm` (chunks `3cc3376`/`77d0470`/`52d6b70`/`9605866` + integration
+> `583bf2a` + gate fix): **feed** — `prism/sync/nhc.py` (CurrentStorms.json 30-min worker cron +
+> archive replay CLI, raw-mirrored; `sync.nhc_advisories`/`nhc_track_points`, alembic 0008/0009);
+> **consequence** — `prism/resilience/storm.py` cone×grid intersection + Cat-2 surge overlap →
+> `sync.nhc_consequences` headline ("If Hurricane Fiona's track holds: 69 substations, 6
+> hospitals…"; island-scale plain language past ~3M summed population); `GET /network/storm`;
+> **/storm page** (Live nav) with cone/track overlay + HISTORICAL REPLAY badge + calm state;
+> WhatsNew kind="storm"; **alerting** — `prism/alerts.py` (`sync.alert_log`, env-gated
+> webhook/SMTP, deduped) wired to new-PR-advisory / rescore / hourly stale-feed cron / CRIM
+> delta. Both folded residuals closed: rescore purges consequence/water_consequence/storm caches
+> (M5a), and `trigger_rescore` writes `sync.sync_log` `rescore:{scenario}` rows so job rescores
+> reach WhatsNew (F4 carry-forward; also fixed the pre-existing "(True)" rendering wart).
+> Verified against 5 replayed Fiona (al072022) advisories AND a genuinely live storm the first
+> cron cycle ingested (Douglas ep042026, correctly non-PR). 37 new backend tests + /storm e2e;
+> full pytest 517/1-skip; Playwright 30/30. Gate GO; one gate-found defect fixed same-session
+> (datetime payloads silently disabled the storm response cache — `json.dumps(default=str)` +
+> regression test). Carry-forwards: live storm_advisory alert path untested against a real
+> PR-affecting storm (none exists; mocked-tested); webhook/SMTP delivery mocked-only (no env in
+> dev); WFS rescores produce two sync_log rows by design.
 - `prism/sync/nhc.py` — pull NOAA National Hurricane Center advisory forecast cones/tracks (free
   GeoJSON/shapefile per advisory), filtered to the PR region, into sync tables (same pattern as
   the PREPA/LUMA/USGS live feeds).

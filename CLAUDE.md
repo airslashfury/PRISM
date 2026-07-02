@@ -133,6 +133,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F2 — What-changed / overview cockpit | **COMPLETE** | 2026-06-30 | Opus GO |
 | F3 — Playwright map smoke tests | **COMPLETE** | 2026-06-30 | Opus GO |
 | F4 — Interactive model | **COMPLETE** | 2026-07-02 | Opus GO |
+| F5 — Live storm (NHC + alerting) | **COMPLETE** | 2026-07-02 | Opus GO (one fix at gate) |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -145,6 +146,16 @@ PRISM is a full-stack Puerto Rico infrastructure simulation model with a
 confidence/provenance/validation spine, a citizen civic card, a natural-language query bar,
 live PREPA/LUMA feeds, NBI bridge spans, a Site Finder over industrial parcels, CRIM owner
 intelligence, a what-changed/stale-data overview cockpit, and an interactive assumptions lab.
+
+**F5 batch (2026-07-02, `feat/f5-live-storm`, Opus GO; first item under the Fable-plans /
+Sonnet-implements protocol):** NHC advisory feed (`prism/sync/nhc.py`, 30-min worker cron +
+Fiona al072022 replay CLI, `sync.nhc_advisories`/`nhc_track_points`/`nhc_consequences`);
+pre-landfall consequence headlines (`prism/resilience/storm.py`, cone×grid + Cat-2 surge,
+island-scale honesty past ~3M); `/storm` page (Live nav, replay-labeled) + `GET
+/network/storm` + WhatsNew kind="storm"; alerting spine (`prism/alerts.py` → `sync.alert_log`,
+env-gated webhook/SMTP `PRISM_ALERT_WEBHOOK_URL`/`PRISM_ALERT_SMTP_*`, deduped) on
+new-PR-advisory / rescore / stale-feed / CRIM-delta events; rescore now purges
+consequence/water_consequence/storm caches and writes `sync.sync_log` (`rescore:{scenario}`).
 
 **F4 batch (2026-07-02, `feat/f4-interactive-model` @ `9a12b8e`, Opus GO):** `/assumptions`
 page (dial VOLL / discount rate / outage hours / feeder-confidence floor / hazard scale →
@@ -190,12 +201,14 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
    (`prism/validate/assumptions.py` + job queue), permalinks (`frontend/lib/url-state.ts`),
    portfolio-diff AI narrative (`prism/report/portfolio_narrative.py`), rank history
    (`resilience.score_history` + WhatsNew `rank` kind), Ask `owner_lookup`/`whats_new` tools
-6. ⏭️ **F5 (new) — live storm: NHC advisory feed + alerting** *(next; fold in the F4-gate
-   carry-forward that job-driven rescores don't write `sync.sync_log`)* · 7. F6 water cascade
-   (+ lazy MapWorkspace extract) · 8. F7 telecom
+6. ✅ **F5 (new) — live storm: NHC advisory feed + alerting** (2026-07-02, Opus GO) —
+   `prism/sync/nhc.py` + `prism/resilience/storm.py` + `/storm` + `prism/alerts.py`; both
+   folded residuals closed (M5a cache invalidation, F4 sync_log carry-forward)
+7. ⏭️ **F6 — water cascade page (+ lazy MapWorkspace / entity-drawer extraction)** *(next)*
+   · 8. F7 telecom
 
-F1–F3/UI-B are merged to `main` (M0, `878d35e`); F4 is on `feat/f4-interactive-model`
-(pushed, unmerged). See `ROADMAP.md` for the full F5 spec.
+F1–F4/UI-B are merged to `main`; F5 is on `feat/f5-live-storm` (pushed, unmerged). See
+`ROADMAP.md` for the full F6 spec.
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
