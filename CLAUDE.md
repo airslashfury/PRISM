@@ -69,6 +69,23 @@ manual model switching is needed:
 `phase-gate-reviewer` before starting the next phase; for any bulk pass over many items, delegate to
 `bulk-classifier`. Opus stays on gates, Sonnet on the build, Haiku on volume — automatically.
 
+### Fable-era override (2026-07-02, while Fable/Mythos access lasts)
+If the main session is running on **Fable** (a tier above Opus), it is the **thinker/planner, not
+the coder**:
+1. **Fable plans:** read the ROADMAP item, explore the code, and write an implementation plan with
+   **explicit handoff points** — for each handoff: the files to touch, the contract (signatures,
+   schemas, endpoints, UI placement), the tests to write, and the done-check the subagent must run.
+2. **Sonnet implements:** delegate each handoff to a `claude` subagent with `model: sonnet`,
+   passing the relevant plan section verbatim. One handoff = one reviewable chunk.
+3. **Fable reviews between handoffs:** check the diff/results against the plan before dispatching
+   the next chunk; keep integration, tricky debugging, and judgment calls in the main session.
+4. **Gates unchanged:** the Opus `phase-gate-reviewer` still gives GO/NO-GO at every "Done when";
+   Haiku still takes bulk passes.
+5. **Never edit configs to point at Fable** — `config/models.yml`, `.claude/settings.json`, and the
+   agent definitions keep their Opus/Sonnet/Haiku ids. Fable access is temporary; the pinned tiers
+   must keep working when it goes away. Fable substitutes for Opus *at plan time only*, by virtue of
+   being the session model — never by config.
+
 ## Repo layout
 ```
 config/        sources.yml · crs.yml · models.yml
