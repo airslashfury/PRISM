@@ -40,7 +40,12 @@ def cached_response(prefix: str, ttl: int = 3600) -> Callable:
 
             result = fn(*args, **kwargs)
             try:
-                client.set(cache_key, json.dumps(result), ex=ttl)
+                # default=str: handlers may return datetime fields (e.g.
+                # /network/storm's issued_at/computed_at) — without it the dump
+                # raises and the except below silently disables caching for
+                # that endpoint. FastAPI re-validates cached responses against
+                # the response model, so ISO-ish strings round-trip fine.
+                client.set(cache_key, json.dumps(result, default=str), ex=ttl)
             except Exception:
                 pass
             return result
