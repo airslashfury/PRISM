@@ -21,6 +21,7 @@ const MAP_ROUTES: { path: string; overlay: (p: Page) => Locator }[] = [
   { path: "/economy", overlay: (p) => p.getByText("Social vulnerability").first() },
   { path: "/playground", overlay: (p) => p.getByPlaceholder(/scenario/i).first() },
   { path: "/water", overlay: (p) => p.getByText("Water-source risk").first() },
+  { path: "/telecom", overlay: (p) => p.getByText("Telecom risk").first() },
 ];
 
 /** Number of distinct (quantized) colors in the biggest canvas's screenshot. */

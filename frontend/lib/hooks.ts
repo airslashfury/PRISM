@@ -83,6 +83,22 @@ export const useWaterSource = (id: number | null) =>
 export const useWaterGauges = () =>
   useQuery({ queryKey: ["waterGauges"], queryFn: api.waterGauges, staleTime: 2 * MIN });
 
+/** Telecom cascade (F7): scored telecom nodes for the map. */
+export const useTelecomSources = (scenario = "cat3") =>
+  useQuery({
+    queryKey: ["telecomSources", scenario],
+    queryFn: () => api.telecomSources(scenario),
+    staleTime: 10 * MIN,
+  });
+
+export const useTelecomSource = (id: number | null) =>
+  useQuery({
+    queryKey: ["telecomSource", id],
+    queryFn: () => api.telecomSource(id as number),
+    enabled: id != null,
+    staleTime: 10 * MIN,
+  });
+
 export const usePortfolioRuns = (limit = 50) =>
   useQuery({ queryKey: ["portfolioRuns", limit], queryFn: () => api.portfolioRuns(limit) });
 

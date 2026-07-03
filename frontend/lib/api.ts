@@ -852,6 +852,78 @@ export interface WaterGauge {
   stale: boolean;
 }
 
+// ── Telecom cascade (F7 chunk A: telecom-node resilience + power dependency) ──
+
+/** Mirrors api.schemas.TelecomSource (api/routers/telecom.py `def sources`). */
+export interface TelecomSource {
+  entity_id: number;
+  kind: "telecom_tower" | "cell_site";
+  name: string | null;
+  lon: number | null;
+  lat: number | null;
+  composite_score: number;
+  rank: number | null;
+  barrios_covered: number;
+  headline: string;
+}
+
+export interface TelecomSourcesResponse {
+  sources: TelecomSource[];
+  count: number;
+  scenario: string;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface TelecomSourceWhat {
+  kind: string;
+  owner_or_licensee: string | null;
+  height_ft: number | null;
+  municipality: string | null;
+}
+
+export interface TelecomSourceServes {
+  barrios_covered: number;
+  sample_barrios: string[];
+}
+
+export interface TelecomSourceHazards {
+  hazard_score: number;
+  scenario: string;
+}
+
+export interface TelecomSourcePower {
+  powering_substation_id: number | null;
+  powering_substation_name: string | null;
+  powering_substation_composite: number | null;
+}
+
+export interface TelecomSourceDetail {
+  entity_id: number;
+  name: string | null;
+  what: TelecomSourceWhat;
+  serves: TelecomSourceServes;
+  hazards: TelecomSourceHazards;
+  power: TelecomSourcePower;
+  composite_score: number;
+  rank: number | null;
+  headline: string;
+  confidence_tiers: Record<string, ConfidenceTierKey>;
+}
+
+export interface TelecomBarrio {
+  entity_id: number;
+  name: string | null;
+}
+
+export interface TelecomConsequence {
+  entity_id: number;
+  towers: number;
+  cell_sites: number;
+  barrios_affected: number;
+  headline: string;
+  barrios: TelecomBarrio[];
+}
+
 // ── What's new (overview cockpit: what-changed + stale-data) ─────────────────
 
 export interface FeedFreshness {
@@ -1034,6 +1106,12 @@ export const api = {
     apiGet<WaterSourcesResponse>("/water/sources", { scenario }),
   waterSource: (entityId: number) => apiGet<WaterSourceDetail>(`/water/source/${entityId}`),
   waterGauges: () => apiGet<WaterGauge[]>("/water/gauges"),
+
+  telecomSources: (scenario = "cat3") =>
+    apiGet<TelecomSourcesResponse>("/telecom/sources", { scenario }),
+  telecomSource: (entityId: number) => apiGet<TelecomSourceDetail>(`/telecom/source/${entityId}`),
+  telecomConsequence: (subId: number) =>
+    apiGet<TelecomConsequence>(`/network/telecom-consequence/${subId}`),
 
   portfolioRuns: (limit = 50) => apiGet<PortfolioRun[]>("/portfolio/runs", { limit }),
   portfolioRun: (id: number) => apiGet<PortfolioRunDetail>(`/portfolio/runs/${id}`),
