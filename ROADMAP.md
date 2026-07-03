@@ -43,10 +43,14 @@ net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** 
 Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-07-02):** F1–**F6** DONE (each Opus GO), plus the **UI-B** polish batch.
-> F1–F5 merged to `main`; F6 on `feat/f6-water-cascade` (pushed). F5 + F6 were built under
-> the Fable-plans / Sonnet-implements protocol (CLAUDE.md "Fable-era override") — two clean
-> multi-chunk items. **F7 (telecom cascade, on the F6 shell) is next.**
+> **Status (2026-07-03):** **F1–F7 ALL DONE (each Opus GO)** — the converged frontend product
+> arc is complete. Plus the **UI-B** polish batch. F1–F6 merged to `main`; F7 on
+> `feat/f7-telecom-cascade` (pushed). F5/F6/F7 were built under the Fable-plans /
+> Sonnet-implements protocol (CLAUDE.md "Fable-era override") — three clean multi-chunk items.
+> The full **Power → Comms → Water → Economy → Transport** dependency chain is now surfaced.
+> **No scheduled item remains; next direction is the user's call** (BACKLOG candidates: fiber
+> layer on /telecom, LUMA feeder agreement to lift the POWERS proxy ceiling, crime-incidence
+> enrichment).
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -239,7 +243,7 @@ shell, now that F3's net exists. Right idea, right timing.
 > Shipped on `feat/f6-water-cascade` (`1d7b8cb` A-backend / `e12c9d5` B-shell+page / `74b99e8`
 > C-migration): **water domain** — `prism/resilience/water.py` cross-domain risk score
 > (composite = raw barrios_served × cat3 hazard × grid power-dependency, with the has_generator
-> discount; consequence-led — 0-barrio sources sink; 2,153 scored, rank 1 Culebrinas/43 barrios)
+> discount; consequence-led — 0-barrio sources sink; 2,153 scored, led by Culebrinas/43 barrios)
 > → `resilience.water_scores`; `prism/sync/nwis.py` USGS NWIS live gauge feed (keyless, 215 PR
 > gauges, 6h worker cron + host mirror); `api/routers/water.py` (`/water/sources|source/{id}|gauges`);
 > the power→water cascade (already-built POWERS/WATER_SERVES graph) surfaced in the source drawer.
@@ -267,13 +271,30 @@ shell, now that F3's net exists. Right idea, right timing.
 NWIS gauges land as a live feed; the page is built on an extracted MapWorkspace + entity-drawer shell
 with one existing page migrated onto it as proof.
 
-### Item F7 — Telecom cascade page
+### Item F7 — Telecom cascade page — ✅ DONE (2026-07-03, Opus GO)
 Pulls up BACKLOG P4 telecom domain — the "Comms" rung of the dependency chain, on the F6 shell.
-- `prism/assets/telecom.py`; tower/fiber entities (`cellular`, `antenas`, `conductos_fibra_optica`);
-  **power→telecom cascade**; coverage-loss scoring; `/telecom` page on the shared workspace shell.
+
+> Shipped on `feat/f7-telecom-cascade` (`079a171` A-backend / `47331a1` B-page): **telecom domain**
+> — `prism/graph/telecom.py` promotes 798 antenna structures → `telecom_tower` + 107 cellular sites
+> → `cell_site` (905 entities), `POWERS` (nearest distribution substation, 905) + `COVERS` (4km
+> coverage-radius proxy → barrio, 4,519) edges, `telecom_downstream_of`; `prism/resilience/telecom.py`
+> coverage-loss score (composite = RAW barrios_covered × cat3 hazard × grid power-dependency —
+> consequence-led from the start, F6 lesson baked in; 905 scored, 0 of top 30 cover 0 barrios) →
+> `resilience.telecom_scores`; `api/routers/telecom.py` + `/network/telecom-consequence/{sub}`. Alembic
+> 0011 (builds the graph on migrate). **Frontend** — `/telecom` (Explore nav) is the FIRST page built
+> entirely on the F6-extracted `MapWorkspace` + `EntityDrawer` (zero shell files touched; Telecom* API
+> types matched the water schema field-for-field). Provenance proxy, inventory 187. Full pytest 556/1-skip;
+> Playwright 38/38 incl. /telecom rigorous canvas-paint. **Gate GO** — reviewer proved the shared-POWERS
+> firewall in code (telecom kinds carry cascade CRITICALITY=0, downstream traversal follows only
+> FEEDS+one POWERS hop, so telecom cannot inflate water/substation scoring). Carry-forwards (non-blocking):
+> **no fiber layer** — fiber conduits are mirrored but have no power-dependency in the cascade model, so
+> they'd be static decoration; deferred to BACKLOG rather than silently dropped from "towers/fiber".
+> COVERS/POWERS stay Proxy (4km distance + nearest-substation, no real RF/feeder). No telecom live feed
+> (data is FCC/PR 2010–2012 static; drawer "changed" section correctly hidden). Consequence-*gated* not
+> *sorted* (mirrors the water + substation models).
 
 **Done when:** `/telecom` shows towers/fiber with a power→telecom cascade + coverage-loss scoring,
-built on the shared workspace shell.
+built on the shared workspace shell. ✅ (fiber layer deferred to BACKLOG — no cascade semantics.)
 
 **Demoted / parked — explicit non-goals for now** (both reviews agreed):
 - **Role modes** — premature segmentation; ship role-shaped *pages* (`/citizen` is the model), not a

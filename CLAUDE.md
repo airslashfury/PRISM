@@ -135,6 +135,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F4 — Interactive model | **COMPLETE** | 2026-07-02 | Opus GO |
 | F5 — Live storm (NHC + alerting) | **COMPLETE** | 2026-07-02 | Opus GO (one fix at gate) |
 | F6 — Water cascade + shell extraction | **COMPLETE** | 2026-07-02 | Opus GO |
+| F7 — Telecom cascade (on F6 shell) | **COMPLETE** | 2026-07-03 | Opus GO |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -149,6 +150,15 @@ live PREPA/LUMA/USGS-quake/NHC-storm/NWIS-gauge feeds, NBI bridge spans, a Site 
 industrial parcels, CRIM owner intelligence, a what-changed/stale-data overview cockpit, an
 interactive assumptions lab (F4), a live-storm cone page (F5), and a water-cascade page (F6)
 on a reusable MapWorkspace + entity-drawer shell.
+
+**F7 batch (2026-07-03, `feat/f7-telecom-cascade`, Opus GO) — closes the F1–F7 arc:** telecom
+"Comms" rung — `prism/graph/telecom.py` (798 telecom_tower + 107 cell_site entities, POWERS +
+4km-proxy COVERS→barrio edges, `telecom_downstream_of`); `prism/resilience/telecom.py` coverage-loss
+score (raw barrios_covered × cat3 hazard × grid power-dependency, consequence-led; 905 scored);
+`/telecom` page (Explore nav) — the FIRST page built entirely on the F6 `MapWorkspace`+`EntityDrawer`
+shell (zero shell files touched). Power→Comms→Water→Economy→Transport chain now fully surfaced. Gate
+proved the shared-POWERS firewall (telecom kinds carry cascade CRITICALITY=0; downstream traversal
+follows only FEEDS+one POWERS hop). Fiber layer deferred to BACKLOG (no cascade semantics).
 
 **F6 batch (2026-07-02, `feat/f6-water-cascade`, Opus GO):** water domain surfaced — cross-domain
 water-source risk score (`prism/resilience/water.py`: raw barrios-served consequence × cat3 hazard
@@ -219,10 +229,13 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
 7. ✅ **F6 — water cascade + lazy MapWorkspace/entity-drawer extraction** (2026-07-02, Opus GO) —
    `prism/resilience/water.py` + `prism/sync/nwis.py` + `/water` on the new
    `MapWorkspace`+`EntityDrawer` shell; `/resilience` migrated onto it as proof
-8. ⏭️ **F7 — telecom cascade page** *(next; build on the F6 shell)*
+8. ✅ **F7 — telecom cascade page** (2026-07-03, Opus GO) — `prism/graph/telecom.py` +
+   `prism/resilience/telecom.py` + `/telecom` on the F6 shell (first pure consumer)
 
-F1–F5/UI-B are merged to `main`; F6 is on `feat/f6-water-cascade` (pushed, unmerged). See
-`ROADMAP.md` for the full F7 spec.
+**The F1–F7 frontend product arc is COMPLETE (all Opus GO).** F1–F6/UI-B merged to `main`; F7 on
+`feat/f7-telecom-cascade` (pushed, unmerged). No scheduled item remains — next direction is the
+user's call (see `BACKLOG.md`: fiber layer, LUMA feeder to lift the POWERS proxy ceiling, crime
+enrichment, public methods/API docs).
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

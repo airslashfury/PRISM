@@ -9,6 +9,18 @@ it gets scheduled.
 
 ## Near-term (likely next, after the active queue)
 
+> **2026-07-03 — the F1–F7 frontend arc is COMPLETE (all Opus GO).** No scheduled item remains
+> in `ROADMAP.md`; the items below are the candidate pool for the next direction.
+
+### Deferred from F7 (telecom, 2026-07-03)
+- **Fiber layer on `/telecom`** — `g37_telecom_conductos_fibra_optica_act_2012` (50 conduit
+  MultiLineStrings) + the ROW optical-fiber lease layer are mirrored but NOT surfaced. Deferred at
+  the F7 gate: fiber has no power-dependency in the cascade model, so on the map it's static
+  decoration, not part of the coverage-loss consequence story. Add as a toggleable context layer
+  (like flood/faults on /resilience) if a telecom-planning use case appears. Cell coverage could
+  also be upgraded from the 4km distance proxy to the real callsign service-area polygons
+  (`g37_telecom_cell_aggr_callsign_serv_area_bounds_2012`, 24 aggregates) for the 107 cell sites.
+
 > **2026-06-29 — the frontend product arc is now scheduled in [`ROADMAP.md`](ROADMAP.md) as
 > F1–F7** (converged GPT5.5 / Opus review). Items below that have been pulled up are marked
 > **→ SCHEDULED**; ROADMAP is the authoritative spec, the detail here is the appendix. What
