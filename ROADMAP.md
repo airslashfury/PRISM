@@ -43,10 +43,10 @@ net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** 
 Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-07-02):** F1 + F2 + F3 + F4 + **F5** DONE (each Opus GO), plus the **UI-B**
-> polish batch. F1–F4 merged to `main`; F5 on `feat/f5-live-storm` (pushed). F5 was the
-> first item built under the Fable-plans / Sonnet-implements protocol (CLAUDE.md
-> "Fable-era override"). **F6 (water cascade + lazy MapWorkspace extraction) is next.**
+> **Status (2026-07-02):** F1–**F6** DONE (each Opus GO), plus the **UI-B** polish batch.
+> F1–F5 merged to `main`; F6 on `feat/f6-water-cascade` (pushed). F5 + F6 were built under
+> the Fable-plans / Sonnet-implements protocol (CLAUDE.md "Fable-era override") — two clean
+> multi-chunk items. **F7 (telecom cascade, on the F6 shell) is next.**
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -232,9 +232,29 @@ headline; alerts fire on new-advisory / quake-rescore / stale-feed / CRIM-delta 
 consequence cache invalidates on rescore. Verified against at least one historical advisory
 replay.
 
-### Item F6 — Water cascade page (+ lazy MapWorkspace / entity-drawer extraction)
+### Item F6 — Water cascade page (+ lazy MapWorkspace / entity-drawer extraction) — ✅ DONE (2026-07-02, Opus GO)
 Pulls up BACKLOG P4 water domain — and is the deliberate moment to extract the shared workspace
 shell, now that F3's net exists. Right idea, right timing.
+
+> Shipped on `feat/f6-water-cascade` (`1d7b8cb` A-backend / `e12c9d5` B-shell+page / `74b99e8`
+> C-migration): **water domain** — `prism/resilience/water.py` cross-domain risk score
+> (composite = raw barrios_served × cat3 hazard × grid power-dependency, with the has_generator
+> discount; consequence-led — 0-barrio sources sink; 2,153 scored, rank 1 Culebrinas/43 barrios)
+> → `resilience.water_scores`; `prism/sync/nwis.py` USGS NWIS live gauge feed (keyless, 215 PR
+> gauges, 6h worker cron + host mirror); `api/routers/water.py` (`/water/sources|source/{id}|gauges`);
+> the power→water cascade (already-built POWERS/WATER_SERVES graph) surfaced in the source drawer.
+> **Shell extraction** — `frontend/components/map/map-workspace.tsx` + `entity-drawer.tsx`
+> (7-section grammar); `/water` built on both (Explore nav). **Migration proof** — `/resilience`
+> fully migrated onto the shell (only page.tsx, +128/-110; every datum preserved, screenshot-
+> verified). Alembic 0010; provenance (water_scores proxy, nwis_gauges authoritative, inventory
+> 186). Full pytest 537/1-skip; Playwright 34/34 incl. /water under the rigorous canvas-paint
+> check. Gate GO. **Key review fix:** the subagent's first scoring was consequence-inverted
+> (normalized+floored criticality let hazard dominate → 23 of top 30 served 0 barrios); reworked
+> to raw barrios_served spine + a zero-barrio-sinks regression test. Carry-forwards (non-blocking):
+> score is consequence-*gated* not *sorted* (a high-consequence low-hazard source ranks mid, like
+> the substation model — a future lens could sort by barrios_served primary); wells carry
+> criticality 0 (WATER_SERVES omits wells→barrio in the proxy graph); population = barrios-served
+> count not summed population; POWERS/WATER_SERVES stay Proxy (LUMA-feeder ceiling).
 - **Water domain** (`prism/assets/water.py`) — load the PRASA network (`g37_agua_*` / `ww_*`, already
   mirrored), build `POWERS`→pump/plant + plant→barrio `SERVES` edges, water-resilience scoring,
   `/water` page, **power→water cascade**. **USGS NWIS gauges** = the net-new water live feed.

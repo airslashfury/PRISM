@@ -134,6 +134,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F3 — Playwright map smoke tests | **COMPLETE** | 2026-06-30 | Opus GO |
 | F4 — Interactive model | **COMPLETE** | 2026-07-02 | Opus GO |
 | F5 — Live storm (NHC + alerting) | **COMPLETE** | 2026-07-02 | Opus GO (one fix at gate) |
+| F6 — Water cascade + shell extraction | **COMPLETE** | 2026-07-02 | Opus GO |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -144,8 +145,19 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 
 PRISM is a full-stack Puerto Rico infrastructure simulation model with a
 confidence/provenance/validation spine, a citizen civic card, a natural-language query bar,
-live PREPA/LUMA feeds, NBI bridge spans, a Site Finder over industrial parcels, CRIM owner
-intelligence, a what-changed/stale-data overview cockpit, and an interactive assumptions lab.
+live PREPA/LUMA/USGS-quake/NHC-storm/NWIS-gauge feeds, NBI bridge spans, a Site Finder over
+industrial parcels, CRIM owner intelligence, a what-changed/stale-data overview cockpit, an
+interactive assumptions lab (F4), a live-storm cone page (F5), and a water-cascade page (F6)
+on a reusable MapWorkspace + entity-drawer shell.
+
+**F6 batch (2026-07-02, `feat/f6-water-cascade`, Opus GO):** water domain surfaced — cross-domain
+water-source risk score (`prism/resilience/water.py`: raw barrios-served consequence × cat3 hazard
+× grid power-dependency + generator discount → `resilience.water_scores`, 2,153 sources, rank 1
+Culebrinas); USGS NWIS live gauge feed (`prism/sync/nwis.py`, 215 PR gauges, 6h cron); `/water`
+page (Explore nav) with the power→water cascade + toggleable gauges. **Shell extraction** —
+`components/map/map-workspace.tsx` + `components/entity-drawer.tsx` (7-section grammar); `/resilience`
+migrated onto both as the proof (only page.tsx changed). The reusable shell for F7 telecom + future
+map pages now exists.
 
 **F5 batch (2026-07-02, `feat/f5-live-storm`, Opus GO; first item under the Fable-plans /
 Sonnet-implements protocol):** NHC advisory feed (`prism/sync/nhc.py`, 30-min worker cron +
@@ -204,11 +216,13 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
 6. ✅ **F5 (new) — live storm: NHC advisory feed + alerting** (2026-07-02, Opus GO) —
    `prism/sync/nhc.py` + `prism/resilience/storm.py` + `/storm` + `prism/alerts.py`; both
    folded residuals closed (M5a cache invalidation, F4 sync_log carry-forward)
-7. ⏭️ **F6 — water cascade page (+ lazy MapWorkspace / entity-drawer extraction)** *(next)*
-   · 8. F7 telecom
+7. ✅ **F6 — water cascade + lazy MapWorkspace/entity-drawer extraction** (2026-07-02, Opus GO) —
+   `prism/resilience/water.py` + `prism/sync/nwis.py` + `/water` on the new
+   `MapWorkspace`+`EntityDrawer` shell; `/resilience` migrated onto it as proof
+8. ⏭️ **F7 — telecom cascade page** *(next; build on the F6 shell)*
 
-F1–F4/UI-B are merged to `main`; F5 is on `feat/f5-live-storm` (pushed, unmerged). See
-`ROADMAP.md` for the full F6 spec.
+F1–F5/UI-B are merged to `main`; F6 is on `feat/f6-water-cascade` (pushed, unmerged). See
+`ROADMAP.md` for the full F7 spec.
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
