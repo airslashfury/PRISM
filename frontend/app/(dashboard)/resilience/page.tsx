@@ -5,9 +5,10 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import { ChevronLeft, PowerOff, TriangleAlert } from "lucide-react";
+import { PowerOff, TriangleAlert } from "lucide-react";
 
-import { MapCanvas, tip, PR_VIEW } from "@/components/map/map-canvas";
+import { MapWorkspace } from "@/components/map/map-workspace";
+import { tip, PR_VIEW } from "@/components/map/map-canvas";
 import { formatViewport, parseViewport, patchUrl, patchUrlDebounced, readParam } from "@/lib/url-state";
 import { GradientLegend } from "@/components/legend";
 import { Segmented } from "@/components/ui/segmented";
@@ -15,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { SeverityLabel } from "@/components/severity";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
+import { EntityDrawer, type DrawerSection } from "@/components/entity-drawer";
 import { useScores, useSubstation, useConsequence, useCurrentState } from "@/lib/hooks";
 import { riskColor, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtIntTiered, fmtNum, fmtUsdTiered } from "@/lib/utils";
@@ -325,16 +327,15 @@ export default function ResiliencePage() {
   const detailScenario = isCurrent ? "cat3" : mode;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
-      <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
-        <MapCanvas
-          layers={layers}
-          getTooltip={getTooltip}
-          onClick={onClick}
-          onHover={onHover}
-          initialViewState={initialView}
-          onViewChange={(vs) => patchUrlDebounced({ view: formatViewport(vs) })}
-        >
+    <MapWorkspace
+      layers={layers}
+      getTooltip={getTooltip}
+      onClick={onClick}
+      onHover={onHover}
+      initialViewState={initialView}
+      onViewChange={(vs) => patchUrlDebounced({ view: formatViewport(vs) })}
+      overlays={
+        <>
           {/* Headline card — live for current state, predictive for scenarios */}
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             {isCurrent ? (
@@ -419,46 +420,47 @@ export default function ResiliencePage() {
             minLabel={fmtNum(min, 0)}
             maxLabel={fmtNum(max, 0)}
           />
-        </MapCanvas>
-      </div>
-
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[380px] md:shrink-0 md:border-l md:border-t-0">
-        <div className="border-b border-border/70 p-4">
-          <Segmented options={MODES as never} value={mode} onChange={setMode} className="w-full" />
-          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-            {mode === "current" && (
-              <>
-                Live electricity posture. Every substation is sized and colored by its inherent
-                consequence — how much breaks if it fails today, regardless of weather. Red ring =
-                its generation is offline right now (live PREPA/Genera feed). Toggle a scenario to
-                overlay a hazard prediction on top.
-              </>
+        </>
+      }
+      sidebar={
+        <>
+          <div className="border-b border-border/70 p-4">
+            <Segmented options={MODES as never} value={mode} onChange={setMode} className="w-full" />
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              {mode === "current" && (
+                <>
+                  Live electricity posture. Every substation is sized and colored by its inherent
+                  consequence — how much breaks if it fails today, regardless of weather. Red ring =
+                  its generation is offline right now (live PREPA/Genera feed). Toggle a scenario to
+                  overlay a hazard prediction on top.
+                </>
+              )}
+              {mode === "cat3" && "Category 3 hurricane — sustained 111–129 mph winds, storm surge up to 9 ft. Predicted on top of today's grid."}
+              {mode === "slr2ft" && "2 ft of sea-level rise — permanent inundation of low-lying coastal infrastructure by mid-century."}
+              {mode === "combined" && "Worst-case overlay — sea-level rise plus hurricane surge, the expected future baseline."}
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {error && <div className="p-4"><ErrorBlock error={error} /></div>}
+            {isLoading && <LoadingBlock label={isCurrent ? "Reading live grid state" : "Scoring substations"} />}
+            {selected == null && !isLoading && !error && (
+              <div className="border-b border-border/50 px-4 py-3">
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {isCurrent
+                    ? "Consequence = cascade impact × network centrality — what's downstream and whether there's a backup path. A node feeding hospitals with no alternate route ranks highest. Switch to a scenario to see how a hazard reshapes the ranking."
+                    : "Score = hazard probability × cascade impact × network centrality. A substation with hospitals downstream and no backup path scores highest — failure there is both likely under this scenario and catastrophic. Ring = single point of failure."}
+                </p>
+              </div>
             )}
-            {mode === "cat3" && "Category 3 hurricane — sustained 111–129 mph winds, storm surge up to 9 ft. Predicted on top of today's grid."}
-            {mode === "slr2ft" && "2 ft of sea-level rise — permanent inundation of low-lying coastal infrastructure by mid-century."}
-            {mode === "combined" && "Worst-case overlay — sea-level rise plus hurricane surge, the expected future baseline."}
-          </p>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {error && <div className="p-4"><ErrorBlock error={error} /></div>}
-          {isLoading && <LoadingBlock label={isCurrent ? "Reading live grid state" : "Scoring substations"} />}
-          {selected == null && !isLoading && !error && (
-            <div className="border-b border-border/50 px-4 py-3">
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                {isCurrent
-                  ? "Consequence = cascade impact × network centrality — what's downstream and whether there's a backup path. A node feeding hospitals with no alternate route ranks highest. Switch to a scenario to see how a hazard reshapes the ranking."
-                  : "Score = hazard probability × cascade impact × network centrality. A substation with hospitals downstream and no backup path scores highest — failure there is both likely under this scenario and catastrophic. Ring = single point of failure."}
-              </p>
-            </div>
-          )}
-          {selected != null ? (
-            <DetailPanel id={selected} scenario={detailScenario} onBack={() => setSelected(null)} />
-          ) : (
-            <TopList rows={top} selected={selected} onSelect={setSelected} isCurrent={isCurrent} />
-          )}
-        </div>
-      </aside>
-    </div>
+            {selected != null ? (
+              <DetailPanel id={selected} scenario={detailScenario} onBack={() => setSelected(null)} />
+            ) : (
+              <TopList rows={top} selected={selected} onSelect={setSelected} isCurrent={isCurrent} />
+            )}
+          </div>
+        </>
+      }
+    />
   );
 }
 
@@ -544,47 +546,84 @@ function TopList({
 
 function DetailPanel({ id, scenario, onBack }: { id: number; scenario: string; onBack: () => void }) {
   const { data, isLoading, error } = useSubstation(id, scenario);
-  return (
-    <div className="p-4">
-      <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-3.5 w-3.5" /> Back to list
-      </button>
-      {isLoading && <LoadingBlock label="Loading detail" />}
-      {error && <ErrorBlock error={error} />}
-      {data && (
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-lg font-semibold leading-tight">{data.name ?? `Substation ${data.entity_id}`}</h3>
-              {data.is_articulation && <Badge variant="warning">SPOF</Badge>}
-            </div>
-            <div className="mt-1"><SeverityLabel score={data.composite_score} /></div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <Metric label="Composite" value={fmtNum(data.composite_score, 1)} />
-            <Metric label="Hazard P" value={fmtNum(data.hazard_score, 2)} />
-            <Metric label="Cascade" value={fmtNum(data.cascade_impact, 1)} />
-          </div>
-          <PanelBox title="What fails when this substation goes down" badge={<ProvenanceBadge table="graph.downstream_summary" />}>
-            <Row label="Hospitals" value={fmtInt(data.downstream_hospitals)} />
-            <Row label="Water plants" value={fmtInt(data.downstream_water_plants)} />
-            <Row label="Health centers" value={fmtInt(data.downstream_health_centers)} />
-            <Row label="Barrios" value={fmtInt(data.downstream_barrios)} />
-            <Row label="People affected" value={fmtIntTiered(data.population_affected, "proxy")} />
-          </PanelBox>
-          <PanelBox title="Economic exposure (VOLL — 30yr NPV)" badge={<ProvenanceBadge table="economy.substation_exposure" />}>
-            <Row label="Population benefit" value={fmtUsdTiered(data.population_benefit_usd, "proxy")} />
-            <Row label="Economic benefit" value={fmtUsdTiered(data.economic_benefit_usd, "proxy")} />
-          </PanelBox>
-          {data.spof_betweenness != null && (
-            <PanelBox title="Network centrality">
-              <Row label="Betweenness" value={fmtNum(data.spof_betweenness, 4)} />
-              <Row label="Articulation point" value={data.is_articulation ? "Yes" : "No"} />
-            </PanelBox>
-          )}
+
+  if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
+  if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
+  if (!data) return null;
+
+  const sections: DrawerSection[] = [
+    {
+      id: "what",
+      title: "Metrics",
+      body: (
+        <div className="grid grid-cols-3 gap-2">
+          <Metric label="Composite" value={fmtNum(data.composite_score, 1)} />
+          <Metric label="Hazard P" value={fmtNum(data.hazard_score, 2)} />
+          <Metric label="Cascade" value={fmtNum(data.cascade_impact, 1)} />
         </div>
-      )}
-    </div>
+      ),
+    },
+    {
+      id: "where",
+      hidden: true,
+      title: "Where",
+    },
+    {
+      id: "depends",
+      title: "What fails when this substation goes down",
+      badge: <ProvenanceBadge table="graph.downstream_summary" />,
+      rows: [
+        { label: "Hospitals", value: fmtInt(data.downstream_hospitals) },
+        { label: "Water plants", value: fmtInt(data.downstream_water_plants) },
+        { label: "Health centers", value: fmtInt(data.downstream_health_centers) },
+        { label: "Barrios", value: fmtInt(data.downstream_barrios) },
+        { label: "People affected", value: fmtIntTiered(data.population_affected, "proxy") },
+      ],
+    },
+    {
+      id: "hazards",
+      title: "Economic exposure (VOLL — 30yr NPV)",
+      badge: <ProvenanceBadge table="economy.substation_exposure" />,
+      rows: [
+        { label: "Population benefit", value: fmtUsdTiered(data.population_benefit_usd, "proxy") },
+        { label: "Economic benefit", value: fmtUsdTiered(data.economic_benefit_usd, "proxy") },
+      ],
+    },
+    {
+      id: "data",
+      title: "Network centrality",
+      hidden: data.spof_betweenness == null,
+      rows: [
+        { label: "Betweenness", value: fmtNum(data.spof_betweenness, 4) },
+        { label: "Articulation point", value: data.is_articulation ? "Yes" : "No" },
+      ],
+    },
+    {
+      id: "changed",
+      hidden: true,
+      title: "Changed",
+    },
+    {
+      id: "actions",
+      hidden: true,
+      title: "Actions",
+    },
+  ];
+
+  return (
+    <EntityDrawer
+      onBack={onBack}
+      header={
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-lg font-semibold leading-tight">{data.name ?? `Substation ${data.entity_id}`}</h3>
+            {data.is_articulation && <Badge variant="warning">SPOF</Badge>}
+          </div>
+          <div className="mt-1"><SeverityLabel score={data.composite_score} /></div>
+        </div>
+      }
+      sections={sections}
+    />
   );
 }
 
@@ -593,27 +632,6 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5 text-center">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-sm font-semibold tnum">{value}</div>
-    </div>
-  );
-}
-
-function PanelBox({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border/60 bg-background/30 p-3">
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-        {badge}
-      </div>
-      <div className="space-y-1.5">{children}</div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tnum">{value}</span>
     </div>
   );
 }
