@@ -323,6 +323,30 @@ def create_schema(engine: Engine) -> None:
             "ON sync.alert_log (kind, dedup_key, created_at DESC)"
         ))
 
+        # ── USGS NWIS live stream/river gauges (F6 chunk A) ────────────────────
+        # waterservices.usgs.gov instantaneous-values feed for PR gauge stations.
+        # Latest reading per (site, parameter) — 00065 gage height (ft), 00060
+        # discharge (cfs). Keyless, no-auth; USGS is the streamflow authority.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.nwis_gauges (
+                site_no     TEXT NOT NULL,
+                param_cd    TEXT NOT NULL,
+                site_name   TEXT,
+                param_label TEXT,
+                value       DOUBLE PRECISION,
+                unit        TEXT,
+                measured_at TIMESTAMPTZ,
+                lon         DOUBLE PRECISION,
+                lat         DOUBLE PRECISION,
+                geom        GEOMETRY(POINT, 32161),
+                fetched_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+                PRIMARY KEY (site_no, param_cd)
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_nwis_gauges_geom ON sync.nwis_gauges USING GIST (geom)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

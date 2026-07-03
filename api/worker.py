@@ -170,6 +170,26 @@ async def sync_luma_outages(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def sync_nwis_gauges(ctx: dict) -> dict:
+    """Scheduled pull of the USGS NWIS live stream/river gauge feed (F6).
+
+    Gauges update every 15-60 min at the source; a 6-hourly cadence is a
+    comfortable, near-free poll that keeps the water dashboard's live-gauge
+    panel from going stale for more than a few hours. mirror=False for the
+    same reason as PREPA/LUMA/NHC (no data/raw volume on the worker).
+    """
+    from prism.sync.nwis import sync_nwis
+
+    engine = get_engine()
+    try:
+        summary = sync_nwis(engine, mirror=False)
+        log.info("Scheduled NWIS sync: %s", summary)
+        return summary
+    except Exception as exc:  # don't let one bad fetch kill the cron
+        log.warning("Scheduled NWIS sync failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 async def check_stale_feeds(ctx: dict) -> dict:
     """Hourly sweep: alert on any live/registry feed that's gone stale (F5 chunk D)."""
     from prism.alerts import check_stale_feeds as _check_stale_feeds
@@ -242,6 +262,7 @@ class WorkerSettings:
         sync_prepa_generation,
         sync_luma_outages,
         sync_nhc_feed,
+        sync_nwis_gauges,
         check_stale_feeds,
     ]
     cron_jobs = [
@@ -261,6 +282,9 @@ class WorkerSettings:
         # NHC advisories land ~every 3-6h with a live storm; a 30-min poll is
         # a comfortable margin and near-free when the tropics are quiet (F5).
         cron(sync_nhc_feed, minute={5, 35}, run_at_startup=True),
+        # NWIS gauges update every 15-60 min at the source; 6-hourly is a
+        # comfortable, near-free cadence for the water live-gauge panel (F6).
+        cron(sync_nwis_gauges, hour={0, 6, 12, 18}, minute={20}, run_at_startup=True),
         # Alert on stale feeds once an hour (F5 chunk D).
         cron(check_stale_feeds, minute={15}),
     ]

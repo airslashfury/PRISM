@@ -1133,3 +1133,88 @@ class TrendsResponse(BaseModel):
     by_municipio: list[MunicipioTrend] = Field(default_factory=list)
     by_year: list[YearTrend] = Field(default_factory=list)
     recent_deltas: RecentDeltas
+
+
+# --------------------------------------------------------------------------- #
+# F6 chunk A — water resilience + NWIS live gauges                             #
+# --------------------------------------------------------------------------- #
+class WaterSource(BaseModel):
+    entity_id: int
+    kind: str
+    name: str | None = None
+    lon: float | None = None
+    lat: float | None = None
+    composite_score: float
+    rank: int | None = None
+    barrios_served: int
+    has_generator: bool
+    headline: str
+
+
+class WaterSourcesResponse(BaseModel):
+    sources: list[WaterSource]
+    count: int
+    scenario: str
+    confidence_tier: str
+
+
+class WaterSourceWhat(BaseModel):
+    kind: str
+    operarea: str | None = None
+    municipality: str | None = None
+    capacity_gpm: float | None = None
+    has_generator: bool
+
+
+class WaterSourceServes(BaseModel):
+    barrios_served: int
+    sample_barrios: list[str] = Field(default_factory=list)
+
+
+class WaterSourceHazards(BaseModel):
+    hazard_score: float
+    scenario: str
+
+
+class WaterSourcePower(BaseModel):
+    powering_substation_id: int | None = None
+    powering_substation_name: str | None = None
+    powering_substation_composite: float | None = None
+    generator_note: str | None = None
+
+
+class NearestGauge(BaseModel):
+    site_no: str
+    site_name: str | None = None
+    param_label: str | None = None
+    value: float | None = None
+    unit: str | None = None
+    measured_at: datetime | None = None
+    distance_km: float | None = None
+
+
+class WaterSourceDetail(BaseModel):
+    entity_id: int
+    name: str | None = None
+    what: WaterSourceWhat
+    serves: WaterSourceServes
+    hazards: WaterSourceHazards
+    power: WaterSourcePower
+    nearest_gauge: NearestGauge | None = None
+    composite_score: float
+    rank: int | None = None
+    headline: str
+    confidence_tiers: dict[str, str] = Field(default_factory=dict)
+
+
+class WaterGauge(BaseModel):
+    site_no: str
+    param_cd: str
+    site_name: str | None = None
+    param_label: str | None = None
+    value: float | None = None
+    unit: str | None = None
+    measured_at: datetime | None = None
+    lon: float | None = None
+    lat: float | None = None
+    stale: bool

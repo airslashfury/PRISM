@@ -23,7 +23,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma", "usgs", "nhc"], default=None,
+        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma", "usgs", "nhc", "nwis"], default=None,
         help="Limit sync to one source type (default: all)",
     )
     parser.add_argument(
@@ -112,6 +112,17 @@ def main() -> None:
                 print("Re-score complete.")
             except Exception as exc:
                 print(f"Quake re-score skipped: {exc}", file=sys.stderr)
+        return
+
+    if args.source == "nwis":
+        from prism.sync.nwis import sync_nwis
+        print("Fetching USGS NWIS live gauge feed (PR) ...")
+        summary = sync_nwis(engine, mirror=not args.dry_run)
+        print(
+            f"  sites: {summary['sites']}  readings: {summary['readings']}  "
+            f"params: {summary.get('params')}\n"
+            f"  latest: {summary.get('latest')}"
+        )
         return
 
     if args.source == "nhc":

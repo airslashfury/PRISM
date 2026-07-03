@@ -36,6 +36,7 @@ from api.routers import (  # noqa: E402  (load_dotenv must run first)
     terrain,
     tiles,
     validate,
+    water,
 )
 
 configure_logging()
@@ -75,7 +76,7 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(MetricsMiddleware)
 
 app.include_router(metrics_router)
-for r in (system, resilience, portfolio, economy, corridor, network, hazard, sync, reports, terrain, tiles, jobs, playground, provenance, validate, citizen, ask, sitefinder, crim):
+for r in (system, resilience, portfolio, economy, corridor, network, hazard, sync, reports, terrain, tiles, jobs, playground, provenance, validate, citizen, ask, sitefinder, crim, water):
     app.include_router(r.router)
 
 

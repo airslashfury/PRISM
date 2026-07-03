@@ -465,6 +465,35 @@ tables:
       intensity; replace downstream_summary's feeder proxy with real electric
       topology once available.
 
+  resilience.water_scores:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      Composite = criticality x hazard_exposure x power_dependency. Criticality
+      (barrios served) and power_dependency (powering substation) both walk the
+      Proxy WATER_SERVES/POWERS edges built in graph.water (no real pipe routing
+      or electric feeder), so the composite is Proxy overall even though
+      hazard_exposure alone is Modeled over Authoritative hazard layers. Good
+      for relative ranking ("which water source is most at risk"), not for
+      absolute claims.
+    upgrade_path: >-
+      Same as graph.relationships — a LUMA feeder-topology agreement and real
+      AAA pipe-network topology would raise both inputs, and this score, to
+      Modeled/Authoritative.
+
+  sync.nwis_gauges:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Latest instantaneous reading (gage height / discharge) per active USGS
+      gauge station in Puerto Rico, from the USGS NWIS live feed — USGS is the
+      streamflow authority. Upsert-in-place (latest per site/parameter), not an
+      append-only time series; a gauge with no recent report reads stale rather
+      than being backfilled.
+    upgrade_path: >-
+      Accumulate an append-only history table (mirrors the PREPA/LUMA pattern)
+      for real hydrographs instead of a latest-only snapshot.
+
   fault_lines:
     method: authoritative
     confidence_tier: authoritative

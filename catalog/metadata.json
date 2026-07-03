@@ -2409,6 +2409,35 @@
       ],
       "compute_date": "2026-06-29",
       "license": "derived"
+    },
+    "derived:resilience.water_scores": {
+      "source": "derived",
+      "title": "resilience.water_scores",
+      "schema": "resilience",
+      "table": "water_scores",
+      "description": "F6 chunk A cross-domain water-source resilience score: composite = criticality (barrios served, via WATER_SERVES) x hazard_exposure (Cat-3 flood/surge/slope at the source) x power_dependency (powering substation's cat3 composite, discounted 0.3x if the source has a backup generator). One row per water_plant/water_pump_station/water_well, ranked. Does not rebuild the water graph — scores what prism/graph/water.py already built.",
+      "inputs": [
+        "graph.entities",
+        "graph.relationships (POWERS, WATER_SERVES)",
+        "resilience.scenario_scores",
+        "prism/resilience/hazard.py",
+        "prism/resilience/water.py"
+      ],
+      "compute_date": "2026-07-02",
+      "license": "derived"
+    },
+    "derived:sync.nwis_gauges": {
+      "source": "derived",
+      "title": "sync.nwis_gauges",
+      "schema": "sync",
+      "table": "nwis_gauges",
+      "description": "Live USGS NWIS instantaneous-values feed for active Puerto Rico stream/river gauges (gage height 00065, discharge 00060). Latest reading per (site_no, param_cd) — upsert-in-place, not append-only. Keyless, no auth. Authoritative — USGS is the streamflow authority.",
+      "inputs": [
+        "waterservices.usgs.gov/nwis/iv",
+        "prism/sync/nwis.py"
+      ],
+      "compute_date": "2026-07-02",
+      "license": "derived"
     }
   }
 }

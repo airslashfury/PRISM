@@ -96,9 +96,36 @@ _DDL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_community_resilience_score ON resilience.community_resilience (resilience_score DESC)",
     "CREATE INDEX IF NOT EXISTS idx_community_resilience_geom  ON resilience.community_resilience USING GIST (geom)",
+
+    # F6 chunk A: water-source resilience score. Cross-domain composite —
+    # how critical the source is (barrios served), how exposed it is (hazard
+    # overlay at the point), and how power-dependent it is (does it have a
+    # generator, and how risky is the substation that feeds it).
+    """
+    CREATE TABLE IF NOT EXISTS resilience.water_scores (
+        entity_id                    BIGINT PRIMARY KEY REFERENCES graph.entities(entity_id) ON DELETE CASCADE,
+        kind                         TEXT NOT NULL,
+        name                         TEXT,
+        barrios_served               INT NOT NULL DEFAULT 0,
+        has_generator                BOOLEAN NOT NULL DEFAULT FALSE,
+        powering_substation_id       BIGINT,
+        powering_substation_composite DOUBLE PRECISION,
+        criticality                  DOUBLE PRECISION NOT NULL DEFAULT 0,
+        hazard_score                 DOUBLE PRECISION NOT NULL DEFAULT 0,
+        power_dependency             DOUBLE PRECISION NOT NULL DEFAULT 0,
+        composite_score              DOUBLE PRECISION NOT NULL DEFAULT 0,
+        rank                         INT,
+        lon                          DOUBLE PRECISION,
+        lat                          DOUBLE PRECISION,
+        headline                     TEXT,
+        computed_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_water_scores_composite ON resilience.water_scores (composite_score DESC)",
 ]
 
 _DROP_DDL = [
+    "DROP TABLE IF EXISTS resilience.water_scores CASCADE",
     "DROP TABLE IF EXISTS resilience.score_history CASCADE",
     "DROP TABLE IF EXISTS resilience.score_runs CASCADE",
     "DROP TABLE IF EXISTS resilience.community_resilience CASCADE",
