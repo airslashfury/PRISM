@@ -13,6 +13,7 @@ import {
   TrendingUp,
   SlidersHorizontal,
   Wind,
+  Droplets,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ export const NAV: NavItem[] = [
 
   { href: "/resilience", label: "Resilience", icon: Zap, desc: "Which substations cut power to the most hospitals and people when they fail", group: "Explore" },
   { href: "/economy", label: "Economy", icon: Users, desc: "Who's most vulnerable and how much it costs when the lights go out", group: "Explore" },
+  { href: "/water", label: "Water", icon: Droplets, desc: "Which water plants and pumps fail — and which barrios lose supply — when the power grid goes down", group: "Explore" },
   { href: "/parcels", label: "Parcels", icon: LandPlot, desc: "Search any of Puerto Rico's 1.5M parcels by catastro, owner, or address — see ownership footprints and the full CRIM record plus what PRISM knows about that ground", group: "Explore" },
   { href: "/trends", label: "Market Trends", icon: TrendingUp, desc: "Where Puerto Rico's property market is moving: hot-spot municipios by sales, the island-wide price trend, and month-over-month parcel changes", group: "Explore" },
   { href: "/sitefinder", label: "Site Finder", icon: Factory, desc: "Where to build: rank industrial-zoned parcels by access to cargo ports, the grid, water, and flood safety", group: "Explore" },

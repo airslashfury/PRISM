@@ -767,6 +767,91 @@ export interface StormResponse {
   consequence: StormConsequence | null;
 }
 
+// ── Water cascade (F6 chunk A: water-source resilience + NWIS live gauges) ──
+
+/** Mirrors api.schemas.WaterSource (api/routers/water.py `def sources`). */
+export interface WaterSource {
+  entity_id: number;
+  kind: "water_plant" | "water_pump_station" | "water_well";
+  name: string | null;
+  lon: number | null;
+  lat: number | null;
+  composite_score: number;
+  rank: number | null;
+  barrios_served: number;
+  has_generator: boolean;
+  headline: string;
+}
+
+export interface WaterSourcesResponse {
+  sources: WaterSource[];
+  count: number;
+  scenario: string;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface WaterSourceWhat {
+  kind: string;
+  operarea: string | null;
+  municipality: string | null;
+  capacity_gpm: number | null;
+  has_generator: boolean;
+}
+
+export interface WaterSourceServes {
+  barrios_served: number;
+  sample_barrios: string[];
+}
+
+export interface WaterSourceHazards {
+  hazard_score: number;
+  scenario: string;
+}
+
+export interface WaterSourcePower {
+  powering_substation_id: number | null;
+  powering_substation_name: string | null;
+  powering_substation_composite: number | null;
+  generator_note: string | null;
+}
+
+export interface NearestGauge {
+  site_no: string;
+  site_name: string | null;
+  param_label: string | null;
+  value: number | null;
+  unit: string | null;
+  measured_at: string | null;
+  distance_km: number | null;
+}
+
+export interface WaterSourceDetail {
+  entity_id: number;
+  name: string | null;
+  what: WaterSourceWhat;
+  serves: WaterSourceServes;
+  hazards: WaterSourceHazards;
+  power: WaterSourcePower;
+  nearest_gauge: NearestGauge | null;
+  composite_score: number;
+  rank: number | null;
+  headline: string;
+  confidence_tiers: Record<string, ConfidenceTierKey>;
+}
+
+export interface WaterGauge {
+  site_no: string;
+  param_cd: string;
+  site_name: string | null;
+  param_label: string | null;
+  value: number | null;
+  unit: string | null;
+  measured_at: string | null;
+  lon: number | null;
+  lat: number | null;
+  stale: boolean;
+}
+
 // ── What's new (overview cockpit: what-changed + stale-data) ─────────────────
 
 export interface FeedFreshness {
@@ -944,6 +1029,11 @@ export const api = {
   storm: () => apiGet<StormResponse>("/network/storm"),
   substation: (id: number, scenario: string) =>
     apiGet<SubstationDetail>(`/resilience/substations/${id}`, { scenario }),
+
+  waterSources: (scenario = "cat3") =>
+    apiGet<WaterSourcesResponse>("/water/sources", { scenario }),
+  waterSource: (entityId: number) => apiGet<WaterSourceDetail>(`/water/source/${entityId}`),
+  waterGauges: () => apiGet<WaterGauge[]>("/water/gauges"),
 
   portfolioRuns: (limit = 50) => apiGet<PortfolioRun[]>("/portfolio/runs", { limit }),
   portfolioRun: (id: number) => apiGet<PortfolioRunDetail>(`/portfolio/runs/${id}`),

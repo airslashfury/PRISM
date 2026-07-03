@@ -91,6 +91,26 @@ test("/portfolio diff panel offers the AI explanation", async ({ page }) => {
   expect(errors, `uncaught page errors on /portfolio: ${errors.join("; ")}`).toEqual([]);
 });
 
+test("/water renders scored sources and the risk map", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/water", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Water", level: 1 })).toBeVisible();
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+
+  // Either a top-list row or the headline banner confirms the sources loaded.
+  await expect(
+    page
+      .getByText(/barrios/i)
+      .or(page.getByText("Water-source risk"))
+      .first(),
+  ).toBeVisible({ timeout: 30_000 });
+
+  expect(errors, `uncaught page errors on /water: ${errors.join("; ")}`).toEqual([]);
+});
+
 test("/storm renders the advisory or the calm state", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));

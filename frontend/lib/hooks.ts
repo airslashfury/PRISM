@@ -64,6 +64,25 @@ export const useSubstation = (id: number | null, scenario: string) =>
     staleTime: 5 * MIN,
   });
 
+/** Water cascade (F6): scored water sources for the map. */
+export const useWaterSources = (scenario = "cat3") =>
+  useQuery({
+    queryKey: ["waterSources", scenario],
+    queryFn: () => api.waterSources(scenario),
+    staleTime: 10 * MIN,
+  });
+
+export const useWaterSource = (id: number | null) =>
+  useQuery({
+    queryKey: ["waterSource", id],
+    queryFn: () => api.waterSource(id as number),
+    enabled: id != null,
+    staleTime: 10 * MIN,
+  });
+
+export const useWaterGauges = () =>
+  useQuery({ queryKey: ["waterGauges"], queryFn: api.waterGauges, staleTime: 2 * MIN });
+
 export const usePortfolioRuns = (limit = 50) =>
   useQuery({ queryKey: ["portfolioRuns", limit], queryFn: () => api.portfolioRuns(limit) });
 
