@@ -122,9 +122,35 @@ _DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_water_scores_composite ON resilience.water_scores (composite_score DESC)",
+
+    # F7 chunk A: telecom coverage-loss resilience score. Cross-domain
+    # composite — how critical the node is (barrios covered), how exposed it
+    # is (hazard overlay at the point), and how power-dependent it is (the
+    # substation that feeds it). Direct analog of resilience.water_scores.
+    """
+    CREATE TABLE IF NOT EXISTS resilience.telecom_scores (
+        entity_id                    BIGINT PRIMARY KEY REFERENCES graph.entities(entity_id) ON DELETE CASCADE,
+        kind                         TEXT NOT NULL,
+        name                         TEXT,
+        barrios_covered              INT NOT NULL DEFAULT 0,
+        powering_substation_id       BIGINT,
+        powering_substation_composite DOUBLE PRECISION,
+        criticality                  DOUBLE PRECISION NOT NULL DEFAULT 0,
+        hazard_score                 DOUBLE PRECISION NOT NULL DEFAULT 0,
+        power_dependency             DOUBLE PRECISION NOT NULL DEFAULT 0,
+        composite_score              DOUBLE PRECISION NOT NULL DEFAULT 0,
+        rank                         INT,
+        lon                          DOUBLE PRECISION,
+        lat                          DOUBLE PRECISION,
+        headline                     TEXT,
+        computed_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_telecom_scores_composite ON resilience.telecom_scores (composite_score DESC)",
 ]
 
 _DROP_DDL = [
+    "DROP TABLE IF EXISTS resilience.telecom_scores CASCADE",
     "DROP TABLE IF EXISTS resilience.water_scores CASCADE",
     "DROP TABLE IF EXISTS resilience.score_history CASCADE",
     "DROP TABLE IF EXISTS resilience.score_runs CASCADE",

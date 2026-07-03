@@ -2438,6 +2438,22 @@
       ],
       "compute_date": "2026-07-02",
       "license": "derived"
+    },
+    "derived:resilience.telecom_scores": {
+      "source": "derived",
+      "title": "resilience.telecom_scores",
+      "schema": "resilience",
+      "table": "telecom_scores",
+      "description": "F7 chunk A cross-domain telecom coverage-loss resilience score: composite = criticality (barrios covered, via COVERS) x hazard_exposure (Cat-3 flood/surge/slope at the node) x power_dependency (powering substation's cat3 composite, no generator discount). One row per telecom_tower/cell_site, ranked. Does not rebuild the telecom graph — scores what prism/graph/telecom.py already built.",
+      "inputs": [
+        "graph.entities",
+        "graph.relationships (POWERS, COVERS)",
+        "resilience.scenario_scores",
+        "prism/resilience/hazard.py",
+        "prism/resilience/telecom.py"
+      ],
+      "compute_date": "2026-07-03",
+      "license": "derived"
     }
   }
 }

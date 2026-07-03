@@ -191,6 +191,20 @@ class WaterConsequence(BaseModel):
     barrios: list[WaterBarrio]
 
 
+class TelecomBarrio(BaseModel):
+    entity_id: int
+    name: str | None
+
+
+class TelecomConsequence(BaseModel):
+    entity_id: int
+    towers: int
+    cell_sites: int
+    barrios_affected: int
+    headline: str
+    barrios: list[TelecomBarrio]
+
+
 # --- PREPA live generation (operationdata.prepa.pr.gov) -------------------- #
 class GenerationPlant(BaseModel):
     plant_name: str
@@ -1218,3 +1232,61 @@ class WaterGauge(BaseModel):
     lon: float | None = None
     lat: float | None = None
     stale: bool
+
+
+# --------------------------------------------------------------------------- #
+# F7 chunk A — telecom resilience (power -> comms cascade)                    #
+# --------------------------------------------------------------------------- #
+class TelecomSource(BaseModel):
+    entity_id: int
+    kind: str
+    name: str | None = None
+    lon: float | None = None
+    lat: float | None = None
+    composite_score: float
+    rank: int | None = None
+    barrios_covered: int
+    headline: str
+
+
+class TelecomSourcesResponse(BaseModel):
+    sources: list[TelecomSource]
+    count: int
+    scenario: str
+    confidence_tier: str
+
+
+class TelecomSourceWhat(BaseModel):
+    kind: str
+    owner_or_licensee: str | None = None
+    height_ft: float | None = None
+    municipality: str | None = None
+
+
+class TelecomSourceServes(BaseModel):
+    barrios_covered: int
+    sample_barrios: list[str] = Field(default_factory=list)
+
+
+class TelecomSourceHazards(BaseModel):
+    hazard_score: float
+    scenario: str
+
+
+class TelecomSourcePower(BaseModel):
+    powering_substation_id: int | None = None
+    powering_substation_name: str | None = None
+    powering_substation_composite: float | None = None
+
+
+class TelecomSourceDetail(BaseModel):
+    entity_id: int
+    name: str | None = None
+    what: TelecomSourceWhat
+    serves: TelecomSourceServes
+    hazards: TelecomSourceHazards
+    power: TelecomSourcePower
+    composite_score: float
+    rank: int | None = None
+    headline: str
+    confidence_tiers: dict[str, str] = Field(default_factory=dict)

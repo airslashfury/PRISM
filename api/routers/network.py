@@ -200,6 +200,21 @@ def water_consequence(entity_id: int, engine: Engine = Depends(engine_dep)) -> d
     return water_downstream_of(engine, entity_id)
 
 
+@router.get("/telecom-consequence/{entity_id}", response_model=schemas.TelecomConsequence)
+@cached_response("telecom_consequence", ttl=21600)
+def telecom_consequence(entity_id: int, engine: Engine = Depends(engine_dep)) -> dict:
+    """Power→telecom coupling: if this substation fails, which areas lose coverage?
+
+    Chain: substation →(POWERS) tower/cell_site →(COVERS) barrios. Built by
+    `prism.graph.telecom`. Proxy-tier (no real electric feeder / RF propagation
+    model) — the barrio set is a straight-line coverage-radius proxy, not a
+    real RF footprint.
+    """
+    from prism.graph.telecom import telecom_downstream_of
+
+    return telecom_downstream_of(engine, entity_id)
+
+
 @router.get("/storm", response_model=schemas.StormResponse)
 @cached_response("storm", ttl=300)
 def storm(engine: Engine = Depends(engine_dep)) -> dict:

@@ -31,6 +31,7 @@ from prism.graph.relationships import (
 from prism.graph.query import downstream_of, find_entity, affected_population
 from prism.graph.downstream_summary import compute_downstream_summary
 from prism.graph import water as water_mod
+from prism.graph import telecom as telecom_mod
 
 app = typer.Typer(add_completion=False)
 console = Console()
@@ -184,6 +185,39 @@ def build_water(
         console.print(
             f"  [bold]{res['pump_stations']}[/bold] pump stations, "
             f"[bold]{res['wells']}[/bold] wells, "
+            f"[bold]{res['barrios_affected']}[/bold] barrios"
+        )
+        console.print(f"  [cyan]{res['headline']}[/cyan]")
+
+
+@app.command("build-telecom")
+def build_telecom(
+    query: Annotated[Optional[str], typer.Option("--query", help="Substation name to run the telecom-consequence query")] = None,
+) -> None:
+    """Build the power→telecom coupling graph (tower/cell_site entities,
+    POWERS substation→node, COVERS node→barrio)."""
+    engine = get_engine()
+    _hdr("Telecom coupling graph")
+    create_schema(engine)
+    summary, elapsed = _run_stage("build_telecom_graph", telecom_mod.build_telecom_graph, engine)
+    tbl = Table("Stage", "Count", box=None, pad_edge=False)
+    for k, v in summary.items():
+        tbl.add_row(k, f"{v:,}")
+    console.print(tbl)
+    _ok(f"telecom graph built ({elapsed:.1f}s)")
+
+    if query:
+        _hdr(f"Telecom consequence: '{query}'")
+        matches = find_entity(engine, kind="substation", name=f"%{query}%")
+        if not matches:
+            console.print(f"  [red]No substation found matching '{query}'[/red]")
+            raise typer.Exit(1)
+        sub = matches[0]
+        res = telecom_mod.telecom_downstream_of(engine, sub.entity_id)
+        console.print(f"  Using: entity_id={sub.entity_id}  name={sub.name}")
+        console.print(
+            f"  [bold]{res['towers']}[/bold] cell towers, "
+            f"[bold]{res['cell_sites']}[/bold] cell sites, "
             f"[bold]{res['barrios_affected']}[/bold] barrios"
         )
         console.print(f"  [cyan]{res['headline']}[/cyan]")

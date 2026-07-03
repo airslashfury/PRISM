@@ -494,6 +494,24 @@ tables:
       Accumulate an append-only history table (mirrors the PREPA/LUMA pattern)
       for real hydrographs instead of a latest-only snapshot.
 
+  resilience.telecom_scores:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      Composite = criticality x hazard_exposure x power_dependency. Criticality
+      (barrios covered) walks the Proxy COVERS edge — a straight-line
+      4km-radius distance proxy around each tower/cell site, not a real RF
+      propagation footprint (terrain, antenna pattern, and transmit power are
+      unmodeled) — and power_dependency walks the Proxy POWERS edge (nearest
+      distribution substation, not the real electric feeder), so the composite
+      is Proxy overall even though hazard_exposure alone is Modeled over
+      Authoritative hazard layers. Good for relative ranking ("which telecom
+      node is most at risk"), not for absolute claims.
+    upgrade_path: >-
+      Same as graph.relationships — a LUMA feeder-topology agreement and an
+      FCC/carrier RF coverage model would raise both inputs, and this score,
+      to Modeled/Authoritative.
+
   fault_lines:
     method: authoritative
     confidence_tier: authoritative
