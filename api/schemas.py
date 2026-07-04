@@ -41,6 +41,7 @@ class OverviewCounts(BaseModel):
     graph_relationships: int
     sync_sources: int
     barrios_access: int
+    crim_parcels: int
 
 
 class PhaseStatus(BaseModel):
@@ -54,6 +55,9 @@ class OverviewResponse(BaseModel):
     last_sync_at: datetime | None = None
     top_substation: str | None = None
     top_substation_score: float | None = None
+    top_substation_entity_id: int | None = None
+    top_substation_population: int | None = None
+    top_substation_hospitals: int | None = None
     scenarios: list[str]
     phases: list[PhaseStatus]
 

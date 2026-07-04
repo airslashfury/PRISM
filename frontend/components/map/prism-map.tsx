@@ -85,6 +85,9 @@ export interface PrismMapProps {
   onMapReady?: (api: PrismMapApi) => void;
   /** Called once the terrain DEM tiles for the current view have finished loading. */
   onTerrainTilesLoaded?: () => void;
+  /** DeckGL controller override. Pass `false` for an ambient, non-interactive
+   * map (e.g. a hero backdrop). Defaults to the standard interactive config. */
+  controller?: boolean | Record<string, unknown>;
 }
 
 export function PrismMap({
@@ -102,6 +105,7 @@ export function PrismMap({
   onViewChange,
   onMapReady,
   onTerrainTilesLoaded,
+  controller,
 }: PrismMapProps) {
   const mapRef = useRef<any>(null);
   const terrainActive = useRef(false);
@@ -270,11 +274,15 @@ export function PrismMap({
             onViewChange?.(vs as MapViewState);
           }
         }}
-        controller={{
-          doubleClickZoom: true,
-          dragRotate: terrain,
-          touchRotate: terrain,
-        }}
+        controller={
+          controller !== undefined
+            ? controller
+            : {
+                doubleClickZoom: true,
+                dragRotate: terrain,
+                touchRotate: terrain,
+              }
+        }
         layers={layers}
         getTooltip={getTooltip as never}
         onClick={onClick}
