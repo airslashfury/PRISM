@@ -84,7 +84,7 @@ test("/ overview leads with the what-changed cockpit", async ({ page }) => {
   page.on("pageerror", (e) => errors.push(e.message));
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.getByText("Island posture")).toBeVisible();
+  await expect(page.getByText("one island, one system")).toBeVisible();
   await expect(page.getByRole("heading", { name: "What changed" })).toBeVisible();
   expect(errors, `uncaught page errors on /: ${errors.join("; ")}`).toEqual([]);
 });
