@@ -21,6 +21,7 @@ import { useCountUp } from "@/lib/use-count-up";
 import { DOMAIN_RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtIntTiered, fmtNum, fmtRelative } from "@/lib/utils";
 import type { CurrentStateScore, SeismicEvent } from "@/lib/api";
+import { usePulse } from "@/lib/map-motion";
 
 const MODULE_METRIC: Record<string, (c: any) => string> = {
   "/resilience": (c) => `${fmtInt(c.substations_scored)} substations scored`,
@@ -31,6 +32,11 @@ const MODULE_METRIC: Record<string, (c: any) => string> = {
 };
 
 const HERO_VIEW = { ...PR_VIEW, zoom: 7.65 };
+
+/** Live outages pulse (F8 B2): subtle ring on the hero's offline-substation
+ *  dots — the same "grid breathing" idea as resilience's offline-pulse, sized
+ *  down for the hero's smaller/denser map. */
+const OFFLINE_PULSE_MS = 2200;
 
 export default function OverviewPage() {
   const { data, error } = useOverview();
@@ -46,6 +52,14 @@ export default function OverviewPage() {
   const advisory = storm?.advisory ?? null;
   const stormHeadline = storm?.consequence?.headline ?? null;
 
+  const offlineSubstations = useMemo(
+    () => (current?.substations ?? []).filter((d) => d.is_offline),
+    [current?.substations],
+  );
+
+  // Base layers: everything that does NOT depend on animation phase — kept in
+  // its own memo so the pulse tick never re-diffs the substation/quake/cone
+  // layers (mirrors resilience's base/motion split).
   const heroLayers = useMemo(() => {
     const ls: Layer[] = [];
     const substations = current?.substations ?? [];
@@ -64,12 +78,11 @@ export default function OverviewPage() {
         }),
       );
 
-      const offline = substations.filter((d) => d.is_offline);
-      if (offline.length) {
+      if (offlineSubstations.length) {
         ls.push(
           new ScatterplotLayer<CurrentStateScore>({
             id: "hero-substations-offline",
-            data: offline,
+            data: offlineSubstations,
             getPosition: (d) => [d.lon, d.lat],
             getRadius: 6,
             radiusUnits: "pixels",
@@ -117,7 +130,43 @@ export default function OverviewPage() {
 
     return ls;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.substations, seismic?.events, advisory]);
+  }, [current?.substations, offlineSubstations, seismic?.events, advisory]);
+
+  // Motion layer: pulse ring over live offline substations — active only
+  // while there are any. Split from heroLayers so the 60fps tick never
+  // touches the (larger) substation/quake/cone layers above.
+  const offlinePulsePhase = usePulse(OFFLINE_PULSE_MS, offlineSubstations.length > 0);
+  const heroMotionLayers = useMemo(() => {
+    const ls: Layer[] = [];
+    if (offlineSubstations.length) {
+      ls.push(
+        new ScatterplotLayer<CurrentStateScore>({
+          id: "hero-substations-offline-pulse",
+          data: offlineSubstations,
+          getPosition: (d) => [d.lon, d.lat],
+          getRadius: 3.5 + offlinePulsePhase * 4.5,
+          radiusUnits: "pixels",
+          radiusMinPixels: 3.5,
+          radiusMaxPixels: 8,
+          getFillColor: [239, 68, 68, Math.round((1 - offlinePulsePhase) * 140)] as [
+            number,
+            number,
+            number,
+            number,
+          ],
+          stroked: false,
+          pickable: false,
+          updateTriggers: { getRadius: [offlinePulsePhase], getFillColor: [offlinePulsePhase] },
+        }),
+      );
+    }
+    return ls;
+  }, [offlineSubstations, offlinePulsePhase]);
+
+  const allHeroLayers = useMemo(
+    () => [...heroLayers, ...heroMotionLayers],
+    [heroLayers, heroMotionLayers],
+  );
 
   const topPopulation = data?.top_substation_population;
   const topHospitals = data?.top_substation_hospitals;
@@ -159,7 +208,7 @@ export default function OverviewPage() {
         {/* MapCanvas's root div sizes to flow content, not its parent — pin it
             absolute so it doesn't push the text overlay below the fold. */}
         <div className="absolute inset-0">
-          <MapCanvas layers={heroLayers} initialViewState={HERO_VIEW} controller={false} />
+          <MapCanvas layers={allHeroLayers} initialViewState={HERO_VIEW} controller={false} />
         </div>
 
         {/* Readability gradient: text legible on the left, island visible on the right.

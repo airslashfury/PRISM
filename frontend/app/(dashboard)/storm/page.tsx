@@ -13,38 +13,52 @@ import { ProvenanceBadge } from "@/components/provenance-badge";
 import { useStorm } from "@/lib/hooks";
 import { cn, fmtDateTime, fmtInt } from "@/lib/utils";
 import type { StormTrackPoint } from "@/lib/api";
+import { usePulse, usePrefersReducedMotion } from "@/lib/map-motion";
 
 const CONE_RGB: [number, number, number] = [251, 191, 36];
 const TRACK_RGB: [number, number, number] = [255, 255, 255];
+const POSITION_RGB: [number, number, number] = [255, 255, 255];
 
 const STORM_VIEW = { ...PR_VIEW, zoom: 5.5, latitude: 19.5, longitude: -66.5 };
 
+/** Cone breathe (F8 B2): slow sine oscillation, period matches the resilience
+ *  selection-halo pulse family. Sine (not the raw sawtooth phase) so the alpha
+ *  eases in and out rather than snapping back at the loop boundary. */
+const CONE_PULSE_MS = 5000;
+const CONE_BASE_ALPHA = 18;
+const CONE_ALPHA_SWING = 10;
+const CONE_STATIC_ALPHA = 22;
+
+/** Current-position halo (F8 B2): slow ambient ring on the storm's latest
+ *  fix — track_points[0] is seq 0, the earliest/current fix; the rest of the
+ *  array is the forward forecast track. */
+const POSITION_PULSE_MS = 2400;
+
 export default function StormPage() {
   const { data, isLoading, error } = useStorm();
+  const reducedMotion = usePrefersReducedMotion();
 
   const advisory = data?.advisory ?? null;
   const consequence = data?.consequence ?? null;
   const trackPoints = useMemo(() => data?.track_points ?? [], [data?.track_points]);
 
-  const layers = useMemo(() => {
-    const ls: Layer[] = [];
+  // track_points[0] (lowest seq) is the storm's current fix; the remainder is
+  // the forward forecast track already drawn by storm-track-points below.
+  const currentPosition = trackPoints.length ? trackPoints[0] : null;
+  const coneVisible = advisory?.cone_geojson != null;
 
-    if (advisory?.cone_geojson) {
-      ls.push(
-        new GeoJsonLayer({
-          id: "storm-cone",
-          data: { type: "Feature", geometry: advisory.cone_geojson, properties: {} } as never,
-          filled: true,
-          stroked: true,
-          getFillColor: [...CONE_RGB, 45] as [number, number, number, number],
-          getLineColor: [...CONE_RGB, 200] as [number, number, number, number],
-          getLineWidth: 2,
-          lineWidthUnits: "pixels",
-          lineWidthMinPixels: 1.5,
-          pickable: false,
-        }),
-      );
-    }
+  const conePhase = usePulse(CONE_PULSE_MS, coneVisible);
+  const positionPulsePhase = usePulse(POSITION_PULSE_MS, currentPosition != null);
+
+  const coneAlpha = reducedMotion
+    ? CONE_STATIC_ALPHA
+    : CONE_BASE_ALPHA + Math.round(CONE_ALPHA_SWING * Math.sin(conePhase * Math.PI * 2));
+
+  // Base layers: everything that does NOT depend on animation phase — the
+  // cone's stroke, track line, and forecast points never move with the pulse,
+  // so they stay out of the per-frame memo (mirrors resilience's base/motion split).
+  const baseLayers = useMemo(() => {
+    const ls: Layer[] = [];
 
     if (advisory?.track_geojson) {
       ls.push(
@@ -82,7 +96,64 @@ export default function StormPage() {
     }
 
     return ls;
-  }, [advisory, trackPoints]);
+  }, [advisory?.track_geojson, trackPoints]);
+
+  // Motion layers: the cone fill (alpha breathes) and the current-position
+  // halo ring. Split out so the 60fps pulse tick never re-diffs the GeoJson
+  // track or the multi-point forecast scatter above.
+  const motionLayers = useMemo(() => {
+    const ls: Layer[] = [];
+
+    if (advisory?.cone_geojson) {
+      ls.push(
+        new GeoJsonLayer({
+          id: "storm-cone",
+          data: { type: "Feature", geometry: advisory.cone_geojson, properties: {} } as never,
+          filled: true,
+          stroked: true,
+          getFillColor: [...CONE_RGB, coneAlpha] as [number, number, number, number],
+          getLineColor: [...CONE_RGB, 200] as [number, number, number, number],
+          getLineWidth: 2,
+          lineWidthUnits: "pixels",
+          lineWidthMinPixels: 1.5,
+          pickable: false,
+          updateTriggers: { getFillColor: [coneAlpha] },
+        }),
+      );
+    }
+
+    // Current-position halo ring — omitted entirely under reduced motion (no
+    // stalled ring), same convention as resilience's selection-pulse.
+    if (currentPosition && !reducedMotion) {
+      ls.push(
+        new ScatterplotLayer<StormTrackPoint>({
+          id: "storm-position-pulse",
+          data: [currentPosition],
+          getPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
+          getRadius: 5 + positionPulsePhase * 7,
+          radiusUnits: "pixels",
+          radiusMinPixels: 5,
+          radiusMaxPixels: 12,
+          filled: false,
+          stroked: true,
+          getLineColor: [...POSITION_RGB, Math.round((1 - positionPulsePhase) * 160)] as [
+            number,
+            number,
+            number,
+            number,
+          ],
+          getLineWidth: 1.5,
+          lineWidthUnits: "pixels",
+          pickable: false,
+          updateTriggers: { getRadius: [positionPulsePhase], getLineColor: [positionPulsePhase] },
+        }),
+      );
+    }
+
+    return ls;
+  }, [advisory?.cone_geojson, coneAlpha, currentPosition, positionPulsePhase, reducedMotion]);
+
+  const layers = useMemo(() => [...baseLayers, ...motionLayers], [baseLayers, motionLayers]);
 
   const getTooltip = (info: PickingInfo) => {
     if (info.layer?.id !== "storm-track-points") return null;

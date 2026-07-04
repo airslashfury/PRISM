@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import { RadioTower } from "lucide-react";
 
 import { MapWorkspace } from "@/components/map/map-workspace";
-import { tip } from "@/components/map/map-canvas";
+import { tip, PR_VIEW } from "@/components/map/map-canvas";
+import type { PrismMapApi } from "@/components/map/map-canvas";
 import { GradientLegend } from "@/components/legend";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { InfoPanel } from "@/components/info-panel";
@@ -17,6 +18,7 @@ import { useTelecomSources, useTelecomSource } from "@/lib/hooks";
 import { riskColor, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum } from "@/lib/utils";
 import type { TelecomSource } from "@/lib/api";
+import { usePulse, usePrefersReducedMotion } from "@/lib/map-motion";
 
 const RISK_STOPS: RGB[] = [
   [34, 197, 158],
@@ -27,6 +29,13 @@ const RISK_STOPS: RGB[] = [
 
 const TOWER_OUTLINE: [number, number, number] = [56, 189, 248]; // sky
 const CELL_OUTLINE: [number, number, number] = [192, 132, 252]; // violet
+const SELECTED_RGB: RGB = [34, 211, 238];
+
+/** Selection grammar (F8 B2): dim level for all non-selected sources while
+ *  one is selected — mirrors resilience/water. */
+const DIM_ALPHA = 45;
+/** Selection halo pulse (F8 B2): same period family as resilience/water. */
+const SELECT_PULSE_MS = 2400;
 
 const KIND_LABEL: Record<string, string> = {
   telecom_tower: "Cell tower",
@@ -46,6 +55,13 @@ export default function TelecomPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
 
+  // Map theatre (F8 B2): imperative camera handle, mirrors resilience/water.
+  const mapApiRef = useRef<PrismMapApi | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
+  // Live zoom, so the selection ease never zooms *out* of wherever the user is.
+  const currentZoomRef = useRef<number>(PR_VIEW.zoom!);
+
   const { data, isLoading, error } = useTelecomSources();
 
   const sources = useMemo(() => data?.sources ?? [], [data?.sources]);
@@ -61,9 +77,33 @@ export default function TelecomPage() {
     [sources],
   );
 
-  const layers = useMemo(() => {
+  const selectedSource = useMemo(
+    () => (selected != null ? sources.find((s) => s.entity_id === selected) ?? null : null),
+    [sources, selected],
+  );
+
+  // Selection halo pulse: ambient, runs whenever a source is selected.
+  const selectPulsePhase = usePulse(SELECT_PULSE_MS, selected != null);
+
+  // Camera ease: re-center + zoom in on the selected source, floor 9.3, never
+  // zooming out below the user's current zoom (mirrors resilience/water).
+  useEffect(() => {
+    if (!mapReady || !mapApiRef.current || !selectedSource) return;
+    mapApiRef.current.easeTo({
+      longitude: selectedSource.lon ?? undefined,
+      latitude: selectedSource.lat ?? undefined,
+      zoom: Math.max(currentZoomRef.current, 9.3),
+    });
+    // Only re-run when the selection itself changes, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, mapReady, selectedSource?.entity_id]);
+
+  // Base layers: everything that does NOT depend on animation phase — only
+  // the dim-on-selection state changes here (a selection change, not a tick).
+  const baseLayers = useMemo(() => {
     const ls: Layer[] = [];
 
+    const dimOthers = selected != null;
     ls.push(
       new ScatterplotLayer<TelecomSource>({
         id: "sources",
@@ -73,8 +113,11 @@ export default function TelecomPage() {
         radiusUnits: "meters",
         radiusMinPixels: 3.5,
         radiusMaxPixels: 30,
-        getFillColor: (d) =>
-          [...riskColor(d.composite_score, min, max), 205] as [number, number, number, number],
+        getFillColor: (d) => {
+          const [r, g, b] = riskColor(d.composite_score, min, max);
+          const a = dimOthers && d.entity_id !== selected ? DIM_ALPHA : 205;
+          return [r, g, b, a];
+        },
         getLineColor: (d) =>
           d.entity_id === selected
             ? [34, 211, 238, 255]
@@ -91,7 +134,7 @@ export default function TelecomPage() {
         autoHighlight: true,
         highlightColor: [34, 211, 238, 60],
         updateTriggers: {
-          getFillColor: [min, max],
+          getFillColor: [min, max, selected, dimOthers],
           getLineColor: [selected],
           getLineWidth: [selected],
           getRadius: [barriosMax],
@@ -101,6 +144,61 @@ export default function TelecomPage() {
 
     return ls;
   }, [sources, min, max, barriosMax, selected]);
+
+  // Motion layers: selection halo/pulse — split so the 60fps pulse tick never
+  // re-diffs the full source scatter above.
+  const motionLayers = useMemo(() => {
+    const ls: Layer[] = [];
+
+    if (selectedSource) {
+      // Static outer ring — always visible while selected, even under reduced
+      // motion (the only "this is selected" affordance in that mode).
+      ls.push(
+        new ScatterplotLayer({
+          id: "selection-halo",
+          data: [selectedSource],
+          getPosition: (d: TelecomSource) => [d.lon ?? 0, d.lat ?? 0],
+          getRadius: 9,
+          radiusUnits: "pixels",
+          radiusMinPixels: 9,
+          filled: false,
+          stroked: true,
+          getLineColor: [...SELECTED_RGB, 90] as [number, number, number, number],
+          getLineWidth: 2,
+          lineWidthUnits: "pixels",
+          pickable: false,
+        }),
+      );
+      // Slow ambient pulse on top — omitted entirely under reduced motion.
+      if (!reducedMotion) {
+        ls.push(
+          new ScatterplotLayer({
+            id: "selection-pulse",
+            data: [selectedSource],
+            getPosition: (d: TelecomSource) => [d.lon ?? 0, d.lat ?? 0],
+            getRadius: 9 + selectPulsePhase * 16,
+            radiusUnits: "pixels",
+            filled: false,
+            stroked: true,
+            getLineColor: [...SELECTED_RGB, Math.round((1 - selectPulsePhase) * 150)] as [
+              number,
+              number,
+              number,
+              number,
+            ],
+            getLineWidth: 1.5,
+            lineWidthUnits: "pixels",
+            pickable: false,
+            updateTriggers: { getRadius: [selectPulsePhase], getLineColor: [selectPulsePhase] },
+          }),
+        );
+      }
+    }
+
+    return ls;
+  }, [selectedSource, selectPulsePhase, reducedMotion]);
+
+  const layers = useMemo(() => [...baseLayers, ...motionLayers], [baseLayers, motionLayers]);
 
   const getTooltip = (info: PickingInfo) => {
     if (info.layer?.id !== "sources") return null;
@@ -140,6 +238,13 @@ export default function TelecomPage() {
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}
+      onViewChange={(vs) => {
+        if (vs.zoom != null) currentZoomRef.current = vs.zoom;
+      }}
+      onMapReady={(api) => {
+        mapApiRef.current = api;
+        setMapReady(true);
+      }}
       overlays={
         <>
           {bannerSource?.headline && (
