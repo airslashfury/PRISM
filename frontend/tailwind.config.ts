@@ -51,6 +51,14 @@ const config: Config = {
           high: "hsl(25 95% 55%)",
           severe: "hsl(0 84% 60%)",
         },
+        domain: {
+          power: "hsl(var(--domain-power))",
+          water: "hsl(var(--domain-water))",
+          telecom: "hsl(var(--domain-telecom))",
+          economy: "hsl(var(--domain-economy))",
+          hazard: "hsl(var(--domain-hazard))",
+          transport: "hsl(var(--domain-transport))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -60,6 +68,10 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
+      fontSize: {
+        display: ["1.75rem", { lineHeight: "2.1rem", letterSpacing: "-0.02em" }],
+        "display-lg": ["2.5rem", { lineHeight: "2.75rem", letterSpacing: "-0.03em" }],
       },
       keyframes: {
         "accordion-down": {

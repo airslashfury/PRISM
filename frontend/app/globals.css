@@ -4,9 +4,6 @@
 
 @layer base {
   :root {
-    --font-sans: "Inter";
-    --font-mono: "JetBrains Mono";
-
     /* PRISM runs dark-first: a deep slate "command center" palette. */
     --background: 222 47% 4.5%;
     --foreground: 210 40% 98%;
@@ -36,6 +33,15 @@
     --border: 215 28% 13%;
     --input: 215 28% 16%;
     --ring: 187 92% 50%;
+
+    /* Domain accents — one hue per infrastructure domain (nav, map layers, charts).
+       RGB mirrors live in lib/colors.ts DOMAIN_RGB — keep both in sync. */
+    --domain-power: 38 92% 55%;
+    --domain-water: 217 91% 60%;
+    --domain-telecom: 258 90% 66%;
+    --domain-economy: 152 60% 45%;
+    --domain-hazard: 0 84% 60%;
+    --domain-transport: 330 81% 60%;
 
     --radius: 0.6rem;
   }

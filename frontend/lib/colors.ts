@@ -75,3 +75,15 @@ export const RISK_LEGEND: { label: string; color: RGB }[] = [
 export function rgbCss([r, g, b]: RGB, a = 1): string {
   return `rgba(${r},${g},${b},${a})`;
 }
+
+/** Infrastructure domains. Hues mirror the --domain-* CSS vars in globals.css. */
+export type Domain = "power" | "water" | "telecom" | "economy" | "hazard" | "transport";
+
+export const DOMAIN_RGB: Record<Domain, RGB> = {
+  power: [245, 158, 11],
+  water: [59, 130, 246],
+  telecom: [139, 92, 246],
+  economy: [16, 185, 129],
+  hazard: [239, 68, 68],
+  transport: [236, 72, 153],
+};
