@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { CommandPalette } from "@/components/command-palette";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Topbar />
         <main className="relative flex-1 overflow-y-auto app-grid-bg">{children}</main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

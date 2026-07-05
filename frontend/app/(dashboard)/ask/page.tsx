@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, Sparkles } from "lucide-react";
 
@@ -10,6 +10,7 @@ import { InfoPanel } from "@/components/info-panel";
 import { NarrativePanel } from "@/components/narrative-panel";
 import { ErrorBlock } from "@/components/query-state";
 import { api, ApiError, type AskResponse, type ConfidenceTierKey } from "@/lib/api";
+import { readParam } from "@/lib/url-state";
 
 const EXAMPLES = [
   "What happens if Palo Seco substation fails?",
@@ -34,6 +35,21 @@ const MAP_PAGE_BY_KIND: Record<string, string> = {
 export default function AskPage() {
   const [query, setQuery] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
+
+  // Command-palette handoff (F8 excellence pass): a `?q=` param prefills the
+  // input and auto-submits once on mount — a `hasAutoSubmitted` ref (not
+  // state) guards it so a later `setQuery` from typing never re-triggers it.
+  const hasAutoSubmitted = useRef(false);
+  useEffect(() => {
+    if (hasAutoSubmitted.current) return;
+    hasAutoSubmitted.current = true;
+    const q = readParam("q");
+    if (q && q.trim()) {
+      setQuery(q);
+      void submit(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(q: string) {
     const text = q.trim();
