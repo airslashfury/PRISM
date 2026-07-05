@@ -15,7 +15,7 @@ import { GradientLegend } from "@/components/legend";
 import { Segmented } from "@/components/ui/segmented";
 import { Badge } from "@/components/ui/badge";
 import { SeverityLabel } from "@/components/severity";
-import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { EntityDrawer, type DrawerSection } from "@/components/entity-drawer";
 import { useScores, useSubstation, useConsequence, useCurrentState } from "@/lib/hooks";
@@ -691,7 +691,7 @@ export default function ResiliencePage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {error && <div className="p-4"><ErrorBlock error={error} /></div>}
-            {isLoading && <LoadingBlock label={isCurrent ? "Reading live grid state" : "Scoring substations"} />}
+            {isLoading && <SkeletonRows className="pt-2" />}
             {selected == null && !isLoading && !error && (
               <div className="border-b border-border/50 px-4 py-3">
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -776,7 +776,11 @@ function TopList({
       </div>
       <ul>
         {rows.map((r, i) => (
-          <li key={r.entity_id}>
+          <li
+            key={r.entity_id}
+            className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+            style={{ animationDelay: `${Math.min(i, 12) * 25}ms`, animationFillMode: "backwards" }}
+          >
             <button
               onClick={() => onSelect(r.entity_id)}
               className={cn(

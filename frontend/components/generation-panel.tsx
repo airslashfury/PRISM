@@ -17,6 +17,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { ProvenanceBadge } from "@/components/provenance-badge";
+import { SkeletonStats } from "@/components/query-state";
 import { useGeneration } from "@/lib/hooks";
 import { cn, fmtInt, fmtNum } from "@/lib/utils";
 import type { GridSnapshot } from "@/lib/api";
@@ -79,7 +80,7 @@ export function GenerationPanel() {
       </div>
 
       {isLoading || !data || !sys ? (
-        <div className="p-4 text-xs text-muted-foreground">Loading live generation…</div>
+        <div className="p-4"><SkeletonStats /></div>
       ) : (
         <div className="space-y-5 p-4">
           {/* ── KPI strip: everything an operator checks first ── */}

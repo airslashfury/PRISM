@@ -4,6 +4,7 @@ import Link from "next/link";
 import { RefreshCw, Waves, Building2, TriangleAlert, TrendingUp, Wind, Dot, type LucideIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { SkeletonRows } from "@/components/query-state";
 import { useWhatsNew } from "@/lib/hooks";
 import { fmtRelative } from "@/lib/utils";
 import type { ChangeEvent, ChangeKind, FeedFreshness } from "@/lib/api";
@@ -45,7 +46,7 @@ function FeedChip({ f }: { f: FeedFreshness }) {
   );
 }
 
-function ChangeRow({ c }: { c: ChangeEvent }) {
+function ChangeRow({ c, i }: { c: ChangeEvent; i: number }) {
   const Icon = KIND_ICON[c.kind] ?? Dot;
   const body = (
     <div className="flex items-start gap-3">
@@ -58,7 +59,10 @@ function ChangeRow({ c }: { c: ChangeEvent }) {
     </div>
   );
   return (
-    <li>
+    <li
+      className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+      style={{ animationDelay: `${Math.min(i, 12) * 25}ms`, animationFillMode: "backwards" }}
+    >
       {c.href ? (
         <Link href={c.href} className="-mx-2 block rounded-md px-2 py-1.5 transition-colors hover:bg-accent/40">
           {body}
@@ -73,7 +77,20 @@ function ChangeRow({ c }: { c: ChangeEvent }) {
 /** Overview cockpit lead: what changed + which feeds are fresh/stale. */
 export function WhatsNew() {
   const { data, isLoading, error } = useWhatsNew();
-  if (error || isLoading || !data) return null; // overview shows its own load/error state
+  if (error) return null; // overview shows its own error state
+
+  if (isLoading || !data) {
+    return (
+      <Card>
+        <div className="p-5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            What changed
+          </h2>
+          <SkeletonRows count={5} className="mt-4 space-y-2" />
+        </div>
+      </Card>
+    );
+  }
 
   const { feeds, changes, stale_count, crim_baseline } = data;
   const baseline = crim_baseline.snapshot_month?.slice(0, 7);
@@ -116,7 +133,9 @@ export function WhatsNew() {
           {changes.length === 0 ? (
             <li className="text-sm text-muted-foreground">No recent changes recorded.</li>
           ) : (
-            changes.map((c, i) => <ChangeRow key={i} c={c} />)
+            changes.map((c, i) => (
+              <ChangeRow key={`${c.kind}-${c.at ?? "na"}-${c.headline}`} c={c} i={i} />
+            ))
           )}
         </ul>
       </div>

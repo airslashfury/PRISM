@@ -9,7 +9,7 @@ import { Search, ChevronLeft, X, Building2, ChevronRight } from "lucide-react";
 import { MapCanvas, tip } from "@/components/map/map-canvas";
 import { InfoPanel } from "@/components/info-panel";
 import { ConfidenceChip } from "@/components/provenance-badge";
-import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { useParcelSearch, useParcelDetail, useOwnerSearch, useOwnerDetail } from "@/lib/hooks";
 import { tileUrl } from "@/lib/api";
 import type {
@@ -332,7 +332,7 @@ export default function ParcelsPage() {
             />
           ) : (
             <>
-              {search.isLoading && <LoadingBlock label="Searching parcels" />}
+              {search.isLoading && <SkeletonRows className="pt-2" />}
               {search.error && <div className="p-4"><ErrorBlock error={search.error} /></div>}
               {result?.mode === "owner_address" && (ownerSearch.data?.owners.length ?? 0) > 0 && (
                 <OwnerStrip owners={ownerSearch.data!.owners} onSelect={selectOwner} />

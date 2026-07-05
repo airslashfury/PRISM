@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, CalendarClock, Users, Zap } from "lucide-r
 
 import { Card } from "@/components/ui/card";
 import { ConfidenceChip } from "@/components/provenance-badge";
+import { SkeletonStats } from "@/components/query-state";
 import { useOutages } from "@/lib/hooks";
 import { cn, fmtInt } from "@/lib/utils";
 
@@ -54,7 +55,7 @@ export function OutagesPanel() {
       </div>
 
       {isLoading || !data ? (
-        <div className="p-4 text-xs text-muted-foreground">Loading live outages…</div>
+        <div className="p-4"><SkeletonStats /></div>
       ) : (
         <div className="space-y-5 p-4">
           {/* ── KPI strip ── */}

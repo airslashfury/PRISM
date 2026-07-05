@@ -8,7 +8,7 @@ import { Wind } from "lucide-react";
 import { MapCanvas, tip, PR_VIEW } from "@/components/map/map-canvas";
 import { Badge } from "@/components/ui/badge";
 import { InfoPanel } from "@/components/info-panel";
-import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { useStorm } from "@/lib/hooks";
 import { cn, fmtDateTime, fmtInt } from "@/lib/utils";
@@ -258,7 +258,7 @@ export default function StormPage() {
               <ErrorBlock error={error} />
             </div>
           )}
-          {isLoading && <LoadingBlock label="Reading the NHC feed" />}
+          {isLoading && <SkeletonRows count={5} className="p-4" />}
 
           {!isLoading && !error && advisory === null && (
             <div className="border-b border-border/50 px-4 py-6 text-center">
@@ -278,6 +278,8 @@ export default function StormPage() {
                 <PanelBox
                   title="In the cone's path"
                   badge={<ProvenanceBadge table="sync.nhc_consequences" />}
+                  className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+                  style={{ animationDelay: "0ms", animationFillMode: "backwards" }}
                 >
                   <Row label="Substations" value={fmtInt(consequence.n_substations)} />
                   <Row label="— in surge field" value={fmtInt(consequence.n_substations_surge)} />
@@ -296,7 +298,11 @@ export default function StormPage() {
                 </PanelBox>
               )}
 
-              <PanelBox title="Advisory">
+              <PanelBox
+                title="Advisory"
+                className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+                style={{ animationDelay: consequence ? "40ms" : "0ms", animationFillMode: "backwards" }}
+              >
                 <Row label="Storm ID" value={advisory.storm_id} />
                 <Row label="Advisory #" value={advisory.advisory_num} />
                 <Row label="Issued" value={fmtDateTime(advisory.issued_at)} />
@@ -334,13 +340,17 @@ function PanelBox({
   title,
   badge,
   children,
+  className,
+  style,
 }: {
   title: string;
   badge?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-background/30 p-3">
+    <div className={cn("rounded-lg border border-border/60 bg-background/30 p-3", className)} style={style}>
       <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
         {badge}

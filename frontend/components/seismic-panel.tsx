@@ -4,6 +4,7 @@ import { Activity, Waves } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { ConfidenceChip } from "@/components/provenance-badge";
+import { SkeletonStats, SkeletonRows } from "@/components/query-state";
 import { useSeismic } from "@/lib/hooks";
 import { cn, fmtInt, fmtNum, fmtRelative } from "@/lib/utils";
 import type { SeismicEvent } from "@/lib/api";
@@ -40,7 +41,10 @@ export function SeismicPanel() {
       </div>
 
       {isLoading || !data ? (
-        <div className="p-4 text-xs text-muted-foreground">Loading seismic feed…</div>
+        <div className="space-y-5 p-4">
+          <SkeletonStats />
+          <SkeletonRows count={4} />
+        </div>
       ) : (
         <div className="space-y-5 p-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

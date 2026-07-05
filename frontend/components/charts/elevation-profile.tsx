@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { AXIS_PROPS, GRID_STROKE } from "@/components/charts";
+import { AXIS_PROPS, GRID_PROPS } from "@/components/charts";
 import type { ProfilePoint } from "@/lib/api";
 import { fmtNum } from "@/lib/utils";
 
@@ -99,7 +99,7 @@ export function ElevationProfile({ data }: { data: ProfilePoint[] }) {
             <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+        <CartesianGrid {...GRID_PROPS} />
         {bands.map((b, i) => (
           <ReferenceArea
             key={i}

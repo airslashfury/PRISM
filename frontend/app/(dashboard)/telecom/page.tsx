@@ -11,7 +11,7 @@ import type { PrismMapApi } from "@/components/map/map-canvas";
 import { GradientLegend } from "@/components/legend";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { InfoPanel } from "@/components/info-panel";
-import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { SeverityLabel } from "@/components/severity";
 import { EntityDrawer, Row, type DrawerSection } from "@/components/entity-drawer";
 import { useTelecomSources, useTelecomSource } from "@/lib/hooks";
@@ -286,7 +286,7 @@ export default function TelecomPage() {
                 <ErrorBlock error={error} />
               </div>
             )}
-            {isLoading && <LoadingBlock label="Scoring telecom nodes" />}
+            {isLoading && <SkeletonRows className="pt-2" />}
             {selected == null && !isLoading && !error && (
               <TopList rows={top} selected={selected} onSelect={setSelected} />
             )}
@@ -333,8 +333,12 @@ function TopList({
         <ProvenanceBadge table="resilience.telecom_scores" />
       </div>
       <ul>
-        {rows.map((r) => (
-          <li key={r.entity_id}>
+        {rows.map((r, i) => (
+          <li
+            key={r.entity_id}
+            className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+            style={{ animationDelay: `${Math.min(i, 12) * 25}ms`, animationFillMode: "backwards" }}
+          >
             <button
               onClick={() => onSelect(r.entity_id)}
               className={cn(

@@ -23,8 +23,9 @@ import { StatCard } from "@/components/stat-card";
 import { InfoPanel } from "@/components/info-panel";
 import { NarrativePanel } from "@/components/narrative-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LoadingBlock, ErrorBlock } from "@/components/query-state";
-import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_STROKE } from "@/components/charts";
+import { ErrorBlock, SkeletonStats } from "@/components/query-state";
+import { useToast } from "@/components/toaster";
+import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_PROPS } from "@/components/charts";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { usePortfolioRun, usePortfolioRuns } from "@/lib/hooks";
 import { api, pollJob, type PortfolioCompare, type PortfolioCompareItem, type PortfolioOptimizeResult } from "@/lib/api";
@@ -38,6 +39,7 @@ const TYPE_COLOR: Record<string, string> = {
 const typeColor = (t: string) => TYPE_COLOR[t] ?? "#60a5fa";
 
 export default function PortfolioPage() {
+  const { push: toast } = useToast();
   const { data: runs, isLoading: runsLoading, error: runsErr } = usePortfolioRuns(100);
   const [picked, setPicked] = useState<number | null>(null);
   const runId = picked ?? runs?.[0]?.run_id ?? null;
@@ -75,7 +77,9 @@ export default function PortfolioPage() {
         timeoutMs: 180_000,
       });
       if (!result?.narrative_id) {
-        setExplainError("Narrative generation failed (no LLM backend available).");
+        const msg = "Narrative generation failed (no LLM backend available).";
+        setExplainError(msg);
+        toast({ title: "Diff narrative failed", description: msg, variant: "destructive" });
         return;
       }
       const narratives = await api.narratives(50);
@@ -87,11 +91,15 @@ export default function PortfolioPage() {
           generatedAt: match.generated_at ?? null,
           status: match.status ?? null,
         });
+        toast({ title: "Diff narrative complete" });
       } else {
-        setExplainError("Narrative was generated but could not be loaded.");
+        const msg = "Narrative was generated but could not be loaded.";
+        setExplainError(msg);
+        toast({ title: "Diff narrative failed", description: msg, variant: "destructive" });
       }
     } catch (e) {
       setExplainError((e as Error).message);
+      toast({ title: "Diff narrative failed", description: (e as Error).message, variant: "destructive" });
     } finally {
       setExplaining(false);
     }
@@ -125,8 +133,10 @@ export default function PortfolioPage() {
       await queryClient.invalidateQueries({ queryKey: ["portfolioRuns"] });
       setPicked(result.run_id);
       setCompare(await api.portfolioCompare(priorRunId, result.run_id));
+      toast({ title: "Portfolio optimization complete" });
     } catch (e) {
       setOptimizeError(e as Error);
+      toast({ title: "Portfolio optimization failed", description: (e as Error).message, variant: "destructive" });
     } finally {
       setOptimizing(false);
     }
@@ -326,7 +336,7 @@ export default function PortfolioPage() {
       </Card>
 
       {(runsErr || error) && <ErrorBlock error={runsErr ?? error} />}
-      {(runsLoading || isLoading) && <LoadingBlock label="Loading portfolio" />}
+      {(runsLoading || isLoading) && <SkeletonStats />}
 
       {run && (
         <>
@@ -352,7 +362,7 @@ export default function PortfolioPage() {
               <div className="p-4">
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={run.allocation_by_type} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+                    <CartesianGrid {...GRID_PROPS} />
                     <XAxis dataKey="intervention_type" {...AXIS_PROPS} />
                     <YAxis {...AXIS_PROPS} tickFormatter={(v) => fmtUsd(v, 0)} width={52} />
                     <Tooltip cursor={{ fill: "hsl(215 28% 16% / 0.4)" }} content={<ChartTooltip format={(v) => fmtUsd(v)} />} />
@@ -384,7 +394,7 @@ export default function PortfolioPage() {
                         <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+                    <CartesianGrid {...GRID_PROPS} />
                     <XAxis dataKey="cost" {...AXIS_PROPS} tickFormatter={(v) => `$${Math.round(v)}M`} />
                     <YAxis {...AXIS_PROPS} width={40} />
                     <Tooltip
