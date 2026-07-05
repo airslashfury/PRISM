@@ -88,6 +88,12 @@
   background: hsl(215 28% 26%);
 }
 
+/* Presentation mode (F8 excellence pass, chunk E): /resilience?present=1 hides
+   the app chrome (sidebar nav + topbar) for a wall-display / boardroom view. */
+body.presentation [data-chrome] {
+  display: none;
+}
+
 /* MapLibre tweaks so popups/controls match the dark theme. */
 .maplibregl-popup-content {
   background: hsl(222 44% 7%) !important;

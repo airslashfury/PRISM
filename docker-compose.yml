@@ -105,6 +105,13 @@ services:
     environment:
       API_PROXY_TARGET: http://api:8000
       NEXT_PUBLIC_API_BASE: /api
+      # Server-side fetches (generateMetadata, /og/*) run inside this container,
+      # so they need the compose-network address, not the browser-facing /api
+      # rewrite path (see frontend/lib/server-api.ts).
+      # Server-side fetches only (generateMetadata, /og/*) — read at request
+      # time, unlike NEXT_PUBLIC_SITE_URL below (which is a build-time-inlined
+      # NEXT_PUBLIC_* var and lives in docker/Dockerfile.frontend instead).
+      API_INTERNAL_BASE: http://api:8000
     ports:
       - "3000:3000"
     depends_on:
