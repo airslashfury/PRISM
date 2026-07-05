@@ -199,13 +199,16 @@ async function ResilienceCard(entityId: number | null) {
 
   // ConsequenceSummary carries no lon/lat for the entity itself (only its
   // downstream cone does) — the glow dot is omitted here rather than guessed.
+  // Guard on the raw numbers, not the formatted strings ("0" is truthy) — a
+  // zero here is the tracked upstream data quirk, and the card must omit the
+  // stat rather than assert it (same convention as the landing-page card).
   const stats: { label: string; value: string }[] = [];
-  const people = fmtInt(consequence.population_affected);
-  if (people) stats.push({ label: "People", value: people });
-  const hospitals = fmtInt(consequence.hospitals);
-  if (hospitals) stats.push({ label: "Hospitals", value: hospitals });
-  const waterPlants = fmtInt(consequence.water_plants);
-  if (waterPlants) stats.push({ label: "Water plants", value: waterPlants });
+  if (consequence.population_affected != null && consequence.population_affected > 0)
+    stats.push({ label: "People", value: fmtInt(consequence.population_affected)! });
+  if (consequence.hospitals != null && consequence.hospitals > 0)
+    stats.push({ label: "Hospitals", value: fmtInt(consequence.hospitals)! });
+  if (consequence.water_plants != null && consequence.water_plants > 0)
+    stats.push({ label: "Water plants", value: fmtInt(consequence.water_plants)! });
 
   return (
     <Frame dot={null}>
