@@ -16,7 +16,7 @@ import { GenerationPanel } from "@/components/generation-panel";
 import { OutagesPanel } from "@/components/outages-panel";
 import { SeismicPanel } from "@/components/seismic-panel";
 import { WhatsNew } from "@/components/whats-new";
-import { useOverview, useCurrentState, useSeismic, useStorm } from "@/lib/hooks";
+import { useOverview, useCurrentState, useSeismic, useStorm, useWhatsNew } from "@/lib/hooks";
 import { useCountUp } from "@/lib/use-count-up";
 import { DOMAIN_RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtIntTiered, fmtNum, fmtRelative } from "@/lib/utils";
@@ -31,7 +31,14 @@ const MODULE_METRIC: Record<string, (c: any) => string> = {
   "/sync": (c) => `${fmtInt(c.sync_sources)} live data sources`,
 };
 
-const HERO_VIEW = { ...PR_VIEW, zoom: 7.65 };
+// Framed so PR's landmass sits in the frame's right two-thirds (where the text
+// gradient below has faded clear) and Charlotte Amalie/Road Town (USVI/BVI,
+// ~1.5-2 degrees east of PR) fall past the right edge. Verified against a real
+// rendered screenshot at 1440x900 (hero container ~1152x440px) — an earlier
+// pass computed from Web Mercator math alone landed STT's label just inside
+// the frame (map labels render past their anchor point, so the math-predicted
+// edge undershoots by a bit); this pass has a wider empirical margin.
+const HERO_VIEW = { ...PR_VIEW, longitude: -66.113, latitude: 18.267, zoom: 8.5 };
 
 /** Live outages pulse (F8 B2): subtle ring on the hero's offline-substation
  *  dots — the same "grid breathing" idea as resilience's offline-pulse, sized
@@ -43,11 +50,15 @@ export default function OverviewPage() {
   const { data: current } = useCurrentState();
   const { data: seismic } = useSeismic(30);
   const { data: storm } = useStorm();
+  // Same feed list the WhatsNew card renders directly below — the hero strip
+  // and the card it sits above must agree on "how many feeds," so this counts
+  // feeds.length rather than the separate (and lower) counts.sync_sources.
+  const { data: whatsNew } = useWhatsNew();
 
   const nodesModeled = useCountUp(data?.counts.graph_entities);
   const dependenciesMapped = useCountUp(data?.counts.graph_relationships);
   const parcels = useCountUp(data?.counts.crim_parcels);
-  const liveFeeds = useCountUp(data?.counts.sync_sources);
+  const liveFeeds = useCountUp(whatsNew?.feeds.length);
 
   const advisory = storm?.advisory ?? null;
   const stormHeadline = storm?.consequence?.headline ?? null;
@@ -232,11 +243,15 @@ export default function OverviewPage() {
           </div>
 
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-wrap gap-x-8 gap-y-3">
+            <div data-testid="hero-stats" className="flex flex-wrap gap-x-8 gap-y-3">
               <Stat label="Nodes modeled" value={data ? fmtInt(nodesModeled) : "—"} />
               <Stat label="Dependencies mapped" value={data ? fmtInt(dependenciesMapped) : "—"} />
-              <Stat label="Parcels" value={data ? fmtIntTiered(parcels) : "—"} />
-              <Stat label="Live feeds" value={data ? fmtInt(liveFeeds) : "—"} />
+              {/* crim_parcels is a pg_class planner estimate, not an exact COUNT —
+                  render it with the same "estimated" tier fmtIntTiered already
+                  uses for proxy figures elsewhere, so it never reads as more
+                  precise than it is. */}
+              <Stat label="Parcels" value={data ? fmtIntTiered(parcels, "estimated") : "—"} />
+              <Stat label="Live feeds" value={whatsNew ? fmtInt(liveFeeds) : "—"} />
               <Stat label="Last sync" value={data ? fmtRelative(data.last_sync_at) : "—"} />
             </div>
             <Button asChild variant="ghost" size="sm" className="shrink-0 text-muted-foreground hover:text-foreground">

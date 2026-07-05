@@ -7,12 +7,16 @@ export function GradientLegend({
   minLabel,
   maxLabel,
   className,
+  titleClassName,
 }: {
   title: string;
   stops: RGB[];
   minLabel: string;
   maxLabel: string;
   className?: string;
+  /** Override the title's text color — e.g. a page-level domain accent
+   *  (`text-domain-water`). Defaults to the plain foreground used everywhere. */
+  titleClassName?: string;
 }) {
   const gradient = `linear-gradient(to right, ${stops.map((s) => rgbCss(s)).join(", ")})`;
   return (
@@ -22,7 +26,7 @@ export function GradientLegend({
         className,
       )}
     >
-      <div className="mb-1.5 font-medium text-foreground/90">{title}</div>
+      <div className={cn("mb-1.5 font-medium text-foreground/90", titleClassName)}>{title}</div>
       <div className="h-2 w-44 rounded-full" style={{ background: gradient }} />
       <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
         <span>{minLabel}</span>

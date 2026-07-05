@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Inbox, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -71,6 +71,37 @@ export function ErrorBlock({ error, className }: { error: unknown; className?: s
     >
       <AlertTriangle className="h-4 w-4 text-red-400" />
       <span className="text-red-300">{message}</span>
+    </div>
+  );
+}
+
+/** Centered "nothing here" block for a loaded-but-empty list/search/stream —
+ *  distinct from ErrorBlock (a request failure) and the loading skeletons
+ *  above. Mirrors the icon/title/hint shape already used ad hoc on Storm's
+ *  "No storm on the board" state, generalized with an optional action link. */
+export function EmptyState({
+  icon: Icon = Inbox,
+  title,
+  hint,
+  action,
+  className,
+}: {
+  icon?: LucideIcon;
+  title: string;
+  hint?: string;
+  action?: { label: string; href: string };
+  className?: string;
+}) {
+  return (
+    <div className={cn("px-4 py-6 text-center", className)}>
+      <Icon className="mx-auto h-6 w-6 text-muted-foreground/60" />
+      <div className="mt-2 text-sm font-medium">{title}</div>
+      {hint && <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{hint}</p>}
+      {action && (
+        <a href={action.href} className="mt-2 inline-block text-xs text-primary hover:underline">
+          {action.label} →
+        </a>
+      )}
     </div>
   );
 }

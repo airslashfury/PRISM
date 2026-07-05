@@ -112,12 +112,11 @@ export default function TrendsPage() {
           {error && <ErrorBlock error={error} />}
           {data && (
             <div className="space-y-5">
-              <div>
-                <h2 className="text-lg font-semibold leading-tight">Puerto Rico property market</h2>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  CRIM recorded sales{data.summary.earliest ? ` · ${data.summary.earliest.slice(0, 4)}–${(data.summary.latest ?? "").slice(0, 4)}` : ""} · {data.summary.municipios} municipios
-                </p>
-              </div>
+              {/* Topbar already carries the page title + desc — this line only
+               *  adds the dynamic facts (date range, municipio count) it doesn't have. */}
+              <p className="text-[11px] text-muted-foreground">
+                CRIM recorded sales{data.summary.earliest ? ` · ${data.summary.earliest.slice(0, 4)}–${(data.summary.latest ?? "").slice(0, 4)}` : ""} · {data.summary.municipios} municipios
+              </p>
 
               {/* Headline stats */}
               <div className="grid grid-cols-2 gap-2">

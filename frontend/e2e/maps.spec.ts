@@ -107,3 +107,86 @@ test("/parcels owner search resolves an entity and opens the drawer", async ({ p
   await expect(page.getByText("Parcels owned")).toBeVisible();
   expect(errors, `uncaught page errors on /parcels: ${errors.join("; ")}`).toEqual([]);
 });
+
+// ── F8 excellence pass, chunk F: palette / hero / presentation / motion / OG ──
+
+test("palette: Ctrl+K, type resil, Enter navigates to Resilience", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
+  await page.keyboard.press("Control+k");
+  await page.getByPlaceholder(/search pages, substations, parcels, owners/i).fill("resil");
+  await expect(page.getByRole("option", { name: /^Resilience/ })).toBeVisible();
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL(/\/resilience$/);
+  expect(errors, `uncaught page errors: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("hero: / shows the headline and the stat strip counts up to a real number", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("one island, one system")).toBeVisible();
+
+  // Count-up animates from 0 — give it up to 15s to land on a real (non-"—",
+  // non-zero-only-placeholder) numeral rather than asserting on a frozen frame.
+  const stats = page.getByTestId("hero-stats");
+  await expect(stats).toBeVisible();
+  await expect(stats).toHaveText(/[1-9]\d*/, { timeout: 15_000 });
+
+  expect(errors, `uncaught page errors on /: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("presentation: /resilience?present=1 hides chrome; Escape restores it", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/resilience?present=1", { waitUntil: "domcontentloaded" });
+  // The topbar (<header data-chrome>) has no responsive hidden/md:flex class —
+  // unlike the sidebar, which is `hidden md:flex` and so is already hidden on
+  // mobile viewports for a reason unrelated to presentation mode. The topbar
+  // is the one [data-chrome] element whose visibility is driven purely by
+  // body.presentation on every viewport, so it's the reliable one to assert on.
+  const topbar = page.locator("header[data-chrome]");
+  await expect(topbar).toBeHidden();
+
+  await page.keyboard.press("Escape");
+  await expect(topbar).toBeVisible();
+  await expect(page).not.toHaveURL(/present=1/);
+
+  expect(errors, `uncaught page errors on /resilience: ${errors.join("; ")}`).toEqual([]);
+});
+
+test.describe("reduced motion", () => {
+  // Scoped to this describe block only — every other test in the file keeps
+  // the default (no-preference) motion context.
+  test.use({ contextOptions: { reducedMotion: "reduce" } });
+
+  test("cascade drawer shows real values with no animation", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await page.goto("/resilience?sel=920&scenario=cat3", { waitUntil: "domcontentloaded" });
+
+    // "What fails when this substation goes down" — under reduced motion the
+    // staged cascade reveal (map-motion.ts useStagedTimeline) snaps every wave
+    // to progress=1 immediately, so these render real counts on first paint
+    // rather than "—" placeholders that fill in over the cascade's stagger.
+    // One level up from the section's title takes us to its PanelBox root,
+    // which also contains the row values (title and rows are siblings there).
+    const dependsSection = page.getByText("What fails when this substation goes down").locator("..");
+    await expect(dependsSection.getByText("Hospitals")).toBeVisible();
+    await expect(dependsSection).not.toContainText("—", { timeout: 10_000 });
+
+    expect(errors, `uncaught page errors on /resilience: ${errors.join("; ")}`).toEqual([]);
+  });
+});
+
+test("OG route: /og/default returns a PNG", async ({ request }) => {
+  const res = await request.get("/og/default");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toBe("image/png");
+});

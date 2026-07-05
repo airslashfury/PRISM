@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { InfoPanel } from "@/components/info-panel";
 import { NarrativePanel } from "@/components/narrative-panel";
-import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { LoadingBlock, ErrorBlock, EmptyState } from "@/components/query-state";
 import {
   usePlaygroundAssetTypes,
   usePlaygroundGeojson,
@@ -583,10 +583,12 @@ export default function PlaygroundPage() {
             </div>
           </div>
 
-          {!activeScenarioId && (
-            <p className="text-xs text-muted-foreground">
-              Create a scenario to start sketching infrastructure.
-            </p>
+          {!activeScenarioId && !scenariosLoading && (
+            <EmptyState
+              icon={FlaskConical}
+              title="No scenarios yet"
+              hint="Create a scenario above to start sketching infrastructure onto the live model."
+            />
           )}
 
           {activeScenarioId && (

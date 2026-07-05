@@ -445,7 +445,10 @@ export default function ResiliencePage() {
           getRadius: (d) => 300 + (d.value - min) * 90,
           radiusUnits: "meters",
           radiusMinPixels: 3.5,
-          radiusMaxPixels: 34,
+          // Presentation mode (F8 excellence pass, chunk F): cap the base bubble
+          // size so it never competes with the cascade arcs/ripples that are the
+          // actual point of the auto-cycle — the cascade should visually lead.
+          radiusMaxPixels: present ? 12 : 34,
           getFillColor: (d) => {
             const [r, g, b] = riskColor(d.value, min, max);
             const inCone = d.entity_id === selected || downstreamIds.has(d.entity_id);
@@ -514,6 +517,7 @@ export default function ResiliencePage() {
     consequence,
     cascadeActive,
     downstreamIds,
+    present,
   ]);
 
   // Motion layers: everything driven by an animation phase/progress value.
@@ -925,29 +929,36 @@ function PresentationLowerThird({
   const scenarioLabel = MODES.find((m) => m.value === mode)?.label ?? mode;
 
   return (
-    <div className="pointer-events-none absolute bottom-10 left-10 z-10 max-w-xl">
-      <h2 className="text-display-lg font-semibold text-foreground drop-shadow-lg">
-        {point.name ?? `Substation ${point.entity_id}`}
-      </h2>
-      <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
-        <span>{isCurrent ? "Current state" : scenarioLabel}</span>
-        <span className="text-muted-foreground/50">·</span>
-        <span className="tnum font-medium text-foreground/90">
-          {isCurrent ? "Consequence" : "Composite"} {fmtNum(point.value, 1)}
-        </span>
-      </div>
-      {cascade && (
-        <div className="mt-5 flex gap-8">
-          {cascade.population_affected > 0 && (
-            <PresentationStat label="People" value={fmtIntTiered(people, "proxy")} />
-          )}
-          {cascade.hospitals > 0 && <PresentationStat label="Hospitals" value={fmtInt(hospitals)} />}
-          {cascade.water_plants > 0 && (
-            <PresentationStat label="Water plants" value={fmtInt(waterPlants)} />
-          )}
+    <>
+      {/* Scrim (F8 excellence pass, chunk F): a soft backdrop behind the lower-third
+       *  so map labels/basemap detail under the numerals can't bleed through and
+       *  compete with them — a full-width band, not just behind the text's own
+       *  narrow column, matching the broadcast "lower third" convention. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-64 bg-gradient-to-t from-background/85 via-background/40 to-transparent" />
+      <div className="pointer-events-none absolute bottom-10 left-10 z-10 max-w-xl">
+        <h2 className="text-display-lg font-semibold text-foreground drop-shadow-lg">
+          {point.name ?? `Substation ${point.entity_id}`}
+        </h2>
+        <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{isCurrent ? "Current state" : scenarioLabel}</span>
+          <span className="text-muted-foreground/50">·</span>
+          <span className="tnum font-medium text-foreground/90">
+            {isCurrent ? "Consequence" : "Composite"} {fmtNum(point.value, 1)}
+          </span>
         </div>
-      )}
-    </div>
+        {cascade && (
+          <div className="mt-5 flex gap-8">
+            {cascade.population_affected > 0 && (
+              <PresentationStat label="People" value={fmtIntTiered(people, "proxy")} />
+            )}
+            {cascade.hospitals > 0 && <PresentationStat label="Hospitals" value={fmtInt(hospitals)} />}
+            {cascade.water_plants > 0 && (
+              <PresentationStat label="Water plants" value={fmtInt(waterPlants)} />
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

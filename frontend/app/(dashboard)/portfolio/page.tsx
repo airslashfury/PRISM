@@ -23,7 +23,7 @@ import { StatCard } from "@/components/stat-card";
 import { InfoPanel } from "@/components/info-panel";
 import { NarrativePanel } from "@/components/narrative-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ErrorBlock, SkeletonStats } from "@/components/query-state";
+import { ErrorBlock, SkeletonStats, EmptyState } from "@/components/query-state";
 import { useToast } from "@/components/toaster";
 import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_PROPS } from "@/components/charts";
 import { ProvenanceBadge } from "@/components/provenance-badge";
@@ -337,6 +337,14 @@ export default function PortfolioPage() {
 
       {(runsErr || error) && <ErrorBlock error={runsErr ?? error} />}
       {(runsLoading || isLoading) && <SkeletonStats />}
+
+      {!runsLoading && !runsErr && (!runs || runs.length === 0) && (
+        <EmptyState
+          icon={Layers}
+          title="No optimizer runs yet"
+          hint="Set a capital budget above and re-run the allocation to generate the first portfolio."
+        />
+      )}
 
       {run && (
         <>

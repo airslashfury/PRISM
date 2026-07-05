@@ -259,6 +259,7 @@ export default function TelecomPage() {
 
           <GradientLegend
             className="absolute bottom-6 left-4"
+            titleClassName="text-domain-telecom"
             title="Telecom risk"
             stops={RISK_STOPS}
             minLabel={fmtNum(min, 1)}
@@ -270,7 +271,7 @@ export default function TelecomPage() {
         <>
           <div className="border-b border-border/70 p-4">
             <div className="flex items-center gap-2">
-              <RadioTower className="h-4 w-4 text-muted-foreground" />
+              <RadioTower className="h-4 w-4 text-domain-telecom" />
               <h2 className="text-sm font-semibold">Telecom cascade</h2>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
@@ -343,7 +344,7 @@ function TopList({
               onClick={() => onSelect(r.entity_id)}
               className={cn(
                 "flex w-full items-center gap-3 border-l-2 px-4 py-2.5 text-left transition-colors hover:bg-accent/40",
-                r.entity_id === selected ? "border-primary bg-accent/30" : "border-transparent",
+                r.entity_id === selected ? "border-domain-telecom bg-accent/30" : "border-transparent",
               )}
             >
               <span className="w-5 shrink-0 text-xs tnum text-muted-foreground/60">{r.rank}</span>

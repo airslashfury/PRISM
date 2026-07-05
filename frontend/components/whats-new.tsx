@@ -4,7 +4,7 @@ import Link from "next/link";
 import { RefreshCw, Waves, Building2, TriangleAlert, TrendingUp, Wind, Dot, type LucideIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
-import { SkeletonRows } from "@/components/query-state";
+import { SkeletonRows, EmptyState } from "@/components/query-state";
 import { useWhatsNew } from "@/lib/hooks";
 import { fmtRelative } from "@/lib/utils";
 import type { ChangeEvent, ChangeKind, FeedFreshness } from "@/lib/api";
@@ -129,15 +129,19 @@ export function WhatsNew() {
         </div>
 
         {/* The change stream. */}
-        <ul className="mt-4 space-y-1 border-t border-border/40 pt-3">
-          {changes.length === 0 ? (
-            <li className="text-sm text-muted-foreground">No recent changes recorded.</li>
-          ) : (
-            changes.map((c, i) => (
+        {changes.length === 0 ? (
+          <EmptyState
+            icon={Dot}
+            title="No recent changes recorded"
+            className="mt-4 border-t border-border/40 pt-5"
+          />
+        ) : (
+          <ul className="mt-4 space-y-1 border-t border-border/40 pt-3">
+            {changes.map((c, i) => (
               <ChangeRow key={`${c.kind}-${c.at ?? "na"}-${c.headline}`} c={c} i={i} />
-            ))
-          )}
-        </ul>
+            ))}
+          </ul>
+        )}
       </div>
     </Card>
   );

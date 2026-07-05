@@ -9,7 +9,7 @@ import { Search, ChevronLeft, X, Building2, ChevronRight } from "lucide-react";
 import { MapCanvas, tip } from "@/components/map/map-canvas";
 import { InfoPanel } from "@/components/info-panel";
 import { ConfidenceChip } from "@/components/provenance-badge";
-import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
+import { LoadingBlock, ErrorBlock, SkeletonRows, EmptyState } from "@/components/query-state";
 import { useParcelSearch, useParcelDetail, useOwnerSearch, useOwnerDetail } from "@/lib/hooks";
 import { tileUrl } from "@/lib/api";
 import type {
@@ -338,9 +338,7 @@ export default function ParcelsPage() {
                 <OwnerStrip owners={ownerSearch.data!.owners} onSelect={selectOwner} />
               )}
               {result && result.count === 0 && submitted && (
-                <div className="p-6 text-center text-sm text-muted-foreground">
-                  No parcels match “{submitted}”.
-                </div>
+                <EmptyState icon={Search} title={`No parcels match "${submitted}"`} />
               )}
               {!submitted && (
                 <div className="p-4">

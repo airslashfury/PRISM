@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { InfoPanel } from "@/components/info-panel";
 import { ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
+import { PanelBox, Row } from "@/components/entity-drawer";
 import { useStorm } from "@/lib/hooks";
-import { cn, fmtDateTime, fmtInt } from "@/lib/utils";
+import { fmtDateTime, fmtInt } from "@/lib/utils";
 import type { StormTrackPoint } from "@/lib/api";
 import { usePulse, usePrefersReducedMotion } from "@/lib/map-motion";
 
@@ -332,39 +333,6 @@ export default function StormPage() {
           </div>
         </div>
       </aside>
-    </div>
-  );
-}
-
-function PanelBox({
-  title,
-  badge,
-  children,
-  className,
-  style,
-}: {
-  title: string;
-  badge?: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div className={cn("rounded-lg border border-border/60 bg-background/30 p-3", className)} style={style}>
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-        {badge}
-      </div>
-      <div className="space-y-1.5">{children}</div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-medium tnum")}>{value}</span>
     </div>
   );
 }

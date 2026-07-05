@@ -347,6 +347,7 @@ export default function WaterPage() {
 
           <GradientLegend
             className="absolute bottom-6 left-4"
+            titleClassName="text-domain-water"
             title="Water-source risk"
             stops={RISK_STOPS}
             minLabel={fmtNum(min, 1)}
@@ -358,7 +359,7 @@ export default function WaterPage() {
         <>
           <div className="border-b border-border/70 p-4">
             <div className="flex items-center gap-2">
-              <Droplets className="h-4 w-4 text-muted-foreground" />
+              <Droplets className="h-4 w-4 text-domain-water" />
               <h2 className="text-sm font-semibold">Water cascade</h2>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
@@ -430,7 +431,7 @@ function TopList({
               onClick={() => onSelect(r.entity_id)}
               className={cn(
                 "flex w-full items-center gap-3 border-l-2 px-4 py-2.5 text-left transition-colors hover:bg-accent/40",
-                r.entity_id === selected ? "border-primary bg-accent/30" : "border-transparent",
+                r.entity_id === selected ? "border-domain-water bg-accent/30" : "border-transparent",
               )}
             >
               <span className="w-5 shrink-0 text-xs tnum text-muted-foreground/60">{r.rank}</span>
@@ -469,19 +470,18 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
       badge: <ProvenanceBadge table="resilience.water_scores" />,
       rows: [
         { label: "Type", value: kindLabel(data.what.kind) },
-        { label: "Municipality", value: data.what.municipality ?? "—" },
         { label: "Capacity", value: data.what.capacity_gpm != null ? `${fmtNum(data.what.capacity_gpm, 0)} gpm` : "—" },
         { label: "Backup generator", value: data.what.has_generator ? "Yes" : "No" },
       ],
     },
     {
+      // AAA's source data only carries `operarea`/`municipality` as raw 3-letter
+      // codes (e.g. "CAR", "SGE") — there's no name lookup for them anywhere in
+      // the frontend, and a code with no gloss ("CAR") reads worse than nothing.
+      // Hide this section entirely rather than show a code the reader can't use.
       id: "where",
       title: "Where",
-      hidden: !data.what.operarea && !data.what.municipality,
-      rows: [
-        { label: "Operating area", value: data.what.operarea ?? "—" },
-        { label: "Municipality", value: data.what.municipality ?? "—" },
-      ],
+      hidden: true,
     },
     {
       id: "depends",
