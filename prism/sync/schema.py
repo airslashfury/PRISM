@@ -347,6 +347,32 @@ def create_schema(engine: Engine) -> None:
             "CREATE INDEX IF NOT EXISTS ix_nwis_gauges_geom ON sync.nwis_gauges USING GIST (geom)"
         ))
 
+        # Append-only history of gauge readings. sync.nwis_gauges above is
+        # overwritten each poll (live snapshot); this banks each new source
+        # measurement so a month/multi-month gauge trend is reconstructable.
+        # Deduped on (site, param, measured_at) at insert time — see nwis.py —
+        # so the 6-hourly poll only appends genuinely new readings, not a row
+        # per tick. Mirrors the luma_outages_history retention pattern.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.nwis_gauges_history (
+                id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                site_no     TEXT NOT NULL,
+                param_cd    TEXT NOT NULL,
+                site_name   TEXT,
+                param_label TEXT,
+                value       DOUBLE PRECISION,
+                unit        TEXT,
+                measured_at TIMESTAMPTZ,
+                lon         DOUBLE PRECISION,
+                lat         DOUBLE PRECISION,
+                recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_nwis_history_site_time "
+            "ON sync.nwis_gauges_history (site_no, param_cd, recorded_at)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

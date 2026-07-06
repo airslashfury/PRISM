@@ -5,8 +5,11 @@ run high ahead of a flood well before a water treatment plant fails, so a
 gauge reading is an early, independent signal alongside the static hazard
 overlay. USGS publishes every active gauge's latest instantaneous reading as
 a free, no-key WaterML-JSON feed; we pull the PR state feed into
-`sync.nwis_gauges` (latest-per-site/parameter, upsert-in-place — this is a
-live snapshot, not an append-only history).
+`sync.nwis_gauges` (latest-per-site/parameter, upsert-in-place — the live
+snapshot) and bank each new source measurement into
+`sync.nwis_gauges_history` (append-on-new-reading, deduped on measured_at) so
+month/multi-month gauge trends are reconstructable. Mirrors the
+luma_outages_history retention pattern.
 
 Authoritative: USGS is the streamflow authority. Per the data-sovereignty
 rule every fetch is mirrored to data/raw/nwis/ with a sha256 before we rely
@@ -123,18 +126,15 @@ def mirror_raw(raw: str, *, when: datetime | None = None) -> Path:
     return out
 
 
-def sync_nwis(engine: Engine, *, mirror: bool = True) -> dict[str, Any]:
-    """One NWIS sync cycle: fetch -> mirror -> upsert sync.nwis_gauges (latest)."""
-    create_schema(engine)
-    raw = fetch_nwis()
-    if mirror:
-        mirror_raw(raw)
+def _persist_gauges(engine: Engine, gauges: list[dict[str, Any]]) -> int:
+    """Upsert the latest reading per (site, param) and append a history row for
+    every genuinely new source measurement. Returns history rows appended.
 
-    gauges = parse_gauges(raw)
-    if not gauges:
-        log.warning("NWIS sync: feed returned no readings")
-        return {"sites": 0, "readings": 0, "params": [], "latest": None}
-
+    History dedup is on (site_no, param_cd, measured_at): the 6-hourly poll
+    only banks readings the source has actually advanced, so re-running the
+    same feed is a no-op on the history table (idempotent).
+    """
+    history_rows = 0
     with engine.begin() as conn:
         for g in gauges:
             conn.execute(text("""
@@ -159,11 +159,45 @@ def sync_nwis(engine: Engine, *, mirror: bool = True) -> dict[str, Any]:
                     fetched_at = now()
             """), g)
 
+            # Append to history only when this is a measurement we haven't
+            # banked yet (new measured_at for this site+param). NULL-safe so a
+            # gauge without a source timestamp still stores one baseline row.
+            res = conn.execute(text("""
+                INSERT INTO sync.nwis_gauges_history
+                    (site_no, param_cd, site_name, param_label, value, unit,
+                     measured_at, lon, lat, recorded_at)
+                SELECT :site_no, :param_cd, :site_name, :param_label, :value, :unit,
+                       CAST(:measured_at AS timestamptz), :lon, :lat, now()
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM sync.nwis_gauges_history h
+                    WHERE h.site_no = :site_no AND h.param_cd = :param_cd
+                      AND h.measured_at IS NOT DISTINCT FROM CAST(:measured_at AS timestamptz)
+                )
+            """), g)
+            history_rows += res.rowcount or 0
+    return history_rows
+
+
+def sync_nwis(engine: Engine, *, mirror: bool = True) -> dict[str, Any]:
+    """One NWIS sync cycle: fetch -> mirror -> upsert latest + append history."""
+    create_schema(engine)
+    raw = fetch_nwis()
+    if mirror:
+        mirror_raw(raw)
+
+    gauges = parse_gauges(raw)
+    if not gauges:
+        log.warning("NWIS sync: feed returned no readings")
+        return {"sites": 0, "readings": 0, "params": [], "latest": None, "history_rows": 0}
+
+    history_rows = _persist_gauges(engine, gauges)
+
     summary = {
         "sites": len({g["site_no"] for g in gauges}),
         "readings": len(gauges),
         "params": sorted({g["param_cd"] for g in gauges}),
         "latest": max((g["measured_at"] for g in gauges if g["measured_at"]), default=None),
+        "history_rows": history_rows,
     }
     log.info("NWIS sync: %s", summary)
     return summary
