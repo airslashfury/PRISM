@@ -9,8 +9,27 @@ it gets scheduled.
 
 ## Near-term (likely next, after the active queue)
 
-> **2026-07-03 — the F1–F7 frontend arc is COMPLETE (all Opus GO).** No scheduled item remains
-> in `ROADMAP.md`; the items below are the candidate pool for the next direction.
+> **2026-07-07 — F1–F8 COMPLETE (all Opus GO); the active ROADMAP item is F9 (Legibility &
+> Trust arc)**, drawn from the user's first full product review. Two review findings were
+> deliberately routed here instead of into F9 (below).
+
+### Weather / climate domain  *(F10 candidate — from the 2026-07-07 review)*
+The /storm page is seasonal by design; the user's ask is **weather in general** — aggregate
+weather scoring plus average humidity / heat / rain, explicitly useful for construction
+planning ("expected workable days" is a real siting/scheduling input). Nothing weather-shaped
+exists in PRISM today (verified 2026-07-07). Scope sketch: NOAA NCEI 1991–2020 climate normals
+for PR stations (monthly temp/precip/humidity, keyless) → `sync.climate_normals` + optional NWS
+API live observations; per-municipio aggregates (rain days, heat index days); a climate lens on
+Site Finder (construction-window criterion) and/or a `/weather` reference page. Pull up as F10
+when the user prioritizes it after F9.
+
+### Preferences panel / admin back-portal  *(pre-auth design note — from the 2026-07-07 review)*
+When users/accounts land (M6 trigger below), the `/assumptions` lab becomes per-user: saved
+assumption sets, default scenario, home municipio for "My Area", unit preferences — plus
+**admin-set global defaults** so an org can pin its own VOLL/discount-rate baseline. Design
+constraint to honor now: keep assumption evaluation stateless/read-only (it already is) so
+per-user defaults are a thin preferences table, not a model fork. A localStorage stopgap
+(persist last-used dials client-side) is cheap if wanted sooner; the real item waits on auth.
 
 ### Deferred from F7 (telecom, 2026-07-03)
 - **Fiber layer on `/telecom`** — `g37_telecom_conductos_fibra_optica_act_2012` (50 conduit
@@ -94,7 +113,8 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
   cone/track overlay replaces this with a real, live-data storm track instead of a synthetic
   Cat-3 sweep.
 - **M6 Auth / multi-user / K8s** — elective; the real trigger is the first feature wanting
-  per-user state (P3-eng assumptions, the parked scenario library above).
+  per-user state (P3-eng assumptions, the parked scenario library above, and the preferences /
+  admin back-portal note in Near-term — added from the 2026-07-07 review).
 
 ---
 

@@ -40,19 +40,15 @@ reusable workspace patterns get introduced later, lazily, on the water build, be
 net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** (what-changed) and
 **F3** (Playwright) are net-new.
 
-Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8**. Each item phase-gated by the Opus
+Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-07-05):** **F1–F8 ALL DONE (each Opus GO)** — the converged frontend product
-> arc plus the **F8 excellence pass** are complete. F1–F7 merged to `main`; F8 on
+> **Status (2026-07-07):** **F1–F8 ALL DONE (each Opus GO).** F1–F7 merged to `main`; F8 on
 > `feat/f8-excellence` (pushed). F5–F8 were built under the Fable-plans / Sonnet-implements
 > protocol (CLAUDE.md "Fable-era override"). The full **Power → Comms → Water → Economy →
-> Transport** dependency chain is surfaced, and the app now *performs* it (cascade play,
-> live-pulse map grammar, command-center landing, ⌘K palette, OG share cards, presentation mode).
-> **No scheduled item remains; next direction is the user's call** (BACKLOG candidates: fiber
-> layer on /telecom, LUMA feeder agreement to lift the POWERS proxy ceiling, crime-incidence
-> enrichment, barrio centroids in /water/source + /telecom/source payloads to light up their
-> cascade arcs).
+> Transport** dependency chain is surfaced and performed (cascade play, command-center landing,
+> ⌘K palette, OG cards, presentation mode). **The active item is now F9 — the Legibility &
+> Trust arc** (below), scheduled 2026-07-07 from the user's first full product review.
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -340,6 +336,149 @@ was theatre + typographic confidence, not redesign. Six chunks on `feat/f8-excel
 > All motion honors `prefers-reduced-motion`; RAF gated on active flags; base-layer memos
 > phase-free. Residuals → BACKLOG: water/telecom arc centroids; upstream `population_affected=0`
 > quirk tracked separately (task chip).
+
+### Item F9 — Legibility & Trust arc  *(ACTIVE — scheduled 2026-07-07)*
+
+Source: the user's **first full product review** (2026-07-07) — ~25 findings across 15 pages.
+The diagnosis in one line: *the model is built and performs, but the numbers don't explain
+themselves* — scores read as "random numbers", framing is power-centric where people think in
+municipios and parcels, and the two aspirational pages (Playground, Rail) assert instead of
+citing. Every finding maps to one of three gated sub-items below. Grounding for each chunk was
+verified against the live DB/code on 2026-07-07 (UPR-as-hospital: `transport/access.py` lumps
+`health_center` kinds in — UPR RUM is "nearest hospital" for 12 barrios; addresses:
+`direccion_fisica` is placeholder junk like `BO CRUCES , ,., PR, Puerto Rico, 00000`, municipio
+column NULL for 77,070 of 1.53M and backfillable by spatial join; area unit is **cuerdas**, not
+acres; WhatsNew storm headlines carry no replay label; drawer `Row` is the telecom overflow).
+
+**Step 0 (pre-item, not gated):** merge `feat/f8-excellence` → `main`; F9 work branches off
+`main` as `feat/f9a-legibility` etc., one branch per sub-item.
+
+**Routed to BACKLOG from the same review (explicitly not in F9):** weather/climate domain
+(F10 candidate — NOAA normals, aggregate weather scoring for construction) and the
+preferences/admin back-portal (auth-gated, extends the M6 trigger). See `BACKLOG.md`.
+
+---
+
+#### F9a — Every number explains itself  *(legibility sweep — first, cheapest trust wins)*
+
+- **A1 — Score explainers + map legend.** New `frontend/components/score-explainer.tsx`: every
+  score value (resilience composite/hazard/cascade, water/telecom composites, parcel power
+  composite, economy exposure) renders with a one-tap popover — what it measures in plain words,
+  the formula in words ("how many barrios depend on it × how exposed the site is × how much it
+  leans on the grid"), a context line ("higher than N% of the island's 905 towers"), and the
+  severity verdict. Backend: detail/list payloads gain `{percentile, rank, n}` (PERCENT_RANK, the
+  `community_resilience` pattern) in `api/routers/water.py`/`telecom.py`/`network.py`. Adopt in
+  `resilience-client.tsx` (Metric row ~1085 + top list), `/water`, `/telecom`, `parcels-client.tsx`,
+  `/economy` exposure list. Rename "Most critical nodes" → plain wording ("Highest-consequence
+  substations"); kind labels spelled out. Map legend on `/resilience` explaining line/arc colors
+  (grid / faults / consequence arcs / selection) + the honest note that arcs land on **area center
+  points**, not boundaries. Done-check: e2e popover assertions on 3 routes; suite green.
+- **A2 — Truth-label & copy sweep.** (1) **Fiona (demo)**: `storm_label(name, replay)` helper in
+  `prism/resilience/storm.py`; `changes.py::_storm_changes` selects the replay flag and emits
+  "Fiona (demo) advisory #18"; `build_storm_headline` prefixes replay headlines ("Demo replay —
+  if Hurricane Fiona's 2022 track held…"); `prism/alerts.py` storm messages labeled; frontend
+  appends "(demo)" wherever `storm_name` renders without the REPLAY badge adjacent (overview,
+  /storm title, OG card). (2) **Ask capabilities**: `/ask` gains a "what you can ask" panel
+  enumerating the 10 tools in plain language (entities/failures, rankings, portfolio, SVI,
+  parcels/owners/addresses, what-changed, corridors) + EXAMPLES refreshed to cover owner/parcel/
+  whats-new tools. (3) **Site Finder**: criteria meta gains `unit`+one-line `desc`; sliders
+  labeled as **importance weights** (not distances); results/drawer show raw values with units
+  (km, %). (4) **Parcels units**: "X cuerdas (Y m²)" everywhere `area_cuerdas` renders (1 cuerda
+  = 3,930.4 m²). (5) **Drawer overflow**: `entity-drawer.tsx::Row` gets `min-w-0` + wrap-friendly
+  value alignment — fixes the telecom Owner/Coverage squeeze at narrow widths (F7 carry-forward).
+  Done-check: e2e green incl. a 375px telecom-drawer assertion; grep proves no unlabeled
+  `storm_name` render path remains.
+- **A3 — Citizen card ("My Area") rework.** (1) **Hospitals fix**: `prism/transport/access.py`
+  restricts the destination set to true hospitals (kind `hospital`, `clasif='HOSP'` filter —
+  verify against the 4 observed `clasif` values; UPR RUM excluded), rebuild
+  `transport.road_access_cost`; optionally add nearest-clinic as a second field. Done-check:
+  Caracol (Añasco) resolves to a real hospital. (2) **Power section reframe**: lead with what the
+  substation *serves* (you + N hospitals + M water plants on the same section — from
+  `downstream_summary`), day-to-day context from live feeds (LUMA outage snapshot for the region,
+  island generation status — tables exist), scenario flavor beyond Cat-3 (quake scenario score
+  exists; frame Cat-3 as one situation, not the only one), and drop the negative-lead framing —
+  the Proxy chip already carries the feeder-map caveat. (3) **"What's planned nearby"
+  humanized**: shared intervention copy map (`elevation`/`relocation`/`hardening`/`road_hardening`
+  → plain description + why it matters to a resident), reused by F9c's portfolio chunk.
+  Done-check: copy passes the ui-ux skill review; access-rebuild tests.
+
+**Done when:** every score surface offers a plain-language explainer with distribution context;
+replayed storm data is labeled "(demo)" at every render path; Ask states its full capability
+set; slider/unit semantics are explicit (cuerdas + m², weights labeled); the citizen card names
+a real hospital, leads with what works, and its planned-items read as plain language.
+
+#### F9b — Structure where people live  *(municipio-first + interconnection)*
+
+- **B1 — Economy municipio-first.** New `GET /economy/municipios` (78 rows: population, SVI mean
+  + high-SVI tract count, VOLL exposure, CRIM assessed value + 12-mo sales, substation count) +
+  municipio polygons (from `municipios`/`g03_legales_municipios_2023`; 78 features, inline
+  GeoJSON is fine). `/economy` leads with a municipio choropleth + metric switcher; click →
+  municipio panel (its tracts, serving substations w/ exposure, water/telecom counts, sales
+  sparkline, links to /trends + /parcels). The substation-exposure ranking demotes to a "Power
+  lens" tab — power becomes one factor under the municipio, not the page's spine.
+- **B2 — Parcel 360 + address repair.** `get_parcel_detail` gains water (the barrio's serving
+  sources + risk rank), telecom (covering towers count/top), municipio market context (12-mo
+  sales + median via `trends.py`), and `display_address`. Data fix: municipio spatial backfill
+  (UPDATE the 77,070 NULL-municipio parcels from municipio polygons) + `display_address()`
+  composer in `prism/crim/normalize.py` (strip placeholder junk `, ,., PR, Puerto Rico, 00000`,
+  inject municipio, keep only real zips) surfaced in search rows, detail, owner drawer. Power
+  section reframed: "Served by **{sub}** — the same feed serves ~N people and M hospitals"
+  (consequence framed as shared infrastructure, not "who cares" trivia). Drawer gains Water /
+  Telecom / Market sections — click a parcel, see everything PRISM knows about that ground.
+  Done-check: composer unit tests on the observed junk patterns; a Bejucos + a San Juan parcel
+  eyeballed; e2e drawer spec.
+- **B3 — Market Trends drill-down + time.** `GET /crim/trends/municipio/{name}` (sales + median
+  by year from `crim.parcelas_history`, top barrios, momentum) + per-year × municipio rollup for
+  a **year timeline scrubber**; clicking a bubble or list row opens the municipio panel (same
+  hot-spot data, one level down); **heatmap toggle** (municipio choropleth by sales volume)
+  alongside the bubbles; scrubbing the timeline animates either view. Permalink params.
+- **B4 — /resilience as the cascade hub.** Domain switcher on `/resilience` (Power | Water |
+  Telecom — routes to /water, /telecom preserving viewport via `url-state`); substation drawer
+  gains a **Cross-domain** section: water sources + telecom towers this substation powers
+  (counts + top names + links; small `GET /network/powers/{id}` or fold into the consequence
+  payload). Done-check: substation 675 (54 telecom + 5 water) shows both.
+- **B5 — Address-enrichment research spike** *(memo, no code)*: evaluate DOT National Address
+  Database PR coverage, OpenAddresses, Census TIGER/Line address ranges, USPS options + license
+  terms → short memo in `docs/data_requests/` with a go/no-go recommendation. (Even repaired
+  CRIM addresses may not geocode on Google/Apple — this decides whether an external source can
+  fix that or whether parcel geometry stays the canonical locator.)
+
+**Done when:** /economy leads with municipios and drills down; a parcel click surfaces power,
+water, telecom, flood, community, access, market, and Site Finder context on one card with a
+readable address; /trends drills into a municipio and scrubs across years; /resilience switches
+domains and shows cross-domain dependency; the address-source memo has a recommendation.
+
+#### F9c — Grounded, not vibes  *(trust deepening on the judgment pages)*
+
+- **C1 — Portfolio reframe** *(rework first; deprecation is the gate's call if it still doesn't
+  land)*: page reframed as an **investment plan**, not a shopping list — per-item "why picked"
+  line (humanized intervention + "protects ~N people, M hospitals; ranked #k on protection per
+  dollar in this budget" — join `downstream_summary`), budget utilization + leftover explained,
+  glossary strip for uplift / per-$1M / equity weight, reusing A3's intervention copy map.
+  Done-check: a cold read of the page answers "what is this list and why these items".
+- **C2 — Playground grounding v1.** Drawn endpoints **snap** to the nearest substation within a
+  threshold (substations fetched once client-side; snap indicator + tie line + "connects to X"
+  chip); the results panel names its anchors ("evaluated against SUBSTATION X, 340 m away; N% of
+  the path in flood zone" — `evaluate.py` already computes both, surface them in the payload);
+  an "estimate includes / excludes" panel per asset type (parametric $/km by terrain; no
+  ROW/permitting/geotech — honest scope, framed constructively). Fun for citizens, non-insulting
+  to engineers.
+- **C3 — Trust Center rationale + Rail cost basis.** (1) `/methods` gains **"Assumptions &
+  choices"**: per load-bearing assumption — value, why chosen, source, what would change it
+  (VOLL $2,389/person-30yr derivation, 40 km/h road speed, 4 km telecom radius, feeder Voronoi,
+  median+clamp sales stats, ×0.3 generator discount, Cat-3 hazard weights) — sourced from a new
+  `config/assumption_rationale.yml` so it's data, not prose. (2) `/corridor` cost figures get a
+  **"Cost basis" popover** citing `config/cost_references.yml` (research handoff: Tren Urbano
+  actuals, FTA capital-cost ranges, comparable per-km systems, with URLs); the recommendations
+  panel goes stats-first with the AI narrative clearly labeled and fed the references. Rail stays
+  frozen otherwise — this is citation hygiene on the showpiece, not new investment.
+
+**Done when:** the portfolio explains each pick in one sentence a non-modeler accepts; a drawn
+playground asset visibly connects to the real network and names its assumptions; every /corridor
+cost figure traces to a reference; /methods states why each load-bearing value was chosen.
+
+Gate protocol per sub-item (three Opus gates); Fable plans / Sonnet implements per chunk;
+`/ui-ux` skill loaded for every copy-bearing chunk.
 
 ---
 

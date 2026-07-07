@@ -257,9 +257,16 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
    presentation mode + consistency sweep; 32/32 e2e; only new dep `cmdk`
 
 **The F1–F8 frontend product arc is COMPLETE (all Opus GO).** F1–F7 merged to `main`; F8 on
-`feat/f8-excellence` (pushed). No scheduled item remains — next direction is the user's call
-(see `BACKLOG.md`: fiber layer, LUMA feeder to lift the POWERS proxy ceiling, crime enrichment,
-public methods/API docs, water/telecom cascade-arc centroids).
+`feat/f8-excellence` (pushed). **The active item is F9 — the Legibility & Trust arc**
+(ROADMAP.md), scheduled 2026-07-07 from the user's first full product review: three gated
+sub-items — **F9a** legibility sweep (score explainers + percentile context, "Fiona (demo)"
+labeling, Ask capabilities, cuerdas+m², drawer overflow, citizen-card rework incl. the
+hospitals-only road-access fix), **F9b** municipio-first structure (economy rollup, parcel 360
++ address repair incl. municipio spatial backfill, trends drill-down + year scrubber,
+/resilience cascade hub, address-source research spike), **F9c** grounding (portfolio reframe,
+playground snapping, assumption rationale + rail cost references). Step 0: merge F8 → `main`.
+Routed to BACKLOG from the same review: weather/climate domain (F10 candidate), preferences /
+admin back-portal.
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
