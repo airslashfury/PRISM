@@ -136,20 +136,41 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F5 — Live storm (NHC + alerting) | **COMPLETE** | 2026-07-02 | Opus GO (one fix at gate) |
 | F6 — Water cascade + shell extraction | **COMPLETE** | 2026-07-02 | Opus GO |
 | F7 — Telecom cascade (on F6 shell) | **COMPLETE** | 2026-07-03 | Opus GO |
+| F8 — Excellence pass (wow arc) | **COMPLETE** | 2026-07-05 | Opus GO (one fix at gate) |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
 > history and summarized in `memory/project_state.md`. This file now keeps only the phase-log
 > table above and the condensed live state below.
 
-## Current state (2026-07-02)
+## Current state (2026-07-05)
 
 PRISM is a full-stack Puerto Rico infrastructure simulation model with a
 confidence/provenance/validation spine, a citizen civic card, a natural-language query bar,
 live PREPA/LUMA/USGS-quake/NHC-storm/NWIS-gauge feeds, NBI bridge spans, a Site Finder over
 industrial parcels, CRIM owner intelligence, a what-changed/stale-data overview cockpit, an
 interactive assumptions lab (F4), a live-storm cone page (F5), and a water-cascade page (F6)
-on a reusable MapWorkspace + entity-drawer shell.
+on a reusable MapWorkspace + entity-drawer shell — all wrapped in the F8 excellence layer
+(command-center landing, cascade-play map theatre, ⌘K palette, OG share cards, presentation mode).
+
+**F8 batch (2026-07-05, `feat/f8-excellence`, Opus GO — the "wow arc," six chunks A1/A2/B1/B2/
+C/D/E/F):** design tokens (domain accents power/water/telecom/economy/hazard/transport + display
+type scale + `next/font` self-hosting + favicon); command-center landing (ambient live island
+hero with count-up moat stats — nodes/deps/≈1.5M parcels/live feeds — storm banner w/ REPLAY,
+consequence card citing downstream hospitals/people; backend `/overview` gained `crim_parcels`
+reltuples estimate + `graph.downstream_summary` join); **map theatre** (`frontend/lib/map-motion.ts`
++ `PrismMapApi.easeTo` — on select: camera ease, halo, staged cascade ArcLayers in domain waves
+power→telecom→water→health→barrios with dim-others + per-wave drawer count-ups + replay; live
+outage pulse, storm-cone breathing, gauge ripple, selection grammar on water/telecom); UI system
+pass (chart theme w/ mono ticks + dashed grid, `SkeletonRows`/`SkeletonStats`, drawer/list enter
+motion, hand-rolled job-completion toasts); **⌘K palette** (`cmdk`, the arc's only new dep —
+pages/actions/substations/parcels/owners search + `/ask?q=` handoff); **share layer**
+(`generateMetadata` server wrappers, pages moved to `*-client.tsx`; `/og/[view]` ImageResponse
+cards; `/resilience?present=1` wall-display mode); consistency sweep (+5 e2e specs → 32/32
+desktop+mobile). All motion honors `prefers-reduced-motion`; RAF gated on active flags. Gate fix:
+OG stats guarded on raw numbers (population=0 quirk can't render "People 0"). Residuals →
+BACKLOG: barrio centroids in `/water/source`+`/telecom/source` payloads (lights up their cascade
+arcs); upstream `population_affected=0` quirk (task chip pending).
 
 **F7 batch (2026-07-03, `feat/f7-telecom-cascade`, Opus GO) — closes the F1–F7 arc:** telecom
 "Comms" rung — `prism/graph/telecom.py` (798 telecom_tower + 107 cell_site entities, POWERS +
@@ -231,11 +252,14 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
    `MapWorkspace`+`EntityDrawer` shell; `/resilience` migrated onto it as proof
 8. ✅ **F7 — telecom cascade page** (2026-07-03, Opus GO) — `prism/graph/telecom.py` +
    `prism/resilience/telecom.py` + `/telecom` on the F6 shell (first pure consumer)
+9. ✅ **F8 — excellence pass ("wow arc")** (2026-07-05, Opus GO, one fix at gate) — design tokens
+   + command-center landing + cascade-play map theatre + UI system pass + ⌘K palette + OG cards /
+   presentation mode + consistency sweep; 32/32 e2e; only new dep `cmdk`
 
-**The F1–F7 frontend product arc is COMPLETE (all Opus GO).** F1–F6/UI-B merged to `main`; F7 on
-`feat/f7-telecom-cascade` (pushed, unmerged). No scheduled item remains — next direction is the
-user's call (see `BACKLOG.md`: fiber layer, LUMA feeder to lift the POWERS proxy ceiling, crime
-enrichment, public methods/API docs).
+**The F1–F8 frontend product arc is COMPLETE (all Opus GO).** F1–F7 merged to `main`; F8 on
+`feat/f8-excellence` (pushed). No scheduled item remains — next direction is the user's call
+(see `BACKLOG.md`: fiber layer, LUMA feeder to lift the POWERS proxy ceiling, crime enrichment,
+public methods/API docs, water/telecom cascade-arc centroids).
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

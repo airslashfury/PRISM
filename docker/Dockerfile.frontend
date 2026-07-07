@@ -9,11 +9,17 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend ./
 ENV NEXT_TELEMETRY_DISABLED=1
-# Both are resolved at BUILD time: NEXT_PUBLIC_* is inlined into the client
-# bundle, and next.config rewrites() bakes the proxy target into the route
-# manifest. So API_PROXY_TARGET must point at the compose service name here.
+# All resolved at BUILD time: NEXT_PUBLIC_* is inlined into the client bundle
+# (and into server-rendered code too, via webpack's static replacement — a
+# compose-level `environment:` entry for these is a no-op), and next.config
+# rewrites() bakes the proxy target into the route manifest. So
+# API_PROXY_TARGET must point at the compose service name here, and
+# NEXT_PUBLIC_SITE_URL must match nginx's public address (docker/nginx/nginx.conf
+# listens on :80 — not the frontend container's own :3000) for metadataBase to
+# resolve correct absolute og:image/twitter:image URLs.
 ENV NEXT_PUBLIC_API_BASE=/api
 ENV API_PROXY_TARGET=http://api:8000
+ENV NEXT_PUBLIC_SITE_URL=http://localhost
 RUN npm run build
 
 FROM node:20-slim AS run
@@ -29,4 +35,9 @@ EXPOSE 3000
 # Inside compose the proxy target is the api service.
 ENV API_PROXY_TARGET=http://api:8000
 ENV NEXT_PUBLIC_API_BASE=/api
+# Server-side fetches (generateMetadata, /og/*) run in this container at
+# request time (unlike NEXT_PUBLIC_*, this is read at runtime, not baked in
+# at build) — see frontend/lib/server-api.ts. docker-compose.yml sets the
+# same value explicitly; this is just a working default for a bare `docker run`.
+ENV API_INTERNAL_BASE=http://api:8000
 CMD ["npm", "start"]

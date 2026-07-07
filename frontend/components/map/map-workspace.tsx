@@ -2,7 +2,7 @@
 
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
 
-import { MapCanvas } from "@/components/map/map-canvas";
+import { MapCanvas, type PrismMapApi } from "@/components/map/map-canvas";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +17,8 @@ export interface MapWorkspaceProps {
   onHover?: (info: PickingInfo) => void;
   initialViewState?: MapViewState;
   onViewChange?: (viewState: MapViewState) => void;
+  /** Called once the map (and its imperative API — easeTo, getTerrainElevation) is ready. */
+  onMapReady?: (api: PrismMapApi) => void;
   /** Rendered as MapCanvas children — overlaid on top of the map (banner/legend/layer control). */
   overlays?: React.ReactNode;
   sidebar: React.ReactNode;
@@ -31,6 +33,7 @@ export function MapWorkspace({
   onHover,
   initialViewState,
   onViewChange,
+  onMapReady,
   overlays,
   sidebar,
   sidebarWidth = "md:w-[380px]",
@@ -45,6 +48,7 @@ export function MapWorkspace({
           onHover={onHover}
           initialViewState={initialViewState}
           onViewChange={onViewChange}
+          onMapReady={onMapReady}
         >
           {overlays}
         </MapCanvas>

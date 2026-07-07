@@ -1,0 +1,338 @@
+"use client";
+
+import { useMemo } from "react";
+import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import type { Layer, PickingInfo } from "@deck.gl/core";
+import { Wind } from "lucide-react";
+
+import { MapCanvas, tip, PR_VIEW } from "@/components/map/map-canvas";
+import { Badge } from "@/components/ui/badge";
+import { InfoPanel } from "@/components/info-panel";
+import { ErrorBlock, SkeletonRows } from "@/components/query-state";
+import { ProvenanceBadge } from "@/components/provenance-badge";
+import { PanelBox, Row } from "@/components/entity-drawer";
+import { useStorm } from "@/lib/hooks";
+import { fmtDateTime, fmtInt } from "@/lib/utils";
+import type { StormTrackPoint } from "@/lib/api";
+import { usePulse, usePrefersReducedMotion } from "@/lib/map-motion";
+
+const CONE_RGB: [number, number, number] = [251, 191, 36];
+const TRACK_RGB: [number, number, number] = [255, 255, 255];
+const POSITION_RGB: [number, number, number] = [255, 255, 255];
+
+const STORM_VIEW = { ...PR_VIEW, zoom: 5.5, latitude: 19.5, longitude: -66.5 };
+
+/** Cone breathe (F8 B2): slow sine oscillation, period matches the resilience
+ *  selection-halo pulse family. Sine (not the raw sawtooth phase) so the alpha
+ *  eases in and out rather than snapping back at the loop boundary. */
+const CONE_PULSE_MS = 5000;
+const CONE_BASE_ALPHA = 18;
+const CONE_ALPHA_SWING = 10;
+const CONE_STATIC_ALPHA = 22;
+
+/** Current-position halo (F8 B2): slow ambient ring on the storm's latest
+ *  fix — track_points[0] is seq 0, the earliest/current fix; the rest of the
+ *  array is the forward forecast track. */
+const POSITION_PULSE_MS = 2400;
+
+export default function StormPage() {
+  const { data, isLoading, error } = useStorm();
+  const reducedMotion = usePrefersReducedMotion();
+
+  const advisory = data?.advisory ?? null;
+  const consequence = data?.consequence ?? null;
+  const trackPoints = useMemo(() => data?.track_points ?? [], [data?.track_points]);
+
+  // track_points[0] (lowest seq) is the storm's current fix; the remainder is
+  // the forward forecast track already drawn by storm-track-points below.
+  const currentPosition = trackPoints.length ? trackPoints[0] : null;
+  const coneVisible = advisory?.cone_geojson != null;
+
+  const conePhase = usePulse(CONE_PULSE_MS, coneVisible);
+  const positionPulsePhase = usePulse(POSITION_PULSE_MS, currentPosition != null);
+
+  const coneAlpha = reducedMotion
+    ? CONE_STATIC_ALPHA
+    : CONE_BASE_ALPHA + Math.round(CONE_ALPHA_SWING * Math.sin(conePhase * Math.PI * 2));
+
+  // Base layers: everything that does NOT depend on animation phase — the
+  // cone's stroke, track line, and forecast points never move with the pulse,
+  // so they stay out of the per-frame memo (mirrors resilience's base/motion split).
+  const baseLayers = useMemo(() => {
+    const ls: Layer[] = [];
+
+    if (advisory?.track_geojson) {
+      ls.push(
+        new GeoJsonLayer({
+          id: "storm-track",
+          data: { type: "Feature", geometry: advisory.track_geojson, properties: {} } as never,
+          filled: false,
+          stroked: true,
+          getLineColor: [...TRACK_RGB, 220] as [number, number, number, number],
+          getLineWidth: 2,
+          lineWidthUnits: "pixels",
+          lineWidthMinPixels: 1.5,
+          pickable: false,
+        }),
+      );
+    }
+
+    if (trackPoints.length) {
+      ls.push(
+        new ScatterplotLayer<StormTrackPoint>({
+          id: "storm-track-points",
+          data: trackPoints,
+          getPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
+          getRadius: 5,
+          radiusUnits: "pixels",
+          radiusMinPixels: 4,
+          getFillColor: [...TRACK_RGB, 230] as [number, number, number, number],
+          stroked: true,
+          getLineColor: [10, 14, 22, 200],
+          getLineWidth: 1,
+          lineWidthUnits: "pixels",
+          pickable: true,
+        }),
+      );
+    }
+
+    return ls;
+  }, [advisory?.track_geojson, trackPoints]);
+
+  // Motion layers: the cone fill (alpha breathes) and the current-position
+  // halo ring. Split out so the 60fps pulse tick never re-diffs the GeoJson
+  // track or the multi-point forecast scatter above.
+  const motionLayers = useMemo(() => {
+    const ls: Layer[] = [];
+
+    if (advisory?.cone_geojson) {
+      ls.push(
+        new GeoJsonLayer({
+          id: "storm-cone",
+          data: { type: "Feature", geometry: advisory.cone_geojson, properties: {} } as never,
+          filled: true,
+          stroked: true,
+          getFillColor: [...CONE_RGB, coneAlpha] as [number, number, number, number],
+          getLineColor: [...CONE_RGB, 200] as [number, number, number, number],
+          getLineWidth: 2,
+          lineWidthUnits: "pixels",
+          lineWidthMinPixels: 1.5,
+          pickable: false,
+          updateTriggers: { getFillColor: [coneAlpha] },
+        }),
+      );
+    }
+
+    // Current-position halo ring — omitted entirely under reduced motion (no
+    // stalled ring), same convention as resilience's selection-pulse.
+    if (currentPosition && !reducedMotion) {
+      ls.push(
+        new ScatterplotLayer<StormTrackPoint>({
+          id: "storm-position-pulse",
+          data: [currentPosition],
+          getPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
+          getRadius: 5 + positionPulsePhase * 7,
+          radiusUnits: "pixels",
+          radiusMinPixels: 5,
+          radiusMaxPixels: 12,
+          filled: false,
+          stroked: true,
+          getLineColor: [...POSITION_RGB, Math.round((1 - positionPulsePhase) * 160)] as [
+            number,
+            number,
+            number,
+            number,
+          ],
+          getLineWidth: 1.5,
+          lineWidthUnits: "pixels",
+          pickable: false,
+          updateTriggers: { getRadius: [positionPulsePhase], getLineColor: [positionPulsePhase] },
+        }),
+      );
+    }
+
+    return ls;
+  }, [advisory?.cone_geojson, coneAlpha, currentPosition, positionPulsePhase, reducedMotion]);
+
+  const layers = useMemo(() => [...baseLayers, ...motionLayers], [baseLayers, motionLayers]);
+
+  const getTooltip = (info: PickingInfo) => {
+    if (info.layer?.id !== "storm-track-points") return null;
+    const d = info.object as StormTrackPoint | undefined;
+    if (!d) return null;
+    return tip(
+      [
+        ["Valid", fmtDateTime(d.valid_at)],
+        ["Max wind", d.max_wind_kt != null ? `${d.max_wind_kt} kt` : "—"],
+      ],
+      d.label ?? `Point ${d.seq}`,
+    );
+  };
+
+  const issuedYear = advisory?.issued_at
+    ? new Date(advisory.issued_at).getFullYear()
+    : advisory?.fetched_at
+      ? new Date(advisory.fetched_at).getFullYear()
+      : null;
+
+  return (
+    <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+      <div className="relative h-[55vh] shrink-0 md:h-full md:flex-1">
+        <MapCanvas layers={layers} getTooltip={getTooltip} initialViewState={STORM_VIEW}>
+          {/* Top-left overlay card — mirrors resilience's "Grid state now" card */}
+          <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
+            {advisory ? (
+              <>
+                <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {data?.active ? (
+                    <>
+                      Active storm
+                      <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                    </>
+                  ) : (
+                    "Storm feed"
+                  )}
+                </div>
+                {advisory.replay && (
+                  <Badge variant="warning" className="mt-1">
+                    HISTORICAL REPLAY
+                  </Badge>
+                )}
+                <div className="mt-1 text-lg font-semibold">
+                  {advisory.replay ? (
+                    <>
+                      {advisory.storm_name ?? "Unnamed storm"} ({advisory.storm_id})
+                      {issuedYear && <span className="text-muted-foreground"> — {issuedYear}</span>}
+                    </>
+                  ) : (
+                    <>
+                      {advisory.storm_name ?? "Unnamed storm"}
+                      <span className="text-muted-foreground"> · advisory #{advisory.advisory_num}</span>
+                    </>
+                  )}
+                </div>
+                <div className="mt-0.5 space-y-0.5 text-[11px] text-muted-foreground">
+                  {advisory.classification && <div>{advisory.classification}</div>}
+                  {advisory.max_wind_kt != null && <div>Max wind: {advisory.max_wind_kt} kt</div>}
+                  {advisory.min_pressure_mb != null && (
+                    <div>Min pressure: {advisory.min_pressure_mb} mb</div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Storm feed
+                </div>
+                <div className="mt-0.5 text-lg font-semibold text-emerald-400">No active system</div>
+              </>
+            )}
+          </div>
+
+          {/* Headline banner — styled like the resilience Consequence-Lens banner */}
+          {consequence?.headline && (
+            <div className="pointer-events-auto absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
+              <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                Pre-landfall consequence
+                <ProvenanceBadge table="sync.nhc_consequences" />
+              </div>
+              <div className="mt-0.5 text-sm font-medium text-foreground">{consequence.headline}</div>
+            </div>
+          )}
+        </MapCanvas>
+      </div>
+
+      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[380px] md:shrink-0 md:border-l md:border-t-0">
+        <div className="border-b border-border/70 p-4">
+          <div className="flex items-center gap-2">
+            <Wind className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold">Live storm</h2>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            The live NHC forecast cone over PRISM&apos;s grid — which substations, hospitals, and
+            people fall inside the probable track area.
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {error && (
+            <div className="p-4">
+              <ErrorBlock error={error} />
+            </div>
+          )}
+          {isLoading && <SkeletonRows count={5} className="p-4" />}
+
+          {!isLoading && !error && advisory === null && (
+            <div className="border-b border-border/50 px-4 py-6 text-center">
+              <Wind className="mx-auto h-6 w-6 text-muted-foreground/60" />
+              <div className="mt-2 text-sm font-medium">No storm on the board</div>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                No active Atlantic/Caribbean system currently threatens Puerto Rico. The NHC feed
+                polls automatically during hurricane season — this page will populate the moment a
+                PR-affecting advisory is issued.
+              </p>
+            </div>
+          )}
+
+          {!isLoading && !error && advisory !== null && (
+            <div className="space-y-4 p-4">
+              {consequence && (
+                <PanelBox
+                  title="In the cone's path"
+                  badge={<ProvenanceBadge table="sync.nhc_consequences" />}
+                  className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+                  style={{ animationDelay: "0ms", animationFillMode: "backwards" }}
+                >
+                  <Row label="Substations" value={fmtInt(consequence.n_substations)} />
+                  <Row label="— in surge field" value={fmtInt(consequence.n_substations_surge)} />
+                  <Row label="Hospitals" value={fmtInt(consequence.n_hospitals)} />
+                  <Row label="Water plants" value={fmtInt(consequence.n_water_plants)} />
+                  <Row label="Health centers" value={fmtInt(consequence.n_health_centers)} />
+                  <Row label="Barrios" value={fmtInt(consequence.n_barrios)} />
+                  <Row
+                    label="Population"
+                    value={
+                      consequence.population_served > 3_000_000
+                        ? "island-scale"
+                        : fmtInt(consequence.population_served)
+                    }
+                  />
+                </PanelBox>
+              )}
+
+              <PanelBox
+                title="Advisory"
+                className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+                style={{ animationDelay: consequence ? "40ms" : "0ms", animationFillMode: "backwards" }}
+              >
+                <Row label="Storm ID" value={advisory.storm_id} />
+                <Row label="Advisory #" value={advisory.advisory_num} />
+                <Row label="Issued" value={fmtDateTime(advisory.issued_at)} />
+                <Row label="Fetched" value={fmtDateTime(advisory.fetched_at)} />
+                <Row label="Mode" value={advisory.replay ? "Historical replay" : "Live"} />
+              </PanelBox>
+            </div>
+          )}
+
+          <div className="p-4 pt-0">
+            <InfoPanel
+              sections={[
+                {
+                  title: "What this is",
+                  body: "The amber shape is NHC's official forecast cone — the probable path of the storm's center over the next several days. It is NOT the wind field: damaging winds and flooding extend well beyond the cone's edge, and areas outside it are not necessarily safe.",
+                },
+                {
+                  title: "How it's calculated",
+                  body: "Consequence counts every substation, hospital, water plant, health center, and barrio whose location falls inside the current cone polygon, plus a narrower surge-exposed subset for coastal substations. This is a proxy-tier spatial intersection, not a wind-speed or flood-depth model.",
+                },
+                {
+                  title: "Data sources & accuracy",
+                  body: "The cone and track are pulled directly from NHC's official advisory feed — authoritative for the storm itself. Replay mode (shown when the current advisory is marked HISTORICAL REPLAY) exercises this same pipeline against Hurricane Fiona's 2022 advisories between live storms, so the page is never empty of a working example.",
+                },
+              ]}
+            />
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}

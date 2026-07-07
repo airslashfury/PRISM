@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import DeckGL from "@deck.gl/react";
+import { FlyToInterpolator } from "@deck.gl/core";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
 import { Map } from "react-map-gl/maplibre";
 
@@ -60,6 +61,9 @@ export function tip(rows: [string, string][], title?: string) {
 export interface PrismMapApi {
   /** Elevation (m) of the rendered terrain mesh at a lng/lat, or null if terrain isn't active/loaded. */
   getTerrainElevation: (lng: number, lat: number) => number | null;
+  /** Smoothly ease the camera toward a partial view state (e.g. re-center + zoom
+   *  in on a clicked entity). Uses deck.gl's FlyToInterpolator; default 900ms. */
+  easeTo: (vs: Partial<MapViewState>, durationMs?: number) => void;
 }
 
 export interface PrismMapProps {
@@ -85,6 +89,9 @@ export interface PrismMapProps {
   onMapReady?: (api: PrismMapApi) => void;
   /** Called once the terrain DEM tiles for the current view have finished loading. */
   onTerrainTilesLoaded?: () => void;
+  /** DeckGL controller override. Pass `false` for an ambient, non-interactive
+   * map (e.g. a hero backdrop). Defaults to the standard interactive config. */
+  controller?: boolean | Record<string, unknown>;
 }
 
 export function PrismMap({
@@ -102,6 +109,7 @@ export function PrismMap({
   onViewChange,
   onMapReady,
   onTerrainTilesLoaded,
+  controller,
 }: PrismMapProps) {
   const mapRef = useRef<any>(null);
   const terrainActive = useRef(false);
@@ -228,6 +236,20 @@ export function PrismMap({
     }
   }, [satellite, setSatelliteVisible]);
 
+  // Smoothly ease the camera toward a partial view state. Goes through the same
+  // controlled viewState as everything else, so it composes with DeckGL's own
+  // sync rather than fighting it — onViewStateChange only persists user gestures
+  // (isPanning/isZooming/isRotating), so this programmatic transition won't be
+  // clobbered mid-flight.
+  const easeTo = useCallback((vs: Partial<MapViewState>, durationMs = 900) => {
+    setViewState((prev) => ({
+      ...prev,
+      ...vs,
+      transitionDuration: durationMs,
+      transitionInterpolator: new FlyToInterpolator(),
+    }));
+  }, []);
+
   const handleMapLoad = useCallback(
     (event: { target: any }) => {
       const map = event.target;
@@ -247,6 +269,7 @@ export function PrismMap({
             return null;
           }
         },
+        easeTo,
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -270,11 +293,15 @@ export function PrismMap({
             onViewChange?.(vs as MapViewState);
           }
         }}
-        controller={{
-          doubleClickZoom: true,
-          dragRotate: terrain,
-          touchRotate: terrain,
-        }}
+        controller={
+          controller !== undefined
+            ? controller
+            : {
+                doubleClickZoom: true,
+                dragRotate: terrain,
+                touchRotate: terrain,
+              }
+        }
         layers={layers}
         getTooltip={getTooltip as never}
         onClick={onClick}

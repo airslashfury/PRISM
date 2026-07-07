@@ -40,17 +40,19 @@ reusable workspace patterns get introduced later, lazily, on the water build, be
 net. Most items map to existing `BACKLOG.md` entries now pulled up here; **F2** (what-changed) and
 **F3** (Playwright) are net-new.
 
-Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7**. Each item phase-gated by the Opus
+Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8**. Each item phase-gated by the Opus
 `phase-gate-reviewer` before the next begins.
 
-> **Status (2026-07-03):** **F1–F7 ALL DONE (each Opus GO)** — the converged frontend product
-> arc is complete. Plus the **UI-B** polish batch. F1–F6 merged to `main`; F7 on
-> `feat/f7-telecom-cascade` (pushed). F5/F6/F7 were built under the Fable-plans /
-> Sonnet-implements protocol (CLAUDE.md "Fable-era override") — three clean multi-chunk items.
-> The full **Power → Comms → Water → Economy → Transport** dependency chain is now surfaced.
+> **Status (2026-07-05):** **F1–F8 ALL DONE (each Opus GO)** — the converged frontend product
+> arc plus the **F8 excellence pass** are complete. F1–F7 merged to `main`; F8 on
+> `feat/f8-excellence` (pushed). F5–F8 were built under the Fable-plans / Sonnet-implements
+> protocol (CLAUDE.md "Fable-era override"). The full **Power → Comms → Water → Economy →
+> Transport** dependency chain is surfaced, and the app now *performs* it (cascade play,
+> live-pulse map grammar, command-center landing, ⌘K palette, OG share cards, presentation mode).
 > **No scheduled item remains; next direction is the user's call** (BACKLOG candidates: fiber
 > layer on /telecom, LUMA feeder agreement to lift the POWERS proxy ceiling, crime-incidence
-> enrichment).
+> enrichment, barrio centroids in /water/source + /telecom/source payloads to light up their
+> cascade arcs).
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -309,6 +311,35 @@ built on the shared workspace shell. ✅ (fiber layer deferred to BACKLOG — no
   explicit wait-for-external-demand trigger. The permalink fragment survived into the revised F4.
 - **Rail Corridor** *(frozen 2026-07-01)* — kept as a demo showpiece under nav "Reference"; no
   further investment scheduled.
+
+### Item F8 — Excellence pass ("wow arc") — ✅ DONE (2026-07-05, Opus GO; one fix at gate)
+Re-eval verdict (2026-07-04): the moat is real and the theme has a point of view, but the app
+rendered its most cinematic data statically — the gap to "a deep-pocketed buyer says *I want it*"
+was theatre + typographic confidence, not redesign. Six chunks on `feat/f8-excellence`:
+
+> **A1 tokens** — domain accent tokens (power/water/telecom/economy/hazard/transport) in CSS +
+> Tailwind + `DOMAIN_RGB` deck.gl mirror; display type scale; fonts self-hosted via `next/font`;
+> SVG favicon. **A2 command-center landing** — ambient live island hero (`controller={false}`
+> map, substations/outages/quakes/storm-cone layers), count-up moat stat strip (nodes, deps,
+> ≈1.5M parcels, live feeds, last sync), conditional storm banner with REPLAY labeling,
+> consequence card cites downstream hospitals/people (backend: `/overview` + `crim_parcels`
+> reltuples estimate + `downstream_summary` join). **B1 map theatre** (`lib/map-motion.ts` +
+> `PrismMapApi.easeTo`) — on select: camera ease, halo, staged cascade ArcLayers in domain waves
+> (power→telecom→water→health→barrios) with dim-others + per-wave drawer count-ups + replay;
+> live outages pulse. **B2 rollout** — storm cone breathing, water gauge ripple, water/telecom
+> selection grammar, hero pulse. **C system pass** — chart theme (mono ticks, dashed grid),
+> `SkeletonRows`/`SkeletonStats`, drawer/list enter motion, hand-rolled toaster on job
+> completions. **D ⌘K palette** (`cmdk`, the arc's only new dep) — pages/actions/substations/
+> parcels/owners + `/ask?q=` handoff. **E share layer** — `generateMetadata` wrappers
+> (client pages moved to `*-client.tsx`), `/og/[view]` ImageResponse cards (island silhouette,
+> REPLAY chip, no fabricated zeros), `/resilience?present=1` wall-display mode (chrome-hide,
+> auto-cycling cascades, lower-third stats). **F sweep** — hero framing/stat honesty, storm
+> client onto shared PanelBox, `EmptyState`, restrained domain accents, presentation scrim,
+> +5 e2e specs (palette/hero/presentation/reduced-motion/OG) → 32/32. Gate GO; one fix at gate
+> (OG stat guard: raw-number check so the population=0 quirk can't render "People 0").
+> All motion honors `prefers-reduced-motion`; RAF gated on active flags; base-layer memos
+> phase-free. Residuals → BACKLOG: water/telecom arc centroids; upstream `population_affected=0`
+> quirk tracked separately (task chip).
 
 ---
 

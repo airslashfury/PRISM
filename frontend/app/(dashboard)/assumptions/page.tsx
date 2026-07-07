@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { InfoPanel } from "@/components/info-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { useToast } from "@/components/toaster";
 import { useEditableAssumptions, useScenarios } from "@/lib/hooks";
 import {
   api,
@@ -43,6 +44,7 @@ function fmtKnob(key: string, v: number): string {
 export default function AssumptionsPage() {
   const { data: knobs, isLoading, error } = useEditableAssumptions();
   const { data: scenarios } = useScenarios();
+  const { push: toast } = useToast();
 
   const [scenario, setScenario] = useState("cat3");
   const [values, setValues] = useState<Record<string, number>>({});
@@ -86,8 +88,10 @@ export default function AssumptionsPage() {
       const res = await pollJob<AssumptionEvalResult>(job_id, { timeoutMs: 180_000 });
       if (res?.error) throw new Error(res.error);
       setResult(res);
+      toast({ title: "Assumptions re-run complete — rankings updated" });
     } catch (e) {
       setRunError(e as Error);
+      toast({ title: "Assumptions re-run failed", description: (e as Error).message, variant: "destructive" });
     } finally {
       setRunning(false);
     }

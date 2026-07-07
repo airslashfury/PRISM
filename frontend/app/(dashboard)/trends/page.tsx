@@ -16,7 +16,7 @@ import {
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 
 import { MapCanvas, tip } from "@/components/map/map-canvas";
-import { AXIS_PROPS, GRID_STROKE, ChartTooltip } from "@/components/charts";
+import { AXIS_PROPS, GRID_PROPS, ChartTooltip } from "@/components/charts";
 import { InfoPanel } from "@/components/info-panel";
 import { ConfidenceChip } from "@/components/provenance-badge";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
@@ -112,12 +112,11 @@ export default function TrendsPage() {
           {error && <ErrorBlock error={error} />}
           {data && (
             <div className="space-y-5">
-              <div>
-                <h2 className="text-lg font-semibold leading-tight">Puerto Rico property market</h2>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  CRIM recorded sales{data.summary.earliest ? ` · ${data.summary.earliest.slice(0, 4)}–${(data.summary.latest ?? "").slice(0, 4)}` : ""} · {data.summary.municipios} municipios
-                </p>
-              </div>
+              {/* Topbar already carries the page title + desc — this line only
+               *  adds the dynamic facts (date range, municipio count) it doesn't have. */}
+              <p className="text-[11px] text-muted-foreground">
+                CRIM recorded sales{data.summary.earliest ? ` · ${data.summary.earliest.slice(0, 4)}–${(data.summary.latest ?? "").slice(0, 4)}` : ""} · {data.summary.municipios} municipios
+              </p>
 
               {/* Headline stats */}
               <div className="grid grid-cols-2 gap-2">
@@ -134,7 +133,7 @@ export default function TrendsPage() {
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
                   <ComposedChart data={yearData} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
-                    <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+                    <CartesianGrid {...GRID_PROPS} />
                     <XAxis dataKey="year" {...AXIS_PROPS} />
                     <YAxis yAxisId="l" {...AXIS_PROPS} width={40} tickFormatter={(v) => `${fmtNum(v / 1000, 0)}k`} />
                     <YAxis yAxisId="r" orientation="right" {...AXIS_PROPS} width={42} tickFormatter={(v) => `$${fmtNum(v, 0)}k`} />

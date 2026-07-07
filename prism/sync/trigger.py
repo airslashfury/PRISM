@@ -95,6 +95,18 @@ def trigger_rescore(engine: Engine, scenario: str = "cat3") -> None:
         ranked[0].composite_score if ranked else 0.0,
     )
 
+    # Keep economy.substation_exposure aligned with the freshly scored set —
+    # exposure only covers substations present in scenario_scores, so a rescore
+    # that scores new substations must re-run it or they never get VOLL rows
+    # (how MARTIN PENA TC, the #1 cat3 substation, ended up with no exposure).
+    try:
+        from prism.economy.exposure import compute_exposure
+
+        n_exp = compute_exposure(engine, scenario=scenario)
+        log.info("Refreshed VOLL exposure for %d substations", n_exp)
+    except Exception as exc:
+        log.warning("trigger_rescore: exposure refresh failed: %s", exc)
+
     n = compute_downstream_summary(engine)
     log.info("Refreshed downstream summary for %d substations (Consequence Lens)", n)
 

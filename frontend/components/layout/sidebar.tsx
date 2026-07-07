@@ -13,7 +13,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-border/70 bg-card/40 md:flex">
+    <aside data-chrome className="hidden w-60 shrink-0 flex-col border-r border-border/70 bg-card/40 md:flex">
       <div className="flex h-16 items-center border-b border-border/70 px-5">
         <Link href="/">
           <BrandWordmark />

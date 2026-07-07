@@ -138,10 +138,10 @@ export default function EconomyPage() {
             </div>
             <div className="mt-0.5 flex items-baseline gap-2">
               <span className="text-2xl font-semibold tnum">{fmtNum(stats.avg, 2)}</span>
-              <span className="text-xs text-muted-foreground">mean · {fmtInt(stats.n)} tracts</span>
+              <span className="text-xs text-muted-foreground">mean · <span className="tnum">{fmtInt(stats.n)}</span> tracts</span>
             </div>
             <div className="text-[11px] text-muted-foreground">
-              {fmtInt(stats.high)} tracts at SVI ≥ 0.75 (limited self-recovery capacity)
+              <span className="tnum">{fmtInt(stats.high)}</span> tracts at SVI ≥ 0.75 (limited self-recovery capacity)
             </div>
           </div>
           <div className="absolute right-4 top-4 w-48 rounded-lg border border-border/70 bg-card/90 p-3 shadow-lg backdrop-blur">

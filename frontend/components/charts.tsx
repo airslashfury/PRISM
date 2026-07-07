@@ -13,12 +13,15 @@ export const CHART_COLORS = [
 
 export const AXIS_PROPS = {
   stroke: "hsl(215 18% 50%)",
-  fontSize: 11,
   tickLine: false,
   axisLine: false,
+  tickMargin: 6,
+  tick: { fill: "hsl(215 18% 55%)", fontSize: 10.5, fontFamily: "var(--font-mono), ui-monospace, monospace" },
 } as const;
 
 export const GRID_STROKE = "hsl(215 28% 16%)";
+
+export const GRID_PROPS = { stroke: GRID_STROKE, strokeDasharray: "3 6", vertical: false } as const;
 
 export function ChartTooltip({
   active,

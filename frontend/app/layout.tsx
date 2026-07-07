@@ -1,13 +1,30 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Providers } from "./providers";
+import { cn } from "@/lib/utils";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "PRISM — Infrastructure Intelligence",
   description:
     "Puerto Rico Infrastructure Simulation Model — resilience, economy, optimization, and rail corridors as one interconnected system.",
+  openGraph: {
+    siteName: "PRISM",
+    type: "website",
+    title: "PRISM — Infrastructure Intelligence",
+    description:
+      "Puerto Rico Infrastructure Simulation Model — resilience, economy, optimization, and rail corridors as one interconnected system.",
+    images: ["/og/default"],
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {
@@ -17,16 +34,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <head>
-        {/* Fonts load progressively; the system stack is the graceful fallback. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html
+      lang="en"
+      className={cn("dark", inter.variable, jetbrainsMono.variable)}
+      suppressHydrationWarning
+    >
       <body className="min-h-screen bg-background font-sans">
         <Providers>{children}</Providers>
       </body>

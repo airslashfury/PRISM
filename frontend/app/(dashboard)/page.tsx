@@ -1,18 +1,27 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
-import { Activity, ArrowRight, TriangleAlert } from "lucide-react";
+import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import type { Layer } from "@deck.gl/core";
+import { ArrowRight, TriangleAlert, Wind } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LoadingBlock, ErrorBlock } from "@/components/query-state";
+import { Button } from "@/components/ui/button";
+import { ErrorBlock } from "@/components/query-state";
 import { NAV } from "@/components/layout/nav";
+import { MapCanvas, PR_VIEW } from "@/components/map/map-canvas";
 import { GenerationPanel } from "@/components/generation-panel";
 import { OutagesPanel } from "@/components/outages-panel";
 import { SeismicPanel } from "@/components/seismic-panel";
 import { WhatsNew } from "@/components/whats-new";
-import { useOverview } from "@/lib/hooks";
-import { fmtInt, fmtNum, fmtRelative } from "@/lib/utils";
+import { useOverview, useCurrentState, useSeismic, useStorm, useWhatsNew } from "@/lib/hooks";
+import { useCountUp } from "@/lib/use-count-up";
+import { DOMAIN_RGB } from "@/lib/colors";
+import { cn, fmtInt, fmtIntTiered, fmtNum, fmtRelative } from "@/lib/utils";
+import type { CurrentStateScore, SeismicEvent } from "@/lib/api";
+import { usePulse } from "@/lib/map-motion";
 
 const MODULE_METRIC: Record<string, (c: any) => string> = {
   "/resilience": (c) => `${fmtInt(c.substations_scored)} substations scored`,
@@ -22,47 +31,255 @@ const MODULE_METRIC: Record<string, (c: any) => string> = {
   "/sync": (c) => `${fmtInt(c.sync_sources)} live data sources`,
 };
 
-function MiniCount({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-sm font-semibold tnum">{value}</div>
-    </div>
-  );
-}
+// Framed so PR's landmass sits in the frame's right two-thirds (where the text
+// gradient below has faded clear) and Charlotte Amalie/Road Town (USVI/BVI,
+// ~1.5-2 degrees east of PR) fall past the right edge. Verified against a real
+// rendered screenshot at 1440x900 (hero container ~1152x440px) — an earlier
+// pass computed from Web Mercator math alone landed STT's label just inside
+// the frame (map labels render past their anchor point, so the math-predicted
+// edge undershoots by a bit); this pass has a wider empirical margin.
+const HERO_VIEW = { ...PR_VIEW, longitude: -66.113, latitude: 18.267, zoom: 8.5 };
+
+/** Live outages pulse (F8 B2): subtle ring on the hero's offline-substation
+ *  dots — the same "grid breathing" idea as resilience's offline-pulse, sized
+ *  down for the hero's smaller/denser map. */
+const OFFLINE_PULSE_MS = 2200;
 
 export default function OverviewPage() {
-  const { data, isLoading, error } = useOverview();
+  const { data, error } = useOverview();
+  const { data: current } = useCurrentState();
+  const { data: seismic } = useSeismic(30);
+  const { data: storm } = useStorm();
+  // Same feed list the WhatsNew card renders directly below — the hero strip
+  // and the card it sits above must agree on "how many feeds," so this counts
+  // feeds.length rather than the separate (and lower) counts.sync_sources.
+  const { data: whatsNew } = useWhatsNew();
+
+  const nodesModeled = useCountUp(data?.counts.graph_entities);
+  const dependenciesMapped = useCountUp(data?.counts.graph_relationships);
+  const parcels = useCountUp(data?.counts.crim_parcels);
+  const liveFeeds = useCountUp(whatsNew?.feeds.length);
+
+  const advisory = storm?.advisory ?? null;
+  const stormHeadline = storm?.consequence?.headline ?? null;
+
+  const offlineSubstations = useMemo(
+    () => (current?.substations ?? []).filter((d) => d.is_offline),
+    [current?.substations],
+  );
+
+  // Base layers: everything that does NOT depend on animation phase — kept in
+  // its own memo so the pulse tick never re-diffs the substation/quake/cone
+  // layers (mirrors resilience's base/motion split).
+  const heroLayers = useMemo(() => {
+    const ls: Layer[] = [];
+    const substations = current?.substations ?? [];
+
+    if (substations.length) {
+      ls.push(
+        new ScatterplotLayer<CurrentStateScore>({
+          id: "hero-substations",
+          data: substations,
+          getPosition: (d) => [d.lon, d.lat],
+          getRadius: 4,
+          radiusUnits: "pixels",
+          radiusMinPixels: 1.5,
+          getFillColor: [34, 211, 238, 80],
+          pickable: false,
+        }),
+      );
+
+      if (offlineSubstations.length) {
+        ls.push(
+          new ScatterplotLayer<CurrentStateScore>({
+            id: "hero-substations-offline",
+            data: offlineSubstations,
+            getPosition: (d) => [d.lon, d.lat],
+            getRadius: 6,
+            radiusUnits: "pixels",
+            radiusMinPixels: 3.5,
+            getFillColor: [239, 68, 68, 230],
+            pickable: false,
+          }),
+        );
+      }
+    }
+
+    const quakes = seismic?.events ?? [];
+    if (quakes.length) {
+      ls.push(
+        new ScatterplotLayer<SeismicEvent>({
+          id: "hero-quakes",
+          data: quakes,
+          getPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
+          getRadius: 4,
+          radiusUnits: "pixels",
+          radiusMinPixels: 2,
+          getFillColor: [245, 158, 11, 150],
+          pickable: false,
+        }),
+      );
+    }
+
+    if (advisory?.cone_geojson) {
+      const waterRgb = DOMAIN_RGB.water;
+      ls.push(
+        new GeoJsonLayer({
+          id: "hero-storm-cone",
+          data: { type: "Feature", geometry: advisory.cone_geojson, properties: {} } as never,
+          filled: true,
+          stroked: true,
+          getFillColor: [...waterRgb, 22] as [number, number, number, number],
+          getLineColor: [59, 130, 246, 120],
+          getLineWidth: 1,
+          lineWidthUnits: "pixels",
+          lineWidthMinPixels: 1,
+          pickable: false,
+        }),
+      );
+    }
+
+    return ls;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.substations, offlineSubstations, seismic?.events, advisory]);
+
+  // Motion layer: pulse ring over live offline substations — active only
+  // while there are any. Split from heroLayers so the 60fps tick never
+  // touches the (larger) substation/quake/cone layers above.
+  const offlinePulsePhase = usePulse(OFFLINE_PULSE_MS, offlineSubstations.length > 0);
+  const heroMotionLayers = useMemo(() => {
+    const ls: Layer[] = [];
+    if (offlineSubstations.length) {
+      ls.push(
+        new ScatterplotLayer<CurrentStateScore>({
+          id: "hero-substations-offline-pulse",
+          data: offlineSubstations,
+          getPosition: (d) => [d.lon, d.lat],
+          getRadius: 3.5 + offlinePulsePhase * 4.5,
+          radiusUnits: "pixels",
+          radiusMinPixels: 3.5,
+          radiusMaxPixels: 8,
+          getFillColor: [239, 68, 68, Math.round((1 - offlinePulsePhase) * 140)] as [
+            number,
+            number,
+            number,
+            number,
+          ],
+          stroked: false,
+          pickable: false,
+          updateTriggers: { getRadius: [offlinePulsePhase], getFillColor: [offlinePulsePhase] },
+        }),
+      );
+    }
+    return ls;
+  }, [offlineSubstations, offlinePulsePhase]);
+
+  const allHeroLayers = useMemo(
+    () => [...heroLayers, ...heroMotionLayers],
+    [heroLayers, heroMotionLayers],
+  );
+
+  const topPopulation = data?.top_substation_population;
+  const topHospitals = data?.top_substation_hospitals;
+  // downstream_summary sometimes carries hospitals with no population figure —
+  // asserting "0 people, 23 hospitals" would read as a contradiction, so treat
+  // a falsy population the same as absent rather than printing a false "0".
+  const hasPopulation = topPopulation != null && topPopulation > 0;
+  const hasHospitals = topHospitals != null && topHospitals > 0;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6">
-      <div>
-        <h1 className="text-lg font-semibold tracking-tight">Island posture</h1>
-        <p className="text-sm text-muted-foreground">
-          What changed, what&apos;s live, and where the risk sits right now.
-        </p>
+      {error && <ErrorBlock error={error} />}
+
+      {/* Storm banner — only when an advisory is on the board */}
+      {advisory && (
+        <Link
+          href="/storm"
+          className="flex items-center gap-3 rounded-lg border border-border/60 border-l-2 border-l-domain-hazard bg-card/60 px-4 py-2.5 transition-colors hover:bg-card"
+        >
+          <Wind className="h-4 w-4 shrink-0 text-domain-hazard" />
+          <div className="min-w-0 flex-1 text-sm">
+            <span className="font-medium">{advisory.storm_name ?? "Unnamed storm"}</span>
+            <span className="text-muted-foreground"> · advisory #{advisory.advisory_num}</span>
+            {stormHeadline && (
+              <span className="text-muted-foreground"> — {stormHeadline}</span>
+            )}
+          </div>
+          {advisory.replay && (
+            <Badge variant="warning" className="shrink-0">
+              REPLAY
+            </Badge>
+          )}
+          <span className="shrink-0 text-xs font-medium text-primary">Track live →</span>
+        </Link>
+      )}
+
+      {/* Hero — the living island */}
+      <div className="relative h-[380px] overflow-hidden rounded-xl border border-border/60 md:h-[440px]">
+        {/* MapCanvas's root div sizes to flow content, not its parent — pin it
+            absolute so it doesn't push the text overlay below the fold. */}
+        <div className="absolute inset-0">
+          <MapCanvas layers={allHeroLayers} initialViewState={HERO_VIEW} controller={false} />
+        </div>
+
+        {/* Readability gradient: text legible on the left, island visible on the right.
+            Narrower "via" stop (60% vs the container width) than desktop needs, because
+            on mobile the text column has less room to clear the map before wrapping. */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/80 via-60% to-transparent md:via-background/70" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+
+        <div className="relative z-10 flex h-full flex-col justify-between p-6 md:p-8">
+          <div className="max-w-[85%] sm:max-w-xl">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Puerto Rico Infrastructure Simulation Model
+            </div>
+            <h1 className="mt-2 text-display font-semibold tracking-tight md:text-display-lg">
+              Power, water, telecom, roads — one island, one system.
+            </h1>
+            <p className="mt-3 max-w-md text-sm text-muted-foreground">
+              PRISM models how failures cascade across Puerto Rico&apos;s infrastructure — live,
+              with consequences in people and dollars.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div data-testid="hero-stats" className="flex flex-wrap gap-x-8 gap-y-3">
+              <Stat label="Nodes modeled" value={data ? fmtInt(nodesModeled) : "—"} />
+              <Stat label="Dependencies mapped" value={data ? fmtInt(dependenciesMapped) : "—"} />
+              {/* crim_parcels is a pg_class planner estimate, not an exact COUNT —
+                  render it with the same "estimated" tier fmtIntTiered already
+                  uses for proxy figures elsewhere, so it never reads as more
+                  precise than it is. */}
+              <Stat label="Parcels" value={data ? fmtIntTiered(parcels, "estimated") : "—"} />
+              <Stat label="Live feeds" value={whatsNew ? fmtInt(liveFeeds) : "—"} />
+              <Stat label="Last sync" value={data ? fmtRelative(data.last_sync_at) : "—"} />
+            </div>
+            <Button asChild variant="ghost" size="sm" className="shrink-0 text-muted-foreground hover:text-foreground">
+              <Link href="/resilience">
+                Open the model <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {error && <ErrorBlock error={error} />}
-      {isLoading && <LoadingBlock label="Loading system posture" />}
+      {/* Lead: what changed since last sync + which feeds are fresh/stale */}
+      <WhatsNew />
+
+      {/* Live PREPA / Genera grid command center — the operational headline */}
+      <GenerationPanel />
+
+      {/* Live LUMA outages + live USGS seismic feed, side by side */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <OutagesPanel />
+        <SeismicPanel />
+      </div>
 
       {data && (
         <>
-          {/* Lead: what changed since last sync + which feeds are fresh/stale */}
-          <WhatsNew />
-
-          {/* Live PREPA / Genera grid command center — the operational headline */}
-          <GenerationPanel />
-
-          {/* Live LUMA delivery-side outages — the complement to generation */}
-          <OutagesPanel />
-
-          {/* Live USGS seismic feed — PR's active SW (Guánica) zone */}
-          <SeismicPanel />
-
-          {/* Operational risk + twin freshness */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Card className="border-red-500/20 bg-gradient-to-br from-card to-red-950/10">
+          {/* Highest consequence node */}
+          <Link href={data.top_substation_entity_id != null ? `/resilience?sel=${data.top_substation_entity_id}` : "/resilience"}>
+            <Card className="border-red-500/20 bg-gradient-to-br from-card to-red-950/10 transition-colors hover:border-red-500/40">
               <div className="p-5">
                 <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-red-400">
                   <TriangleAlert className="h-4 w-4" />
@@ -75,28 +292,28 @@ export default function OverviewPage() {
                     {fmtNum(data.top_substation_score, 1)}
                   </span>
                 </div>
-                <div className="mt-2 text-[11px] text-muted-foreground/80">
-                  Highest hazard × cascade impact × centrality on the island. See Resilience for
-                  downstream hospitals and population.
-                </div>
-              </div>
-            </Card>
-            <Card>
-              <div className="flex h-full flex-col justify-center gap-3 p-5">
-                <div className="flex items-center gap-3">
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Digital twin last sync</div>
-                    <div className="text-sm font-medium tnum">{fmtRelative(data.last_sync_at)}</div>
+                {(hasPopulation || hasHospitals) && (
+                  <div className="mt-2 text-[11px] text-muted-foreground/80">
+                    Failure would cut power to
+                    {hasPopulation && (
+                      <> ~{fmtIntTiered(topPopulation)} people</>
+                    )}
+                    {hasPopulation && hasHospitals && <>, including</>}
+                    {hasHospitals && (
+                      <> {fmtInt(topHospitals)} hospital{topHospitals === 1 ? "" : "s"}</>
+                    )}
+                    .
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3 border-t border-border/40 pt-3">
-                  <MiniCount label="Substations scored" value={fmtInt(data.counts.substations_scored)} />
-                  <MiniCount label="Live data sources" value={fmtInt(data.counts.sync_sources)} />
-                </div>
+                )}
+                {!hasPopulation && !hasHospitals && (
+                  <div className="mt-2 text-[11px] text-muted-foreground/80">
+                    Highest hazard × cascade impact × centrality on the island. See Resilience for
+                    downstream hospitals and population.
+                  </div>
+                )}
               </div>
             </Card>
-          </div>
+          </Link>
 
           {/* Module navigation */}
           <section>
@@ -147,6 +364,15 @@ export default function OverviewPage() {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("text-xl font-semibold tnum md:text-2xl")}>{value}</div>
     </div>
   );
 }

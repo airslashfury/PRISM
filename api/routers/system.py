@@ -51,17 +51,23 @@ def overview(engine: Engine = Depends(engine_dep)) -> dict:
           (SELECT count(*) FROM graph.entities)                                        AS graph_entities,
           (SELECT count(*) FROM graph.relationships)                                   AS graph_relationships,
           (SELECT count(*) FROM sync.data_sources)                                     AS sync_sources,
-          (SELECT count(*) FROM transport.road_access_cost)                            AS barrios_access
+          (SELECT count(*) FROM transport.road_access_cost)                            AS barrios_access,
+          -- Planner estimate, not count(*): crim.parcelas is 1.53M rows and this
+          -- endpoint backs the topbar on every page — a real count would be slow.
+          (SELECT reltuples::bigint FROM pg_class WHERE oid='crim.parcelas'::regclass) AS crim_parcels
         """,
     )
     last_sync = fetch_scalar(engine, "SELECT max(run_at) FROM sync.sync_log")
     top = fetch_one(
         engine,
         """
-        SELECT entity_name, composite_score
-        FROM resilience.scenario_scores
-        WHERE scenario_name='cat3'
-        ORDER BY composite_score DESC
+        SELECT s.entity_id, s.entity_name, s.composite_score,
+               d.population_affected AS downstream_population,
+               d.hospitals           AS downstream_hospitals
+        FROM resilience.scenario_scores s
+        LEFT JOIN graph.downstream_summary d ON d.entity_id = s.entity_id
+        WHERE s.scenario_name='cat3'
+        ORDER BY s.composite_score DESC
         LIMIT 1
         """,
     )
@@ -74,6 +80,9 @@ def overview(engine: Engine = Depends(engine_dep)) -> dict:
         "last_sync_at": last_sync,
         "top_substation": top["entity_name"] if top else None,
         "top_substation_score": top["composite_score"] if top else None,
+        "top_substation_entity_id": top["entity_id"] if top else None,
+        "top_substation_population": top["downstream_population"] if top else None,
+        "top_substation_hospitals": top["downstream_hospitals"] if top else None,
         "scenarios": scenarios,
         "phases": [{"phase": p, "name": n, "status": s} for p, n, s in PHASES],
     }

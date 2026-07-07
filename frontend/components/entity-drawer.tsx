@@ -1,5 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 /**
  * Reusable 7-section entity-detail grammar (extracted from resilience/page.tsx's
  * DetailPanel). Any map-page detail drawer — substation, water source, etc. —
@@ -25,7 +27,7 @@ export interface EntityDrawerProps {
 
 export function EntityDrawer({ header, sections, onBack }: EntityDrawerProps) {
   return (
-    <div className="p-4">
+    <div className="animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none p-4">
       {onBack && (
         <button
           onClick={onBack}
@@ -38,8 +40,14 @@ export function EntityDrawer({ header, sections, onBack }: EntityDrawerProps) {
         {header}
         {sections
           .filter((s) => !s.hidden)
-          .map((s) => (
-            <PanelBox key={s.id} title={s.title} badge={s.badge}>
+          .map((s, i) => (
+            <PanelBox
+              key={s.id}
+              title={s.title}
+              badge={s.badge}
+              className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+              style={{ animationDelay: `${i * 40}ms`, animationFillMode: "backwards" }}
+            >
               {s.rows?.map((r) => <Row key={r.label} label={r.label} value={r.value} />)}
               {s.body}
             </PanelBox>
@@ -53,13 +61,20 @@ export function PanelBox({
   title,
   badge,
   children,
+  className,
+  style,
 }: {
   title: string;
   badge?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-background/30 p-3">
+    <div
+      className={cn("rounded-lg border border-border/60 bg-background/30 p-3", className)}
+      style={style}
+    >
       <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
         {badge}

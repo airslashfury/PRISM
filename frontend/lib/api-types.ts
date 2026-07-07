@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/whatsnew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whatsnew
+         * @description Feed freshness + a newest-first typed change stream for the overview cockpit.
+         */
+        get: operations["whatsnew_whatsnew_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/resilience/scenarios": {
         parameters: {
             query?: never;
@@ -73,6 +93,32 @@ export interface paths {
          * @description Scored substations for a scenario, with centroid lon/lat for the map.
          */
         get: operations["scores_resilience_scores_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/resilience/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current State
+         * @description Live electricity posture — the default resilience view.
+         *
+         *     Each scored substation carries its *baseline* (blue-sky) consequence —
+         *     cascade impact × (1 + centrality), with NO hazard multiplier — so the map
+         *     always shows inherent criticality. Substations whose matched generation is
+         *     offline right now (per the live PREPA/Genera feed) are flagged `is_offline`.
+         *     Scenario scores (Cat-3/SLR) are a separate overlay layered on top of this.
+         */
+        get: operations["current_state_resilience_current_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -130,6 +176,29 @@ export interface paths {
         };
         /** Runs */
         get: operations["runs_portfolio_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portfolio/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare
+         * @description Item-level diff between two portfolio runs — what the budget allocator shows
+         *     after a re-run: which substations were added/dropped and the cost/uplift deltas.
+         *     Reuses prism.report.compare.compare_runs as a pure read (persist=False) so a
+         *     GET doesn't write an audit row per call.
+         */
+        get: operations["compare_portfolio_compare_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -295,6 +364,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/network/generation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Generation
+         * @description Live PREPA generation: per-plant current output + the island-wide reading.
+         *
+         *     Supply-side AUTHORITATIVE data (operationdata.prepa.pr.gov). `status` is
+         *     INFERRED from MW (no explicit field in the feed). Updated by the prepa_ops
+         *     sync; this endpoint is a read of sync.generation_status + sync.grid_snapshot.
+         */
+        get: operations["generation_network_generation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/outages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Outages
+         * @description Live LUMA delivery-side outages by operational region.
+         *
+         *     DELIVERY-side AUTHORITATIVE data (miluma.lumapr.com) — customers without
+         *     service per LUMA region. Complements /network/generation (supply-side):
+         *     generation tells us MW produced, this tells us customers actually served.
+         *     Read of sync.luma_outages, refreshed by the luma_ops sync.
+         */
+        get: operations["outages_network_outages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/seismic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Seismic
+         * @description Live USGS earthquakes for the PR / USVI region (last `days`).
+         *
+         *     AUTHORITATIVE (USGS is the seismic authority), no key. Read of
+         *     sync.seismic_events, refreshed by the usgs_quakes sync. The SW (Guánica)
+         *     cluster dominates — PR's active aftershock zone since the 2020 sequence.
+         */
+        get: operations["seismic_network_seismic_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/network/transmission": {
         parameters: {
             query?: never;
@@ -310,6 +452,104 @@ export interface paths {
          *     drawing the full grid web; geometry is simplified to ~90 m and reprojected.
          */
         get: operations["transmission_network_transmission_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/consequence/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consequence
+         * @description Consequence Lens (M5a): precomputed downstream ripple + one-line headline.
+         *
+         *     Backed by `graph.downstream_summary`, refreshed by the sync spine. Only
+         *     substations (the only entities with FEEDS/POWERS downstream cascades)
+         *     have a summary.
+         */
+        get: operations["consequence_network_consequence__entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/water-consequence/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Water Consequence
+         * @description Power→water coupling: if this substation fails, which areas lose water?
+         *
+         *     Chain: substation →(POWERS) pump/well/plant →(WATER_SERVES) barrios. Built by
+         *     `prism.graph.water`. Proxy-tier (no real electric feeder / pipe routing) — the
+         *     barrio set is honest at operating-area granularity, not feeder-level.
+         */
+        get: operations["water_consequence_network_water_consequence__entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/telecom-consequence/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Telecom Consequence
+         * @description Power→telecom coupling: if this substation fails, which areas lose coverage?
+         *
+         *     Chain: substation →(POWERS) tower/cell_site →(COVERS) barrios. Built by
+         *     `prism.graph.telecom`. Proxy-tier (no real electric feeder / RF propagation
+         *     model) — the barrio set is a straight-line coverage-radius proxy, not a
+         *     real RF footprint.
+         */
+        get: operations["telecom_consequence_network_telecom_consequence__entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/storm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Storm
+         * @description Live storm state (F5): latest PR-affecting NHC advisory + pre-landfall
+         *     consequence intersection. Live polls beat replays; newest issued_at wins.
+         *
+         *     `active` is true only for a genuinely live (non-replay) advisory fetched
+         *     within the last 12 hours — the Fiona replay evidence is always available
+         *     to read but never reported as an active storm.
+         */
+        get: operations["storm_network_storm_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -488,6 +728,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/portfolio/optimize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue Portfolio Optimize */
+        post: operations["enqueue_portfolio_optimize_jobs_portfolio_optimize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/validate/assumptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enqueue Assumption Evaluation
+         * @description Recompute the substation ranking under edited global assumptions (F4).
+         *
+         *     Read-only what-if: the result reports rank shifts + a robust/sensitive
+         *     verdict for this exact perturbation; scenario_scores is never written.
+         */
+        post: operations["enqueue_assumption_evaluation_jobs_validate_assumptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/narratives/corridor": {
         parameters: {
             query?: never;
@@ -499,6 +779,26 @@ export interface paths {
         put?: never;
         /** Enqueue Corridor Narrative */
         post: operations["enqueue_corridor_narrative_jobs_narratives_corridor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/narratives/portfolio-diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enqueue Portfolio Diff Narrative
+         * @description AI narrative explaining what changed between two portfolio runs (F4).
+         */
+        post: operations["enqueue_portfolio_diff_narrative_jobs_narratives_portfolio_diff_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -756,10 +1056,609 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/provenance/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tiers
+         * @description The four confidence tiers (Authoritative/Modeled/Proxy/Estimated), ordered.
+         */
+        get: operations["tiers_provenance_tiers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provenance/assumptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assumptions
+         * @description Global Estimated/Proxy constants baked into the models (VOLL, discount rate, ...).
+         */
+        get: operations["assumptions_provenance_assumptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provenance/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inventory
+         * @description Every catalog entry (mirrored source layers + derived tables), tiered. Powers the Trust Center.
+         */
+        get: operations["inventory_provenance_inventory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provenance/layer/{layer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Layer
+         * @description Provenance for a mirrored source layer, e.g. `pr_geodata:g03_legales_barrios_2023`.
+         */
+        get: operations["layer_provenance_layer__layer_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provenance/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Table
+         * @description Provenance for a derived table, e.g. `graph.relationships` or `resilience.scenario_scores`.
+         */
+        get: operations["table_provenance__table__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/validate/backtests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Backtests
+         * @description Event backtests — replay Maria/Fiona/the April 2024 blackout against PRISM's rankings.
+         */
+        get: operations["backtests_validate_backtests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/validate/assumptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assumptions
+         * @description Editable global assumptions for the F4 panel: baseline, slider range,
+         *     whether the knob can reorder the ranking, and the standing P2 stability badge.
+         */
+        get: operations["assumptions_validate_assumptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/validate/sensitivity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sensitivity
+         * @description Sensitivity sweeps over PRISM's load-bearing assumptions (VOLL, discount rate, ...).
+         */
+        get: operations["sensitivity_validate_sensitivity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/validate/model-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Model Cards
+         * @description One card per PRISM sub-model: purpose, inputs, limitations, provenance, backtests, sensitivity.
+         */
+        get: operations["model_cards_validate_model_cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/validate/model-cards/{model_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Model Card */
+        get: operations["model_card_validate_model_cards__model_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/citizen/barrios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Barrios
+         * @description All 901 barrios, for the civic-card search/typeahead.
+         */
+        get: operations["barrios_citizen_barrios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/citizen/card/{barrio_entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Card
+         * @description The civic card for one barrio: power, consequence, resilience, access, flood, plans.
+         */
+        get: operations["card_citizen_card__barrio_entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask
+         * @description Answer a natural-language question by routing it to one typed model query.
+         *
+         *     Never fails silently: `answer_query` returns an honest stub for backend/LLM
+         *     outages, and any *unexpected* error is converted to a plain-language message
+         *     (200 + status="error") rather than an opaque 500 the UI can't render.
+         */
+        post: operations["ask_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sitefinder/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Meta
+         * @description Criterion catalogue (for the weight sliders) + parcel count + tier.
+         */
+        get: operations["meta_sitefinder_meta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sitefinder/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Score
+         * @description Rank candidate parcels by composite suitability for the given weights.
+         */
+        post: operations["score_sitefinder_score_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sitefinder/parcel/{parcel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Parcel
+         * @description Full suitability breakdown for one parcel.
+         */
+        get: operations["parcel_sitefinder_parcel__parcel_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sitefinder/access-points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Access Points
+         * @description Seaports + airports as lon/lat points for map context.
+         */
+        get: operations["access_points_sitefinder_access_points_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/parcels/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search
+         * @description Multi-field parcel search → matched set (count + bbox + capped centroids).
+         */
+        get: operations["search_crim_parcels_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/parcel/{num_catastro}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Parcel
+         * @description Full enriched record for one parcel (raw CRIM + power/flood/community/road/site joins).
+         */
+        get: operations["parcel_crim_parcel__num_catastro__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/owners/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Owner Search
+         * @description Resolve a name fragment to normalized owner entities (variants collapsed).
+         */
+        get: operations["owner_search_crim_owners_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/owner/{owner_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Owner Detail
+         * @description One owner's footprint, municipio split, holdings timeline, and portfolio.
+         */
+        get: operations["owner_detail_crim_owner__owner_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales Trends
+         * @description Sales-trend analytics over the CRIM recorded-sales history (cached 1h).
+         *
+         *     Hot-spot municipios by recent activity, an island-wide sales/median-price
+         *     time series, and recent month-over-month parcel deltas once tracking has
+         *     ≥2 monthly snapshots.
+         */
+        get: operations["sales_trends_crim_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/water/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sources
+         * @description Scored water sources for the map: cross-domain criticality x hazard x power risk.
+         *
+         *     Backed by resilience.water_scores (prism.resilience.water). Defensively
+         *     computes the score set once if the table is empty (analogous to storm's
+         *     compute_missing_consequences).
+         */
+        get: operations["sources_water_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/water/source/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Source Detail
+         * @description Detail view for one water source: what it is, who it serves, hazard
+         *     exposure, power dependency, and the nearest live USGS gauge.
+         */
+        get: operations["source_detail_water_source__entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/water/gauges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gauges
+         * @description Live USGS NWIS stream/river gauges for Puerto Rico (sync.nwis_gauges).
+         */
+        get: operations["gauges_water_gauges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/telecom/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sources
+         * @description Scored telecom nodes for the map: cross-domain criticality x hazard x power risk.
+         *
+         *     Backed by resilience.telecom_scores (prism.resilience.telecom). Defensively
+         *     computes the score set once if the table is empty (analogous to water's
+         *     /water/sources).
+         */
+        get: operations["sources_telecom_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/telecom/source/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Source Detail
+         * @description Detail view for one telecom node: what it is, who it covers, hazard
+         *     exposure, and power dependency.
+         */
+        get: operations["source_detail_telecom_source__entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AskMapPoint */
+        AskMapPoint: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            /** Kind */
+            kind?: string | null;
+            /** Lon */
+            lon: number;
+            /** Lat */
+            lat: number;
+        };
+        /** AskRequest */
+        AskRequest: {
+            /** Query */
+            query: string;
+        };
+        /** AskResponse */
+        AskResponse: {
+            /** Answer Md */
+            answer_md: string;
+            /** Tool */
+            tool?: string | null;
+            /** Tool Args */
+            tool_args?: {
+                [key: string]: unknown;
+            };
+            /** Tool Result */
+            tool_result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Confidence Tiers */
+            confidence_tiers?: {
+                [key: string]: string;
+            };
+            /** Map Points */
+            map_points?: components["schemas"]["AskMapPoint"][];
+            /** Model Used */
+            model_used: string;
+            /** Status */
+            status: string;
+        };
         /**
          * AssetTypeSchema
          * @description A playground-eligible asset type, reflected from PLAYGROUND_SCHEMA.
@@ -783,6 +1682,147 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** Assumption */
+        Assumption: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+            /** Used By */
+            used_by?: string[];
+            /** Assumptions */
+            assumptions: string;
+            /** Upgrade Path */
+            upgrade_path?: string | null;
+        };
+        /** BacktestResult */
+        BacktestResult: {
+            /** Event Key */
+            event_key: string;
+            /** Event Name */
+            event_name: string;
+            /** Event Date */
+            event_date?: string | null;
+            /** Validation Type */
+            validation_type: string;
+            /** Scenario Name */
+            scenario_name?: string | null;
+            /** Top N */
+            top_n?: number | null;
+            /** Precision At N */
+            precision_at_n?: number | null;
+            /** Recall */
+            recall?: number | null;
+            /** Hits */
+            hits?: {
+                [key: string]: unknown;
+            }[];
+            /** Misses */
+            misses?: string[];
+            /** Notes */
+            notes?: string | null;
+            /** Computed At */
+            computed_at?: string | null;
+        };
+        /** BarrioOption */
+        BarrioOption: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name: string;
+            /** Municipio */
+            municipio?: string | null;
+        };
+        /** ChangeEvent */
+        ChangeEvent: {
+            /** Kind */
+            kind: string;
+            /** Headline */
+            headline: string;
+            /** Detail */
+            detail?: string | null;
+            /** At */
+            at?: string | null;
+            /** Href */
+            href?: string | null;
+        };
+        /** CivicCard */
+        CivicCard: {
+            /** Barrio Entity Id */
+            barrio_entity_id: number;
+            /** Barrio Name */
+            barrio_name: string;
+            /** Municipio Name */
+            municipio_name?: string | null;
+            serving_substation?: components["schemas"]["ServingSubstation"] | null;
+            consequence?: components["schemas"]["CivicConsequence"] | null;
+            community_resilience?: components["schemas"]["CivicCommunityResilience"] | null;
+            road_access?: components["schemas"]["CivicRoadAccess"] | null;
+            flood_exposure: components["schemas"]["CivicFloodExposure"];
+            /** Planned Nearby */
+            planned_nearby?: components["schemas"]["CivicPlannedItem"][];
+        };
+        /** CivicCommunityResilience */
+        CivicCommunityResilience: {
+            /** Score */
+            score: number;
+            /** Percentile */
+            percentile: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** CivicConsequence */
+        CivicConsequence: {
+            /** Headline */
+            headline: string;
+            /** Population Affected */
+            population_affected: number;
+            /** Hospitals */
+            hospitals: number;
+            /** Water Plants */
+            water_plants: number;
+            /** Health Centers */
+            health_centers: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** CivicFloodExposure */
+        CivicFloodExposure: {
+            /** Fraction In Flood Zone */
+            fraction_in_flood_zone: number;
+            /** Level */
+            level: string;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** CivicPlannedItem */
+        CivicPlannedItem: {
+            /** Entity Name */
+            entity_name: string | null;
+            /** Intervention Type */
+            intervention_type: string;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Resilience Uplift */
+            resilience_uplift: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** CivicRoadAccess */
+        CivicRoadAccess: {
+            /** Nearest Hospital */
+            nearest_hospital: string;
+            /** Travel Time Min */
+            travel_time_min: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
         /** CommitResult */
         CommitResult: {
             /** Scenario Id */
@@ -791,6 +1831,55 @@ export interface components {
             stations_created: number;
             /** Serves Created */
             serves_created: number;
+        };
+        /** ConfidenceTier */
+        ConfidenceTier: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Rank */
+            rank: number;
+            /** Color */
+            color?: string | null;
+            /** Description */
+            description: string;
+        };
+        /** ConsequenceEntity */
+        ConsequenceEntity: {
+            /** Entity Id */
+            entity_id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+        };
+        /** ConsequenceSummary */
+        ConsequenceSummary: {
+            /** Entity Id */
+            entity_id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string | null;
+            /** Population Affected */
+            population_affected: number;
+            /** Hospitals */
+            hospitals: number;
+            /** Water Plants */
+            water_plants: number;
+            /** Health Centers */
+            health_centers: number;
+            /** Barrios */
+            barrios: number;
+            /** Headline */
+            headline: string;
+            /** Downstream */
+            downstream: components["schemas"]["ConsequenceEntity"][];
         };
         /** CorridorRoute */
         CorridorRoute: {
@@ -868,6 +1957,88 @@ export interface components {
             /** Km */
             km: number | null;
         };
+        /** CrimBaseline */
+        CrimBaseline: {
+            /** Snapshot Month */
+            snapshot_month?: string | null;
+            /** Snapshots */
+            snapshots: number;
+            /** Deltas Available */
+            deltas_available: boolean;
+            /** Latest Delta Month */
+            latest_delta_month?: string | null;
+        };
+        /**
+         * CurrentStateResponse
+         * @description Default resilience view: live electricity state across all scored substations.
+         */
+        CurrentStateResponse: {
+            /** Plants Offline */
+            plants_offline: number;
+            /** Population Affected Now */
+            population_affected_now?: number | null;
+            /** As Of */
+            as_of?: string | null;
+            /** Substations */
+            substations: components["schemas"]["CurrentStateScore"][];
+        };
+        /**
+         * CurrentStateScore
+         * @description A substation's live electricity posture: inherent (blue-sky) consequence
+         *     if it failed today, plus whether its generation is offline right now.
+         */
+        CurrentStateScore: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name: string | null;
+            /** Lon */
+            lon: number;
+            /** Lat */
+            lat: number;
+            /** Baseline Consequence */
+            baseline_consequence: number;
+            /** Cascade Impact */
+            cascade_impact: number | null;
+            /** Betweenness */
+            betweenness: number | null;
+            /** Is Articulation */
+            is_articulation: boolean;
+            /** Is Generator */
+            is_generator: boolean;
+            /** Is Offline */
+            is_offline: boolean;
+            /** Population Affected */
+            population_affected?: number | null;
+            /** Plant Name */
+            plant_name?: string | null;
+            /** Site Total Mw */
+            site_total_mw?: number | null;
+        };
+        /**
+         * EditableAssumption
+         * @description One knob on the F4 assumptions panel.
+         */
+        EditableAssumption: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+            /** Baseline */
+            baseline?: number | null;
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+            /** Step */
+            step: number;
+            /** Affects Ranking */
+            affects_ranking: boolean;
+            /** Stored Stability */
+            stored_stability?: string | null;
+        };
         /** ExposureRow */
         ExposureRow: {
             /** Entity Id */
@@ -917,6 +2088,101 @@ export interface components {
             /** Features */
             features?: components["schemas"]["Feature"][];
         };
+        /** FeedFreshness */
+        FeedFreshness: {
+            /** Source Name */
+            source_name: string;
+            /** Source Type */
+            source_type?: string | null;
+            /** Layer Name */
+            layer_name?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Row Count */
+            row_count?: number | null;
+            /** Interval Hours */
+            interval_hours?: number | null;
+            /** Last Fetched At */
+            last_fetched_at?: string | null;
+            /** Age Seconds */
+            age_seconds?: number | null;
+            /** Stale */
+            stale: boolean;
+        };
+        /** GenerationPlant */
+        GenerationPlant: {
+            /** Plant Name */
+            plant_name: string;
+            /** Plant Type */
+            plant_type: string;
+            /** Entity Id */
+            entity_id: number | null;
+            /** Entity Name */
+            entity_name: string | null;
+            /** Matched */
+            matched: boolean;
+            /** Site Total Mw */
+            site_total_mw: number;
+            /** N Units */
+            n_units: number;
+            /** Online Units */
+            online_units: number;
+            /** Status */
+            status: string;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+        };
+        /** GenerationStatus */
+        GenerationStatus: {
+            system: components["schemas"]["GridSnapshot"] | null;
+            /** Plants */
+            plants: components["schemas"]["GenerationPlant"][];
+            /** As Of */
+            as_of: string | null;
+            /** Total Plants */
+            total_plants: number;
+            /** Online */
+            online: number;
+            /** Matched */
+            matched: number;
+        };
+        /** GridSnapshot */
+        GridSnapshot: {
+            /** Generation Mw */
+            generation_mw: number | null;
+            /** Frequency Hz */
+            frequency_hz: number | null;
+            /** Reading Hour */
+            reading_hour: string | null;
+            /** As Of */
+            as_of: string | null;
+            /** Fetched At */
+            fetched_at: string | null;
+            /** Spinning Reserve Mw */
+            spinning_reserve_mw?: number | null;
+            /** Operational Reserve Mw */
+            operational_reserve_mw?: number | null;
+            /** Available Capacity Mw */
+            available_capacity_mw?: number | null;
+            /** Prepa Pct */
+            prepa_pct?: number | null;
+            /** Ppoa Pct */
+            ppoa_pct?: number | null;
+            /** Renewable Mw */
+            renewable_mw?: number | null;
+            /** Solar Mw */
+            solar_mw?: number | null;
+            /** Wind Mw */
+            wind_mw?: number | null;
+            /** Hydro Mw */
+            hydro_mw?: number | null;
+            /** Fuel Mix */
+            fuel_mix?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -934,6 +2200,53 @@ export interface components {
             /** Postgis */
             postgis?: string | null;
         };
+        /** InventoryEntry */
+        InventoryEntry: {
+            /** Table */
+            table: string;
+            /** Source */
+            source?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Priority */
+            priority?: string | null;
+            /** License */
+            license?: string | null;
+            /** Row Count */
+            row_count?: number | null;
+            /** Feature Count */
+            feature_count?: number | null;
+            /** Inputs */
+            inputs?: string[];
+            /** Compute Date */
+            compute_date?: string | null;
+            /** Pulled At */
+            pulled_at?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Method */
+            method: string;
+            /** Confidence Tier */
+            confidence_tier: string;
+            /** Confidence Label */
+            confidence_label: string;
+            /** Confidence Color */
+            confidence_color?: string | null;
+            /** Assumptions */
+            assumptions?: string | null;
+            /** Upgrade Path */
+            upgrade_path?: string | null;
+            /** Id */
+            id: string;
+            /** Is Derived */
+            is_derived: boolean;
+        };
         /** JobEnqueued */
         JobEnqueued: {
             /** Job Id */
@@ -949,6 +2262,90 @@ export interface components {
             result?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * LumaOutages
+         * @description LUMA delivery-side outages by operational region (miluma.lumapr.com).
+         */
+        LumaOutages: {
+            /** Regions */
+            regions: components["schemas"]["LumaRegionOutage"][];
+            /** Total Clients */
+            total_clients: number;
+            /** Total Without Service */
+            total_without_service: number;
+            /** Total Planned Outage */
+            total_planned_outage: number;
+            /** Total Load Shed */
+            total_load_shed: number;
+            /** Pct Without Service */
+            pct_without_service: number;
+            /** As Of */
+            as_of: string | null;
+        };
+        /** LumaRegionOutage */
+        LumaRegionOutage: {
+            /** Region */
+            region: string;
+            /** Total Clients */
+            total_clients: number;
+            /** Clients Without Service */
+            clients_without_service: number;
+            /** Clients With Service */
+            clients_with_service: number;
+            /** Clients Planned Outage */
+            clients_planned_outage: number;
+            /** Clients Load Shed */
+            clients_load_shed: number;
+            /** Pct Without Service */
+            pct_without_service: number;
+            /** Pct With Service */
+            pct_with_service: number;
+            /** Fetched At */
+            fetched_at: string | null;
+        };
+        /** ModelCard */
+        ModelCard: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Purpose */
+            purpose: string;
+            /** Inputs */
+            inputs?: string[];
+            /** Known Limitations */
+            known_limitations?: string[];
+            provenance?: components["schemas"]["ProvenanceRecord"] | null;
+            /** Backtests */
+            backtests?: components["schemas"]["BacktestResult"][];
+            /** Sensitivity */
+            sensitivity?: components["schemas"]["ModelCardSensitivity"][];
+        };
+        /** ModelCardSensitivity */
+        ModelCardSensitivity: {
+            /** Assumption Key */
+            assumption_key: string;
+            assumption?: components["schemas"]["Assumption"] | null;
+            /** Results */
+            results?: components["schemas"]["SensitivityResult"][];
+        };
+        /** MunicipioTrend */
+        MunicipioTrend: {
+            /** Municipio */
+            municipio: string;
+            /** Sales */
+            sales: number;
+            /** Prior Sales */
+            prior_sales: number;
+            /** Median Price */
+            median_price?: number | null;
+            /** Volume */
+            volume?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
         };
         /** Narrative */
         Narrative: {
@@ -995,6 +2392,23 @@ export interface components {
             /** Generated At */
             generated_at?: string | null;
         };
+        /** NearestGauge */
+        NearestGauge: {
+            /** Site No */
+            site_no: string;
+            /** Site Name */
+            site_name?: string | null;
+            /** Param Label */
+            param_label?: string | null;
+            /** Value */
+            value?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Distance Km */
+            distance_km?: number | null;
+        };
         /** OverviewCounts */
         OverviewCounts: {
             /** Substations Scored */
@@ -1013,6 +2427,8 @@ export interface components {
             sync_sources: number;
             /** Barrios Access */
             barrios_access: number;
+            /** Crim Parcels */
+            crim_parcels: number;
         };
         /** OverviewResponse */
         OverviewResponse: {
@@ -1023,10 +2439,316 @@ export interface components {
             top_substation?: string | null;
             /** Top Substation Score */
             top_substation_score?: number | null;
+            /** Top Substation Entity Id */
+            top_substation_entity_id?: number | null;
+            /** Top Substation Population */
+            top_substation_population?: number | null;
+            /** Top Substation Hospitals */
+            top_substation_hospitals?: number | null;
             /** Scenarios */
             scenarios: string[];
             /** Phases */
             phases: components["schemas"]["PhaseStatus"][];
+        };
+        /** OwnerDetail */
+        OwnerDetail: {
+            /** Owner Key */
+            owner_key: string;
+            /** Display Name */
+            display_name?: string | null;
+            /** Parcel Count */
+            parcel_count: number;
+            /** Total Val */
+            total_val?: number | null;
+            /** Municipio Count */
+            municipio_count: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+            /** Bbox */
+            bbox?: number[] | null;
+            /** Footprint Capped */
+            footprint_capped: boolean;
+            /** Footprint */
+            footprint?: components["schemas"]["OwnerFootprintParcel"][];
+            /** By Municipio */
+            by_municipio?: components["schemas"]["OwnerMunicipio"][];
+            /** Timeline */
+            timeline?: components["schemas"]["OwnerTimelinePoint"][];
+            /** Top Parcels */
+            top_parcels?: components["schemas"]["OwnerPortfolioParcel"][];
+        };
+        /** OwnerFootprintParcel */
+        OwnerFootprintParcel: {
+            /** Num Catastro */
+            num_catastro: string;
+            /** Municipio */
+            municipio?: string | null;
+            /** Totalval */
+            totalval?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+        };
+        /** OwnerMunicipio */
+        OwnerMunicipio: {
+            /** Municipio */
+            municipio?: string | null;
+            /** Parcel Count */
+            parcel_count: number;
+            /** Total Val */
+            total_val?: number | null;
+        };
+        /** OwnerPortfolioParcel */
+        OwnerPortfolioParcel: {
+            /** Num Catastro */
+            num_catastro: string;
+            /** Municipio */
+            municipio?: string | null;
+            /** Totalval */
+            totalval?: number | null;
+            /** Address Norm */
+            address_norm?: string | null;
+        };
+        /** OwnerSearchHit */
+        OwnerSearchHit: {
+            /** Owner Key */
+            owner_key: string;
+            /** Display Name */
+            display_name?: string | null;
+            /** Parcel Count */
+            parcel_count: number;
+            /** Total Val */
+            total_val?: number | null;
+            /** Municipio Count */
+            municipio_count: number;
+        };
+        /** OwnerSearchResult */
+        OwnerSearchResult: {
+            /** Query */
+            query: string;
+            /** Count */
+            count: number;
+            /** Owners */
+            owners?: components["schemas"]["OwnerSearchHit"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+            /** Available */
+            available: boolean;
+        };
+        /** OwnerTimelinePoint */
+        OwnerTimelinePoint: {
+            /** Snapshot Month */
+            snapshot_month: string;
+            /** Parcels */
+            parcels: number;
+            /** Total Val */
+            total_val?: number | null;
+        };
+        /** ParcelCommunity */
+        ParcelCommunity: {
+            /** Score */
+            score: number;
+            /** Percentile */
+            percentile: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelCrimRecord */
+        ParcelCrimRecord: {
+            /** Owner */
+            owner?: string | null;
+            /** Physical Address */
+            physical_address?: string | null;
+            /** Postal Address */
+            postal_address?: string | null;
+            /** Tipo */
+            tipo?: string | null;
+            /** Area Cuerdas */
+            area_cuerdas?: number | null;
+            /** Subparcel Count */
+            subparcel_count: number;
+            /** Land Value */
+            land_value?: number | null;
+            /** Structure Value */
+            structure_value?: number | null;
+            /** Machinery Value */
+            machinery_value?: number | null;
+            /** Total Value */
+            total_value?: number | null;
+            /** Exemption */
+            exemption?: number | null;
+            /** Exoneration */
+            exoneration?: number | null;
+            /** Taxable Value */
+            taxable_value?: number | null;
+            /** Deed Book */
+            deed_book?: string | null;
+            /** Deed Page */
+            deed_page?: string | null;
+            /** Deed Number */
+            deed_number?: string | null;
+            /** Estate */
+            estate?: string | null;
+            /** Last Sale Amount */
+            last_sale_amount?: number | null;
+            /** Last Sale Date */
+            last_sale_date?: string | null;
+            /** Last Seller */
+            last_seller?: string | null;
+            /** Last Buyer */
+            last_buyer?: string | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelDeltaItem */
+        ParcelDeltaItem: {
+            /** To Month */
+            to_month?: string | null;
+            /** Num Catastro */
+            num_catastro: string;
+            /** Municipio */
+            municipio?: string | null;
+            /** Change Type */
+            change_type: string;
+            /** Old Value */
+            old_value?: string | null;
+            /** New Value */
+            new_value?: string | null;
+            /** Delta Num */
+            delta_num?: number | null;
+        };
+        /** ParcelDetail */
+        ParcelDetail: {
+            /** Num Catastro */
+            num_catastro: string;
+            /** Catastro */
+            catastro?: string | null;
+            /** Municipio */
+            municipio?: string | null;
+            /** Barrio Entity Id */
+            barrio_entity_id?: number | null;
+            /** Barrio Name */
+            barrio_name?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            crim: components["schemas"]["ParcelCrimRecord"];
+            /** Sale History */
+            sale_history?: components["schemas"]["ParcelSale"][];
+            power?: components["schemas"]["ParcelPower"] | null;
+            flood: components["schemas"]["ParcelFlood"];
+            community?: components["schemas"]["ParcelCommunity"] | null;
+            road_access?: components["schemas"]["ParcelRoadAccess"] | null;
+            site_finder?: components["schemas"]["ParcelSiteFinder"] | null;
+        };
+        /** ParcelFlood */
+        ParcelFlood: {
+            /** Fraction In Flood Zone */
+            fraction_in_flood_zone: number;
+            /** Level */
+            level: string;
+            /** Worst Zone */
+            worst_zone?: string | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelPower */
+        ParcelPower: {
+            /** Substation Id */
+            substation_id: number;
+            /** Substation Name */
+            substation_name?: string | null;
+            /** Edge Confidence */
+            edge_confidence: number;
+            /** Cat3 Composite */
+            cat3_composite?: number | null;
+            /** Headline */
+            headline?: string | null;
+            /** Population Affected */
+            population_affected?: number | null;
+            /** Hospitals */
+            hospitals?: number | null;
+            /** Water Plants */
+            water_plants?: number | null;
+            /** Health Centers */
+            health_centers?: number | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelRoadAccess */
+        ParcelRoadAccess: {
+            /** Nearest Hospital */
+            nearest_hospital: string;
+            /** Travel Time Min */
+            travel_time_min: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelSale */
+        ParcelSale: {
+            /** Amount */
+            amount?: number | null;
+            /** Date */
+            date?: string | null;
+            /** Seller */
+            seller?: string | null;
+            /** Buyer */
+            buyer?: string | null;
+            /** Deed Book */
+            deed_book?: string | null;
+            /** Deed Page */
+            deed_page?: string | null;
+            /** Deed Number */
+            deed_number?: string | null;
+        };
+        /** ParcelSearchHit */
+        ParcelSearchHit: {
+            /** Num Catastro */
+            num_catastro: string;
+            /** Municipio */
+            municipio?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Totalval */
+            totalval?: number | null;
+            /** Tipo */
+            tipo?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+        };
+        /** ParcelSearchResult */
+        ParcelSearchResult: {
+            /** Query */
+            query: string;
+            /** Mode */
+            mode?: string | null;
+            /** Count */
+            count: number;
+            /** Capped */
+            capped: boolean;
+            /** Bbox */
+            bbox?: number[] | null;
+            /** Parcels */
+            parcels?: components["schemas"]["ParcelSearchHit"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelSiteFinder */
+        ParcelSiteFinder: {
+            /** Parcel Id */
+            parcel_id: number;
+            /** Use Type */
+            use_type?: string | null;
+            /** Composite Score */
+            composite_score?: number | null;
+            /** Confidence Tier */
+            confidence_tier: string;
         };
         /** PhaseStatus */
         PhaseStatus: {
@@ -1091,6 +2813,64 @@ export interface components {
             /** Events */
             events: components["schemas"]["ScenarioEvent"][];
             latest_result?: components["schemas"]["ScenarioResult"] | null;
+        };
+        /**
+         * PortfolioCompare
+         * @description Diff between two portfolio runs (e.g. budget-allocator before/after).
+         */
+        PortfolioCompare: {
+            run_a: components["schemas"]["PortfolioCompareSide"];
+            run_b: components["schemas"]["PortfolioCompareSide"];
+            /** Delta Cost Usd */
+            delta_cost_usd: number;
+            /** Delta Uplift */
+            delta_uplift: number;
+            /** Delta N Interventions */
+            delta_n_interventions: number;
+            /** Delta Population */
+            delta_population: number;
+            /** Delta Svi Weighted Pop */
+            delta_svi_weighted_pop: number;
+            /** Items Only In A */
+            items_only_in_a: components["schemas"]["PortfolioCompareItem"][];
+            /** Items Only In B */
+            items_only_in_b: components["schemas"]["PortfolioCompareItem"][];
+            /** Items Shared */
+            items_shared: components["schemas"]["PortfolioCompareItem"][];
+            /** Equity Flag */
+            equity_flag: boolean;
+        };
+        /** PortfolioCompareItem */
+        PortfolioCompareItem: {
+            /** Entity Id */
+            entity_id: number;
+            /** Entity Name */
+            entity_name: string | null;
+            /** Intervention Type */
+            intervention_type: string;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Resilience Uplift */
+            resilience_uplift: number | null;
+            /** Weighted Svi */
+            weighted_svi: number;
+            /** Downstream Population */
+            downstream_population: number;
+        };
+        /** PortfolioCompareSide */
+        PortfolioCompareSide: {
+            /** Run Id */
+            run_id: number;
+            /** Scenario Name */
+            scenario_name: string;
+            /** Budget Usd */
+            budget_usd: number;
+            /** Total Cost Usd */
+            total_cost_usd: number;
+            /** Total Uplift */
+            total_uplift: number;
+            /** N Interventions */
+            n_interventions: number;
         };
         /** PortfolioItem */
         PortfolioItem: {
@@ -1171,6 +2951,58 @@ export interface components {
             grade_pct: number;
             /** Terrain Type */
             terrain_type: string;
+        };
+        /** ProvenanceRecord */
+        ProvenanceRecord: {
+            /** Table */
+            table: string;
+            /** Source */
+            source?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Priority */
+            priority?: string | null;
+            /** License */
+            license?: string | null;
+            /** Row Count */
+            row_count?: number | null;
+            /** Feature Count */
+            feature_count?: number | null;
+            /** Inputs */
+            inputs?: string[];
+            /** Compute Date */
+            compute_date?: string | null;
+            /** Pulled At */
+            pulled_at?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Method */
+            method: string;
+            /** Confidence Tier */
+            confidence_tier: string;
+            /** Confidence Label */
+            confidence_label: string;
+            /** Confidence Color */
+            confidence_color?: string | null;
+            /** Assumptions */
+            assumptions?: string | null;
+            /** Upgrade Path */
+            upgrade_path?: string | null;
+        };
+        /** RecentDeltas */
+        RecentDeltas: {
+            /** By Type */
+            by_type?: {
+                [key: string]: number;
+            };
+            /** Items */
+            items?: components["schemas"]["ParcelDeltaItem"][];
         };
         /** ScenarioAsset */
         ScenarioAsset: {
@@ -1284,41 +3116,259 @@ export interface components {
              */
             computed_at: string;
         };
-        /** ConsequenceEntity */
-        ConsequenceEntity: {
-            /** Entity Id */
-            entity_id: number;
-            /** Kind */
-            kind: string;
-            /** Name */
-            name: string | null;
+        /** SeismicEvent */
+        SeismicEvent: {
+            /** Event Id */
+            event_id: string;
+            /** Mag */
+            mag?: number | null;
+            /** Place */
+            place?: string | null;
+            /** Depth Km */
+            depth_km?: number | null;
+            /**
+             * Event Time
+             * Format: date-time
+             */
+            event_time: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Felt */
+            felt?: number | null;
+            /**
+             * Tsunami
+             * @default false
+             */
+            tsunami: boolean;
+            /** Url */
+            url?: string | null;
             /** Lon */
             lon?: number | null;
             /** Lat */
             lat?: number | null;
         };
-        /** ConsequenceSummary */
-        ConsequenceSummary: {
+        /**
+         * SeismicResponse
+         * @description Live USGS earthquakes for the PR / USVI region (sync.seismic_events).
+         */
+        SeismicResponse: {
+            /** Events */
+            events: components["schemas"]["SeismicEvent"][];
+            /** Count */
+            count: number;
+            /** Max Mag */
+            max_mag?: number | null;
+            /** Felt Count */
+            felt_count: number;
+            /** Window Days */
+            window_days: number;
+            /** Latest */
+            latest?: string | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** SensitivityResult */
+        SensitivityResult: {
+            /** Assumption Key */
+            assumption_key: string;
+            /** Perturbation */
+            perturbation: string;
+            /** Baseline Value */
+            baseline_value?: string | null;
+            /** Perturbed Value */
+            perturbed_value?: string | null;
+            /** Spearman Rho */
+            spearman_rho?: number | null;
+            /** Top10 Overlap */
+            top10_overlap?: number | null;
+            /** N Compared */
+            n_compared?: number | null;
+            /** Stability */
+            stability: string;
+            /** Notes */
+            notes?: string | null;
+            /** Computed At */
+            computed_at?: string | null;
+        };
+        /** ServingSubstation */
+        ServingSubstation: {
             /** Entity Id */
             entity_id: number;
-            /** Kind */
-            kind: string;
             /** Name */
             name: string | null;
-            /** Population Affected */
-            population_affected: number;
-            /** Hospitals */
-            hospitals: number;
-            /** Water Plants */
-            water_plants: number;
-            /** Health Centers */
-            health_centers: number;
-            /** Barrios */
-            barrios: number;
-            /** Headline */
-            headline: string;
-            /** Downstream */
-            downstream: components["schemas"]["ConsequenceEntity"][];
+            /** Edge Confidence */
+            edge_confidence: number;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** SiteAccessPoint */
+        SiteAccessPoint: {
+            /** Kind */
+            kind: string;
+            /** Ap Class */
+            ap_class?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Municipio */
+            municipio?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+        };
+        /** SiteCriterion */
+        SiteCriterion: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Description */
+            description: string;
+            /** Tier */
+            tier: string;
+            /** Default Weight */
+            default_weight: number;
+        };
+        /** SiteFinderMeta */
+        SiteFinderMeta: {
+            /** Criteria */
+            criteria: components["schemas"]["SiteCriterion"][];
+            /** Parcel Count */
+            parcel_count: number;
+            /** Use Type Counts */
+            use_type_counts?: {
+                [key: string]: number;
+            };
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** SiteResult */
+        SiteResult: {
+            /** Parcel Id */
+            parcel_id: number;
+            /** Num Catastro */
+            num_catastro?: string | null;
+            /** Municipio */
+            municipio?: string | null;
+            /** Barrio */
+            barrio?: string | null;
+            /** Cali */
+            cali?: string | null;
+            /** Use Type */
+            use_type?: string | null;
+            /** Area M2 */
+            area_m2?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Composite Score */
+            composite_score?: number | null;
+            /** Subscores */
+            subscores?: {
+                [key: string]: number | null;
+            };
+            /** Dist Substation M */
+            dist_substation_m?: number | null;
+            /** Flood Frac */
+            flood_frac?: number | null;
+            /** Dist Port M */
+            dist_port_m?: number | null;
+            /** Port Name */
+            port_name?: string | null;
+        };
+        /** SiteScoreRequest */
+        SiteScoreRequest: {
+            /** Weights */
+            weights?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Limit
+             * @default 50
+             */
+            limit: number;
+            /** Municipio */
+            municipio?: string | null;
+            /** Use Type */
+            use_type?: string | null;
+        };
+        /** SiteScorecard */
+        SiteScorecard: {
+            /** Parcel Id */
+            parcel_id: number;
+            /** Num Catastro */
+            num_catastro?: string | null;
+            /** Municipio */
+            municipio?: string | null;
+            /** Barrio */
+            barrio?: string | null;
+            /** Cali */
+            cali?: string | null;
+            /** Use Type */
+            use_type?: string | null;
+            /** Descrip */
+            descrip?: string | null;
+            /** Clasi */
+            clasi?: string | null;
+            /** Clasi Desc */
+            clasi_desc?: string | null;
+            /** Area M2 */
+            area_m2?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Composite Score */
+            composite_score?: number | null;
+            /** Subscores */
+            subscores?: {
+                [key: string]: number | null;
+            };
+            /** Criteria Tiers */
+            criteria_tiers?: {
+                [key: string]: string;
+            };
+            /** Weights */
+            weights?: {
+                [key: string]: number;
+            };
+            /** Dist Substation M */
+            dist_substation_m?: number | null;
+            /** Substation Name */
+            substation_name?: string | null;
+            /** Substation Risk */
+            substation_risk?: number | null;
+            /** Flood Frac */
+            flood_frac?: number | null;
+            /** Dist Water M */
+            dist_water_m?: number | null;
+            /** Water Name */
+            water_name?: string | null;
+            /** Dist Port M */
+            dist_port_m?: number | null;
+            /** Port Name */
+            port_name?: string | null;
+            /** Dist Bulk Port M */
+            dist_bulk_port_m?: number | null;
+            /** Bulk Port Name */
+            bulk_port_name?: string | null;
+            /** Dist Airport M */
+            dist_airport_m?: number | null;
+            /** Road Access Min */
+            road_access_min?: number | null;
+            /** Community Resil */
+            community_resil?: number | null;
+            /** Svi */
+            svi?: number | null;
+            /** Crim Owner */
+            crim_owner?: string | null;
+            /** Crim Totalval */
+            crim_totalval?: number | null;
+            /** Land Value */
+            land_value?: number | null;
+            /** Land Per M2 */
+            land_per_m2?: number | null;
         };
         /** SpofEntity */
         SpofEntity: {
@@ -1336,6 +3386,84 @@ export interface components {
             lon?: number | null;
             /** Lat */
             lat?: number | null;
+        };
+        /** StormAdvisory */
+        StormAdvisory: {
+            /** Storm Id */
+            storm_id: string;
+            /** Advisory Num */
+            advisory_num: string;
+            /** Storm Name */
+            storm_name?: string | null;
+            /** Classification */
+            classification?: string | null;
+            /** Max Wind Kt */
+            max_wind_kt?: number | null;
+            /** Min Pressure Mb */
+            min_pressure_mb?: number | null;
+            /** Issued At */
+            issued_at?: string | null;
+            /** Replay */
+            replay: boolean;
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Cone Geojson */
+            cone_geojson?: {
+                [key: string]: unknown;
+            } | null;
+            /** Track Geojson */
+            track_geojson?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** StormConsequence */
+        StormConsequence: {
+            /** N Substations */
+            n_substations: number;
+            /** N Hospitals */
+            n_hospitals: number;
+            /** N Water Plants */
+            n_water_plants: number;
+            /** N Health Centers */
+            n_health_centers: number;
+            /** N Barrios */
+            n_barrios: number;
+            /** N Substations Surge */
+            n_substations_surge: number;
+            /** Population Served */
+            population_served: number;
+            /** Headline */
+            headline: string;
+            /** Computed At */
+            computed_at?: string | null;
+        };
+        /**
+         * StormResponse
+         * @description Pre-landfall live storm state (ROADMAP F5): latest PR-affecting NHC
+         *     advisory + its forecast cone/track + the consequence intersection.
+         */
+        StormResponse: {
+            /** Active */
+            active: boolean;
+            advisory?: components["schemas"]["StormAdvisory"] | null;
+            /** Track Points */
+            track_points?: components["schemas"]["StormTrackPoint"][];
+            consequence?: components["schemas"]["StormConsequence"] | null;
+        };
+        /** StormTrackPoint */
+        StormTrackPoint: {
+            /** Seq */
+            seq: number;
+            /** Valid At */
+            valid_at?: string | null;
+            /** Lat */
+            lat?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Max Wind Kt */
+            max_wind_kt?: number | null;
+            /** Label */
+            label?: string | null;
         };
         /** SubstationDetail */
         SubstationDetail: {
@@ -1441,6 +3569,149 @@ export interface components {
             /** Status */
             status: string | null;
         };
+        /** TelecomBarrio */
+        TelecomBarrio: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name: string | null;
+        };
+        /** TelecomConsequence */
+        TelecomConsequence: {
+            /** Entity Id */
+            entity_id: number;
+            /** Towers */
+            towers: number;
+            /** Cell Sites */
+            cell_sites: number;
+            /** Barrios Affected */
+            barrios_affected: number;
+            /** Headline */
+            headline: string;
+            /** Barrios */
+            barrios: components["schemas"]["TelecomBarrio"][];
+        };
+        /** TelecomSource */
+        TelecomSource: {
+            /** Entity Id */
+            entity_id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Composite Score */
+            composite_score: number;
+            /** Rank */
+            rank?: number | null;
+            /** Barrios Covered */
+            barrios_covered: number;
+            /** Headline */
+            headline: string;
+        };
+        /** TelecomSourceDetail */
+        TelecomSourceDetail: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            what: components["schemas"]["TelecomSourceWhat"];
+            serves: components["schemas"]["TelecomSourceServes"];
+            hazards: components["schemas"]["TelecomSourceHazards"];
+            power: components["schemas"]["TelecomSourcePower"];
+            /** Composite Score */
+            composite_score: number;
+            /** Rank */
+            rank?: number | null;
+            /** Headline */
+            headline: string;
+            /** Confidence Tiers */
+            confidence_tiers?: {
+                [key: string]: string;
+            };
+        };
+        /** TelecomSourceHazards */
+        TelecomSourceHazards: {
+            /** Hazard Score */
+            hazard_score: number;
+            /** Scenario */
+            scenario: string;
+        };
+        /** TelecomSourcePower */
+        TelecomSourcePower: {
+            /** Powering Substation Id */
+            powering_substation_id?: number | null;
+            /** Powering Substation Name */
+            powering_substation_name?: string | null;
+            /** Powering Substation Composite */
+            powering_substation_composite?: number | null;
+        };
+        /** TelecomSourceServes */
+        TelecomSourceServes: {
+            /** Barrios Covered */
+            barrios_covered: number;
+            /** Sample Barrios */
+            sample_barrios?: string[];
+        };
+        /** TelecomSourceWhat */
+        TelecomSourceWhat: {
+            /** Kind */
+            kind: string;
+            /** Owner Or Licensee */
+            owner_or_licensee?: string | null;
+            /** Height Ft */
+            height_ft?: number | null;
+            /** Municipality */
+            municipality?: string | null;
+        };
+        /** TelecomSourcesResponse */
+        TelecomSourcesResponse: {
+            /** Sources */
+            sources: components["schemas"]["TelecomSource"][];
+            /** Count */
+            count: number;
+            /** Scenario */
+            scenario: string;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** TrendsResponse */
+        TrendsResponse: {
+            summary: components["schemas"]["TrendsSummary"];
+            /** By Municipio */
+            by_municipio?: components["schemas"]["MunicipioTrend"][];
+            /** By Year */
+            by_year?: components["schemas"]["YearTrend"][];
+            recent_deltas: components["schemas"]["RecentDeltas"];
+        };
+        /** TrendsSummary */
+        TrendsSummary: {
+            /** Sales 12Mo */
+            sales_12mo: number;
+            /** Sales Total */
+            sales_total: number;
+            /** Median Price 12Mo */
+            median_price_12mo?: number | null;
+            /** Median Price All */
+            median_price_all?: number | null;
+            /** Earliest */
+            earliest?: string | null;
+            /** Latest */
+            latest?: string | null;
+            /** Municipios */
+            municipios: number;
+            /** Snapshots */
+            snapshots: number;
+            /** Deltas Available */
+            deltas_available: boolean;
+            /** Latest Delta Month */
+            latest_delta_month?: string | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
         /** TypeAllocation */
         TypeAllocation: {
             /** Intervention Type */
@@ -1464,6 +3735,166 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WaterBarrio */
+        WaterBarrio: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name: string | null;
+        };
+        /** WaterConsequence */
+        WaterConsequence: {
+            /** Entity Id */
+            entity_id: number;
+            /** Pump Stations */
+            pump_stations: number;
+            /** Wells */
+            wells: number;
+            /** Water Plants */
+            water_plants: number;
+            /** Barrios Affected */
+            barrios_affected: number;
+            /** Headline */
+            headline: string;
+            /** Barrios */
+            barrios: components["schemas"]["WaterBarrio"][];
+        };
+        /** WaterGauge */
+        WaterGauge: {
+            /** Site No */
+            site_no: string;
+            /** Param Cd */
+            param_cd: string;
+            /** Site Name */
+            site_name?: string | null;
+            /** Param Label */
+            param_label?: string | null;
+            /** Value */
+            value?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Stale */
+            stale: boolean;
+        };
+        /** WaterSource */
+        WaterSource: {
+            /** Entity Id */
+            entity_id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Composite Score */
+            composite_score: number;
+            /** Rank */
+            rank?: number | null;
+            /** Barrios Served */
+            barrios_served: number;
+            /** Has Generator */
+            has_generator: boolean;
+            /** Headline */
+            headline: string;
+        };
+        /** WaterSourceDetail */
+        WaterSourceDetail: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            what: components["schemas"]["WaterSourceWhat"];
+            serves: components["schemas"]["WaterSourceServes"];
+            hazards: components["schemas"]["WaterSourceHazards"];
+            power: components["schemas"]["WaterSourcePower"];
+            nearest_gauge?: components["schemas"]["NearestGauge"] | null;
+            /** Composite Score */
+            composite_score: number;
+            /** Rank */
+            rank?: number | null;
+            /** Headline */
+            headline: string;
+            /** Confidence Tiers */
+            confidence_tiers?: {
+                [key: string]: string;
+            };
+        };
+        /** WaterSourceHazards */
+        WaterSourceHazards: {
+            /** Hazard Score */
+            hazard_score: number;
+            /** Scenario */
+            scenario: string;
+        };
+        /** WaterSourcePower */
+        WaterSourcePower: {
+            /** Powering Substation Id */
+            powering_substation_id?: number | null;
+            /** Powering Substation Name */
+            powering_substation_name?: string | null;
+            /** Powering Substation Composite */
+            powering_substation_composite?: number | null;
+            /** Generator Note */
+            generator_note?: string | null;
+        };
+        /** WaterSourceServes */
+        WaterSourceServes: {
+            /** Barrios Served */
+            barrios_served: number;
+            /** Sample Barrios */
+            sample_barrios?: string[];
+        };
+        /** WaterSourceWhat */
+        WaterSourceWhat: {
+            /** Kind */
+            kind: string;
+            /** Operarea */
+            operarea?: string | null;
+            /** Municipality */
+            municipality?: string | null;
+            /** Capacity Gpm */
+            capacity_gpm?: number | null;
+            /** Has Generator */
+            has_generator: boolean;
+        };
+        /** WaterSourcesResponse */
+        WaterSourcesResponse: {
+            /** Sources */
+            sources: components["schemas"]["WaterSource"][];
+            /** Count */
+            count: number;
+            /** Scenario */
+            scenario: string;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** WhatsNewResponse */
+        WhatsNewResponse: {
+            /** Feeds */
+            feeds?: components["schemas"]["FeedFreshness"][];
+            /** Stale Count */
+            stale_count: number;
+            /** Changes */
+            changes?: components["schemas"]["ChangeEvent"][];
+            crim_baseline: components["schemas"]["CrimBaseline"];
+        };
+        /** YearTrend */
+        YearTrend: {
+            /** Year */
+            year: number;
+            /** Sales */
+            sales: number;
+            /** Median Price */
+            median_price?: number | null;
         };
     };
     responses: never;
@@ -1510,6 +3941,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OverviewResponse"];
+                };
+            };
+        };
+    };
+    whatsnew_whatsnew_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatsNewResponse"];
                 };
             };
         };
@@ -1562,6 +4013,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    current_state_resilience_current_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentStateResponse"];
                 };
             };
         };
@@ -1637,6 +4108,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PortfolioRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_portfolio_compare_get: {
+        parameters: {
+            query: {
+                /** @description baseline run (e.g. previously shown budget) */
+                run_id_a: number;
+                /** @description new run (e.g. budget after slider change) */
+                run_id_b: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioCompare"];
                 };
             };
             /** @description Validation Error */
@@ -1854,6 +4359,77 @@ export interface operations {
             };
         };
     };
+    generation_network_generation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationStatus"];
+                };
+            };
+        };
+    };
+    outages_network_outages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LumaOutages"];
+                };
+            };
+        };
+    };
+    seismic_network_seismic_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeismicResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     transmission_network_transmission_get: {
         parameters: {
             query?: never;
@@ -1870,6 +4446,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeatureCollection"];
+                };
+            };
+        };
+    };
+    consequence_network_consequence__entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsequenceSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    water_consequence_network_water_consequence__entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaterConsequence"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telecom_consequence_network_telecom_consequence__entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelecomConsequence"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    storm_network_storm_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StormResponse"];
                 };
             };
         };
@@ -2125,10 +4814,114 @@ export interface operations {
             };
         };
     };
+    enqueue_portfolio_optimize_jobs_portfolio_optimize_post: {
+        parameters: {
+            query?: {
+                /** @description Capital budget for the ILP allocation */
+                budget_usd?: number;
+                scenario?: string;
+                /** @description 0=pure VOLL, 1=full equity boost */
+                equity_weight?: number;
+                include_transport?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_assumption_evaluation_jobs_validate_assumptions_post: {
+        parameters: {
+            query?: {
+                scenario?: string;
+                voll_usd_per_kwh?: number | null;
+                discount_rate?: number | null;
+                outage_hours_per_year?: number | null;
+                feeder_confidence_min?: number | null;
+                hazard_scale?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enqueue_corridor_narrative_jobs_narratives_corridor_post: {
         parameters: {
             query?: {
                 flagship?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enqueue_portfolio_diff_narrative_jobs_narratives_portfolio_diff_post: {
+        parameters: {
+            query: {
+                run_id_a: number;
+                run_id_b: number;
             };
             header?: never;
             path?: never;
@@ -2624,6 +5417,735 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobEnqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tiers_provenance_tiers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfidenceTier"][];
+                };
+            };
+        };
+    };
+    assumptions_provenance_assumptions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assumption"][];
+                };
+            };
+        };
+    };
+    inventory_provenance_inventory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryEntry"][];
+                };
+            };
+        };
+    };
+    layer_provenance_layer__layer_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                layer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvenanceRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    table_provenance__table__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvenanceRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    backtests_validate_backtests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BacktestResult"][];
+                };
+            };
+        };
+    };
+    assumptions_validate_assumptions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditableAssumption"][];
+                };
+            };
+        };
+    };
+    sensitivity_validate_sensitivity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SensitivityResult"][];
+                };
+            };
+        };
+    };
+    model_cards_validate_model_cards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelCard"][];
+                };
+            };
+        };
+    };
+    model_card_validate_model_cards__model_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    barrios_citizen_barrios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarrioOption"][];
+                };
+            };
+        };
+    };
+    card_citizen_card__barrio_entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barrio_entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CivicCard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    meta_sitefinder_meta_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteFinderMeta"];
+                };
+            };
+        };
+    };
+    score_sitefinder_score_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteScoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteResult"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parcel_sitefinder_parcel__parcel_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                parcel_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteScorecard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    access_points_sitefinder_access_points_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteAccessPoint"][];
+                };
+            };
+        };
+    };
+    search_crim_parcels_search_get: {
+        parameters: {
+            query: {
+                /** @description Catastro id, owner name, or address */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParcelSearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parcel_crim_parcel__num_catastro__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                num_catastro: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParcelDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    owner_search_crim_owners_search_get: {
+        parameters: {
+            query: {
+                /** @description Owner name fragment */
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerSearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    owner_detail_crim_owner__owner_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sales_trends_crim_trends_get: {
+        parameters: {
+            query?: {
+                /** @description Trailing window for the hot-spot ranking */
+                months?: number;
+                /** @description First year of the time series */
+                since?: number;
+                /** @description How many top municipios to return */
+                top?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sources_water_sources_get: {
+        parameters: {
+            query?: {
+                scenario?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaterSourcesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_detail_water_source__entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaterSourceDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gauges_water_gauges_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaterGauge"][];
+                };
+            };
+        };
+    };
+    sources_telecom_sources_get: {
+        parameters: {
+            query?: {
+                scenario?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelecomSourcesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_detail_telecom_source__entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelecomSourceDetail"];
                 };
             };
             /** @description Validation Error */
