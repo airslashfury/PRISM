@@ -9,6 +9,7 @@ import { MapWorkspace } from "@/components/map/map-workspace";
 import { tip, PR_VIEW } from "@/components/map/map-canvas";
 import type { PrismMapApi } from "@/components/map/map-canvas";
 import { GradientLegend } from "@/components/legend";
+import { ScoreExplainer, percentileContext } from "@/components/score-explainer";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { InfoPanel } from "@/components/info-panel";
 import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
@@ -81,6 +82,20 @@ export default function WaterPage() {
   const selectedSource = useMemo(
     () => (selected != null ? sources.find((s) => s.entity_id === selected) ?? null : null),
     [sources, selected],
+  );
+
+  // Distribution context for the drawer's risk explainer (F9a A1): /water/sources
+  // returns the full scored set (all 2,153), so a client-side percentile is honest.
+  const scoreContext = useMemo(
+    () =>
+      selectedSource
+        ? percentileContext(
+            selectedSource.composite_score,
+            sources.map((s) => s.composite_score),
+            "scored water sources",
+          )
+        : undefined,
+    [selectedSource, sources],
   );
 
   // Gauge ripple: active only while the gauge layer is toggled on and gauges exist.
@@ -378,7 +393,9 @@ export default function WaterPage() {
             {selected == null && !isLoading && !error && (
               <TopList rows={top} selected={selected} onSelect={setSelected} />
             )}
-            {selected != null && <SourceDrawer id={selected} onBack={() => setSelected(null)} />}
+            {selected != null && (
+              <SourceDrawer id={selected} scoreContext={scoreContext} onBack={() => setSelected(null)} />
+            )}
 
             <div className="p-4 pt-0">
               <InfoPanel
@@ -454,7 +471,16 @@ function TopList({
   );
 }
 
-function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
+function SourceDrawer({
+  id,
+  scoreContext,
+  onBack,
+}: {
+  id: number;
+  /** Percentile line for the risk explainer, computed by the page against the full scored set. */
+  scoreContext?: string;
+  onBack: () => void;
+}) {
   const { data, isLoading, error } = useWaterSource(id);
 
   if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
@@ -473,6 +499,16 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
         { label: "Capacity", value: data.what.capacity_gpm != null ? `${fmtNum(data.what.capacity_gpm, 0)} gpm` : "—" },
         { label: "Backup generator", value: data.what.has_generator ? "Yes" : "No" },
       ],
+      body: (
+        <ScoreExplainer
+          layout="row"
+          label="Risk score"
+          value={fmtNum(data.composite_score, 2)}
+          what="The risk this source stops delivering water — sized by how many barrios go dry if it does."
+          formula="barrios served × hazard exposure × grid power dependency"
+          context={scoreContext}
+        />
+      ),
     },
     {
       // AAA's source data only carries `operarea`/`municipality` as raw 3-letter
@@ -500,13 +536,21 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
     {
       id: "hazards",
       title: "Hazard exposure",
-      rows: [
-        { label: "Hazard score", value: fmtNum(data.hazards.hazard_score, 2) },
-        { label: "Scenario", value: data.hazards.scenario },
-      ],
-      body: data.hazards.hazard_score > 0.5 ? (
-        <div className="text-xs text-amber-400">In the Cat-3 hazard field.</div>
-      ) : undefined,
+      body: (
+        <>
+          <ScoreExplainer
+            layout="row"
+            label="Hazard score"
+            value={fmtNum(data.hazards.hazard_score, 2)}
+            what="The chance this site itself is knocked out in this scenario — 0 is safe, 1 is near-certain."
+            formula="flood, surge and slope exposure measured at this location"
+          />
+          <Row label="Scenario" value={data.hazards.scenario} />
+          {data.hazards.hazard_score > 0.5 && (
+            <div className="text-xs text-amber-400">In the Cat-3 hazard field.</div>
+          )}
+        </>
+      ),
     },
     {
       id: "actions",
@@ -516,7 +560,13 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
         <div className="space-y-2">
           <Row label="Powered by" value={data.power.powering_substation_name ?? `Substation ${data.power.powering_substation_id}`} />
           {data.power.powering_substation_composite != null && (
-            <Row label="Substation composite" value={fmtNum(data.power.powering_substation_composite, 1)} />
+            <ScoreExplainer
+              layout="row"
+              label="Substation risk (Cat-3)"
+              value={fmtNum(data.power.powering_substation_composite, 1)}
+              what="The failure risk of the substation this source draws power from — fragility it inherits from the grid."
+              formula="that substation's hazard × cascade × centrality (see Resilience)"
+            />
           )}
           {data.power.generator_note && (
             <div className="text-xs text-emerald-400">{data.power.generator_note}</div>

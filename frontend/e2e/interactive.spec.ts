@@ -151,3 +151,66 @@ test("/storm renders the advisory or the calm state", async ({ page }) => {
 
   expect(errors, `uncaught page errors on /storm: ${errors.join("; ")}`).toEqual([]);
 });
+
+// ── Score explainers (ROADMAP F9a A1): every score explains itself in place ──
+// Pattern per route: open the top list, select the first entity, click the
+// score's ⓘ trigger (aria-label "What is <label>?"), and assert the popover
+// carries the plain-language meaning ("Built from:") — plus, where the full
+// scored set is loaded, the distribution line ("Higher than N% of …").
+
+test("/resilience composite explainer opens with meaning + distribution", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/resilience?scenario=cat3", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Highest predicted risk")).toBeVisible({ timeout: 30_000 });
+
+  await page.locator("aside ul li button").first().click();
+  const trigger = page.getByRole("button", { name: "What is Composite?" });
+  await expect(trigger).toBeVisible({ timeout: 15_000 });
+  await trigger.click();
+
+  await expect(page.getByText("Built from:").first()).toBeVisible();
+  await expect(page.getByText("(1 + network centrality)")).toBeVisible();
+  await expect(page.getByText(/Higher than \d+% of/).first()).toBeVisible();
+
+  expect(errors, `uncaught page errors on /resilience: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("/water risk-score explainer opens in the source drawer", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/water", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Highest-risk sources")).toBeVisible({ timeout: 30_000 });
+
+  await page.locator("aside ul li button").first().click();
+  const trigger = page.getByRole("button", { name: "What is Risk score?" });
+  await expect(trigger).toBeVisible({ timeout: 15_000 });
+  await trigger.click();
+
+  await expect(page.getByText("Built from:").first()).toBeVisible();
+  await expect(page.getByText("grid power dependency").first()).toBeVisible();
+  await expect(page.getByText(/Higher than \d+% of/).first()).toBeVisible();
+
+  expect(errors, `uncaught page errors on /water: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("/telecom risk-score explainer opens in the source drawer", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/telecom", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Highest coverage-loss risk")).toBeVisible({ timeout: 30_000 });
+
+  await page.locator("aside ul li button").first().click();
+  const trigger = page.getByRole("button", { name: "What is Risk score?" });
+  await expect(trigger).toBeVisible({ timeout: 15_000 });
+  await trigger.click();
+
+  await expect(page.getByText("Built from:").first()).toBeVisible();
+  await expect(page.getByText("barrios covered ×").first()).toBeVisible();
+  await expect(page.getByText(/Higher than \d+% of/).first()).toBeVisible();
+
+  expect(errors, `uncaught page errors on /telecom: ${errors.join("; ")}`).toEqual([]);
+});

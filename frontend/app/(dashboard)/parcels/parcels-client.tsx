@@ -9,6 +9,7 @@ import { Search, ChevronLeft, X, Building2, ChevronRight } from "lucide-react";
 import { MapCanvas, tip } from "@/components/map/map-canvas";
 import { InfoPanel } from "@/components/info-panel";
 import { ConfidenceChip } from "@/components/provenance-badge";
+import { ScoreExplainer } from "@/components/score-explainer";
 import { LoadingBlock, ErrorBlock, SkeletonRows, EmptyState } from "@/components/query-state";
 import { useParcelSearch, useParcelDetail, useOwnerSearch, useOwnerDetail } from "@/lib/hooks";
 import { tileUrl } from "@/lib/api";
@@ -488,6 +489,20 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
       {d.power && (
         <Section title="Power" tier={d.power.confidence_tier}>
           <Row label="Serving substation" value={d.power.substation_name ?? "—"} />
+          {d.power.cat3_composite != null && (
+            <ScoreExplainer
+              layout="row"
+              label="Substation risk (Cat-3)"
+              value={fmtNum(d.power.cat3_composite, 1)}
+              what="How likely this parcel's substation is to fail in a Category-3 hurricane — and how much fails with it."
+              formula="hazard probability × cascade impact × (1 + network centrality)"
+              context={
+                d.power.cat3_percentile != null
+                  ? `Higher than ${Math.round(d.power.cat3_percentile * 100)}% of Puerto Rico's scored substations`
+                  : undefined
+              }
+            />
+          )}
           {d.power.headline && <p className="mt-1 text-[12px] leading-relaxed text-foreground/80">{d.power.headline}</p>}
         </Section>
       )}

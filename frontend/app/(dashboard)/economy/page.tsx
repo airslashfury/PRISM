@@ -11,6 +11,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { InfoPanel } from "@/components/info-panel";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
+import { ScoreExplainer } from "@/components/score-explainer";
 import { useEconomyTracts, useExposure } from "@/lib/hooks";
 import { sviColor, type RGB } from "@/lib/colors";
 import { fmtInt, fmtIntTiered, fmtNum, fmtPct, fmtUsd, fmtUsdTiered } from "@/lib/utils";
@@ -222,9 +223,14 @@ export default function EconomyPage() {
                 <span className="w-5 shrink-0 text-xs tnum text-muted-foreground/60">{i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{e.entity_name ?? `#${e.entity_id}`}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {fmtIntTiered(e.population_affected, "proxy")} people · {fmtUsdTiered(e.economic_benefit_usd, "proxy")}
-                  </div>
+                  <ScoreExplainer
+                    layout="row"
+                    className="text-xs"
+                    label={`${fmtIntTiered(e.population_affected, "proxy")} people`}
+                    value={fmtUsdTiered(e.economic_benefit_usd, "proxy")}
+                    what="What outages at this substation would cost the people it serves, in today's dollars."
+                    formula="people served × $2,389/person — the modeled 30-year cost of lost power (VOLL, NPV)"
+                  />
                 </div>
               </li>
             ))}

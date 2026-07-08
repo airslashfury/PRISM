@@ -163,12 +163,26 @@ def _power(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
             WHERE entity_id = :sid AND scenario_name = 'cat3'
             ORDER BY composite_score DESC LIMIT 1
         """), {"sid": sub["entity_id"]}).scalar()
+        # Where this substation sits among all cat3-scored substations (F9a A1):
+        # feeds the "higher than N% of scored substations" line in the parcel
+        # drawer. Same PERCENT_RANK pattern as _community below.
+        percentile = conn.execute(text("""
+            SELECT pr FROM (
+                SELECT entity_id, PERCENT_RANK() OVER (ORDER BY cs) AS pr
+                FROM (SELECT entity_id, MAX(composite_score) AS cs
+                      FROM resilience.scenario_scores
+                      WHERE scenario_name = 'cat3'
+                      GROUP BY entity_id) per_entity
+            ) ranked
+            WHERE entity_id = :sid
+        """), {"sid": sub["entity_id"]}).scalar()
 
     out: dict[str, Any] = {
         "substation_id": sub["entity_id"],
         "substation_name": sub["name"],
         "edge_confidence": float(sub["confidence"]),
         "cat3_composite": float(composite) if composite is not None else None,
+        "cat3_percentile": float(percentile) if percentile is not None else None,
         "confidence_tier": _tier("graph.relationships"),
         "headline": None,
         "population_affected": None,

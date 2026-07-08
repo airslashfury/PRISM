@@ -610,6 +610,7 @@ export interface ParcelPower {
   substation_name: string | null;
   edge_confidence: number;
   cat3_composite: number | null;
+  cat3_percentile: number | null;
   headline: string | null;
   population_affected: number | null;
   hospitals: number | null;

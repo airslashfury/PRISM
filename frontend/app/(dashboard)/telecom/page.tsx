@@ -10,6 +10,7 @@ import { tip, PR_VIEW } from "@/components/map/map-canvas";
 import type { PrismMapApi } from "@/components/map/map-canvas";
 import { GradientLegend } from "@/components/legend";
 import { ProvenanceBadge } from "@/components/provenance-badge";
+import { ScoreExplainer, percentileContext } from "@/components/score-explainer";
 import { InfoPanel } from "@/components/info-panel";
 import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { SeverityLabel } from "@/components/severity";
@@ -80,6 +81,20 @@ export default function TelecomPage() {
   const selectedSource = useMemo(
     () => (selected != null ? sources.find((s) => s.entity_id === selected) ?? null : null),
     [sources, selected],
+  );
+
+  // Distribution context for the drawer's risk explainer (F9a A1): /telecom/sources
+  // returns the full scored set (all 905), so a client-side percentile is honest.
+  const scoreContext = useMemo(
+    () =>
+      selectedSource
+        ? percentileContext(
+            selectedSource.composite_score,
+            sources.map((s) => s.composite_score),
+            "scored towers and cell sites",
+          )
+        : undefined,
+    [selectedSource, sources],
   );
 
   // Selection halo pulse: ambient, runs whenever a source is selected.
@@ -276,7 +291,7 @@ export default function TelecomPage() {
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
               Every cell tower and cell site, ranked by consequence: how many barrios lose coverage
-              if it goes dark and how exposed it is to hazard and grid failure. A node covering many
+              if it goes dark and how exposed it is to hazard and grid failure. A tower covering many
               barrios, powered by a substation with no backup path, in a flood-prone spot ranks
               highest.
             </p>
@@ -291,7 +306,9 @@ export default function TelecomPage() {
             {selected == null && !isLoading && !error && (
               <TopList rows={top} selected={selected} onSelect={setSelected} />
             )}
-            {selected != null && <SourceDrawer id={selected} onBack={() => setSelected(null)} />}
+            {selected != null && (
+              <SourceDrawer id={selected} scoreContext={scoreContext} onBack={() => setSelected(null)} />
+            )}
 
             <div className="p-4 pt-0">
               <InfoPanel
@@ -302,7 +319,7 @@ export default function TelecomPage() {
                   },
                   {
                     title: "How it's calculated",
-                    body: "Risk = barrios-covered consequence × Cat-3 hazard exposure × grid dependency. A node covering many barrios, sitting in the Cat-3 hazard field, and relying on a substation with no backup path scores highest. Nodes with no coverage sink to the bottom regardless of hazard.",
+                    body: "Risk = barrios-covered consequence × Cat-3 hazard exposure × grid dependency. A tower covering many barrios, sitting in the Cat-3 hazard field, and relying on a substation with no backup path scores highest. Sites with no coverage sink to the bottom regardless of hazard.",
                   },
                   {
                     title: "Data sources & accuracy",
@@ -330,7 +347,7 @@ function TopList({
   return (
     <div>
       <div className="flex items-center gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Highest-risk nodes · top {rows.length}
+        Highest coverage-loss risk · top {rows.length}
         <ProvenanceBadge table="resilience.telecom_scores" />
       </div>
       <ul>
@@ -370,7 +387,16 @@ function TopList({
   );
 }
 
-function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
+function SourceDrawer({
+  id,
+  scoreContext,
+  onBack,
+}: {
+  id: number;
+  /** Percentile line for the risk explainer, computed by the page against the full scored set. */
+  scoreContext?: string;
+  onBack: () => void;
+}) {
   const { data, isLoading, error } = useTelecomSource(id);
 
   if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
@@ -388,6 +414,16 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
         { label: "Height", value: data.what.height_ft != null ? `${fmtNum(data.what.height_ft, 0)} ft` : "—" },
         { label: "Municipality", value: data.what.municipality ?? "—" },
       ],
+      body: (
+        <ScoreExplainer
+          layout="row"
+          label="Risk score"
+          value={fmtNum(data.composite_score, 2)}
+          what="The risk this site goes dark — sized by how many barrios lose cell coverage if it does."
+          formula="barrios covered × hazard exposure × grid power dependency"
+          context={scoreContext}
+        />
+      ),
     },
     {
       id: "where",
@@ -402,7 +438,7 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
         <div className="space-y-2">
           <Row
             label="Coverage lost"
-            value={`${fmtInt(data.serves.barrios_covered)} barrios lose coverage if this node goes dark`}
+            value={`${fmtInt(data.serves.barrios_covered)} barrios lose coverage if this site goes dark`}
           />
           {data.serves.sample_barrios.length > 0 && (
             <div className="text-xs text-muted-foreground">
@@ -415,13 +451,21 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
     {
       id: "hazards",
       title: "Hazard exposure",
-      rows: [
-        { label: "Hazard score", value: fmtNum(data.hazards.hazard_score, 2) },
-        { label: "Scenario", value: data.hazards.scenario },
-      ],
-      body: data.hazards.hazard_score > 0.5 ? (
-        <div className="text-xs text-amber-400">In the Cat-3 flood/surge field.</div>
-      ) : undefined,
+      body: (
+        <>
+          <ScoreExplainer
+            layout="row"
+            label="Hazard score"
+            value={fmtNum(data.hazards.hazard_score, 2)}
+            what="The chance this site itself is knocked out in this scenario — 0 is safe, 1 is near-certain."
+            formula="flood, surge and slope exposure measured at this location"
+          />
+          <Row label="Scenario" value={data.hazards.scenario} />
+          {data.hazards.hazard_score > 0.5 && (
+            <div className="text-xs text-amber-400">In the Cat-3 flood/surge field.</div>
+          )}
+        </>
+      ),
     },
     {
       id: "changed",
@@ -456,7 +500,13 @@ function SourceDrawer({ id, onBack }: { id: number; onBack: () => void }) {
             value={data.power.powering_substation_name ?? `Substation ${data.power.powering_substation_id}`}
           />
           {data.power.powering_substation_composite != null && (
-            <Row label="Substation composite" value={fmtNum(data.power.powering_substation_composite, 1)} />
+            <ScoreExplainer
+              layout="row"
+              label="Substation risk (Cat-3)"
+              value={fmtNum(data.power.powering_substation_composite, 1)}
+              what="The failure risk of the substation this site draws power from — fragility it inherits from the grid."
+              formula="that substation's hazard × cascade × centrality (see Resilience)"
+            />
           )}
           {data.power.powering_substation_id && (
             <a

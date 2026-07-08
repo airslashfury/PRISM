@@ -986,6 +986,7 @@ class ParcelPower(BaseModel):
     substation_name: str | None = None
     edge_confidence: float
     cat3_composite: float | None = None
+    cat3_percentile: float | None = None
     headline: str | None = None
     population_affected: int | None = None
     hospitals: int | None = None
