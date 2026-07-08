@@ -73,6 +73,20 @@ tables:
       archive is a future increment.
     upgrade_path: null
 
+  sync.luma_outages:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Customers-without-service counts per LUMA operational region from the
+      MiLUMA portal (api.miluma.lumapr.com) — the utility's own published
+      delivery-side numbers. Region grain (7 regions) is the only granularity
+      the feed exposes; island-wide figures are a straight sum across regions.
+      PRISM has no region→municipio crosswalk yet, so no local (barrio or
+      municipio) outage figure is ever inferred from these counts.
+    upgrade_path: >-
+      A LUMA region→municipio crosswalk (or a per-municipio outage feed) would
+      allow a local outage figure instead of the island-wide one.
+
   graph.entities:
     method: measured
     confidence_tier: authoritative

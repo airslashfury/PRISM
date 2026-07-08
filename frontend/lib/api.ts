@@ -236,6 +236,12 @@ export interface CivicConsequence {
   water_plants: number;
   health_centers: number;
   confidence_tier: ConfidenceTierKey;
+  /** Quake scenario context (F9a chunk A3) — score-based; null when this
+   * substation has no quake row (332/354 are scored). */
+  quake_rank: number | null;
+  quake_total: number | null;
+  quake_composite_score: number | null;
+  quake_confidence_tier: ConfidenceTierKey | null;
 }
 
 export interface CivicCommunityResilience {
@@ -264,6 +270,20 @@ export interface CivicPlannedItem {
   confidence_tier: ConfidenceTierKey;
 }
 
+/** Island-wide "right now" snapshot (F9a chunk A3) — same for every civic
+ * card. Outages are island-wide, not per-municipio (no LUMA region→municipio
+ * crosswalk exists yet). */
+export interface CivicToday {
+  generation_mw: number | null;
+  plants_offline: number | null;
+  plants_total: number | null;
+  generation_as_of: string | null;
+  generation_confidence_tier: ConfidenceTierKey | null;
+  outage_pct_island: number | null;
+  outage_as_of: string | null;
+  outage_confidence_tier: ConfidenceTierKey | null;
+}
+
 export interface CivicCard {
   barrio_entity_id: number;
   barrio_name: string;
@@ -274,6 +294,7 @@ export interface CivicCard {
   road_access: CivicRoadAccess | null;
   flood_exposure: CivicFloodExposure;
   planned_nearby: CivicPlannedItem[];
+  today: CivicToday | null;
 }
 
 /** MVP3 P3-shared — not yet in the generated OpenAPI types (api/routers/ask.py),

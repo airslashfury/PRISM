@@ -254,6 +254,59 @@ def test_median_even():
     assert _median([1.0, 3.0]) == pytest.approx(2.0)
 
 
+# ── F9a A3: destination set is TRUE hospitals only ─────────────────────────
+
+
+def test_road_access_no_upr_campus_destination(engine, transport_schema):
+    """Regression (F9a A3): the UPR Mayagüez campus clinic (kind='health_center',
+    no clasif) must never be a routed 'nearest hospital' — the Caracol, Añasco
+    report. Table-level so it guards the persisted data, not just the code."""
+    with engine.connect() as conn:
+        n = conn.execute(text(
+            "SELECT COUNT(*) FROM transport.road_access_cost "
+            "WHERE nearest_hosp_name = 'UPR RECINTO UNIVERSITARIO DE MAYAGUEZ'"
+        )).scalar()
+    assert n == 0
+
+
+def test_road_access_destinations_are_true_hospitals(engine, transport_schema):
+    """Every routed destination is a kind='hospital' AND clasif='HOSP' entity —
+    community health centers (CSC/CSF/C MED PRIMARIA rows that also carry
+    kind='hospital') and kind='health_center' campus/CDT clinics are excluded."""
+    with engine.connect() as conn:
+        bad = conn.execute(text("""
+            SELECT COUNT(*) FROM (
+                SELECT DISTINCT nearest_hosp_name
+                FROM transport.road_access_cost
+                WHERE nearest_hosp_name IS NOT NULL
+            ) names
+            WHERE NOT EXISTS (
+                SELECT 1 FROM graph.entities e
+                WHERE e.domain = 'health' AND e.kind = 'hospital'
+                  AND e.attrs->>'clasif' = 'HOSP'
+                  AND e.name = names.nearest_hosp_name
+            )
+        """)).scalar()
+    assert bad == 0
+
+
+def test_compute_road_access_destination_set_is_hosp_only(engine, transport_schema):
+    """The routed source set itself: every hospital name compute_road_access can
+    assign comes from the clasif='HOSP' entity set (66 on the island)."""
+    with engine.connect() as conn:
+        true_hosp = conn.execute(text("""
+            SELECT COUNT(*) FROM graph.entities
+            WHERE domain = 'health' AND kind = 'hospital' AND attrs->>'clasif' = 'HOSP'
+        """)).scalar()
+        upr_kind = conn.execute(text("""
+            SELECT kind FROM graph.entities
+            WHERE name = 'UPR RECINTO UNIVERSITARIO DE MAYAGUEZ'
+        """)).scalar()
+    assert true_hosp > 0
+    # The reported facility is a health_center — outside the destination set.
+    assert upr_kind == "health_center"
+
+
 # ── transport catalog ─────────────────────────────────────────────────────
 
 

@@ -766,6 +766,12 @@ class CivicConsequence(BaseModel):
     water_plants: int
     health_centers: int
     confidence_tier: str
+    # Quake scenario context (F9a chunk A3) — score-based, not every substation
+    # has a quake row (332/354), so these are None when unscored.
+    quake_rank: int | None = None
+    quake_total: int | None = None
+    quake_composite_score: float | None = None
+    quake_confidence_tier: str | None = None
 
 
 class CivicCommunityResilience(BaseModel):
@@ -794,6 +800,24 @@ class CivicPlannedItem(BaseModel):
     confidence_tier: str
 
 
+class CivicToday(BaseModel):
+    """Island-wide 'right now' snapshot (F9a chunk A3) — same for every civic
+    card, a live day-to-day data point alongside the hypothetical hazard
+    scenarios. Reuses sync.grid_snapshot / sync.generation_status /
+    sync.luma_outages, the same tables /network/generation and
+    /network/outages already read."""
+    generation_mw: float | None = None
+    plants_offline: int | None = None
+    plants_total: int | None = None
+    generation_as_of: datetime | None = None
+    generation_confidence_tier: str | None = None
+    # Island-wide, not per-municipio — LUMA's feed is per operational region
+    # (7 regions) and PRISM has no region→municipio crosswalk built yet.
+    outage_pct_island: float | None = None
+    outage_as_of: datetime | None = None
+    outage_confidence_tier: str | None = None
+
+
 class CivicCard(BaseModel):
     barrio_entity_id: int
     barrio_name: str
@@ -804,6 +828,7 @@ class CivicCard(BaseModel):
     road_access: CivicRoadAccess | None = None
     flood_exposure: CivicFloodExposure
     planned_nearby: list[CivicPlannedItem] = Field(default_factory=list)
+    today: CivicToday | None = None
 
 
 # ── Ask PRISM (MVP3 P3-shared) ──────────────────────────────────────────────
