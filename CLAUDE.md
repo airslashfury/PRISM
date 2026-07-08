@@ -137,6 +137,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F6 — Water cascade + shell extraction | **COMPLETE** | 2026-07-02 | Opus GO |
 | F7 — Telecom cascade (on F6 shell) | **COMPLETE** | 2026-07-03 | Opus GO |
 | F8 — Excellence pass (wow arc) | **COMPLETE** | 2026-07-05 | Opus GO (one fix at gate) |
+| F9a — Legibility sweep | **COMPLETE** | 2026-07-08 | Opus GO |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -256,17 +257,18 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
    + command-center landing + cascade-play map theatre + UI system pass + ⌘K palette + OG cards /
    presentation mode + consistency sweep; 32/32 e2e; only new dep `cmdk`
 
-**The F1–F8 frontend product arc is COMPLETE (all Opus GO).** F1–F7 merged to `main`; F8 on
-`feat/f8-excellence` (pushed). **The active item is F9 — the Legibility & Trust arc**
-(ROADMAP.md), scheduled 2026-07-07 from the user's first full product review: three gated
-sub-items — **F9a** legibility sweep (score explainers + percentile context, "Fiona (demo)"
-labeling, Ask capabilities, cuerdas+m², drawer overflow, citizen-card rework incl. the
-hospitals-only road-access fix), **F9b** municipio-first structure (economy rollup, parcel 360
-+ address repair incl. municipio spatial backfill, trends drill-down + year scrubber,
-/resilience cascade hub, address-source research spike), **F9c** grounding (portfolio reframe,
-playground snapping, assumption rationale + rail cost references). Step 0: merge F8 → `main`.
-Routed to BACKLOG from the same review: weather/climate domain (F10 candidate), preferences /
-admin back-portal.
+**The F1–F8 frontend product arc is COMPLETE (all Opus GO); F8 merged to `main` (PR #1).**
+**The active item is F9 — the Legibility & Trust arc** (ROADMAP.md), scheduled 2026-07-07 from
+the user's first full product review. **F9a (legibility sweep) is DONE — Opus GO 2026-07-08**
+on `feat/f9a-legibility` (score explainers + percentile context everywhere, "Fiona (demo)"
+labeling end-to-end, Ask capabilities panel, Site Finder weight/unit semantics, cuerdas+m²,
+drawer overflow fix, citizen-card rework incl. hospitals-only road access — Caracol/Añasco now
+routes to a real hospital). **Active: F9b** municipio-first structure (economy rollup, parcel
+360 + address repair incl. municipio spatial backfill + the mojibake carry-forward, trends
+drill-down + year scrubber, /resilience cascade hub, address-source research spike); then
+**F9c** grounding (portfolio reframe, playground snapping, assumption rationale + rail cost
+references). Routed to BACKLOG from the same review: weather/climate domain (F10 candidate),
+preferences / admin back-portal.
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

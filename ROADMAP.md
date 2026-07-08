@@ -359,7 +359,24 @@ preferences/admin back-portal (auth-gated, extends the M6 trigger). See `BACKLOG
 
 ---
 
-#### F9a — Every number explains itself  *(legibility sweep — first, cheapest trust wins)*
+#### F9a — Every number explains itself  *(legibility sweep)* — ✅ DONE (2026-07-08, Opus GO)
+
+> Shipped on `feat/f9a-legibility` (`4b276b5` A1 / `52552a9` A2 / `f9cfbee` A3): shared
+> `ScoreExplainer` (meaning + formula-in-words + honest percentile) on resilience/water/telecom/
+> economy/parcels + `/resilience` MapKey ("arcs land on area centers"); `storm_label()` —
+> "Fiona (demo)" in WhatsNew + "Demo replay — if Hurricane Fiona's **2022** track held…"
+> (year-from-ATCF-id bug found live and fixed at review); `/ask` capabilities panel (10 tools);
+> Site Finder importance-weight + unit semantics; cuerdas + m²; drawer Row overflow fix;
+> citizen card — hospitals-only road access (UPR campus clinic was "nearest hospital" for 12
+> barrios; Caracol → HOSP SAN ANTONIO 18 min), positive power lead + live "Right now" island
+> block + Cat-3/quake scenarios, `interventions.ts` plain-language plan items. Backend 101
+> tests green; e2e 60/60; live-verified through nginx. A2/A3 Sonnet-implemented (A3 resumed
+> across a session-limit death); A1 by the main session (Sonnet quota exhausted).
+> **Carry-forwards (non-blocking, from the gate):** 15 barrios have NULL nearest-hospital —
+> islands + ~6 mainland barrios on disconnected road-graph components (pre-existing
+> connectivity root cause; optional "nearest clinic" second field would restore signal —
+> candidates for F9b/BACKLOG); citizen-card `municipio_name` mojibake ("AÃ±asco") is a
+> pre-existing double-encoding → **owned by F9b B2's municipio repair**.
 
 - **A1 — Score explainers + map legend.** New `frontend/components/score-explainer.tsx`: every
   score value (resilience composite/hazard/cascade, water/telecom composites, parcel power
@@ -407,7 +424,7 @@ replayed storm data is labeled "(demo)" at every render path; Ask states its ful
 set; slider/unit semantics are explicit (cuerdas + m², weights labeled); the citizen card names
 a real hospital, leads with what works, and its planned-items read as plain language.
 
-#### F9b — Structure where people live  *(municipio-first + interconnection)*
+#### F9b — Structure where people live  *(municipio-first + interconnection)* — **ACTIVE (2026-07-08)**
 
 - **B1 — Economy municipio-first.** New `GET /economy/municipios` (78 rows: population, SVI mean
   + high-SVI tract count, VOLL exposure, CRIM assessed value + 12-mo sales, substation count) +

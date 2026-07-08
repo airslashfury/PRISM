@@ -49,8 +49,8 @@ class AccessRow:
 def compute_road_access(engine: Engine) -> list[AccessRow]:
     """
     Run pgr_dijkstra (hospitals → all barrio vertices) and return one row
-    per barrio with travel distance and time to the nearest hospital or
-    health_center.
+    per barrio with travel distance and time to the nearest true hospital
+    (clasif='HOSP' — see module docstring).
     """
     create_schema(engine)
 
