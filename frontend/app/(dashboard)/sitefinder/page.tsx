@@ -14,7 +14,7 @@ import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { useSiteFinderMeta, useSiteScore, useSiteParcel, useSiteAccessPoints } from "@/lib/hooks";
 import { suitColor, SUIT_LEGEND_STOPS, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum } from "@/lib/utils";
-import type { SiteResult, SiteAccessPoint, ConfidenceTierKey } from "@/lib/api";
+import type { SiteResult, SiteScorecard, SiteAccessPoint, ConfidenceTierKey } from "@/lib/api";
 
 const TOP_N = 200;
 const PORT_PRIMARY_RGB: RGB = [37, 99, 235];
@@ -23,6 +23,37 @@ const AIRPORT_RGB: RGB = [168, 85, 247];
 
 function km(m: number | null): string {
   return m == null ? "—" : `${(m / 1000).toFixed(1)} km`;
+}
+
+/** The raw, physically-united signal behind one normalized 0-1 subscore —
+ * shown alongside it in the drawer's Criteria breakdown so "0.83" is never
+ * the only number a criterion shows (F9a A2: sliders/subscores are unitless
+ * weights/ranks; the underlying measurement always has real units). */
+function rawValueFor(key: string, d: SiteScorecard): string | null {
+  switch (key) {
+    case "power_access":
+      return d.dist_substation_m != null ? km(d.dist_substation_m) : null;
+    case "grid_reliability":
+      return d.substation_risk != null ? `risk ${fmtNum(d.substation_risk, 1)}` : null;
+    case "flood_safety":
+      return d.flood_frac != null ? `${Math.round(d.flood_frac * 100)}% flood zone` : null;
+    case "water_access":
+      return d.dist_water_m != null ? km(d.dist_water_m) : null;
+    case "road_access":
+      return d.road_access_min != null ? `${fmtNum(d.road_access_min, 1)} min` : null;
+    case "port_access":
+      return d.dist_port_m != null ? km(d.dist_port_m) : null;
+    case "bulk_port_access":
+      return d.dist_bulk_port_m != null ? km(d.dist_bulk_port_m) : null;
+    case "air_access":
+      return d.dist_airport_m != null ? km(d.dist_airport_m) : null;
+    case "land_value":
+      return d.land_per_m2 != null ? `$${fmtNum(d.land_per_m2, 2)}/m²` : null;
+    case "dev_impact":
+      return d.svi != null ? `SVI ${fmtNum(d.svi, 2)}` : null;
+    default:
+      return null;
+  }
 }
 
 function accessColor(p: SiteAccessPoint): RGB {
@@ -191,7 +222,9 @@ export default function SiteFinderPage() {
                 </button>
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                Drag to match what your operation needs. The map re-ranks instantly.
+                Each slider is an importance weight, not a distance (0 = ignore this factor) —
+                every factor is normalized 0–1 across all parcels before blending. Drag to match
+                what your operation needs; the map re-ranks instantly.
               </p>
               <Segmented
                 className="mt-3 w-full"
@@ -217,6 +250,7 @@ export default function SiteFinderPage() {
                     key={c.key}
                     label={c.label}
                     description={c.description}
+                    unit={c.unit}
                     tier={c.tier}
                     value={weights[c.key] ?? 0}
                     onChange={(v) => setWeights((w) => ({ ...(w ?? {}), [c.key]: v }))}
@@ -264,24 +298,26 @@ function LegendDot({ color, label }: { color: RGB; label: string }) {
 function Slider({
   label,
   description,
+  unit,
   tier,
   value,
   onChange,
 }: {
   label: string;
   description: string;
+  unit?: string;
   tier: ConfidenceTierKey;
   value: number;
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="px-1 py-1.5" title={description}>
+    <div className="px-1 py-1.5" title={unit ? `${description} Shown per-parcel as: ${unit}.` : description}>
       <div className="mb-1 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-xs font-medium">
           {label}
           <ConfidenceChip tier={tier} />
         </span>
-        <span className="text-[11px] tnum text-muted-foreground">{value.toFixed(2)}</span>
+        <span className="text-[11px] tnum text-muted-foreground">{value.toFixed(2)} wt</span>
       </div>
       <input
         type="range"
@@ -378,6 +414,7 @@ function Scorecard({ parcelId, onBack }: { parcelId: number; onBack: () => void 
                     value={v ?? 0}
                     tier={data.criteria_tiers[key]}
                     weight={data.weights[key] ?? 0}
+                    raw={rawValueFor(key, data)}
                   />
                 ))}
             </div>
@@ -430,11 +467,13 @@ function SubscoreBar({
   value,
   tier,
   weight,
+  raw,
 }: {
   label: string;
   value: number;
   tier?: ConfidenceTierKey;
   weight: number;
+  raw?: string | null;
 }) {
   const muted = weight === 0;
   return (
@@ -445,7 +484,10 @@ function SubscoreBar({
           {tier && <ConfidenceChip tier={tier} />}
           {muted && <span className="text-[10px] text-muted-foreground">(off)</span>}
         </span>
-        <span className="tnum text-muted-foreground">{value.toFixed(2)}</span>
+        <span className="tnum text-muted-foreground">
+          {raw && <span className="mr-1.5">{raw}</span>}
+          {value.toFixed(2)}
+        </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div

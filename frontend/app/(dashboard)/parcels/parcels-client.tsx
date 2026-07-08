@@ -452,7 +452,12 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
           <Row label="Machinery" value={fmtUsd(c.machinery_value, 0)} />
         )}
         <Row label="Taxable" value={c.taxable_value != null ? fmtUsd(c.taxable_value, 0) : "—"} />
-        {c.area_cuerdas != null && <Row label="Area" value={`${fmtNum(c.area_cuerdas, 2)} cuerdas`} />}
+        {c.area_cuerdas != null && (
+          <Row
+            label="Area"
+            value={`${fmtNum(c.area_cuerdas, 2)} cuerdas (${fmtInt(c.area_cuerdas * 3930.4)} m²)`}
+          />
+        )}
         {c.subparcel_count > 1 && <Row label="Subparcels" value={fmtInt(c.subparcel_count)} />}
         {(c.deed_number || c.deed_book) && (
           <Row label="Deed" value={[c.deed_number, c.deed_book && `book ${c.deed_book}`, c.deed_page && `p.${c.deed_page}`].filter(Boolean).join(" · ")} />

@@ -839,6 +839,7 @@ class SiteCriterion(BaseModel):
     key: str
     label: str
     description: str
+    unit: str
     tier: str
     default_weight: float
 

@@ -14,27 +14,41 @@ from sqlalchemy.engine import Engine
 from prism.sitefinder.score import DEFAULT_WEIGHTS, _SUBSCORES
 
 # Criterion catalogue for the UI (sliders) + the confidence tier of each input.
+# `unit` describes the RAW underlying signal (what the drawer's breakdown shows
+# per parcel) — distinct from the slider's own value, which is always a 0–0.5
+# importance weight, never a physical unit. See sitefinder/page.tsx's
+# "importance weight, not a distance" sentence above the sliders.
 CRITERIA: list[dict] = [
     {"key": "power_access", "label": "Power access", "tier": "authoritative",
-     "description": "Proximity to the transmission grid (nearest substation)."},
+     "description": "Proximity to the transmission grid (nearest substation).",
+     "unit": "km to nearest substation"},
     {"key": "grid_reliability", "label": "Grid reliability", "tier": "proxy",
-     "description": "Hurricane Cat-3 resilience of the nearest substation (inverted risk)."},
+     "description": "Hurricane Cat-3 resilience of the nearest substation (inverted risk).",
+     "unit": "nearest substation's Cat-3 risk score"},
     {"key": "flood_safety", "label": "Flood safety", "tier": "authoritative",
-     "description": "Share of the parcel outside the FEMA 1% flood zone."},
+     "description": "Share of the parcel outside the FEMA 1% flood zone.",
+     "unit": "% of parcel inside the 1% flood zone"},
     {"key": "water_access", "label": "Water access", "tier": "authoritative",
-     "description": "Proximity to a water plant or pump station."},
+     "description": "Proximity to a water plant or pump station.",
+     "unit": "km to nearest water plant"},
     {"key": "road_access", "label": "Road access", "tier": "modeled",
-     "description": "Barrio road connectivity (travel-time proxy, inverted)."},
+     "description": "Barrio road connectivity (travel-time proxy, inverted).",
+     "unit": "minutes travel time (barrio proxy)"},
     {"key": "port_access", "label": "Cargo port access", "tier": "authoritative",
-     "description": "Proximity to a primary container/cargo port (San Juan, Ponce)."},
+     "description": "Proximity to a primary container/cargo port (San Juan, Ponce).",
+     "unit": "km to nearest cargo port"},
     {"key": "bulk_port_access", "label": "Bulk/petro port", "tier": "authoritative",
-     "description": "Proximity to a bulk/petrochemical port (Yabucoa, Guayanilla, Peñuelas) — for heavy industry."},
+     "description": "Proximity to a bulk/petrochemical port (Yabucoa, Guayanilla, Peñuelas) — for heavy industry.",
+     "unit": "km to nearest bulk/petro port"},
     {"key": "air_access", "label": "Air cargo access", "tier": "authoritative",
-     "description": "Proximity to a commercial airport (SJU, Aguadilla, Ponce)."},
+     "description": "Proximity to a commercial airport (SJU, Aguadilla, Ponce).",
+     "unit": "km to nearest airport"},
     {"key": "land_value", "label": "Land affordability", "tier": "authoritative",
-     "description": "Lower CRIM assessed land value per m² = higher score. Requires CRIM parcel data (crim.parcelas)."},
+     "description": "Lower CRIM assessed land value per m² = higher score. Requires CRIM parcel data (crim.parcelas).",
+     "unit": "assessed land value per m²"},
     {"key": "dev_impact", "label": "Development impact", "tier": "proxy",
-     "description": "Community vulnerability (SVI) — siting where it helps most."},
+     "description": "Community vulnerability (SVI) — siting where it helps most.",
+     "unit": "barrio SVI, 0-1 (higher = more vulnerable)"},
 ]
 _TIER = {c["key"]: c["tier"] for c in CRITERIA}
 

@@ -439,6 +439,7 @@ export interface SiteCriterion {
   key: string;
   label: string;
   description: string;
+  unit: string;
   tier: ConfidenceTierKey;
   default_weight: number;
 }

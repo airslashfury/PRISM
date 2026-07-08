@@ -115,9 +115,83 @@ def test_headline_no_infrastructure_in_cone():
     assert "no tracked infrastructure" in h
 
 
+# ── storm_label (pure) ───────────────────────────────────────────────────────
+
+def test_storm_label_live_uses_bare_name():
+    from prism.resilience.storm import storm_label
+
+    assert storm_label("Fiona", "al072022", False) == "Fiona"
+
+
+def test_storm_label_replay_appends_demo():
+    from prism.resilience.storm import storm_label
+
+    assert storm_label("Fiona", "al072022", True) == "Fiona (demo)"
+
+
+def test_storm_label_falls_back_to_storm_id_when_name_missing():
+    from prism.resilience.storm import storm_label
+
+    assert storm_label(None, "al072022", False) == "al072022"
+    assert storm_label(None, "al072022", True) == "al072022 (demo)"
+
+
+def test_storm_label_falls_back_to_unnamed_storm():
+    from prism.resilience.storm import storm_label
+
+    assert storm_label(None, None, False) == "Unnamed storm"
+    assert storm_label(None, None, True) == "Unnamed storm (demo)"
+
+
+# ── build_storm_headline replay marker ──────────────────────────────────────
+
+def test_headline_live_default_unaffected_by_replay_kwargs():
+    """The new keyword-only replay params default to live phrasing — the F9a
+    demo-labeling addition must not change a single existing live headline."""
+    from prism.resilience.storm import build_storm_headline
+
+    h = build_storm_headline("Fiona", "HU", _counts())
+    assert h.startswith("If Fiona's track holds:")
+    assert "Demo replay" not in h
+
+
+def test_headline_replay_gets_demo_prefix_and_past_tense():
+    from prism.resilience.storm import build_storm_headline
+
+    h = build_storm_headline("Fiona", "HU", _counts(), replay=True)
+    assert h.startswith("Demo replay — if Fiona's track held:")
+    assert "214 substations" in h
+
+
+def test_headline_replay_includes_year_when_given():
+    from prism.resilience.storm import build_storm_headline
+
+    h = build_storm_headline("Fiona", "HU", _counts(), replay=True, replay_year=2022)
+    assert "Fiona's 2022 track held" in h
+
+
+def test_headline_replay_omits_year_when_not_given():
+    from prism.resilience.storm import build_storm_headline
+
+    h = build_storm_headline("Fiona", "HU", _counts(), replay=True)
+    assert "Fiona's track held" in h
+    assert "Fiona's None track" not in h
+
+
+def test_headline_replay_no_infrastructure_still_marked():
+    from prism.resilience.storm import build_storm_headline
+
+    h = build_storm_headline("Fiona", "TS", _counts(
+        n_substations=0, n_hospitals=0, n_water_plants=0, n_health_centers=0,
+        n_substations_surge=0, population_served=0,
+    ), replay=True)
+    assert h.startswith("Demo replay — if Fiona's track held:")
+    assert "no tracked infrastructure" in h
+
+
 # ── compute_storm_consequence — end to end ──────────────────────────────────
 
-def _insert_pr_wide_advisory(engine, advisory_num="001"):
+def _insert_pr_wide_advisory(engine, advisory_num="001", *, replay=False):
     from prism.sync.nhc import insert_advisory
 
     meta = {
@@ -136,6 +210,7 @@ def _insert_pr_wide_advisory(engine, advisory_num="001"):
     return insert_advisory(
         engine, storm_id=_TEST_STORM, advisory_num=advisory_num, meta=meta, parsed=parsed,
         source_url="https://example.invalid/test.zip", raw_sha256="feedface",
+        replay=replay,
     )
 
 
@@ -176,6 +251,32 @@ def test_compute_storm_consequence_end_to_end(engine):
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM sync.nhc_advisories WHERE advisory_pk = :pk"),
                       {"pk": advisory_pk})
+
+
+def test_compute_storm_consequence_replay_headline_marked_demo(engine):
+    """F9a A2: a replayed advisory's persisted headline opens with the demo
+    marker end to end (insert_advisory(replay=True) -> compute_storm_consequence)."""
+    from prism.resilience.storm import compute_storm_consequence
+
+    result = _insert_pr_wide_advisory(engine, "900", replay=True)
+    assert result["inserted"] is True
+    advisory_pk = result["advisory_pk"]
+
+    try:
+        row = compute_storm_consequence(engine, advisory_pk)
+        assert row is not None
+        assert row["headline"].startswith("Demo replay —")
+        assert "TESTSTORM" in row["headline"]
+
+        with engine.connect() as conn:
+            persisted = conn.execute(text("""
+                SELECT headline FROM sync.nhc_consequences WHERE advisory_pk = :pk
+            """), {"pk": advisory_pk}).scalar()
+        assert persisted.startswith("Demo replay —")
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM sync.nhc_advisories WHERE advisory_pk = :pk"),
+                          {"pk": advisory_pk})
 
 
 def test_compute_storm_consequence_missing_advisory_returns_none(engine):
@@ -226,6 +327,29 @@ def test_fiona_consequence_backfill(engine):
     assert len(rows) >= 1
     assert all(r[0] > 0 for r in rows)
     assert all(r[1] for r in rows)
+
+
+def test_fiona_replay_headline_year_comes_from_storm_id(engine):
+    """Regression (found live, F9a A2): replay rows carry fetched_at = replay
+    time and no issued_at, so a timestamp-derived year claimed "Fiona's 2026
+    track held". The season year must come from the ATCF id (al072022 → 2022).
+    """
+    from prism.resilience.storm import compute_storm_consequence
+
+    with engine.connect() as conn:
+        pk = conn.execute(text("""
+            SELECT advisory_pk FROM sync.nhc_advisories
+            WHERE storm_id = 'al072022' AND affects_pr = true AND cone IS NOT NULL
+            ORDER BY advisory_num DESC LIMIT 1
+        """)).scalar()
+    if pk is None:
+        pytest.skip("Fiona replay advisories not seeded in this DB")
+
+    result = compute_storm_consequence(engine, pk)
+    assert result is not None
+    assert "Demo replay" in result["headline"]
+    assert "2022 track held" in result["headline"]
+    assert "2026" not in result["headline"]
 
 
 # ── API ──────────────────────────────────────────────────────────────────────

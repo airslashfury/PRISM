@@ -214,3 +214,56 @@ test("/telecom risk-score explainer opens in the source drawer", async ({ page }
 
   expect(errors, `uncaught page errors on /telecom: ${errors.join("; ")}`).toEqual([]);
 });
+
+// ── F9a A2: truth-label & copy sweep ─────────────────────────────────────────
+
+test("/telecom drawer has no horizontal overflow at 375px", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  // Fixed 375px regardless of project viewport (desktop/mobile) — this is the
+  // narrow width the reported Owner/licensee + Coverage-lost squeeze showed
+  // up at (entity-drawer.tsx Row: items-start + min-w-0 + break-words fix).
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/telecom", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Highest coverage-loss risk")).toBeVisible({ timeout: 30_000 });
+
+  // Open the first source's drawer — where the long Owner/licensee value and
+  // the "Coverage lost" row (now a plain count, with the sentence demoted to
+  // a caption below it) render.
+  await page.locator("aside ul li button").first().click();
+  await expect(page.getByText("Coverage lost")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/lose cell coverage if this site goes dark/)).toBeVisible();
+
+  const overflowPx = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflowPx, "document should not scroll horizontally at 375px").toBeLessThanOrEqual(1);
+
+  expect(errors, `uncaught page errors on /telecom: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("/ask states its full capability set", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/ask", { waitUntil: "domcontentloaded" });
+  // /ask titles the page with an h1 in BOTH the topbar and the body, so
+  // `level: 1` alone is ambiguous here — scope to the main landmark.
+  await expect(
+    page.getByRole("main").getByRole("heading", { name: "Ask PRISM", level: 1 }),
+  ).toBeVisible();
+
+  // The "What you can ask" panel is open by default (InfoPanel defaultOpen) —
+  // the capability list must not hide behind a click.
+  await expect(page.getByText("What you can ask")).toBeVisible();
+  await expect(page.getByText("Parcels, owners & addresses (CRIM)")).toBeVisible();
+  await expect(page.getByText("What changed recently")).toBeVisible();
+  await expect(page.getByText("Community vulnerability (SVI)")).toBeVisible();
+
+  // The refreshed example pills cover the newer tools (owner/parcel/whats-new).
+  await expect(page.getByRole("button", { name: /Who owns the most land/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Did anything change in the data/ })).toBeVisible();
+
+  expect(errors, `uncaught page errors on /ask: ${errors.join("; ")}`).toEqual([]);
+});

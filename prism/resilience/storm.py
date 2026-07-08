@@ -15,6 +15,7 @@ from `prism/resilience/hazard.py` step 3 (Cat-2 marejada proxy).
 from __future__ import annotations
 
 import logging
+import re
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -63,17 +64,46 @@ def _fmt_population(n: int) -> str:
     return f"{n:,}"
 
 
+def storm_label(name: str | None, storm_id: str | None, replay: bool) -> str:
+    """Display name for a storm — "Fiona (demo)" for a replayed advisory (a
+    historical backfill like Fiona 2022, not an active threat), "Fiona" for a
+    live one. Falls back to the raw storm_id, then "Unnamed storm", when no
+    name is on file — the same fallback every storm_name render path in the
+    app already uses (frontend `storm_name ?? "Unnamed storm"`).
+    """
+    label = name or storm_id or "Unnamed storm"
+    return f"{label} (demo)" if replay else label
+
+
 def build_storm_headline(
-    storm_name: str | None, classification: str | None, counts: dict
+    storm_name: str | None,
+    classification: str | None,
+    counts: dict,
+    *,
+    replay: bool = False,
+    replay_year: int | None = None,
 ) -> str:
     """One-line pre-landfall consequence summary. Pure — no DB.
 
     `counts` keys: storm_id (fallback name), n_substations, n_hospitals,
     n_water_plants, n_health_centers, n_barrios, n_substations_surge,
     population_served.
+
+    `replay=True` marks a historical backfill (e.g. Fiona 2022) rather than a
+    live storm: the opening clause becomes "Demo replay — if <name>'s [year]
+    track held" (past tense, demo-prefixed) instead of "If <name>'s track
+    holds" — so a replayed headline can never be mistaken for an active storm
+    bearing down on PR. `replay_year` is optional cosmetic detail; omit it
+    when not cheaply available and the clause still reads correctly.
     """
     storm_id = counts.get("storm_id")
     name = storm_name or (storm_id.upper() if storm_id else "this storm")
+
+    if replay:
+        year_clause = f" {replay_year}" if replay_year else ""
+        lede_open = f"Demo replay — if {name}'s{year_clause} track held"
+    else:
+        lede_open = f"If {name}'s track holds"
 
     in_cone = []
     for kind in ("substation", "hospital", "water_plant", "health_center"):
@@ -82,9 +112,9 @@ def build_storm_headline(
             in_cone.append(_pluralize(n, _NOUN[kind]))
 
     if not in_cone:
-        return f"If {name}'s track holds: no tracked infrastructure sits inside the forecast cone yet."
+        return f"{lede_open}: no tracked infrastructure sits inside the forecast cone yet."
 
-    lede = f"If {name}'s track holds: {_join_parts(in_cone)} sit inside the forecast cone"
+    lede = f"{lede_open}: {_join_parts(in_cone)} sit inside the forecast cone"
 
     surge_n = counts.get("n_substations_surge", 0) or 0
     pop = counts.get("population_served", 0) or 0
@@ -116,7 +146,8 @@ def compute_storm_consequence(engine: Engine, advisory_pk: int) -> dict | None:
     """
     with engine.connect() as conn:
         adv = conn.execute(text("""
-            SELECT advisory_pk, storm_id, storm_name, classification, cone
+            SELECT advisory_pk, storm_id, storm_name, classification, cone, replay,
+                   issued_at
             FROM sync.nhc_advisories
             WHERE advisory_pk = :pk
         """), {"pk": advisory_pk}).mappings().fetchone()
@@ -159,7 +190,22 @@ def compute_storm_consequence(engine: Engine, advisory_pk: int) -> dict | None:
     counts["population_served"] = int(population)
     counts["storm_id"] = adv["storm_id"]
 
-    headline = build_storm_headline(adv["storm_name"], adv["classification"], counts)
+    replay = bool(adv["replay"])
+    # Season year from the ATCF storm id (al072022 → 2022): replay rows carry
+    # fetched_at = replay time and often no issued_at, so a timestamp-derived
+    # year would claim the storm happened when the replay RAN (e.g. "Fiona's
+    # 2026 track"). issued_at is only a fallback for ids without a year.
+    replay_year: int | None = None
+    if replay:
+        m = re.search(r"(19|20)\d{2}$", adv["storm_id"] or "")
+        if m:
+            replay_year = int(m.group())
+        elif adv["issued_at"] is not None:
+            replay_year = adv["issued_at"].year
+    headline = build_storm_headline(
+        adv["storm_name"], adv["classification"], counts,
+        replay=replay, replay_year=replay_year,
+    )
 
     with engine.begin() as conn:
         conn.execute(text("""

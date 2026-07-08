@@ -436,10 +436,10 @@ function SourceDrawer({
       title: "Who depends on it",
       body: (
         <div className="space-y-2">
-          <Row
-            label="Coverage lost"
-            value={`${fmtInt(data.serves.barrios_covered)} barrios lose coverage if this site goes dark`}
-          />
+          <Row label="Coverage lost" value={`${fmtInt(data.serves.barrios_covered)} barrios`} />
+          <p className="text-xs text-muted-foreground">
+            These barrios lose cell coverage if this site goes dark.
+          </p>
           {data.serves.sample_barrios.length > 0 && (
             <div className="text-xs text-muted-foreground">
               {data.serves.sample_barrios.join(", ")}
