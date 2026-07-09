@@ -39,6 +39,15 @@ export const useScores = (scenario: string, top = 400) =>
     staleTime: 5 * MIN,
   });
 
+/** Slim id/name/lon/lat for every substation (~961) — fetched once for
+ * client-side draw-to-nearest-substation snapping on /playground (F9c C2). */
+export const useSubstationsSlim = () =>
+  useQuery({
+    queryKey: ["substationsSlim"],
+    queryFn: api.substationsSlim,
+    staleTime: 60 * MIN,
+  });
+
 export const useSpof = () =>
   useQuery({ queryKey: ["spof"], queryFn: api.spof, staleTime: 5 * MIN });
 

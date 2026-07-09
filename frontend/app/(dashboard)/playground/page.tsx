@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { GeoJsonLayer, PathLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { GeoJsonLayer, LineLayer, PathLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import {
   Ban,
@@ -37,9 +37,16 @@ import {
   usePlaygroundScenario,
   usePlaygroundScenarios,
   useScores,
+  useSubstationsSlim,
 } from "@/lib/hooks";
-import { api, ApiError, pollJob, type AssetTypeSchema, type WhatIfResult } from "@/lib/api";
+import { api, ApiError, pollJob, type AssetTypeSchema, type SubstationSlim, type WhatIfResult } from "@/lib/api";
 import { fmtInt, fmtNum, fmtUsd } from "@/lib/utils";
+import { nearestWithin } from "@/lib/geo";
+import { ESTIMATE_SCOPE } from "@/lib/estimate-scope";
+
+/** Endpoints within this distance of a substation snap to it — a drawn line's
+ * grid connection should read as real, not floating (F9c C2). */
+const SNAP_THRESHOLD_M = 500;
 
 const ASSET_ICONS: Record<string, LucideIcon> = {
   train: TrainFront,
@@ -149,6 +156,7 @@ export default function PlaygroundPage() {
   const { data: scenarios, isLoading: scenariosLoading } = usePlaygroundScenarios();
   const { data: assetTypes } = usePlaygroundAssetTypes();
   const { data: scores } = useScores("cat3", 400);
+  const { data: substationsSlim } = useSubstationsSlim();
 
   const [scenarioId, setScenarioId] = useState<number | null>(null);
   const activeScenarioId = scenarioId ?? scenarios?.[0]?.scenario_id ?? null;
@@ -161,7 +169,15 @@ export default function PlaygroundPage() {
 
   const [drawMode, setDrawMode] = useState<DrawMode>(null);
   const [drawPoints, setDrawPoints] = useState<Coord[]>([]);
+  const [drawRawPoints, setDrawRawPoints] = useState<Coord[]>([]); // pre-snap, for the tie line
+  const [drawSnaps, setDrawSnaps] = useState<((SubstationSlim & { dist_m: number }) | null)[]>([]);
   const [drawParams, setDrawParams] = useState<Record<string, unknown>>({});
+
+  /** Snap a raw click to the nearest substation within SNAP_THRESHOLD_M, if any. */
+  const snapCoord = (coord: Coord): { coord: Coord; snap: (SubstationSlim & { dist_m: number }) | null } => {
+    const snap = substationsSlim ? nearestWithin(coord, substationsSlim, SNAP_THRESHOLD_M) : null;
+    return { coord: snap ? [snap.lon, snap.lat] : coord, snap };
+  };
 
   const [evaluating, setEvaluating] = useState(false);
   const [evalError, setEvalError] = useState<string | null>(null);
@@ -231,6 +247,8 @@ export default function PlaygroundPage() {
 
   const selectAssetType = (atype: AssetTypeSchema) => {
     setDrawPoints([]);
+    setDrawRawPoints([]);
+    setDrawSnaps([]);
     setDrawParams(defaultParams(atype));
     setDrawMode({ kind: "asset", assetType: atype.asset_type, geometry: atype.geometry });
   };
@@ -238,6 +256,8 @@ export default function PlaygroundPage() {
   const cancelDraw = () => {
     setDrawMode(null);
     setDrawPoints([]);
+    setDrawRawPoints([]);
+    setDrawSnaps([]);
   };
 
   const finishLine = async () => {
@@ -284,18 +304,21 @@ export default function PlaygroundPage() {
     }
 
     if (!coord || !activeScenarioId || drawMode?.kind !== "asset") return;
+    const { coord: snapped, snap } = snapCoord(coord);
 
     if (drawMode.geometry === "point") {
       await api.addPlaygroundAsset(activeScenarioId, {
         asset_type: drawMode.assetType,
         op: "add",
-        geometry: { type: "Point", coordinates: coord },
+        geometry: { type: "Point", coordinates: snapped },
         params: drawParams,
       });
       cancelDraw();
       invalidateScenario(activeScenarioId);
     } else {
-      setDrawPoints((pts) => [...pts, coord]);
+      setDrawPoints((pts) => [...pts, snapped]);
+      setDrawRawPoints((pts) => [...pts, coord]);
+      setDrawSnaps((snaps) => [...snaps, snap]);
     }
   };
 
@@ -441,10 +464,41 @@ export default function PlaygroundPage() {
           getFillColor: [255, 255, 255, 255],
         }),
       );
+
+      // Snap grounding: a tie line from the raw click to the substation it
+      // snapped to, plus a halo on the snapped substation (F9c C2).
+      const snapPairs = drawSnaps
+        .map((snap, i) => (snap ? { from: drawRawPoints[i], to: [snap.lon, snap.lat] as Coord, snap } : null))
+        .filter((p): p is { from: Coord; to: Coord; snap: SubstationSlim & { dist_m: number } } => p != null);
+      if (snapPairs.length) {
+        ls.push(
+          new LineLayer({
+            id: "playground-snap-ties",
+            data: snapPairs,
+            getSourcePosition: (d) => d.from,
+            getTargetPosition: (d) => d.to,
+            getColor: [56, 189, 248, 200],
+            getWidth: 2,
+          }),
+        );
+        ls.push(
+          new ScatterplotLayer({
+            id: "playground-snap-halo",
+            data: snapPairs,
+            getPosition: (d) => d.to,
+            getRadius: 12,
+            radiusUnits: "pixels",
+            filled: false,
+            stroked: true,
+            getLineColor: [56, 189, 248, 255],
+            lineWidthMinPixels: 2,
+          }),
+        );
+      }
     }
 
     return ls;
-  }, [scores, geojson, drawPoints, drawMode, detail?.events]);
+  }, [scores, geojson, drawPoints, drawRawPoints, drawSnaps, drawMode, detail?.events]);
 
   const getTooltip = (info: PickingInfo) => {
     if (info.layer?.id === "playground-substations") {
@@ -505,6 +559,15 @@ export default function PlaygroundPage() {
                 `Click to add points (${drawPoints.length} placed) — use "Finish line" when done`}
               {drawMode.kind === "fail" && "Click a substation to add a failure event to this scenario"}
               {drawMode.kind === "whatif" && "Click a substation for an instant downstream-failure check"}
+              {(() => {
+                const lastSnap = drawSnaps[drawSnaps.length - 1];
+                return lastSnap ? (
+                  <div className="mt-1 flex items-center gap-1 text-cyan-300">
+                    <Zap className="h-3 w-3" /> Connects to {lastSnap.name ?? `#${lastSnap.entity_id}`}
+                    {" "}({fmtInt(lastSnap.dist_m)} m away)
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
 
@@ -724,6 +787,8 @@ export default function PlaygroundPage() {
                     const fi = a.failure_impact as
                       | { people_affected: number; critical_facilities: number; is_single_point_of_failure: boolean; notes: string }
                       | undefined;
+                    const anchor = a.nearest_substation as { entity_id: number; name: string | null; dist_m: number } | null | undefined;
+                    const scope = ESTIMATE_SCOPE[String(a.asset_type)];
                     return (
                       <div key={String(a.asset_id)} className="rounded-lg border border-border/60 bg-background/30 p-2.5 text-xs">
                         <div className="mb-1 flex items-center justify-between">
@@ -737,6 +802,13 @@ export default function PlaygroundPage() {
                           {a.flood_fraction != null && <span>Flood exposure: <span className="tnum text-foreground">{((a.flood_fraction as number) * 100).toFixed(0)}%</span></span>}
                           {a.capacity != null && <span>Capacity: <span className="tnum text-foreground">{fmtInt(a.capacity as number)}</span></span>}
                         </div>
+                        {anchor && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            Evaluated against{" "}
+                            <span className="text-foreground">{anchor.name ?? `substation #${anchor.entity_id}`}</span>
+                            , {fmtInt(anchor.dist_m)} m away.
+                          </div>
+                        )}
                         {fi && (
                           <div className="mt-1.5 border-t border-border/50 pt-1.5 text-muted-foreground">
                             <div className="flex items-center justify-between">
@@ -744,6 +816,12 @@ export default function PlaygroundPage() {
                               {fi.is_single_point_of_failure && <Badge variant="danger">SPOF</Badge>}
                             </div>
                             {fi.notes && <div className="mt-0.5 text-[11px] italic">{fi.notes}</div>}
+                          </div>
+                        )}
+                        {scope && (
+                          <div className="mt-1.5 border-t border-border/50 pt-1.5 text-[11px] text-muted-foreground">
+                            <span className="font-medium text-foreground">Estimate includes:</span> {scope.includes.join("; ")}.{" "}
+                            <span className="font-medium text-foreground">Excludes:</span> {scope.excludes.join(", ")}.
                           </div>
                         )}
                       </div>

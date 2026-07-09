@@ -125,6 +125,20 @@ def _nearby_substation_factors(engine: Engine, geom_wkt: str) -> dict:
     return {"cascade_impact": float(base["cascade_impact"]), "betweenness": float(base["spof_betweenness"])}
 
 
+def _anchor_substation(engine: Engine, geom_wkt: str, max_m: float = 50_000.0) -> dict | None:
+    """Nearest substation to the drawn asset's first vertex — the "evaluated
+    against SUBSTATION X, N m away" anchor shown in the Playground results
+    panel (F9c C2). Distinct from `_nearby_substation_factors`: this is a
+    display anchor for any asset type, not a cascade-context lookup scoped
+    to transmission/substation."""
+    point = shapely_wkt.loads(geom_wkt)
+    x, y = point.coords[0][:2]
+    sub = _nearest_substation(engine, x, y, max_m=max_m)
+    if not sub:
+        return None
+    return {"entity_id": sub["entity_id"], "name": sub["name"], "dist_m": round(sub["dist"], 1)}
+
+
 def _failure_impact_dict(cls, asset_id: Any, graph: dict, ctx: Context) -> dict:
     fi = cls.failure_impact(asset_id, graph, ctx)
     return dataclasses.asdict(fi)
@@ -203,6 +217,7 @@ def _evaluate_line_asset(asset: dict, cs: CostSurface, engine: Engine) -> dict:
         "flood_fraction": round(flood_fraction, 3),
         "segments": segment_out,
         "failure_impact": failure,
+        "nearest_substation": _anchor_substation(engine, asset["geom_wkt"]),
     }
 
 
@@ -238,6 +253,7 @@ def _evaluate_point_asset(asset: dict, engine: Engine) -> dict:
         "maintenance_npv_usd": maintenance,
         "capacity": capacity,
         "failure_impact": failure,
+        "nearest_substation": _anchor_substation(engine, asset["geom_wkt"]),
     }
 
 

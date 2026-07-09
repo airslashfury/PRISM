@@ -122,6 +122,13 @@ class SubstationScore(BaseModel):
     lat: float
 
 
+class SubstationSlim(BaseModel):
+    entity_id: int
+    name: str | None
+    lon: float
+    lat: float
+
+
 class SubstationDetail(SubstationScore):
     scenario: str
     downstream_hospitals: int | None = None

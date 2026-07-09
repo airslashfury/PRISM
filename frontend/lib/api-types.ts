@@ -101,6 +101,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/resilience/substations/slim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Substations Slim
+         * @description Every substation's id/name/lon/lat, unscored — a lightweight payload for
+         *     client-side snapping (Playground draw-to-nearest-substation, F9c C2), not
+         *     the full scored rows /scores returns.
+         */
+        get: operations["substations_slim_resilience_substations_slim_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/resilience/current": {
         parameters: {
             query?: never;
@@ -3795,6 +3817,17 @@ export interface components {
             /** Lat */
             lat: number;
         };
+        /** SubstationSlim */
+        SubstationSlim: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name: string | null;
+            /** Lon */
+            lon: number;
+            /** Lat */
+            lat: number;
+        };
         /** SyncLogEntry */
         SyncLogEntry: {
             /** Run Id */
@@ -4339,6 +4372,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    substations_slim_resilience_substations_slim_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubstationSlim"][];
                 };
             };
         };

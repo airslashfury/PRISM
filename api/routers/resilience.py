@@ -55,6 +55,22 @@ def scores(
     )
 
 
+@router.get("/substations/slim", response_model=list[schemas.SubstationSlim])
+def substations_slim(engine: Engine = Depends(engine_dep)) -> list[dict]:
+    """Every substation's id/name/lon/lat, unscored — a lightweight payload for
+    client-side snapping (Playground draw-to-nearest-substation, F9c C2), not
+    the full scored rows /scores returns."""
+    return fetch_all(
+        engine,
+        f"""
+        SELECT e.entity_id, e.name, {_CENTROID_LON} AS lon, {_CENTROID_LAT} AS lat
+        FROM graph.entities e
+        WHERE e.kind = 'substation'
+        ORDER BY e.entity_id
+        """,
+    )
+
+
 @router.get("/current", response_model=schemas.CurrentStateResponse)
 def current_state(engine: Engine = Depends(engine_dep)) -> dict:
     """Live electricity posture — the default resilience view.

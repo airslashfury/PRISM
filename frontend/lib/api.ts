@@ -11,6 +11,7 @@ export type Overview = Schemas["OverviewResponse"];
 export type HealthResponse = Schemas["HealthResponse"];
 export type ScenarioInfo = Schemas["ScenarioInfo"];
 export type SubstationScore = Schemas["SubstationScore"];
+export type SubstationSlim = Schemas["SubstationSlim"];
 export type SubstationDetail = Schemas["SubstationDetail"];
 export type SpofEntity = Schemas["SpofEntity"];
 export type ConsequenceEntity = Schemas["ConsequenceEntity"];
@@ -1251,6 +1252,7 @@ export const api = {
   scenarios: () => apiGet<ScenarioInfo[]>("/resilience/scenarios"),
   scores: (scenario: string, top = 400) =>
     apiGet<SubstationScore[]>("/resilience/scores", { scenario, top }),
+  substationsSlim: () => apiGet<SubstationSlim[]>("/resilience/substations/slim"),
   currentState: () => apiGet<CurrentStateResponse>("/resilience/current"),
   spof: () => apiGet<SpofEntity[]>("/resilience/spof"),
   consequence: (entityId: number) => apiGet<ConsequenceSummary>(`/network/consequence/${entityId}`),
