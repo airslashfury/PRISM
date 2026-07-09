@@ -31,6 +31,19 @@ constraint to honor now: keep assumption evaluation stateless/read-only (it alre
 per-user defaults are a thin preferences table, not a model fork. A localStorage stopgap
 (persist last-used dials client-side) is cheap if wanted sooner; the real item waits on auth.
 
+### Address geocoding enrichment — Census PR geocoder  *(F9b B5 research verdict, 2026-07-09)*
+Optional, call-time enrichment — **not** a spatial backbone. The B5 spike
+(`docs/data_requests/address_enrichment_research.md`) settled that **parcel geometry (CRIM) stays
+the canonical locator**; no external address *database* (NAD = no PR coverage, OpenAddresses = loops
+back to CRIM, USPS = license-incompatible) is worth mirroring, and none defeats PR's structural
+address ambiguity (~30% of dwellings unaddressed; urbanización-scoped uniqueness with no urb
+boundaries). The one worthwhile external asset is the **Census PR-aware geocoder**
+(`geocoding.geo.census.gov/geocoder/locations/addressPR`, keyless, public domain, PR grammar
+street+urb+municipio): use it on demand to (a) let a user paste a street address into search and land
+on the right parcel, and (b) validate/standardize the urb on a `display_address()` label. TIGER/Line
+address ranges are the coarse interpolation fallback. **Re-check trigger:** if the federal PR Address
+Data Working Group later lands PR into NAD with real coverage, re-evaluate NAD as a mirrored complement.
+
 ### Deferred from F7 (telecom, 2026-07-03)
 - **Fiber layer on `/telecom`** — `g37_telecom_conductos_fibra_optica_act_2012` (50 conduit
   MultiLineStrings) + the ROW optical-fiber lease layer are mirrored but NOT surfaced. Deferred at
