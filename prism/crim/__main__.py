@@ -29,10 +29,18 @@ def main() -> None:
                     help="Month to snapshot (default: current month); implies --snapshot")
     ap.add_argument("--normalize", action="store_true",
                     help="(Re)build crim.parcel_owner + crim.owner_entities (owner key + address)")
+    ap.add_argument("--backfill-municipio", action="store_true",
+                    help="Spatially backfill crim.parcelas.municipio where NULL (one-shot, idempotent)")
     args = ap.parse_args()
 
     engine = get_engine()
     raw_dir = _REPO_ROOT / "data" / "raw"
+
+    if args.backfill_municipio:
+        from prism.crim.normalize import backfill_municipio
+        n = backfill_municipio(engine)
+        print(f"crim.parcelas municipio backfill: {n:,} rows updated")
+        return
 
     if args.normalize:
         from prism.crim.normalize import build

@@ -1064,6 +1064,7 @@ class ParcelPower(BaseModel):
     cat3_composite: float | None = None
     cat3_percentile: float | None = None
     headline: str | None = None
+    served_headline: str | None = None
     population_affected: int | None = None
     hospitals: int | None = None
     water_plants: int | None = None
@@ -1097,10 +1098,46 @@ class ParcelSiteFinder(BaseModel):
     confidence_tier: str
 
 
+class ParcelWaterSource(BaseModel):
+    entity_id: int
+    name: str | None = None
+    kind: str
+    rank: int | None = None
+    composite_score: float | None = None
+
+
+class ParcelWater(BaseModel):
+    count: int
+    sources: list[ParcelWaterSource] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class ParcelTelecomSite(BaseModel):
+    entity_id: int
+    name: str | None = None
+    kind: str
+    rank: int | None = None
+    composite_score: float | None = None
+
+
+class ParcelTelecom(BaseModel):
+    count: int
+    top: list[ParcelTelecomSite] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class ParcelMarket(BaseModel):
+    municipio: str
+    sales_12mo: int
+    median_price_12mo: float | None = None
+    confidence_tier: str
+
+
 class ParcelDetail(BaseModel):
     num_catastro: str
     catastro: str | None = None
     municipio: str | None = None
+    display_address: str | None = None
     barrio_entity_id: int | None = None
     barrio_name: str | None = None
     lon: float | None = None
@@ -1112,6 +1149,9 @@ class ParcelDetail(BaseModel):
     community: ParcelCommunity | None = None
     road_access: ParcelRoadAccess | None = None
     site_finder: ParcelSiteFinder | None = None
+    water: ParcelWater | None = None
+    telecom: ParcelTelecom | None = None
+    market: ParcelMarket | None = None
 
 
 # ── CRIM owner intelligence (F1 — normalized owner entities) ─────────────────

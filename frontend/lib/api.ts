@@ -634,6 +634,7 @@ export interface ParcelPower {
   cat3_composite: number | null;
   cat3_percentile: number | null;
   headline: string | null;
+  served_headline: string | null;
   population_affected: number | null;
   hospitals: number | null;
   water_plants: number | null;
@@ -667,10 +668,46 @@ export interface ParcelSiteFinder {
   confidence_tier: ConfidenceTierKey;
 }
 
+export interface ParcelWaterSource {
+  entity_id: number;
+  name: string | null;
+  kind: string;
+  rank: number | null;
+  composite_score: number | null;
+}
+
+export interface ParcelWater {
+  count: number;
+  sources: ParcelWaterSource[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelTelecomSite {
+  entity_id: number;
+  name: string | null;
+  kind: string;
+  rank: number | null;
+  composite_score: number | null;
+}
+
+export interface ParcelTelecom {
+  count: number;
+  top: ParcelTelecomSite[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelMarket {
+  municipio: string;
+  sales_12mo: number;
+  median_price_12mo: number | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
 export interface ParcelDetail {
   num_catastro: string;
   catastro: string | null;
   municipio: string | null;
+  display_address: string | null;
   barrio_entity_id: number | null;
   barrio_name: string | null;
   lon: number | null;
@@ -682,6 +719,9 @@ export interface ParcelDetail {
   community: ParcelCommunity | null;
   road_access: ParcelRoadAccess | null;
   site_finder: ParcelSiteFinder | null;
+  water: ParcelWater | null;
+  telecom: ParcelTelecom | null;
+  market: ParcelMarket | null;
 }
 
 // ── CRIM owner intelligence (normalized entities) ───────────────────────────

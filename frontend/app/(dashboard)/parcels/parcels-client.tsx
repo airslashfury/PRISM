@@ -438,8 +438,10 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
           Catastro {d.num_catastro} · {d.municipio ?? "—"}
           {d.barrio_name ? ` · ${d.barrio_name}` : ""}
         </div>
-        {c.physical_address && (
-          <div className="mt-0.5 text-[11px] text-muted-foreground">{c.physical_address}</div>
+        {(d.display_address || c.physical_address) && (
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
+            {d.display_address ?? c.physical_address}
+          </div>
         )}
       </div>
 
@@ -508,7 +510,52 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
               }
             />
           )}
-          {d.power.headline && <p className="mt-1 text-[12px] leading-relaxed text-foreground/80">{d.power.headline}</p>}
+          {(d.power.served_headline || d.power.headline) && (
+            <p className="mt-1 text-[12px] leading-relaxed text-foreground/80">
+              {d.power.served_headline ?? d.power.headline}
+            </p>
+          )}
+        </Section>
+      )}
+
+      {/* Water */}
+      {d.water && d.water.count > 0 && (
+        <Section title="Water" tier={d.water.confidence_tier}>
+          <Row label="Serving sources" value={fmtInt(d.water.count)} />
+          {d.water.sources.slice(0, 3).map((s) => (
+            <Row
+              key={s.entity_id}
+              label={s.name ?? s.kind}
+              value={s.rank != null ? `risk rank #${fmtInt(s.rank)}` : "—"}
+            />
+          ))}
+        </Section>
+      )}
+
+      {/* Telecom */}
+      {d.telecom && d.telecom.count > 0 && (
+        <Section title="Telecom" tier={d.telecom.confidence_tier}>
+          <Row label="Covering towers/sites" value={fmtInt(d.telecom.count)} />
+          {d.telecom.top.slice(0, 3).map((s) => (
+            <Row
+              key={s.entity_id}
+              label={s.name ?? s.kind}
+              value={s.rank != null ? `risk rank #${fmtInt(s.rank)}` : "—"}
+            />
+          ))}
+        </Section>
+      )}
+
+      {/* Market */}
+      {d.market && (
+        <Section title="Market" tier={d.market.confidence_tier}>
+          <Row label={`${d.market.municipio} sales (12mo)`} value={fmtInt(d.market.sales_12mo)} />
+          {d.market.median_price_12mo != null && (
+            <Row label="Median price" value={fmtUsd(d.market.median_price_12mo, 0)} />
+          )}
+          <a href="/trends" className="mt-1 inline-block text-[11px] text-primary hover:underline">
+            Market trends →
+          </a>
         </Section>
       )}
 

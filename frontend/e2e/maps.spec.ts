@@ -113,6 +113,25 @@ test("/economy municipio panel opens from the largest-municipios list", async ({
   expect(errors, `uncaught page errors on /economy: ${errors.join("; ")}`).toEqual([]);
 });
 
+// ── F9b chunk B2: parcel 360 (water / telecom / market + display address) ────
+
+test("/parcels detail drawer shows water, telecom, and market sections", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  // A high-value San Juan catastro with rich cross-domain data (see B2 gate check).
+  await page.goto("/parcels?q=062-000-005-57", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /062-000-005-57/ }).first().click();
+
+  await expect(page.getByText("Serving sources")).toBeVisible();
+  await expect(page.getByText("Covering towers/sites")).toBeVisible();
+  await expect(page.getByText(/sales \(12mo\)/)).toBeVisible();
+  // Positive shared-infrastructure framing, not the failure-framed headline.
+  await expect(page.getByText(/the same feed serves/)).toBeVisible();
+
+  expect(errors, `uncaught page errors on /parcels: ${errors.join("; ")}`).toEqual([]);
+});
+
 test("/parcels owner search resolves an entity and opens the drawer", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));

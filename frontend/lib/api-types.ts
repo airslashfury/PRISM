@@ -224,6 +224,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/economy/municipios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Municipios
+         * @description Municipio-first choropleth: all 78 municipios, each feature carrying the
+         *     full rollup row (population/SVI, grid exposure, property market) as its
+         *     properties. Geometry is simplified in metres, then reprojected to WGS84.
+         */
+        get: operations["municipios_economy_municipios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/economy/municipio/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Municipio
+         * @description One municipio's rollup row plus its tract list, top substations by VOLL
+         *     exposure, water/telecom counts, and sales-by-year series. The name is the
+         *     proper-case accented municipio name (percent-encoding is decoded upstream).
+         */
+        get: operations["municipio_economy_municipio__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/economy/tracts": {
         parameters: {
             query?: never;
@@ -1767,6 +1811,7 @@ export interface components {
             flood_exposure: components["schemas"]["CivicFloodExposure"];
             /** Planned Nearby */
             planned_nearby?: components["schemas"]["CivicPlannedItem"][];
+            today?: components["schemas"]["CivicToday"] | null;
         };
         /** CivicCommunityResilience */
         CivicCommunityResilience: {
@@ -1791,6 +1836,14 @@ export interface components {
             health_centers: number;
             /** Confidence Tier */
             confidence_tier: string;
+            /** Quake Rank */
+            quake_rank?: number | null;
+            /** Quake Total */
+            quake_total?: number | null;
+            /** Quake Composite Score */
+            quake_composite_score?: number | null;
+            /** Quake Confidence Tier */
+            quake_confidence_tier?: string | null;
         };
         /** CivicFloodExposure */
         CivicFloodExposure: {
@@ -1822,6 +1875,32 @@ export interface components {
             travel_time_min: number;
             /** Confidence Tier */
             confidence_tier: string;
+        };
+        /**
+         * CivicToday
+         * @description Island-wide 'right now' snapshot (F9a chunk A3) — same for every civic
+         *     card, a live day-to-day data point alongside the hypothetical hazard
+         *     scenarios. Reuses sync.grid_snapshot / sync.generation_status /
+         *     sync.luma_outages, the same tables /network/generation and
+         *     /network/outages already read.
+         */
+        CivicToday: {
+            /** Generation Mw */
+            generation_mw?: number | null;
+            /** Plants Offline */
+            plants_offline?: number | null;
+            /** Plants Total */
+            plants_total?: number | null;
+            /** Generation As Of */
+            generation_as_of?: string | null;
+            /** Generation Confidence Tier */
+            generation_confidence_tier?: string | null;
+            /** Outage Pct Island */
+            outage_pct_island?: number | null;
+            /** Outage As Of */
+            outage_as_of?: string | null;
+            /** Outage Confidence Tier */
+            outage_confidence_tier?: string | null;
         };
         /** CommitResult */
         CommitResult: {
@@ -2330,6 +2409,80 @@ export interface components {
             /** Results */
             results?: components["schemas"]["SensitivityResult"][];
         };
+        /**
+         * MunicipioDetail
+         * @description Rollup row plus the drill-down lists behind it. `substations` stays the
+         *     count (as in the rollup); the ranked list is `top_substations`.
+         */
+        MunicipioDetail: {
+            /** Name */
+            name: string;
+            /** Geoid */
+            geoid: string;
+            /** Population */
+            population: number;
+            /** Tract Count */
+            tract_count: number;
+            /** Svi Mean */
+            svi_mean?: number | null;
+            /** High Svi Tracts */
+            high_svi_tracts: number;
+            /** Substations */
+            substations: number;
+            /** Voll Exposure Usd */
+            voll_exposure_usd?: number | null;
+            /** Parcel Count */
+            parcel_count: number;
+            /** Assessed Value Usd */
+            assessed_value_usd?: number | null;
+            /** Sales 12Mo */
+            sales_12mo: number;
+            /** Median Price 12Mo */
+            median_price_12mo?: number | null;
+            /** Tracts */
+            tracts?: components["schemas"]["MunicipioTract"][];
+            /** Top Substations */
+            top_substations?: components["schemas"]["MunicipioSubstation"][];
+            /** Water Sources */
+            water_sources: number;
+            /** Telecom Sites */
+            telecom_sites: number;
+            /** Sales By Year */
+            sales_by_year?: components["schemas"]["MunicipioSalesYear"][];
+            /** Confidence Tiers */
+            confidence_tiers?: {
+                [key: string]: string;
+            };
+        };
+        /** MunicipioSalesYear */
+        MunicipioSalesYear: {
+            /** Year */
+            year: number;
+            /** Sales */
+            sales: number;
+            /** Median Price */
+            median_price?: number | null;
+        };
+        /** MunicipioSubstation */
+        MunicipioSubstation: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            /** Population Affected */
+            population_affected?: number | null;
+            /** Voll Exposure Usd */
+            voll_exposure_usd?: number | null;
+        };
+        /** MunicipioTract */
+        MunicipioTract: {
+            /** Tract Geoid */
+            tract_geoid: string;
+            /** Population */
+            population?: number | null;
+            /** Svi Score */
+            svi_score?: number | null;
+        };
         /** MunicipioTrend */
         MunicipioTrend: {
             /** Municipio */
@@ -2626,6 +2779,8 @@ export interface components {
             catastro?: string | null;
             /** Municipio */
             municipio?: string | null;
+            /** Display Address */
+            display_address?: string | null;
             /** Barrio Entity Id */
             barrio_entity_id?: number | null;
             /** Barrio Name */
@@ -2642,6 +2797,9 @@ export interface components {
             community?: components["schemas"]["ParcelCommunity"] | null;
             road_access?: components["schemas"]["ParcelRoadAccess"] | null;
             site_finder?: components["schemas"]["ParcelSiteFinder"] | null;
+            water?: components["schemas"]["ParcelWater"] | null;
+            telecom?: components["schemas"]["ParcelTelecom"] | null;
+            market?: components["schemas"]["ParcelMarket"] | null;
         };
         /** ParcelFlood */
         ParcelFlood: {
@@ -2651,6 +2809,17 @@ export interface components {
             level: string;
             /** Worst Zone */
             worst_zone?: string | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelMarket */
+        ParcelMarket: {
+            /** Municipio */
+            municipio: string;
+            /** Sales 12Mo */
+            sales_12mo: number;
+            /** Median Price 12Mo */
+            median_price_12mo?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
         };
@@ -2664,8 +2833,12 @@ export interface components {
             edge_confidence: number;
             /** Cat3 Composite */
             cat3_composite?: number | null;
+            /** Cat3 Percentile */
+            cat3_percentile?: number | null;
             /** Headline */
             headline?: string | null;
+            /** Served Headline */
+            served_headline?: string | null;
             /** Population Affected */
             population_affected?: number | null;
             /** Hospitals */
@@ -2749,6 +2922,50 @@ export interface components {
             composite_score?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
+        };
+        /** ParcelTelecom */
+        ParcelTelecom: {
+            /** Count */
+            count: number;
+            /** Top */
+            top?: components["schemas"]["ParcelTelecomSite"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelTelecomSite */
+        ParcelTelecomSite: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            /** Kind */
+            kind: string;
+            /** Rank */
+            rank?: number | null;
+            /** Composite Score */
+            composite_score?: number | null;
+        };
+        /** ParcelWater */
+        ParcelWater: {
+            /** Count */
+            count: number;
+            /** Sources */
+            sources?: components["schemas"]["ParcelWaterSource"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelWaterSource */
+        ParcelWaterSource: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            /** Kind */
+            kind: string;
+            /** Rank */
+            rank?: number | null;
+            /** Composite Score */
+            composite_score?: number | null;
         };
         /** PhaseStatus */
         PhaseStatus: {
@@ -3224,6 +3441,8 @@ export interface components {
             label: string;
             /** Description */
             description: string;
+            /** Unit */
+            unit: string;
             /** Tier */
             tier: string;
             /** Default Weight */
@@ -4173,6 +4392,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PortfolioRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    municipios_economy_municipios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureCollection"];
+                };
+            };
+        };
+    };
+    municipio_economy_municipio__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MunicipioDetail"];
                 };
             };
             /** @description Validation Error */
