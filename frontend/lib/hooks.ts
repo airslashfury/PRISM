@@ -64,6 +64,25 @@ export const useSubstation = (id: number | null, scenario: string) =>
     staleTime: 5 * MIN,
   });
 
+/** Cross-domain (F9b B4): water sources and telecom towers a substation powers. */
+export const useWaterConsequence = (id: number | null) =>
+  useQuery({
+    queryKey: ["waterConsequence", id],
+    queryFn: () => api.waterConsequence(id as number),
+    enabled: id != null,
+    staleTime: 10 * MIN,
+    retry: false,
+  });
+
+export const useTelecomConsequence = (id: number | null) =>
+  useQuery({
+    queryKey: ["telecomConsequence", id],
+    queryFn: () => api.telecomConsequence(id as number),
+    enabled: id != null,
+    staleTime: 10 * MIN,
+    retry: false,
+  });
+
 /** Water cascade (F6): scored water sources for the map. */
 export const useWaterSources = (scenario = "cat3") =>
   useQuery({

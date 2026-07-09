@@ -193,6 +193,7 @@ class WaterConsequence(BaseModel):
     barrios_affected: int
     headline: str
     barrios: list[WaterBarrio]
+    top_names: list[str] = []
 
 
 class TelecomBarrio(BaseModel):
@@ -207,6 +208,7 @@ class TelecomConsequence(BaseModel):
     barrios_affected: int
     headline: str
     barrios: list[TelecomBarrio]
+    top_names: list[str] = []
 
 
 # --- PREPA live generation (operationdata.prepa.pr.gov) -------------------- #

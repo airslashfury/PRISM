@@ -5,7 +5,7 @@ import { ScatterplotLayer, ArcLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import { PowerOff, TriangleAlert, RotateCcw, Presentation, X } from "lucide-react";
+import { PowerOff, TriangleAlert, RotateCcw, Presentation, X, Droplets, RadioTower } from "lucide-react";
 
 import { MapWorkspace } from "@/components/map/map-workspace";
 import { MapCanvas, tip, PR_VIEW } from "@/components/map/map-canvas";
@@ -20,7 +20,15 @@ import { SeverityLabel } from "@/components/severity";
 import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { EntityDrawer, type DrawerSection } from "@/components/entity-drawer";
-import { useScores, useSubstation, useConsequence, useCurrentState } from "@/lib/hooks";
+import { DomainSwitcher } from "@/components/domain-switcher";
+import {
+  useScores,
+  useSubstation,
+  useConsequence,
+  useCurrentState,
+  useWaterConsequence,
+  useTelecomConsequence,
+} from "@/lib/hooks";
 import type { ConsequenceSummary, ConsequenceEntity } from "@/lib/api";
 import { riskColor, rgbCss, DOMAIN_RGB, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtIntTiered, fmtNum, fmtUsdTiered } from "@/lib/utils";
@@ -97,6 +105,11 @@ export default function ResiliencePage() {
   // Live zoom, tracked off onViewChange (already wired for the permalink) so
   // the ease-in never zooms *out* of wherever the user currently is.
   const currentZoomRef = useRef<number>(PR_VIEW.zoom!);
+  // Full current viewport (F9b B4): fed to the domain switcher so Water/Telecom
+  // open at the same camera position even before the user's first gesture —
+  // `?view=` in the URL only gets written on interaction, so this can't just
+  // read the URL. Seeded from the initial (possibly permalinked) viewport.
+  const currentViewRef = useRef<{ longitude?: number; latitude?: number; zoom?: number }>(PR_VIEW);
 
   // ── Permalinks (F4): scenario + selection + viewport live in the URL ──────
   // Read on mount (not in initializers — the server render has no URL and a
@@ -117,6 +130,7 @@ export default function ResiliencePage() {
   useEffect(() => {
     hadExplicitView.current = parseViewport(readParam("view")) != null;
     currentZoomRef.current = initialView.zoom ?? PR_VIEW.zoom!;
+    currentViewRef.current = initialView;
     const m = readParam("scenario");
     if (m && MODES.some((x) => x.value === m)) setMode(m);
     const sel = Number(readParam("sel"));
@@ -725,6 +739,7 @@ export default function ResiliencePage() {
       initialViewState={initialView}
       onViewChange={(vs) => {
         if (vs.zoom != null) currentZoomRef.current = vs.zoom;
+        currentViewRef.current = vs;
         patchUrlDebounced({ view: formatViewport(vs) });
       }}
       onMapReady={(api) => {
@@ -824,6 +839,7 @@ export default function ResiliencePage() {
       sidebar={
         <>
           <div className="border-b border-border/70 p-4">
+            <DomainSwitcher className="mb-3" active="power" getView={() => currentViewRef.current} />
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex-1">
                 <Segmented options={MODES as never} value={mode} onChange={setMode} className="w-full" />
@@ -1123,6 +1139,10 @@ function DetailPanel({
   reducedMotion: boolean;
 }) {
   const { data, isLoading, error } = useSubstation(id, scenario);
+  // Cross-domain (F9b B4): the same POWERS edges that drive the cascade above,
+  // read through the water/telecom join instead of graph.downstream_summary.
+  const { data: water } = useWaterConsequence(id);
+  const { data: telecom } = useTelecomConsequence(id);
 
   if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
   if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
@@ -1227,6 +1247,47 @@ function DetailPanel({
       ),
     },
     {
+      id: "cross-domain",
+      title: "Cross-domain",
+      hidden: !water && !telecom,
+      body: (
+        <div className="space-y-3">
+          {water && (water.pump_stations + water.wells + water.water_plants) > 0 && (
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-domain-water">
+                  <Droplets className="h-3 w-3" />
+                  {fmtInt(water.pump_stations + water.wells + water.water_plants)} water sources
+                </span>
+                <a href="/water" className="text-[11px] text-primary hover:underline">
+                  View on Water cascade →
+                </a>
+              </div>
+              {water.top_names.length > 0 && (
+                <div className="text-[11px] text-muted-foreground">{water.top_names.join(", ")}</div>
+              )}
+            </div>
+          )}
+          {telecom && (telecom.towers + telecom.cell_sites) > 0 && (
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-domain-telecom">
+                  <RadioTower className="h-3 w-3" />
+                  {fmtInt(telecom.towers + telecom.cell_sites)} telecom sites
+                </span>
+                <a href="/telecom" className="text-[11px] text-primary hover:underline">
+                  View on Telecom cascade →
+                </a>
+              </div>
+              {telecom.top_names.length > 0 && (
+                <div className="text-[11px] text-muted-foreground">{telecom.top_names.join(", ")}</div>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
       id: "hazards",
       title: "Economic exposure (VOLL — 30yr NPV)",
       badge: <ProvenanceBadge table="economy.substation_exposure" />,
@@ -1272,4 +1333,5 @@ function DetailPanel({
     />
   );
 }
+
 

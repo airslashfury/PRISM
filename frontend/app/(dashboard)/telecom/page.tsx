@@ -6,8 +6,10 @@ import type { Layer, PickingInfo } from "@deck.gl/core";
 import { RadioTower } from "lucide-react";
 
 import { MapWorkspace } from "@/components/map/map-workspace";
+import { DomainSwitcher } from "@/components/domain-switcher";
 import { tip, PR_VIEW } from "@/components/map/map-canvas";
 import type { PrismMapApi } from "@/components/map/map-canvas";
+import { formatViewport, parseViewport, patchUrlDebounced, readParam } from "@/lib/url-state";
 import { GradientLegend } from "@/components/legend";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { ScoreExplainer, percentileContext } from "@/components/score-explainer";
@@ -60,8 +62,20 @@ export default function TelecomPage() {
   const mapApiRef = useRef<PrismMapApi | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
+
+  // Incoming viewport (F9b B4): the /resilience domain switcher hands off the
+  // current camera via `?view=` so switching domains doesn't jump the map.
+  const initialView = useMemo(() => {
+    const v = parseViewport(readParam("view"));
+    return v ? { ...PR_VIEW, ...v } : PR_VIEW;
+  }, []);
   // Live zoom, so the selection ease never zooms *out* of wherever the user is.
-  const currentZoomRef = useRef<number>(PR_VIEW.zoom!);
+  const currentZoomRef = useRef<number>(initialView.zoom ?? PR_VIEW.zoom!);
+  // Full current viewport (F9b): fed to the domain switcher so Power/Water
+  // open at the same camera position even before the user's first gesture —
+  // `?view=` in the URL only gets written on interaction, so this can't just
+  // read the URL. Seeded from the initial (possibly permalinked) viewport.
+  const currentViewRef = useRef<{ longitude?: number; latitude?: number; zoom?: number }>(initialView);
 
   const { data, isLoading, error } = useTelecomSources();
 
@@ -253,8 +267,11 @@ export default function TelecomPage() {
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}
+      initialViewState={initialView}
       onViewChange={(vs) => {
         if (vs.zoom != null) currentZoomRef.current = vs.zoom;
+        currentViewRef.current = vs;
+        patchUrlDebounced({ view: formatViewport(vs) });
       }}
       onMapReady={(api) => {
         mapApiRef.current = api;
@@ -285,6 +302,7 @@ export default function TelecomPage() {
       sidebar={
         <>
           <div className="border-b border-border/70 p-4">
+            <DomainSwitcher className="mb-3" active="telecom" getView={() => currentViewRef.current} />
             <div className="flex items-center gap-2">
               <RadioTower className="h-4 w-4 text-domain-telecom" />
               <h2 className="text-sm font-semibold">Telecom cascade</h2>

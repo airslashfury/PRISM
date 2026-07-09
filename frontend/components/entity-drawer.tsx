@@ -8,7 +8,15 @@ import { cn } from "@/lib/utils";
  * assembles the same shape: what / where / depends / hazards / data / changed /
  * actions, each rendered as a PanelBox.
  */
-export type DrawerSectionId = "what" | "where" | "depends" | "hazards" | "data" | "changed" | "actions";
+export type DrawerSectionId =
+  | "what"
+  | "where"
+  | "depends"
+  | "cross-domain"
+  | "hazards"
+  | "data"
+  | "changed"
+  | "actions";
 
 export interface DrawerSection {
   id: DrawerSectionId;

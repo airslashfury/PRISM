@@ -985,6 +985,23 @@ export interface TelecomConsequence {
   barrios_affected: number;
   headline: string;
   barrios: TelecomBarrio[];
+  top_names: string[];
+}
+
+export interface WaterBarrio {
+  entity_id: number;
+  name: string | null;
+}
+
+export interface WaterConsequence {
+  entity_id: number;
+  pump_stations: number;
+  wells: number;
+  water_plants: number;
+  barrios_affected: number;
+  headline: string;
+  barrios: WaterBarrio[];
+  top_names: string[];
 }
 
 // ── What's new (overview cockpit: what-changed + stale-data) ─────────────────
@@ -1248,6 +1265,8 @@ export const api = {
     apiGet<WaterSourcesResponse>("/water/sources", { scenario }),
   waterSource: (entityId: number) => apiGet<WaterSourceDetail>(`/water/source/${entityId}`),
   waterGauges: () => apiGet<WaterGauge[]>("/water/gauges"),
+  waterConsequence: (subId: number) =>
+    apiGet<WaterConsequence>(`/network/water-consequence/${subId}`),
 
   telecomSources: (scenario = "cat3") =>
     apiGet<TelecomSourcesResponse>("/telecom/sources", { scenario }),
