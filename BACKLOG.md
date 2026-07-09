@@ -31,8 +31,11 @@ constraint to honor now: keep assumption evaluation stateless/read-only (it alre
 per-user defaults are a thin preferences table, not a model fork. A localStorage stopgap
 (persist last-used dials client-side) is cheap if wanted sooner; the real item waits on auth.
 
-### Address geocoding enrichment — Census PR geocoder  *(F9b B5 research verdict, 2026-07-09)*
-Optional, call-time enrichment — **not** a spatial backbone. The B5 spike
+### Address geocoding enrichment — Census PR geocoder  **→ SCHEDULED as ROADMAP F9d (2026-07-09)**
+Promoted out of BACKLOG into **F9d — Find your parcel by address** (address-first discovery + tiered
+"Census Proposed Address"), driven by the heir-property / untraceable-transfer discoverability case:
+records drift from the ground, so address must be the front door to finding a parcel. Original
+research note retained below for context. Optional, call-time enrichment — **not** a spatial backbone. The B5 spike
 (`docs/data_requests/address_enrichment_research.md`) settled that **parcel geometry (CRIM) stays
 the canonical locator**; no external address *database* (NAD = no PR coverage, OpenAddresses = loops
 back to CRIM, USPS = license-incompatible) is worth mirroring, and none defeats PR's structural

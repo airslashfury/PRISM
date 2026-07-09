@@ -509,6 +509,58 @@ cost figure traces to a reference; /methods states why each load-bearing value w
 Gate protocol per sub-item (three Opus gates); Fable plans / Sonnet implements per chunk;
 `/ui-ux` skill loaded for every copy-bearing chunk.
 
+#### F9d — Find your parcel by address  *(address-first discovery + proposed address)* — **PLANNED (2026-07-09)**
+
+**Why this exists.** CRIM records drift from what's actually on the ground: transfers and sales
+aren't always recorded in the fabric, and PR addresses never standardized (see F9b B5 —
+`docs/data_requests/address_enrichment_research.md`: ~30% of dwellings unaddressed, urbanización-
+scoped uniqueness with no urb boundaries). So the person standing on a parcel often can't find it
+by the information they actually have — a rough address — and the catastro number and map are the
+only handles PRISM offers. This item makes **address the front door** to parcel discovery. Scope is
+*discovery* (find the parcel, see its registered owner + last recorded sale), **not** title
+resolution — PRISM surfaces the record, it does not fix or interpret legal ownership; the copy must
+say so plainly. Feasibility fact that shapes the design: the **Census PR geocoder cannot
+reverse-geocode** (coords → address returns only census geographies, never a street address), only
+**forward** (address → coordinates + a *standardized* address + match score). So the address label
+can't be pulled from geometry via Census; it is either Census-validated from a forward match or
+composed locally and flagged approximate.
+
+- **D1 — Address-first search → parcel** *(v1, greenlit; the high-value, low-risk layer)*.
+  `prism/crim/geocode.py` (new): a keyless client for the Census PR forward geocoder
+  (`geocoding.geo.census.gov/geocoder/locations/addressPR`, street + urb + municipio), responses
+  **mirrored + cached** locally (data-sovereignty rule; on-demand, **not** a blind 1.53M batch —
+  low yield on exactly the rural parcels that matter, real API cost). `search_parcels`
+  (`prism/crim/query.py`) gains an **address mode**: geocode the query → find the parcel(s)
+  containing or nearest the returned point (spatial, capped radius) → return candidate hits with the
+  existing enriched detail. Frontend `/parcels` gains an address-search affordance ("search by
+  address") that lands on "we found these parcels near that address — is one yours?" with a candidate
+  list → parcel card. Copy: results framed as *near* the address (approximate), never "this is your
+  address." Done-check: a known San Juan street address returns the right parcel(s); a rural
+  (Bejucos/Utuado-type) address returns the nearest candidate(s) or an honest "no confident match,
+  browse the area" fallback; geocoder responses land in the local cache/mirror; unit tests on the
+  address-mode branch + a live end-to-end through nginx.
+- **D2 — "Census Proposed Address" label** *(v2, fast-follow)*. A tiered, per-parcel best-effort
+  address, each row carrying its own method + proxy confidence (fits the provenance spine), in a new
+  derived `crim.parcel_proposed_address` table (alembic migration; confidence.yml + catalog stamp,
+  proxy tier): **Tier A — Census-validated** (forward-geocoding the cleaned `display_address()`
+  matches at/above threshold → store Census's standardized address + coordinates, flag
+  "Census-matched"); **Tier B — composed/approximate** (no match → compose from geometry PRISM
+  already has: nearest named road via centroid→roads spatial join + barrio + municipio →
+  *"Near Calle X, Bo. Y, Municipio Z"*, flagged **"Census Proposed Address — approximate, may not be
+  accurate"**). Surfaced on the parcel card **beside**, never replacing, `display_address()`. Batch
+  only the parseable subset if yield justifies it; otherwise populate lazily off D1's on-demand
+  geocodes. Done-check: a parcel with a clean address shows a Census-matched label; a messy-address
+  parcel shows a composed approximate label with the caveat visible; the derived table is stamped
+  proxy in the catalog; `/ui-ux` pass on the caveat wording.
+
+**Done when:** a user can type a rough address and land on the right parcel (or an honest nearest-
+candidate list) without touching the map; every parcel offers a readable proposed address that is
+clearly tiered as validated vs. approximate and never overstates authority; Census geocoder
+responses are mirrored/cached locally; discovery-not-resolution scope is explicit in the copy.
+
+Gate protocol: one Opus gate at "Done when" (D1 may gate alone as v1 if D2 slips); Fable plans /
+Sonnet implements per chunk; `/ui-ux` skill loaded for D1's result copy and D2's caveat wording.
+
 ---
 
 ## UI-B — opportunistic UI batch  *(2026-07-01, executed alongside this plan revision)*
