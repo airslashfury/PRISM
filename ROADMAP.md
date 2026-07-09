@@ -483,15 +483,25 @@ domains and shows cross-domain dependency; the address-source memo has a recomme
   land)*: page reframed as an **investment plan**, not a shopping list — per-item "why picked"
   line (humanized intervention + "protects ~N people, M hospitals; ranked #k on protection per
   dollar in this budget" — join `downstream_summary`), budget utilization + leftover explained,
-  glossary strip for uplift / per-$1M / equity weight, reusing A3's intervention copy map.
+  glossary strip for uplift / per-$1M / equity weight, reusing A3's intervention copy map
+  (`frontend/lib/interventions.ts` — C1 must add the missing `new_access_road` entry).
   Done-check: a cold read of the page answers "what is this list and why these items".
+  **Build notes (2026-07-09 review):** (1) "protects ~N people" must use the **deduped
+  consequence-lens population** (`graph.downstream_summary`), NOT `economy.substation_exposure` —
+  exposure double-counts barrios across the closure (open chip task_b6170436); printing the
+  inflated figure per item would surface that bug as copy and fail the gate. (2) "ranked #k on
+  protection per dollar" is **derived post-hoc** (sort the selected items by uplift/$) — the ILP
+  selects, it does not expose a rank field; don't go looking for one. (3) Do C1 first within
+  F9c — it carries deprecation risk, so don't strand C2/C3 behind it.
 - **C2 — Playground grounding v1.** Drawn endpoints **snap** to the nearest substation within a
   threshold (substations fetched once client-side; snap indicator + tie line + "connects to X"
   chip); the results panel names its anchors ("evaluated against SUBSTATION X, 340 m away; N% of
   the path in flood zone" — `evaluate.py` already computes both, surface them in the payload);
   an "estimate includes / excludes" panel per asset type (parametric $/km by terrain; no
   ROW/permitting/geotech — honest scope, framed constructively). Fun for citizens, non-insulting
-  to engineers.
+  to engineers. **Build notes:** pick a concrete snap threshold at plan time (default **500 m**)
+  so it's testable; fetch a slim client-side payload (id/name/lat/lon of ~961 substations), not
+  full score rows.
 - **C3 — Trust Center rationale + Rail cost basis.** (1) `/methods` gains **"Assumptions &
   choices"**: per load-bearing assumption — value, why chosen, source, what would change it
   (VOLL $2,389/person-30yr derivation, 40 km/h road speed, 4 km telecom radius, feeder Voronoi,
@@ -500,7 +510,9 @@ domains and shows cross-domain dependency; the address-source memo has a recomme
   **"Cost basis" popover** citing `config/cost_references.yml` (research handoff: Tren Urbano
   actuals, FTA capital-cost ranges, comparable per-km systems, with URLs); the recommendations
   panel goes stats-first with the AI narrative clearly labeled and fed the references. Rail stays
-  frozen otherwise — this is citation hygiene on the showpiece, not new investment.
+  frozen otherwise — this is citation hygiene on the showpiece, not new investment. **Build note:**
+  the cost-reference research is a B5-style research pass — cite sources (URLs) **inside**
+  `cost_references.yml` itself, not only in the popover, so the file stands alone as evidence.
 
 **Done when:** the portfolio explains each pick in one sentence a non-modeler accepts; a drawn
 playground asset visibly connects to the real network and names its assumptions; every /corridor
@@ -539,6 +551,13 @@ composed locally and flagged approximate.
   (Bejucos/Utuado-type) address returns the nearest candidate(s) or an honest "no confident match,
   browse the area" fallback; geocoder responses land in the local cache/mirror; unit tests on the
   address-mode branch + a live end-to-end through nginx.
+  **Build notes (2026-07-09 review):** (1) **Match-quality policy** — accept only the geocoder's
+  exact/`Match` tier; treat `Tie`/low-score as "no confident match"; always echo the standardized
+  address Census matched back to the user ("we read that as: …") so a mis-parse is catchable.
+  (2) **Throttle + cache-first** — the endpoint is keyless but not infinitely tolerant; check the
+  local cache before every call and rate-limit the client. (3) **Reuse, don't fork** — Ask PRISM's
+  existing `address_lookup` tool (`prism/ask/tools.py`) should be backed by the same geocode path,
+  or the two address routes will diverge.
 - **D2 — "Census Proposed Address" label** *(v2, fast-follow)*. A tiered, per-parcel best-effort
   address, each row carrying its own method + proxy confidence (fits the provenance spine), in a new
   derived `crim.parcel_proposed_address` table (alembic migration; confidence.yml + catalog stamp,
@@ -552,6 +571,9 @@ composed locally and flagged approximate.
   geocodes. Done-check: a parcel with a clean address shows a Census-matched label; a messy-address
   parcel shows a composed approximate label with the caveat visible; the derived table is stamped
   proxy in the catalog; `/ui-ux` pass on the caveat wording.
+  **Build note:** keep Tier B **lazy** (populate off D1's on-demand geocodes) — the nearest-road
+  spatial join is fine per-parcel but is a 1.5M-row job if batched; only batch the parseable
+  subset if D1's live yield proves it's worth it.
 
 **Done when:** a user can type a rough address and land on the right parcel (or an honest nearest-
 candidate list) without touching the map; every parcel offers a readable proposed address that is
