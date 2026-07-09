@@ -203,7 +203,9 @@ def telecom_downstream_of(engine: Engine, substation_entity_id: int) -> dict:
     towers = sum(1 for t in telecom_nodes if t["kind"] == "telecom_tower")
     cell_sites = sum(1 for t in telecom_nodes if t["kind"] == "cell_site")
     barrio_list = [{"entity_id": b["entity_id"], "name": b["name"]} for b in barrios]
-    top_names = [t["name"] for t in telecom_nodes if t["name"]][:5]
+    # De-dupe (order-preserving): many towers share one licensee call-sign, and a
+    # top-5 that reads the same name five times is noise, not signal.
+    top_names = list(dict.fromkeys(t["name"] for t in telecom_nodes if t["name"]))[:5]
     return {
         "entity_id": substation_entity_id,
         "towers": towers,
