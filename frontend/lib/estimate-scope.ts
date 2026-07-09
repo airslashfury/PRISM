@@ -14,14 +14,14 @@ export const ESTIMATE_SCOPE: Record<string, EstimateScope> = {
   rail: {
     includes: [
       "Parametric $/km by terrain tier (standard, elevated, tunnel) from DTOP/FTA PRIITS 2024 references",
-      "Annual maintenance modeled as a 15-year NPV",
+      "Annual maintenance modeled as a 30-year NPV at 5%",
     ],
     excludes: ["Right-of-way acquisition", "Permitting", "Geotechnical survey"],
   },
   road: {
     includes: [
       "Parametric $/km — hardening an existing road or building a new corridor (FEMA BRIC + DTOP references)",
-      "Annual maintenance cost",
+      "Annual maintenance modeled as a 30-year NPV at 5%",
     ],
     excludes: ["Right-of-way acquisition", "Permitting", "Geotechnical survey"],
   },

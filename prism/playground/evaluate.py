@@ -125,12 +125,14 @@ def _nearby_substation_factors(engine: Engine, geom_wkt: str) -> dict:
     return {"cascade_impact": float(base["cascade_impact"]), "betweenness": float(base["spof_betweenness"])}
 
 
-def _anchor_substation(engine: Engine, geom_wkt: str, max_m: float = 50_000.0) -> dict | None:
-    """Nearest substation to the drawn asset's first vertex — the "evaluated
-    against SUBSTATION X, N m away" anchor shown in the Playground results
-    panel (F9c C2). Distinct from `_nearby_substation_factors`: this is a
-    display anchor for any asset type, not a cascade-context lookup scoped
-    to transmission/substation."""
+def _anchor_substation(engine: Engine, geom_wkt: str, max_m: float = 10_000.0) -> dict | None:
+    """Nearest substation to the drawn asset's first vertex — the "nearest
+    substation" anchor shown in the Playground results panel (F9c C2).
+    Distinct from `_nearby_substation_factors`: this is a display anchor for
+    any asset type, not a cascade-context lookup scoped to transmission/
+    substation, but it shares the same 10km ceiling so it never reports a
+    "nearby" substation that's actually a non-sequitur (e.g. 43km away on a
+    mountain rail line — see F9c C2 gate finding #2)."""
     point = shapely_wkt.loads(geom_wkt)
     x, y = point.coords[0][:2]
     sub = _nearest_substation(engine, x, y, max_m=max_m)

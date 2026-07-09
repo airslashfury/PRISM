@@ -804,7 +804,10 @@ export default function PlaygroundPage() {
                         </div>
                         {anchor && (
                           <div className="mt-1 text-[11px] text-muted-foreground">
-                            Evaluated against{" "}
+                            {/* "Evaluated against" only for types where the substation is a real input to the
+                                numbers above (transmission/substation feed cascade context from it); for
+                                road/rail/bridge it's context, not an input, so the verb says less than that. */}
+                            {a.asset_type === "transmission" || a.asset_type === "substation" ? "Evaluated against" : "Nearest substation"}{" "}
                             <span className="text-foreground">{anchor.name ?? `substation #${anchor.entity_id}`}</span>
                             , {fmtInt(anchor.dist_m)} m away.
                           </div>
