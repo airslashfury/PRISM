@@ -1079,6 +1079,36 @@ export interface TrendsResponse {
   recent_deltas: RecentDeltas;
 }
 
+// ── Market Trends drill-down + time (F9b chunk B3) ──────────────────────────
+
+export interface TrendsBarrio {
+  barrio_name: string;
+  sales: number;
+}
+
+export interface TrendsMunicipioDetail {
+  municipio: string;
+  sales: number;
+  prior_sales: number;
+  median_price: number | null;
+  volume: number | null;
+  by_year: YearTrend[];
+  top_barrios: TrendsBarrio[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface TrendsYearMunicipio {
+  year: number;
+  municipio: string;
+  sales: number;
+  median_price: number | null;
+}
+
+export interface TrendsMatrixResponse {
+  since: number;
+  rows: TrendsYearMunicipio[];
+}
+
 // ── Municipio-first economy rollup (F9b chunk B1) ───────────────────────────
 
 /** Mirrors api.schemas.MunicipioRollup — also the per-feature `properties` of
@@ -1327,6 +1357,10 @@ export const api = {
     apiGet<OwnerDetail>(`/crim/owner/${encodeURIComponent(ownerKey)}`),
   crimTrends: (months = 12, since = 2010, top = 25) =>
     apiGet<TrendsResponse>("/crim/trends", { months, since, top }),
+  crimTrendsMunicipio: (name: string, months = 12, since = 2010) =>
+    apiGet<TrendsMunicipioDetail>(`/crim/trends/municipio/${encodeURIComponent(name)}`, { months, since }),
+  crimTrendsMatrix: (since = 2010) =>
+    apiGet<TrendsMatrixResponse>("/crim/trends/matrix", { since }),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

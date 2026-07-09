@@ -283,3 +283,19 @@ export const useCrimTrends = (months = 12, since = 2010, top = 25) =>
     queryFn: () => api.crimTrends(months, since, top),
     staleTime: 30 * MIN,
   });
+
+/** F9b chunk B3: municipio drill-down panel + year×municipio matrix for the /trends scrubber. */
+export const useCrimTrendsMunicipio = (name: string | null, months = 12, since = 2010) =>
+  useQuery({
+    queryKey: ["crimTrendsMunicipio", name, months, since],
+    queryFn: () => api.crimTrendsMunicipio(name as string, months, since),
+    enabled: name != null,
+    staleTime: 30 * MIN,
+  });
+
+export const useCrimTrendsMatrix = (since = 2010) =>
+  useQuery({
+    queryKey: ["crimTrendsMatrix", since],
+    queryFn: () => api.crimTrendsMatrix(since),
+    staleTime: 30 * MIN,
+  });

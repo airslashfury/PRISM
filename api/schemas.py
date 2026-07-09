@@ -1270,6 +1270,36 @@ class TrendsResponse(BaseModel):
     recent_deltas: RecentDeltas
 
 
+class TrendsBarrio(BaseModel):
+    barrio_name: str
+    sales: int
+
+
+class TrendsMunicipioDetail(BaseModel):
+    """/trends drill-down panel (F9b chunk B3) — one municipio's momentum,
+    year series, and top barrios by recent sale count."""
+    municipio: str
+    sales: int
+    prior_sales: int
+    median_price: float | None = None
+    volume: float | None = None
+    by_year: list[YearTrend] = Field(default_factory=list)
+    top_barrios: list[TrendsBarrio] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class TrendsYearMunicipio(BaseModel):
+    year: int
+    municipio: str
+    sales: int
+    median_price: float | None = None
+
+
+class TrendsMatrixResponse(BaseModel):
+    since: int
+    rows: list[TrendsYearMunicipio] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------------- #
 # F6 chunk A — water resilience + NWIS live gauges                             #
 # --------------------------------------------------------------------------- #
