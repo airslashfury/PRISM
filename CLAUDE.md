@@ -138,6 +138,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F7 — Telecom cascade (on F6 shell) | **COMPLETE** | 2026-07-03 | Opus GO |
 | F8 — Excellence pass (wow arc) | **COMPLETE** | 2026-07-05 | Opus GO (one fix at gate) |
 | F9a — Legibility sweep | **COMPLETE** | 2026-07-08 | Opus GO |
+| F9b — Municipio-first structure | **COMPLETE** | 2026-07-09 | Opus GO |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -263,12 +264,17 @@ the user's first full product review. **F9a (legibility sweep) is DONE — Opus 
 on `feat/f9a-legibility` (score explainers + percentile context everywhere, "Fiona (demo)"
 labeling end-to-end, Ask capabilities panel, Site Finder weight/unit semantics, cuerdas+m²,
 drawer overflow fix, citizen-card rework incl. hospitals-only road access — Caracol/Añasco now
-routes to a real hospital). **Active: F9b** municipio-first structure (economy rollup, parcel
-360 + address repair incl. municipio spatial backfill + the mojibake carry-forward, trends
-drill-down + year scrubber, /resilience cascade hub, address-source research spike); then
-**F9c** grounding (portfolio reframe, playground snapping, assumption rationale + rail cost
-references). Routed to BACKLOG from the same review: weather/climate domain (F10 candidate),
-preferences / admin back-portal.
+routes to a real hospital). **F9b (municipio-first structure) is DONE — Opus GO 2026-07-09** on
+`feat/f9b-structure` (economy leads with a 78-municipio choropleth + drill-down, power demoted to
+a lens; parcel 360 — one card surfaces power/water/telecom/flood/community/access/market/Site
+Finder + `display_address()` composer + 77,070-parcel municipio backfill; /trends municipio
+drill-down + year scrubber + heatmap; /resilience symmetric domain switcher + substation
+Cross-domain section; B5 address memo → parcel geometry stays the canonical locator, external
+address DBs a NO-GO). The mojibake carry-forward was investigated and **does not reproduce** (a
+Windows-terminal display artifact, not a data bug). **Active: F9c** grounding (portfolio reframe,
+playground snapping, assumption rationale + rail cost references). Routed to BACKLOG from the same
+review: weather/climate domain (F10 candidate), preferences / admin back-portal, Census PR
+geocoder as an optional address enrichment (F9b B5 verdict).
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

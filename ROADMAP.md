@@ -424,7 +424,19 @@ replayed storm data is labeled "(demo)" at every render path; Ask states its ful
 set; slider/unit semantics are explicit (cuerdas + m², weights labeled); the citizen card names
 a real hospital, leads with what works, and its planned-items read as plain language.
 
-#### F9b — Structure where people live  *(municipio-first + interconnection)* — **ACTIVE (2026-07-08)**
+#### F9b — Structure where people live  *(municipio-first + interconnection)* — ✅ DONE (2026-07-09, Opus GO)
+
+> Shipped on `feat/f9b-structure` (`f0954e0` B1 / `a09cb58` B2 / `8ca5bbf` B3 / `df53676` B4 /
+> `c4522a1` B5): `/economy` leads with a 78-municipio choropleth + metric switcher + drill-down,
+> power demoted to a "Power lens" tab; parcel 360 — `get_parcel_detail` surfaces power/water/
+> telecom/flood/community/access/market/Site Finder on one card + `display_address()` composer
+> (junk stripped, municipio injected) + spatial backfill of 77,070 NULL-municipio parcels; `/trends`
+> municipio drill-down + year scrubber + heatmap toggle; `/resilience` symmetric domain switcher
+> (shared `components/domain-switcher.tsx`, viewport preserved) + substation Cross-domain section
+> (water sources + telecom towers it powers — substation 675 shows 54 telecom + 5 water, gate-
+> verified live); B5 address memo → **NO-GO on external address DBs, parcel geometry stays canonical**
+> (Census PR geocoder parked in BACKLOG as optional enrichment). Gate found only a cosmetic
+> `top_names` dedup nit, fixed same session.
 
 - **B1 — Economy municipio-first.** New `GET /economy/municipios` (78 rows: population, SVI mean
   + high-SVI tract count, VOLL exposure, CRIM assessed value + 12-mo sales, substation count) +
@@ -465,7 +477,7 @@ water, telecom, flood, community, access, market, and Site Finder context on one
 readable address; /trends drills into a municipio and scrubs across years; /resilience switches
 domains and shows cross-domain dependency; the address-source memo has a recommendation.
 
-#### F9c — Grounded, not vibes  *(trust deepening on the judgment pages)*
+#### F9c — Grounded, not vibes  *(trust deepening on the judgment pages)* — **ACTIVE (2026-07-09)**
 
 - **C1 — Portfolio reframe** *(rework first; deprecation is the gate's call if it still doesn't
   land)*: page reframed as an **investment plan**, not a shopping list — per-item "why picked"
