@@ -504,7 +504,7 @@ function PlanItemRow({
       {(why || copy) && (
         <p className="mt-1 pl-8 text-xs text-muted-foreground">
           {copy ? `${copy.what} ` : ""}
-          {why ? `This ${why}.` : ""}
+          {who ? `This ${why}.` : rankText ? `${rankText.charAt(0).toUpperCase()}${rankText.slice(1)}.` : ""}
         </p>
       )}
     </div>
