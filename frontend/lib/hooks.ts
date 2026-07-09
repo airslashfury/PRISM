@@ -109,11 +109,23 @@ export const usePortfolioRun = (id: number | null) =>
     enabled: id != null,
   });
 
-export const useEconomyTracts = () =>
-  useQuery({ queryKey: ["economyTracts"], queryFn: api.economyTracts, staleTime: 30 * MIN });
+export const useEconomyTracts = (enabled = true) =>
+  useQuery({ queryKey: ["economyTracts"], queryFn: api.economyTracts, staleTime: 30 * MIN, enabled });
 
-export const useExposure = (limit = 400) =>
-  useQuery({ queryKey: ["exposure", limit], queryFn: () => api.exposure(limit), staleTime: 10 * MIN });
+export const useExposure = (limit = 400, enabled = true) =>
+  useQuery({ queryKey: ["exposure", limit], queryFn: () => api.exposure(limit), staleTime: 10 * MIN, enabled });
+
+/** Municipio-first economy rollup (F9b): 78-feature choropleth + per-municipio panel. */
+export const useEconomyMunicipios = () =>
+  useQuery({ queryKey: ["economyMunicipios"], queryFn: api.economyMunicipios, staleTime: 30 * MIN });
+
+export const useEconomyMunicipioDetail = (name: string | null) =>
+  useQuery({
+    queryKey: ["economyMunicipioDetail", name],
+    queryFn: () => api.economyMunicipioDetail(name as string),
+    enabled: name != null,
+    staleTime: 10 * MIN,
+  });
 
 export const useCorridorRoutes = () =>
   useQuery({ queryKey: ["corridorRoutes"], queryFn: api.corridorRoutes, staleTime: 30 * MIN });

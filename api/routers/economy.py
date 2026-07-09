@@ -1,18 +1,63 @@
-"""Economy: SVI choropleth, community resilience, and substation VOLL exposure."""
+"""Economy: municipio rollup, SVI choropleth, community resilience, VOLL exposure."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.engine import Engine
 
 from api import schemas
 from api.cache import cached_response
 from api.db import fetch_all, fetch_geojson
 from api.deps import engine_dep
+from prism.economy.municipios import municipio_detail, municipio_rollup
 
 router = APIRouter(prefix="/economy", tags=["economy"])
 
 # Tract polygons are detailed; simplify in metres (EPSG:32161) before reprojecting.
 _SIMPLIFY_M = 60
+# Municipio boundaries are chunkier — a coarser tolerance keeps 78 features light.
+_SIMPLIFY_MUNI_M = 100
+
+
+@router.get("/municipios", response_model=schemas.FeatureCollection)
+@cached_response("municipios", ttl=21600)
+def municipios(engine: Engine = Depends(engine_dep)) -> dict:
+    """Municipio-first choropleth: all 78 municipios, each feature carrying the
+    full rollup row (population/SVI, grid exposure, property market) as its
+    properties. Geometry is simplified in metres, then reprojected to WGS84.
+    """
+    rollup = municipio_rollup(engine)
+    geoms = fetch_all(
+        engine,
+        f"""
+        SELECT "NAME" AS name,
+               ST_AsGeoJSON(
+                   ST_Transform(ST_SimplifyPreserveTopology(geom, {_SIMPLIFY_MUNI_M}), 4326), 6
+               ) AS geometry
+        FROM public.municipios
+        """,
+    )
+    geom_by_name = {g["name"]: json.loads(g["geometry"]) for g in geoms if g["geometry"]}
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "geometry": geom_by_name.get(r["name"]), "properties": r}
+            for r in rollup
+        ],
+    }
+
+
+@router.get("/municipio/{name}", response_model=schemas.MunicipioDetail)
+def municipio(name: str, engine: Engine = Depends(engine_dep)) -> dict:
+    """One municipio's rollup row plus its tract list, top substations by VOLL
+    exposure, water/telecom counts, and sales-by-year series. The name is the
+    proper-case accented municipio name (percent-encoding is decoded upstream).
+    """
+    detail = municipio_detail(engine, name)
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"Unknown municipio: {name!r}")
+    return detail
 
 
 @router.get("/tracts", response_model=schemas.FeatureCollection)

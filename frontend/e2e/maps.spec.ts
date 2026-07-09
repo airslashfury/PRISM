@@ -18,7 +18,7 @@ const MAP_ROUTES: { path: string; overlay: (p: Page) => Locator }[] = [
   { path: "/sitefinder", overlay: (p) => p.getByText("Weight the criteria").first() },
   { path: "/trends", overlay: (p) => p.getByText(/property market/i).first() },
   { path: "/corridor", overlay: (p) => p.getByText(/societal-value objective/i).first() },
-  { path: "/economy", overlay: (p) => p.getByText("Social vulnerability").first() },
+  { path: "/economy", overlay: (p) => p.getByText("Mean social vulnerability").first() },
   { path: "/playground", overlay: (p) => p.getByPlaceholder(/scenario/i).first() },
   { path: "/water", overlay: (p) => p.getByText("Water-source risk").first() },
   { path: "/telecom", overlay: (p) => p.getByText("Telecom risk").first() },
@@ -87,6 +87,30 @@ test("/ overview leads with the what-changed cockpit", async ({ page }) => {
   await expect(page.getByText("one island, one system")).toBeVisible();
   await expect(page.getByRole("heading", { name: "What changed" })).toBeVisible();
   expect(errors, `uncaught page errors on /: ${errors.join("; ")}`).toEqual([]);
+});
+
+// ── F9b chunk B1: municipio-first economy ────────────────────────────────────
+
+test("/economy municipio panel opens from the largest-municipios list", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/economy", { waitUntil: "domcontentloaded" });
+
+  // Deselected aside: island totals + the top-5-by-population list.
+  await expect(page.getByText("Island totals")).toBeVisible();
+  const first = page.getByTestId("muni-top-item").first();
+  await expect(first).toBeVisible();
+  await first.click();
+
+  // The aside becomes the municipio panel and shows a population stat.
+  const panel = page.getByTestId("muni-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText(/residents/)).toBeVisible();
+  // Selection is a permalink (m= param).
+  await expect(page).toHaveURL(/m=/);
+
+  expect(errors, `uncaught page errors on /economy: ${errors.join("; ")}`).toEqual([]);
 });
 
 test("/parcels owner search resolves an entity and opens the drawer", async ({ page }) => {

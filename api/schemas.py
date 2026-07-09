@@ -442,6 +442,56 @@ class ExposureRow(BaseModel):
     lat: float | None = None
 
 
+# ── Municipio-first rollup (F9b chunk B1) ────────────────────────────────────
+
+
+class MunicipioRollup(BaseModel):
+    """One municipio's aggregate row — also the per-feature properties of
+    GET /economy/municipios (prism.economy.municipios.municipio_rollup)."""
+    name: str
+    geoid: str                          # 5-char county FIPS, e.g. "72127"
+    population: int
+    tract_count: int
+    svi_mean: float | None = None
+    high_svi_tracts: int                # tracts at svi_score >= 0.75
+    substations: int                    # spatially contained (ST_Contains)
+    voll_exposure_usd: float | None = None   # 30-yr VOLL summed over them
+    parcel_count: int
+    assessed_value_usd: float | None = None  # CRIM assessed, not market
+    sales_12mo: int
+    median_price_12mo: float | None = None
+
+
+class MunicipioTract(BaseModel):
+    tract_geoid: str
+    population: int | None = None
+    svi_score: float | None = None
+
+
+class MunicipioSubstation(BaseModel):
+    entity_id: int
+    name: str | None = None
+    population_affected: int | None = None
+    voll_exposure_usd: float | None = None
+
+
+class MunicipioSalesYear(BaseModel):
+    year: int
+    sales: int
+    median_price: float | None = None
+
+
+class MunicipioDetail(MunicipioRollup):
+    """Rollup row plus the drill-down lists behind it. `substations` stays the
+    count (as in the rollup); the ranked list is `top_substations`."""
+    tracts: list[MunicipioTract] = Field(default_factory=list)
+    top_substations: list[MunicipioSubstation] = Field(default_factory=list)
+    water_sources: int
+    telecom_sites: int
+    sales_by_year: list[MunicipioSalesYear] = Field(default_factory=list)
+    confidence_tiers: dict[str, str] = Field(default_factory=dict)
+
+
 # --------------------------------------------------------------------------- #
 # Corridor                                                                     #
 # --------------------------------------------------------------------------- #

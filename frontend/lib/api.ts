@@ -1039,6 +1039,55 @@ export interface TrendsResponse {
   recent_deltas: RecentDeltas;
 }
 
+// ── Municipio-first economy rollup (F9b chunk B1) ───────────────────────────
+
+/** Mirrors api.schemas.MunicipioRollup — also the per-feature `properties` of
+ *  GET /economy/municipios. */
+export interface MunicipioRollup {
+  name: string;
+  geoid: string;
+  population: number;
+  tract_count: number;
+  svi_mean: number | null;
+  high_svi_tracts: number;
+  substations: number;
+  voll_exposure_usd: number | null;
+  parcel_count: number;
+  assessed_value_usd: number | null;
+  sales_12mo: number;
+  median_price_12mo: number | null;
+}
+
+export interface MunicipioTract {
+  tract_geoid: string;
+  population: number | null;
+  svi_score: number | null;
+}
+
+export interface MunicipioSubstation {
+  entity_id: number;
+  name: string | null;
+  population_affected: number | null;
+  voll_exposure_usd: number | null;
+}
+
+export interface MunicipioSalesYear {
+  year: number;
+  sales: number;
+  median_price: number | null;
+}
+
+/** Mirrors api.schemas.MunicipioDetail. `substations` stays the count (as in
+ *  the rollup); the ranked list is `top_substations`. */
+export interface MunicipioDetail extends MunicipioRollup {
+  tracts: MunicipioTract[];
+  top_substations: MunicipioSubstation[];
+  water_sources: number;
+  telecom_sites: number;
+  sales_by_year: MunicipioSalesYear[];
+  confidence_tiers: Record<string, ConfidenceTierKey>;
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -1154,6 +1203,9 @@ export const api = {
   economyTracts: () => apiGet<FeatureCollection>("/economy/tracts"),
   economyCommunity: () => apiGet<FeatureCollection>("/economy/community"),
   exposure: (limit = 400) => apiGet<ExposureRow[]>("/economy/exposure", { limit }),
+  economyMunicipios: () => apiGet<FeatureCollection>("/economy/municipios"),
+  economyMunicipioDetail: (name: string) =>
+    apiGet<MunicipioDetail>(`/economy/municipio/${encodeURIComponent(name)}`),
 
   corridorRoutes: () => apiGet<CorridorRoute[]>("/corridor/routes"),
   corridorRoutesGeojson: () => apiGet<FeatureCollection>("/corridor/routes/geojson"),
