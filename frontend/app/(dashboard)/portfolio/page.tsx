@@ -28,8 +28,9 @@ import { useToast } from "@/components/toaster";
 import { ChartTooltip, CHART_COLORS, AXIS_PROPS, GRID_PROPS } from "@/components/charts";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { usePortfolioRun, usePortfolioRuns } from "@/lib/hooks";
-import { api, pollJob, type PortfolioCompare, type PortfolioCompareItem, type PortfolioOptimizeResult } from "@/lib/api";
+import { api, pollJob, type PortfolioCompare, type PortfolioCompareItem, type PortfolioItem, type PortfolioOptimizeResult } from "@/lib/api";
 import { fmtInt, fmtNum, fmtUsd, fmtUsdTiered } from "@/lib/utils";
+import { humanizeIntervention, interventionCopy } from "@/lib/interventions";
 
 const TYPE_COLOR: Record<string, string> = {
   elevation: "#22d3ee",
@@ -153,6 +154,22 @@ export default function PortfolioPage() {
   }, [run]);
 
   const utilization = run?.total_cost_usd && run?.budget_usd ? run.total_cost_usd / run.budget_usd : 0;
+
+  // Post-hoc "protection per dollar" rank — the ILP's `priority` field ranks by net
+  // benefit, not by uplift_per_million, so this is computed client-side (ROADMAP F9c C1).
+  const dollarRank = useMemo(() => {
+    if (!run?.items) return new Map<number, number>();
+    const sorted = [...run.items].sort(
+      (a, b) => (b.uplift_per_million ?? 0) - (a.uplift_per_million ?? 0),
+    );
+    return new Map(sorted.map((it, i) => [it.item_id, i + 1]));
+  }, [run]);
+
+  const leftoverUsd = run ? Math.max(0, run.budget_usd - (run.total_cost_usd ?? 0)) : 0;
+  const smallestItemCost = useMemo(() => {
+    if (!run?.items || run.items.length === 0) return null;
+    return Math.min(...run.items.map((it) => it.cost_usd));
+  }, [run]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
@@ -361,6 +378,16 @@ export default function PortfolioPage() {
             <StatCard label="Interventions" value={fmtInt(run.n_interventions)} sub={run.algorithm ?? ""} icon={Layers} accent="amber" />
           </section>
 
+          <p className="text-xs text-muted-foreground">
+            {fmtUsd(run.total_cost_usd, 0)} of {fmtUsd(run.budget_usd, 0)} deployed
+            ({fmtNum(utilization * 100, 1)}%) — {fmtUsd(leftoverUsd, 0)} left over,{" "}
+            {smallestItemCost != null && leftoverUsd >= smallestItemCost
+              ? "enough headroom for another item at this budget."
+              : "too little to fund another intervention at this budget."}
+          </p>
+
+          <GlossaryStrip />
+
           <section className="grid gap-6 lg:grid-cols-2">
             {/* Allocation by type */}
             <Card>
@@ -418,48 +445,85 @@ export default function PortfolioPage() {
             </Card>
           </section>
 
-          {/* Items table */}
+          {/* Investment plan — each pick explained, not just listed (F9c C1) */}
           <Card>
             <div className="flex items-center justify-between border-b border-border/60 p-4">
-              <h3 className="text-sm font-semibold">Selected interventions</h3>
-              <span className="text-xs text-muted-foreground">{fmtInt(run.items.length)} items</span>
+              <h3 className="text-sm font-semibold">The investment plan</h3>
+              <span className="text-xs text-muted-foreground">{fmtInt(run.items.length)} items, in net-benefit order</span>
             </div>
-            <div className="max-h-[460px] overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-card text-left text-xs text-muted-foreground">
-                  <tr className="border-b border-border/60">
-                    <th className="px-4 py-2 font-medium">#</th>
-                    <th className="px-4 py-2 font-medium">Substation</th>
-                    <th className="px-4 py-2 font-medium">Type</th>
-                    <th className="px-4 py-2 text-right font-medium">Cost</th>
-                    <th className="px-4 py-2 text-right font-medium">Uplift</th>
-                    <th className="px-4 py-2 text-right font-medium">Per $1M</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {run.items.map((it) => (
-                    <tr key={it.item_id} className="border-b border-border/40 hover:bg-accent/30">
-                      <td className="px-4 py-2 tnum text-muted-foreground">{it.priority ?? "—"}</td>
-                      <td className="px-4 py-2">{it.entity_name ?? `#${it.entity_id}`}</td>
-                      <td className="px-4 py-2">
-                        <span
-                          className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs"
-                          style={{ background: `${typeColor(it.intervention_type)}1a`, color: typeColor(it.intervention_type) }}
-                        >
-                          {it.intervention_type}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-right tnum">{fmtUsdTiered(it.cost_usd, "proxy")}</td>
-                      <td className="px-4 py-2 text-right tnum">{fmtNum(it.resilience_uplift, 1)}</td>
-                      <td className="px-4 py-2 text-right tnum text-muted-foreground">{fmtNum(it.uplift_per_million, 2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="max-h-[600px] divide-y divide-border/40 overflow-y-auto">
+              {run.items.map((it) => (
+                <PlanItemRow key={it.item_id} item={it} rank={dollarRank.get(it.item_id) ?? null} totalItems={run.items.length} />
+              ))}
             </div>
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+function PlanItemRow({
+  item,
+  rank,
+  totalItems,
+}: {
+  item: PortfolioItem;
+  rank: number | null;
+  totalItems: number;
+}) {
+  const copy = interventionCopy(item.intervention_type);
+  const who =
+    item.population_affected != null && item.population_affected > 0
+      ? `protects ~${fmtInt(item.population_affected)} people${
+          item.hospitals ? `, ${fmtInt(item.hospitals)} hospital${item.hospitals === 1 ? "" : "s"}` : ""
+        }`
+      : null;
+  const rankText = rank != null ? `ranked #${rank} of ${totalItems} on protection per dollar in this budget` : null;
+  const why = [who, rankText].filter(Boolean).join("; ");
+
+  return (
+    <div className="px-4 py-3 hover:bg-accent/20">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="tnum w-6 text-xs text-muted-foreground">{item.priority ?? "—"}</span>
+          <span className="text-sm font-medium">{item.entity_name ?? `#${item.entity_id}`}</span>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs"
+            style={{ background: `${typeColor(item.intervention_type)}1a`, color: typeColor(item.intervention_type) }}
+          >
+            {humanizeIntervention(item.intervention_type)}
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-xs">
+          <span className="tnum">{fmtUsdTiered(item.cost_usd, "proxy")}</span>
+          <span className="tnum text-muted-foreground">+{fmtNum(item.resilience_uplift, 1)} uplift</span>
+          <span className="tnum text-muted-foreground">{fmtNum(item.uplift_per_million, 2)}/$1M</span>
+        </div>
+      </div>
+      {(why || copy) && (
+        <p className="mt-1 pl-8 text-xs text-muted-foreground">
+          {copy ? `${copy.what} ` : ""}
+          {why ? `This ${why}.` : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function GlossaryStrip() {
+  const terms: { term: string; def: string }[] = [
+    { term: "Uplift", def: "reduction in the substation's composite risk score this intervention buys" },
+    { term: "Per $1M", def: "marginal efficiency — how much uplift one million dollars buys at that site" },
+    { term: "Equity weight", def: "how much the optimizer boosts benefit for high-SVI (socially vulnerable) areas" },
+  ];
+  return (
+    <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+      {terms.map((t) => (
+        <span key={t.term}>
+          <span className="font-medium text-foreground">{t.term}</span> — {t.def}
+        </span>
+      ))}
     </div>
   );
 }

@@ -1546,6 +1546,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/crim/trends/municipio/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales Trends Municipio
+         * @description One municipio's market drill-down (F9b chunk B3, cached 1h): momentum,
+         *     a year-by-year sales/median series, and its top barrios by recent sale
+         *     count — the panel behind clicking a hot spot on `/trends`.
+         */
+        get: operations["sales_trends_municipio_crim_trends_municipio__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/trends/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales Trends Matrix
+         * @description Sales + median price for every (year, municipio) pair since `since`
+         *     (cached 1h) — backs the `/trends` heatmap toggle and year scrubber.
+         */
+        get: operations["sales_trends_matrix_crim_trends_matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/water/sources": {
         parameters: {
             query?: never;
@@ -3111,6 +3154,12 @@ export interface components {
             cumulative_cost_usd: number | null;
             /** Cumulative Uplift */
             cumulative_uplift: number | null;
+            /** Population Affected */
+            population_affected: number | null;
+            /** Hospitals */
+            hospitals: number | null;
+            /** Headline */
+            headline: string | null;
         };
         /** PortfolioRun */
         PortfolioRun: {
@@ -3809,6 +3858,11 @@ export interface components {
             headline: string;
             /** Barrios */
             barrios: components["schemas"]["TelecomBarrio"][];
+            /**
+             * Top Names
+             * @default []
+             */
+            top_names: string[];
         };
         /** TelecomSource */
         TelecomSource: {
@@ -3897,6 +3951,43 @@ export interface components {
             /** Confidence Tier */
             confidence_tier: string;
         };
+        /** TrendsBarrio */
+        TrendsBarrio: {
+            /** Barrio Name */
+            barrio_name: string;
+            /** Sales */
+            sales: number;
+        };
+        /** TrendsMatrixResponse */
+        TrendsMatrixResponse: {
+            /** Since */
+            since: number;
+            /** Rows */
+            rows?: components["schemas"]["TrendsYearMunicipio"][];
+        };
+        /**
+         * TrendsMunicipioDetail
+         * @description /trends drill-down panel (F9b chunk B3) — one municipio's momentum,
+         *     year series, and top barrios by recent sale count.
+         */
+        TrendsMunicipioDetail: {
+            /** Municipio */
+            municipio: string;
+            /** Sales */
+            sales: number;
+            /** Prior Sales */
+            prior_sales: number;
+            /** Median Price */
+            median_price?: number | null;
+            /** Volume */
+            volume?: number | null;
+            /** By Year */
+            by_year?: components["schemas"]["YearTrend"][];
+            /** Top Barrios */
+            top_barrios?: components["schemas"]["TrendsBarrio"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
         /** TrendsResponse */
         TrendsResponse: {
             summary: components["schemas"]["TrendsSummary"];
@@ -3930,6 +4021,17 @@ export interface components {
             latest_delta_month?: string | null;
             /** Confidence Tier */
             confidence_tier: string;
+        };
+        /** TrendsYearMunicipio */
+        TrendsYearMunicipio: {
+            /** Year */
+            year: number;
+            /** Municipio */
+            municipio: string;
+            /** Sales */
+            sales: number;
+            /** Median Price */
+            median_price?: number | null;
         };
         /** TypeAllocation */
         TypeAllocation: {
@@ -3978,6 +4080,11 @@ export interface components {
             headline: string;
             /** Barrios */
             barrios: components["schemas"]["WaterBarrio"][];
+            /**
+             * Top Names
+             * @default []
+             */
+            top_names: string[];
         };
         /** WaterGauge */
         WaterGauge: {
@@ -6272,6 +6379,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrendsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sales_trends_municipio_crim_trends_municipio__name__get: {
+        parameters: {
+            query?: {
+                /** @description Trailing window for momentum + top barrios */
+                months?: number;
+                /** @description First year of the year series */
+                since?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendsMunicipioDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sales_trends_matrix_crim_trends_matrix_get: {
+        parameters: {
+            query?: {
+                since?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendsMatrixResponse"];
                 };
             };
             /** @description Validation Error */

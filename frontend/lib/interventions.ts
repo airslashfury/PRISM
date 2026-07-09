@@ -40,6 +40,16 @@ export const INTERVENTION_COPY: Record<string, InterventionCopy> = {
     what: "Upgrades the critical stretch of road so it stays passable in a flood.",
     why: "Ambulances and repair crews can still reach your area during and after a storm.",
   },
+  redundant_feed: {
+    title: "Add a backup power feed",
+    what: "Connects the substation to a second transmission line so one failure doesn't cut service.",
+    why: "If the main feed goes down in a storm, your area can switch to the backup instead of losing power.",
+  },
+  new_access_road: {
+    title: "Build a new access road",
+    what: "Adds a road connection to a site currently reachable only by a severely degraded route.",
+    why: "Repair crews and emergency vehicles gain a way in when the existing route floods or fails.",
+  },
 };
 
 /** Full copy entry for an intervention type, or null for unknown types. */

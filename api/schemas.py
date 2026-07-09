@@ -381,6 +381,9 @@ class PortfolioItem(BaseModel):
     uplift_per_million: float | None
     cumulative_cost_usd: float | None
     cumulative_uplift: float | None
+    population_affected: int | None
+    hospitals: int | None
+    headline: str | None
 
 
 class TypeAllocation(BaseModel):
