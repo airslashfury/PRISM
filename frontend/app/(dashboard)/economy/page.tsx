@@ -46,7 +46,7 @@ const SVI_STOPS: RGB[] = [
 /** The existing VOLL formula wording — shared by the power lens list and the
  *  municipio panel so the two never drift. */
 const VOLL_FORMULA =
-  "people served × $2,389/person — the modeled 30-year cost of lost power (VOLL, NPV)";
+  "people served × $2,707/person — the modeled 30-year cost of lost power (VOLL, NPV)";
 
 type Lens = "municipios" | "power";
 
@@ -419,7 +419,7 @@ export default function EconomyPage() {
                     <p className="text-xs text-muted-foreground">
                       Ranked by people who lose power if this substation fails. Circle size on the map
                       is proportional to that population. VOLL (Value of Lost Load) converts outage
-                      exposure to a 30-year net-present-value dollar figure at $2,389/person.
+                      exposure to a 30-year net-present-value dollar figure at $2,707/person.
                     </p>
                   </div>
                   <InfoPanel
@@ -430,7 +430,7 @@ export default function EconomyPage() {
                       },
                       {
                         title: "How it's calculated",
-                        body: "SVI is a weighted composite, percentile-ranked 0–1 across all 981 tracts: poverty rate (30%), elderly population (15%), disability rate (10%), flood-zone overlap (30%), terrain slope (15%). Exposure traces the knowledge graph downstream from each substation (FEEDS → POWERS) to count the population it serves; VOLL converts that population's expected outage hours into a 30-year NPV dollar figure ($2,389/person) used as the \"economic benefit\" in Portfolio.",
+                        body: "SVI is a weighted composite, percentile-ranked 0–1 across all 981 tracts: poverty rate (30%), elderly population (15%), disability rate (10%), flood-zone overlap (30%), terrain slope (15%). Exposure traces the knowledge graph downstream from each substation (FEEDS → POWERS) to count the population it serves; VOLL converts that population's expected outage hours into a 30-year NPV dollar figure ($2,707/person) used as the \"economic benefit\" in Portfolio.",
                       },
                       {
                         title: "Data sources & accuracy",

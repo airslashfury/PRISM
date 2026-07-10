@@ -258,7 +258,7 @@ tables:
     confidence_tier: proxy
     assumptions: >-
       VOLL-based 30-yr NPV exposure = downstream population (via Proxy
-      FEEDS/POWERS) × VOLL ($2,389/person, an Estimated national constant — see
+      FEEDS/POWERS) × VOLL ($2,707/person, an Estimated national constant — see
       `assumptions` below). Both factors are below Authoritative, so exposure
       dollar figures should render rounded with ≈.
     upgrade_path: Same as graph.relationships, plus a PR-specific VOLL study.
@@ -635,7 +635,7 @@ assumptions:
       - optimize.intervention_catalog.v3
     assumptions: >-
       National default outage-cost figure (0.822 kW/person x $5/kWh x 33.6 hr/yr
-      x 17.29 NPV factor = $2,389/person 30yr). Not PR-specific.
+      x 19.60 NPV factor = $2,707/person 30yr). Not PR-specific.
     upgrade_path: Commission a PR-specific VOLL study (PREB/LUMA outage-cost data).
 
   - key: discount_rate
@@ -644,9 +644,13 @@ assumptions:
     unit: fraction/yr
     confidence_tier: estimated
     used_by:
+      - economy.substation_exposure
       - optimize.intervention_catalog.v2
       - corridor.routes
-    assumptions: Standard public-infrastructure discount rate (3%/yr, 30-yr horizon).
+    assumptions: >-
+      Standard public-infrastructure discount rate (3%/yr, 30-yr horizon).
+      F10b (2026-07-10): reconciled economy.substation_exposure onto this
+      same rate — it previously ran its own undocumented 4%/yr NPV factor.
     upgrade_path: Use PR Treasury / OMB's official discount rate if one is published.
 
   - key: outage_hours_per_year

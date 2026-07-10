@@ -1988,7 +1988,7 @@
     "derived:economy.substation_exposure": {
       "source": "derived",
       "title": "economy.substation_exposure",
-      "description": "VOLL-based 30yr NPV exposure per substation. Population: recursive FEEDS+POWERS->barrio graph, centroid-tract join. Benefit: 0.822 kW/person x 5 USD/kWh x 33.6 hr/yr x NPV 17.29 = 2389 USD/person. 315 substations, 294 with population.",
+      "description": "VOLL-based 30yr NPV exposure per substation. Population: recursive FEEDS+POWERS->barrio graph, centroid-tract join, deduplicated per barrio (F10b). Benefit: 0.822 kW/person x 5 USD/kWh x 33.6 hr/yr x NPV 19.60 (3%/yr, F10b-reconciled) = 2707 USD/person. 315 substations, 294 with population.",
       "schema": "economy",
       "table": "substation_exposure",
       "row_count": 315,
