@@ -1,5 +1,6 @@
 """CLI: python -m prism.crim [--drop] [--show-only]
-        python -m prism.crim --snapshot          # monthly: freeze state + compute deltas
+        python -m prism.crim --refresh-views     # rebuild parcelas_dedup/_history after a reload
+        python -m prism.crim --snapshot          # monthly: refresh views + freeze state + compute deltas
         python -m prism.crim --snapshot-month 2026-07-01
         python -m prism.crim --normalize         # (re)build owner_key + normalized address tables
 """
@@ -31,10 +32,19 @@ def main() -> None:
                     help="(Re)build crim.parcel_owner + crim.owner_entities (owner key + address)")
     ap.add_argument("--backfill-municipio", action="store_true",
                     help="Spatially backfill crim.parcelas.municipio where NULL (one-shot, idempotent)")
+    ap.add_argument("--refresh-views", action="store_true",
+                    help="Refresh crim.parcelas_dedup + crim.parcelas_history against current crim.parcelas "
+                         "(also runs automatically as the first step of --snapshot)")
     args = ap.parse_args()
 
     engine = get_engine()
     raw_dir = _REPO_ROOT / "data" / "raw"
+
+    if args.refresh_views:
+        from prism.crim.schema import refresh_views
+        refresh_views(engine)
+        print("crim.parcelas_dedup + crim.parcelas_history refreshed")
+        return
 
     if args.backfill_municipio:
         from prism.crim.normalize import backfill_municipio
