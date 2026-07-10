@@ -49,8 +49,8 @@ Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9**. Each
 > Transport** dependency chain is surfaced and performed (cascade play, command-center landing,
 > ⌘K palette, OG cards, presentation mode). **F9 — the Legibility & Trust arc** (below),
 > scheduled 2026-07-07 from the user's first full product review, is now **DONE** (F9a/b/c/d,
-> all Opus GO, 2026-07-10). Next up: pick from `BACKLOG.md` (weather/climate F10 candidate,
-> preferences/admin back-portal, `address_lookup` rename) or a new user-directed item.
+> all Opus GO, 2026-07-10). **The active item is F10 — weather domain + model correctness +
+> consistency sweep** (scheduled 2026-07-10 from the post-F9 backlog audit; see Item F10 below).
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -626,6 +626,139 @@ responses are mirrored/cached locally; discovery-not-resolution scope is explici
 
 Gate protocol: one Opus gate at "Done when" (D1 may gate alone as v1 if D2 slips); Fable plans /
 Sonnet implements per chunk; `/ui-ux` skill loaded for D1's result copy and D2's caveat wording.
+
+---
+
+### Item F10 — Weather domain + model correctness + consistency sweep  *(ACTIVE — scheduled 2026-07-10)*
+
+Source: the post-F9 backlog audit (2026-07-10, Fable session) — the user asked to compose the
+next arc from the weather/climate F10 candidate plus the missed enhancements/optimizations the
+backlog and gate residuals had accumulated. Every residual below was **re-verified live against
+the current code** before scheduling (all still open unless noted). Scope decisions made with the
+user in the same session: preferences/admin portal **stays parked** on the M6 auth trigger (the
+localStorage stopgap was offered and declined); the two economy-model correctness chips are **in**
+as their own gated chunk; the big deferred domain items (fiber/callsign polygons, multi-hazard
+overlays, distribution geometry) are **out** — recorded as F11 candidates at the end of this
+section; `/storm` is **deprecated into `/weather`** (storm becomes a lens of the weather page).
+
+Sequencing: **F10a → F10b → F10c**, one branch `feat/f10-weather` off `main` (after
+`feat/f9b-structure` merges). Each sub-item Opus-gated before the next; doc-update protocol after
+each GO. Fable plans / Sonnet implements per chunk; `/ui-ux` loaded for every copy-bearing chunk
+(weather metric explainers, the correction note, clinic-field copy).
+
+#### F10a — Weather/climate domain, absorbing /storm  *(marquee chunk)*
+
+Nothing weather-shaped exists in PRISM (re-verified 2026-07-10: only SLR/SLOSH/NHC hazard
+layers). The user's ask from the 2026-07-07 review: aggregate weather scoring plus average
+humidity/heat/rain — "expected workable days" is a real construction siting/scheduling input.
+
+- **Feed** — `prism/sync/climate.py`: NOAA NCEI 1991–2020 climate normals for PR stations
+  (keyless), monthly temp/precip(/humidity-adjacent fields as available) → `sync.climate_normals`
+  (DDL in `prism/sync/schema.py`, `POINT 32161` geom via the standard `ST_Transform` reprojection).
+  **Copy the `prism/sync/nwis.py` pattern exactly** (fetch/parse/mirror_raw/persist/sync
+  orchestrator; `data/raw/climate/<date>/` + checksums from host CLI runs; worker passes
+  `mirror=False`). Normals are static — a one-shot `python -m prism.sync --source climate` load
+  (add to `__main__.py` choices) + at most a monthly cron in `api/worker.py` (copy the
+  `sync_nwis_gauges` wrapper). Optional stretch: NWS API live observations as a second,
+  genuinely-live table — only if the normals land cheaply.
+- **Aggregates** — per-municipio climate rollup mirroring `prism/economy/municipios.py::
+  municipio_rollup` (`FROM public.municipios m LEFT JOIN …` so all 78 rows always return; quote
+  `"NAME"`/`"GEOID"`; stations joined by `ST_Contains`/nearest-station). Derived metrics: rain
+  days/mo, heat-index days, and a **workable-days estimate whose formula goes in
+  `config/assumption_rationale.yml`** (it's a load-bearing constant — F9c C3 pattern, with
+  value/why-chosen/source/what-would-change-it).
+- **Site Finder criterion** — `workable_days`, default weight **0.00** (present but off, like
+  `dev_impact`). Four touchpoints: `s_workable_days` column (`prism/sitefinder/schema.py`,
+  idempotent ADD COLUMN), `_SUBSCORES` + `DEFAULT_WEIGHTS` (`score.py`), raw compute in
+  `_RAW_SQL_BASE` + percentile norm in `_NORM_SQL`, and a `CRITERIA` entry (`query.py`) with
+  `unit: "workable days per year"` (F9a unit-semantics rule).
+- **`/weather` page, absorbing `/storm`** — `MapWorkspace` page in the economy-page shape:
+  78-municipio climate choropleth, `Segmented` metric switcher (rain days / heat-index days /
+  workable days), `GradientLegend`, municipio click → panel with honest per-metric explainers
+  (ScoreExplainer pattern). GeoJSON endpoint copies `GET /economy/municipios` verbatim (rollup +
+  `ST_SimplifyPreserveTopology` + `cached_response`). **Storm lens:** the existing `/storm`
+  content (NHC cone/track layers, consequence banner, REPLAY badge, calm empty state) becomes a
+  lens of `/weather`, promoted via a banner chip when a storm is active or a replay is loaded;
+  `/storm` becomes a redirect to `/weather?lens=storm` (move the `generateMetadata` wrapper +
+  `/og/storm` handling so permalinks and share cards keep working); nav "Storm" (Live) →
+  "Weather" (Live); update the Playwright specs that reference `/storm`. Permalinks on
+  `/weather` from day one (`url-state.ts`: lens + metric + selection) — closes the `/storm`
+  permalink gap by construction.
+- **Stamps** — `config/confidence.yml`: `sync.climate_normals` **authoritative** (NOAA is the
+  climate authority, same rationale as `sync.nwis_gauges`); the municipio aggregate table
+  **modeled**; `catalog/metadata.json` entries for both; **bump
+  `tests/test_provenance.py::test_api_inventory`** (189 as of F9d D2 — this count goes stale
+  silently, two gates have now caught it).
+
+**Done when:** normals mirrored + loaded with provenance; `/weather` renders the choropleth with
+per-metric explainers; the storm lens is reachable and `/storm` redirects with metadata/OG intact;
+Site Finder exposes workable-days with unit semantics; e2e specs updated and green.
+
+#### F10b — Economy model correctness  *(closes task chips task_f389670d + task_b6170436)*
+
+The two most consequential "documented, not fixed" items in the model. Both perturb published
+numbers, which is exactly why they get their own gate with a validation pass — the numbers change
+once, honestly, with the diff written down.
+
+- **Discount-rate reconciliation** (`task_f389670d`) — `prism/economy/exposure.py`'s NPV factor
+  uses 4%/yr while `config/confidence.yml`'s global `discount_rate` is 3%/yr (surfaced by F9c C3,
+  documented in `assumption_rationale.yml`). Pick one canonical rate — default to the global 3%
+  unless a deliberate, documented reason to keep 4% for VOLL emerges — apply it, update
+  `assumption_rationale.yml` + the `/methods` rationale entry.
+- **Exposure barrio double-count** (`task_b6170436`) — `economy.substation_exposure` counts a
+  barrio once per powering substation in the closure (SABANA LLANA reads 511K vs the deduped
+  consequence-lens 311K). Align the exposure computation with `graph.downstream_summary`'s
+  deduped sweep — F9c C1 already prefers the deduped population for *copy*; this makes the
+  exposure *numbers* consistent with it.
+- **Validation pass (the gate's core)** — before/after comparison of VOLL exposure totals, ILP
+  portfolio picks at $200M/$500M, and the resilience top-10; rank shifts documented, not silently
+  absorbed; re-run `compute_exposure` + rescore; a WhatsNew/`/methods` note stating the
+  correction plainly. Close both task chips.
+
+**Done when:** one documented discount rate everywhere; exposure population dedup matches the
+consequence lens; the before/after diff is written down; full pytest green (~16 min — a long run
+is not a hang).
+
+#### F10c — Consistency & polish sweep  *(batched small items, one gate)*
+
+1. **`address_lookup` → `barrio_lookup` rename** (F9d D1 residual) — `prism/ask/tools.py:230`
+   plus its 4 self-referential `"tool":` return strings, `prism/ask/agent.py` TOOL_SPECS +
+   `_TOOL_FUNCS`, `tests/test_ask.py`, the `/ask` capabilities-panel copy if it names the tool,
+   and ROADMAP/CLAUDE mentions.
+2. **Cascade-arc centroids** (F8 residual) — add barrio lon/lat to `water_downstream_of` /
+   `telecom_downstream_of` (`prism/graph/water.py`, `prism/graph/telecom.py` — extend the
+   `SELECT b.entity_id, b.name` to include a WGS84 centroid) and to the `/water/source/{id}` +
+   `/telecom/source/{id}` payloads; wire the F8 map-theatre cascade ArcLayers on `/water` +
+   `/telecom` selections (shell + `frontend/lib/map-motion.ts` already exist — this lights up
+   the cascade on both pages).
+3. **`/sitefinder` permalinks** — the last un-permalinked map page (after F10a covers
+   `/weather`): `url-state.ts` with weights + municipio + use_type.
+4. **api.ts hybrid cleanup** — ~110 hand-typed interfaces in `frontend/lib/api.ts` duplicate
+   what the generated `api-types.ts` now covers (routers declare `response_model=`
+   consistently — re-verified). Re-run `npm run gen:api` against the live OpenAPI (API container
+   running), replace duplicates with `Schemas[...]` re-exports, keep only genuinely missing
+   shapes. Typecheck is the net.
+5. **OG font embedding** (F8 minor) — pass the already-self-hosted `next/font` font file to
+   `ImageResponse`'s `fonts:` option in `frontend/app/og/[view]/route.tsx` (Satori: no React
+   fragments).
+6. **F9d Tier A yield measurement** (measure-only) — match-tier stats over `crim.geocode_cache`
+   once real D1 traffic exists; record the census-match rate in the F9d entry above; if ~0, file
+   the `display_address()`-normalization follow-up as its own item (do **not** build it here).
+7. **Nearest-clinic second field** (F9a carry-forward; the largest sweep item — the gate may
+   split it out) — 15 barrios have NULL nearest-hospital (disconnected road-graph components /
+   islands); add a `nearest_clinic` field (CSC/CSF/C MED PRIMARIA destinations) via a second
+   pgRouting pass in `prism/transport/access.py` + a citizen-card line — restores signal without
+   re-lying about hospitals.
+
+**Done when:** each item verified live — the rename via an `/ask` round-trip; arcs visibly firing
+on `/water` + `/telecom`; a sitefinder permalink survives reload; typecheck green post-cleanup;
+an OG card renders with the brand font; the yield number is written into the F9d entry; the
+clinic field shows on the citizen card for a previously-NULL barrio.
+
+**F11 candidates (recorded, not scheduled):** fiber layer + real callsign service-area polygons
+on `/telecom` (F7 deferral); multi-hazard overlays — landslide/liquefaction/seismic + a Guánica
+2020 backtest; distribution geometry (2014 `g37_electric_*`) to tighten the feeder Voronoi and
+raise its confidence tier; public methods/API docs (still audience-gated).
 
 ---
 

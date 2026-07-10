@@ -9,27 +9,23 @@ it gets scheduled.
 
 ## Near-term (likely next, after the active queue)
 
-> **2026-07-07 — F1–F8 COMPLETE (all Opus GO); the active ROADMAP item is F9 (Legibility &
-> Trust arc)**, drawn from the user's first full product review. Two review findings were
-> deliberately routed here instead of into F9 (below).
+> **2026-07-10 — F9 COMPLETE (a/b/c/d, all Opus GO); the active ROADMAP item is F10 (weather
+> domain + model correctness + consistency sweep)**, composed from the post-F9 backlog audit.
+> The weather candidate below was pulled up; preferences was explicitly deferred again.
 
-### Weather / climate domain  *(F10 candidate — from the 2026-07-07 review)*
-The /storm page is seasonal by design; the user's ask is **weather in general** — aggregate
-weather scoring plus average humidity / heat / rain, explicitly useful for construction
-planning ("expected workable days" is a real siting/scheduling input). Nothing weather-shaped
-exists in PRISM today (verified 2026-07-07). Scope sketch: NOAA NCEI 1991–2020 climate normals
-for PR stations (monthly temp/precip/humidity, keyless) → `sync.climate_normals` + optional NWS
-API live observations; per-municipio aggregates (rain days, heat index days); a climate lens on
-Site Finder (construction-window criterion) and/or a `/weather` reference page. Pull up as F10
-when the user prioritizes it after F9.
+### Weather / climate domain  **→ SCHEDULED as ROADMAP F10a (2026-07-10)**
+Promoted out of BACKLOG into **F10a — weather/climate domain, absorbing /storm** (NOAA NCEI
+normals → `sync.climate_normals`, per-municipio aggregates, `/weather` page with a storm lens
+replacing `/storm`, Site Finder workable-days criterion). ROADMAP is the authoritative spec.
 
-### Preferences panel / admin back-portal  *(pre-auth design note — from the 2026-07-07 review)*
+### Preferences panel / admin back-portal  *(pre-auth design note — deferred again 2026-07-10)*
 When users/accounts land (M6 trigger below), the `/assumptions` lab becomes per-user: saved
 assumption sets, default scenario, home municipio for "My Area", unit preferences — plus
 **admin-set global defaults** so an org can pin its own VOLL/discount-rate baseline. Design
 constraint to honor now: keep assumption evaluation stateless/read-only (it already is) so
-per-user defaults are a thin preferences table, not a model fork. A localStorage stopgap
-(persist last-used dials client-side) is cheap if wanted sooner; the real item waits on auth.
+per-user defaults are a thin preferences table, not a model fork. **2026-07-10 (F10 scoping):
+offered again — including a cheap localStorage stopgap for last-used dials — and the user
+declined both; stays parked on the M6 auth trigger.**
 
 ### Address geocoding enrichment — Census PR geocoder  **→ SCHEDULED as ROADMAP F9d (2026-07-09)**
 Promoted out of BACKLOG into **F9d — Find your parcel by address** (address-first discovery + tiered
@@ -47,7 +43,7 @@ on the right parcel, and (b) validate/standardize the urb on a `display_address(
 address ranges are the coarse interpolation fallback. **Re-check trigger:** if the federal PR Address
 Data Working Group later lands PR into NAD with real coverage, re-evaluate NAD as a mirrored complement.
 
-### Deferred from F7 (telecom, 2026-07-03)
+### Deferred from F7 (telecom, 2026-07-03)  *(F11 candidate — considered and passed for F10, 2026-07-10)*
 - **Fiber layer on `/telecom`** — `g37_telecom_conductos_fibra_optica_act_2012` (50 conduit
   MultiLineStrings) + the ROW optical-fiber lease layer are mirrored but NOT surfaced. Deferred at
   the F7 gate: fiber has no power-dependency in the cascade model, so on the map it's static
@@ -116,11 +112,13 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
 - **Telecom / comms domain**  **→ SCHEDULED as ROADMAP F7** — `prism/assets/telecom.py`; tower/fiber
   entities from the 2012 layers (`cellular`, `antenas`, `conductos_fibra_optica`); power→telecom
   cascade; coverage-loss scoring. The "Comms" rung of the dependency chain.
-- **Multi-hazard resilience** — extend `hazard.py` with landslide (`g15_riesgo_geol_deslizamientos`),
-  liquefaction (`licuacion`), seismic (`sismos`) overlays — pairs with ROADMAP items 3+4; backtest
-  against the 2020 Guánica sequence (P2 calibration opportunity).
-- **Distribution geometry** — the 2014 `g37_electric_*` layers (distribution lines, transformers,
-  switches, fuses, poles) could tighten the feeder Voronoi proxy and raise its confidence tier.
+- **Multi-hazard resilience** *(F11 candidate — considered and passed for F10, 2026-07-10)* —
+  extend `hazard.py` with landslide (`g15_riesgo_geol_deslizamientos`), liquefaction (`licuacion`),
+  seismic (`sismos`) overlays — pairs with ROADMAP items 3+4; backtest against the 2020 Guánica
+  sequence (P2 calibration opportunity).
+- **Distribution geometry** *(F11 candidate — considered and passed for F10, 2026-07-10)* — the
+  2014 `g37_electric_*` layers (distribution lines, transformers, switches, fuses, poles) could
+  tighten the feeder Voronoi proxy and raise its confidence tier.
 
 ---
 
@@ -135,6 +133,11 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
 ---
 
 ## Standing data / quality carry-forwards
+- **Economy-model correctness chips → SCHEDULED as ROADMAP F10b (2026-07-10)** — the VOLL
+  4%-vs-3% discount-rate inconsistency (task_f389670d, surfaced F9c C3) and the
+  `economy.substation_exposure` barrio double-count (task_b6170436, surfaced by the F8-era
+  downstream-summary fix). Both fixed together behind one gate with a before/after validation
+  pass, since they perturb published portfolio/economy numbers.
 - **CRIM valuation official export** — valuation/sales loaded and trusted for now; the
   token-secured official export (`sigejp.pr.gov`) would harden it. Join key `NUM_CATASTRO`.
 - **`eid=XXX` name-resolution gap — mostly RESOLVED (2026-06-15, `3d736ca`)** — entity-name
