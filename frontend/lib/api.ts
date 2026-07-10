@@ -729,11 +729,23 @@ export interface ParcelMarket {
   confidence_tier: ConfidenceTierKey;
 }
 
+export interface ParcelProposedAddress {
+  tier: "census_matched" | "composed_approximate";
+  proposed_address: string;
+  method: string;
+  nearest_road_name: string | null;
+  nearest_road_m: number | null;
+  lon: number | null;
+  lat: number | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
 export interface ParcelDetail {
   num_catastro: string;
   catastro: string | null;
   municipio: string | null;
   display_address: string | null;
+  proposed_address: ParcelProposedAddress | null;
   barrio_entity_id: number | null;
   barrio_name: string | null;
   lon: number | null;

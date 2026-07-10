@@ -140,7 +140,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F9a — Legibility sweep | **COMPLETE** | 2026-07-08 | Opus GO |
 | F9b — Municipio-first structure | **COMPLETE** | 2026-07-09 | Opus GO |
 | F9c — Grounded, not vibes | **COMPLETE** | 2026-07-09 | Opus GO x3 (C1/C2/C3) |
-| F9d D1 — Address-first parcel search | **COMPLETE** | 2026-07-10 | Opus GO (D2 fast-follow open) |
+| F9d — Find your parcel by address (D1+D2) | **COMPLETE** | 2026-07-10 | Opus GO x2 |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -305,8 +305,27 @@ Juan address resolves to the correct catastro at 0m; a rural Utuado address retu
 fallback. Gate finding: build note (3)'s "reuse Ask's `address_lookup`" was based on a false
 premise — that tool resolves a barrio/municipio *name*, not a street address, so there was no
 second address route to diverge from; `geocode_address` is the sole canonical street-address path.
-Residual (non-blocking): `address_lookup` is a misnomer worth a rename later. **Active: F9d D2** —
-"Census Proposed Address" label (v2 fast-follow, per-parcel tiered address on the parcel card).
+Residual (non-blocking): `address_lookup` is a misnomer worth a rename later.
+
+**F9d D2 (2026-07-10, Opus GO) — "Census Proposed Address" label:** `crim.parcel_proposed_address`
+(new table, alembic `0013`) holds a lazy, per-parcel best-effort address computed on first
+parcel-detail read (`prism/crim/proposed_address.py`), tiered: **Tier A `census_matched`** —
+`display_address()` forward-geocoded to a confident Census match, label is Census's own
+standardized address string; **Tier B `composed_approximate`** — no confident match, composed
+locally from the nearest *state highway* (`PR-xx` route, capped 3km — PR's local/municipal street
+layer isn't mirrored in PostGIS, so a parcel off a numbered route falls back to barrio+municipio
+only, never a fabricated street name) + barrio + municipio. Surfaced on the parcel card beside
+`display_address()`, tier-colored (emerald "Census-matched" / amber "approximate, may not be
+accurate"), with an explicit "not a resolution of ownership or a mailing address" line. Stamped
+`proxy` in `config/confidence.yml` + `catalog/metadata.json`. Verified live end-to-end (two
+un-mocked Census calls both correctly fell to Tier B — "Near PR-25, Bo. Santurce, San Juan" and
+"Near PR-472, Bo. Bejucos, Isabela") + frontend DOM/style inspection. Gate finding: fixed a
+pre-existing gap D1 had left — `tests/test_provenance.py::test_api_inventory` hardcoded the
+catalog inventory count and hadn't been bumped when D1 added `crim.geocode_cache`; now bumped to
+189 to cover both D1's and D2's new catalog entries. Residual (non-blocking): Tier A's real-world
+match rate against CRIM's address format is unmeasured — both live rows this session landed in
+Tier B; revisit `display_address()` normalization if Tier A proves near-zero yield once D1 traffic
+accumulates. **F9d (D1+D2) is now COMPLETE.**
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

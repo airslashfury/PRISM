@@ -559,6 +559,7 @@ def get_parcel_detail(engine: Engine, num_catastro: str) -> dict[str, Any] | Non
         "catastro": rep["catastro"],
         "municipio": rep["municipio"],
         "display_address": display_address(rep["direccion_fisica"], rep["municipio"]),
+        "proposed_address": _proposed_address(engine, num_catastro),
         "barrio_entity_id": barrio_id,
         "barrio_name": rep["barrio_name"],
         "lon": float(rep["lon"]) if rep["lon"] is not None else None,
@@ -574,6 +575,12 @@ def get_parcel_detail(engine: Engine, num_catastro: str) -> dict[str, Any] | Non
         "telecom": _telecom(engine, barrio_id) if barrio_id is not None else None,
         "market": _market(engine, rep["municipio"]),
     }
+
+
+def _proposed_address(engine: Engine, num_catastro: str) -> dict[str, Any] | None:
+    """Tiered Census Proposed Address (F9d D2) — lazy, cache-first."""
+    from prism.crim.proposed_address import get_or_compute
+    return get_or_compute(engine, num_catastro)
 
 
 def _f(v: Any) -> float | None:

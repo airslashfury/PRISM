@@ -658,6 +658,21 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
             {d.display_address ?? c.physical_address}
           </div>
         )}
+        {d.proposed_address && (
+          <div className="mt-1 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+            <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>
+              <span className="font-medium text-foreground/80">Census Proposed Address:</span>{" "}
+              {d.proposed_address.proposed_address}
+              {d.proposed_address.tier === "census_matched" ? (
+                <span className="text-emerald-600 dark:text-emerald-400"> — Census-matched</span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400"> — approximate, may not be accurate</span>
+              )}
+              . Not a resolution of ownership or a mailing address — a best-effort locator only.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* CRIM record */}

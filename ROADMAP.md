@@ -47,8 +47,10 @@ Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9**. Each
 > `feat/f8-excellence` (pushed). F5–F8 were built under the Fable-plans / Sonnet-implements
 > protocol (CLAUDE.md "Fable-era override"). The full **Power → Comms → Water → Economy →
 > Transport** dependency chain is surfaced and performed (cascade play, command-center landing,
-> ⌘K palette, OG cards, presentation mode). **The active item is now F9 — the Legibility &
-> Trust arc** (below), scheduled 2026-07-07 from the user's first full product review.
+> ⌘K palette, OG cards, presentation mode). **F9 — the Legibility & Trust arc** (below),
+> scheduled 2026-07-07 from the user's first full product review, is now **DONE** (F9a/b/c/d,
+> all Opus GO, 2026-07-10). Next up: pick from `BACKLOG.md` (weather/climate F10 candidate,
+> preferences/admin back-portal, `address_lookup` rename) or a new user-directed item.
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -337,7 +339,7 @@ was theatre + typographic confidence, not redesign. Six chunks on `feat/f8-excel
 > phase-free. Residuals → BACKLOG: water/telecom arc centroids; upstream `population_affected=0`
 > quirk tracked separately (task chip).
 
-### Item F9 — Legibility & Trust arc  *(ACTIVE — scheduled 2026-07-07)*
+### Item F9 — Legibility & Trust arc  *(✅ DONE — F9a/b/c/d all Opus GO, 2026-07-10)*
 
 Source: the user's **first full product review** (2026-07-07) — ~25 findings across 15 pages.
 The diagnosis in one line: *the model is built and performs, but the numbers don't explain
@@ -541,7 +543,7 @@ cost figure traces to a reference; /methods states why each load-bearing value w
 Gate protocol per sub-item (three Opus gates); Fable plans / Sonnet implements per chunk;
 `/ui-ux` skill loaded for every copy-bearing chunk.
 
-#### F9d — Find your parcel by address  *(address-first discovery + proposed address)* — **D1 DONE (2026-07-10, Opus GO); D2 ACTIVE**
+#### F9d — Find your parcel by address  *(address-first discovery + proposed address)* — **DONE (D1 + D2, both Opus GO, 2026-07-10)**
 
 **Why this exists.** CRIM records drift from what's actually on the ground: transfers and sales
 aren't always recorded in the fabric, and PR addresses never standardized (see F9b B5 —
@@ -585,7 +587,8 @@ composed locally and flagged approximate.
   sole canonical street-address path as built, no merge needed. Residual: `address_lookup` is a
   misnomer worth a rename (e.g. `barrio_lookup`) so a future street-address tool on the Ask side
   doesn't get wired into it by mistake — carried forward, not blocking.
-- **D2 — "Census Proposed Address" label** *(v2, fast-follow)*. A tiered, per-parcel best-effort
+- ✅ **D2 — "Census Proposed Address" label** *(v2, fast-follow)* — **DONE 2026-07-10, Opus GO.**
+  A tiered, per-parcel best-effort
   address, each row carrying its own method + proxy confidence (fits the provenance spine), in a new
   derived `crim.parcel_proposed_address` table (alembic migration; confidence.yml + catalog stamp,
   proxy tier): **Tier A — Census-validated** (forward-geocoding the cleaned `display_address()`
@@ -601,6 +604,20 @@ composed locally and flagged approximate.
   **Build note:** keep Tier B **lazy** (populate off D1's on-demand geocodes) — the nearest-road
   spatial join is fine per-parcel but is a 1.5M-row job if batched; only batch the parseable
   subset if D1's live yield proves it's worth it.
+  **Gate finding (2026-07-10):** the roadmap's "nearest named road" assumed a local/municipal
+  street layer that PRISM does not actually mirror — only the numbered state-highway layer
+  (`g35_viales_carreteras_estatales_segmentadas_2021`, `PR-xx` routes) carries a usable name;
+  municipal roads in that same table have no name field. Tier B was built against this real
+  constraint: nearest state route within 3km (e.g. "Near PR-25"), falling back to barrio+municipio
+  only — never fabricating a street name — when nothing numbered is in range. Verified live
+  end-to-end (San Juan/Santurce and Isabela/Bejucos anchor parcels both correctly fell to Tier B
+  against real un-mocked Census calls). Residuals (non-blocking): Tier A's real-world match rate
+  against CRIM's `display_address()` format is unmeasured — both live rows this session landed in
+  Tier B, so Tier A's yield in production is unproven (mechanism is verified correct via mocked
+  tests + contract check against D1's client, just not yet observed firing live); if it proves
+  near-zero once D1 traffic accumulates, revisit `display_address()` normalization toward Census's
+  expected input. Catalog description prose doesn't repeat the literal word "proxy" (the tier
+  stamp itself is correct in `confidence.yml`) — cosmetic, folded into a future doc sweep.
 
 **Done when:** a user can type a rough address and land on the right parcel (or an honest nearest-
 candidate list) without touching the map; every parcel offers a readable proposed address that is

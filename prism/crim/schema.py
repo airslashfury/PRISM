@@ -78,6 +78,29 @@ _DDL = [
         queried_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     )
     """,
+
+    # Per-parcel best-effort address (F9d D2) — lazy, populated on-demand off
+    # the parcel-detail path. Two tiers, each self-describing (`method` +
+    # `confidence_tier`) so the API/UI never has to guess how a row was made:
+    #   census_matched      — display_address() forward-geocoded to a single
+    #                         confident Census match; proposed_address is the
+    #                         standardized address Census returned.
+    #   composed_approximate — no confident match; proposed_address is composed
+    #                         locally from geometry PRISM already has (nearest
+    #                         state road + barrio + municipio), flagged approximate.
+    """
+    CREATE TABLE IF NOT EXISTS crim.parcel_proposed_address (
+        num_catastro      TEXT PRIMARY KEY,
+        tier              TEXT NOT NULL,   -- 'census_matched' | 'composed_approximate'
+        proposed_address  TEXT NOT NULL,
+        method            TEXT NOT NULL,
+        nearest_road_name TEXT,            -- Tier B only, e.g. 'PR-2'; null if none within radius
+        nearest_road_m    DOUBLE PRECISION,
+        lon               DOUBLE PRECISION,
+        lat               DOUBLE PRECISION,
+        computed_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
 ]
 
 # Two derived materialized views, reproducible from `crim.parcelas`:

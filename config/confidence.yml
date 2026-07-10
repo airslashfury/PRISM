@@ -448,6 +448,26 @@ tables:
       Census-matched case toward authoritative for the address label itself
       (the point), while the parcel-assignment step stays proxy.
 
+  crim.parcel_proposed_address:
+    method: tiered (census_forward_geocode | nearest_state_road+barrio+municipio)
+    confidence_tier: proxy
+    assumptions: >-
+      F9d D2 — a per-parcel best-effort address, surfaced beside (never in
+      place of) the raw CRIM display_address(). Tier A (census_matched):
+      display_address() forward-geocoded to a single confident Census match —
+      the label is Census's own standardized address string. Tier B
+      (composed_approximate): no confident match; composed locally from
+      geometry PRISM already has — nearest *state* highway (PR only mirrors
+      the numbered state-road layer, not local/municipal street names, so a
+      parcel off a numbered route falls back to barrio+municipio with no
+      street name rather than guessing one) + barrio + municipio, always
+      labeled "Census Proposed Address — approximate, may not be accurate".
+      Populated lazily off the parcel-detail read path, not a 1.5M-row batch.
+    upgrade_path: >-
+      If PR's local/municipal street layer is ever mirrored, Tier B gains a
+      real nearest-named-street join instead of falling back past the state
+      highway radius.
+
   sync.seismic_events:
     method: measured
     confidence_tier: authoritative

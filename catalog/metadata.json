@@ -2393,6 +2393,16 @@
       "pulled_at": "2026-07-10",
       "computed_by": "prism.crim.geocode.geocode_address"
     },
+    "derived:crim.parcel_proposed_address": {
+      "title": "crim.parcel_proposed_address — Census Proposed Address (tiered per-parcel label)",
+      "description": "Lazy, per-parcel best-effort address (F9d D2), populated on first parcel-detail read (no 1.5M-row batch). Tier A 'census_matched': the cleaned CRIM address forward-geocoded to a single confident Census match — label is Census's own standardized address string. Tier B 'composed_approximate': no confident match; composed locally from nearest state highway (PR-xx, capped 3km — the local/municipal street layer isn't mirrored) + barrio + municipio, always flagged approximate. Surfaced beside, never replacing, crim.parcelas.direccion_fisica / display_address().",
+      "source": "U.S. Census Bureau PR forward geocoder + PRISM spatial join over crim.parcelas / g35_viales_carreteras_estatales_segmentadas_2021 / graph.entities (barrio)",
+      "domain": "territorio",
+      "license": "Puerto Rico government — public cadastral record + public domain (U.S. Census Bureau)",
+      "priority": "P2",
+      "pulled_at": "2026-07-10",
+      "computed_by": "prism.crim.proposed_address.get_or_compute"
+    },
     "derived:sync.seismic_events": {
       "source": "derived",
       "title": "sync.seismic_events",

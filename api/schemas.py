@@ -1181,11 +1181,23 @@ class ParcelMarket(BaseModel):
     confidence_tier: str
 
 
+class ParcelProposedAddress(BaseModel):
+    tier: str                      # 'census_matched' | 'composed_approximate'
+    proposed_address: str
+    method: str
+    nearest_road_name: str | None = None
+    nearest_road_m: float | None = None
+    lon: float | None = None
+    lat: float | None = None
+    confidence_tier: str
+
+
 class ParcelDetail(BaseModel):
     num_catastro: str
     catastro: str | None = None
     municipio: str | None = None
     display_address: str | None = None
+    proposed_address: ParcelProposedAddress | None = None
     barrio_entity_id: int | None = None
     barrio_name: str | None = None
     lon: float | None = None

@@ -2970,6 +2970,7 @@ export interface components {
             municipio?: string | null;
             /** Display Address */
             display_address?: string | null;
+            proposed_address?: components["schemas"]["ParcelProposedAddress"] | null;
             /** Barrio Entity Id */
             barrio_entity_id?: number | null;
             /** Barrio Name */
@@ -3036,6 +3037,25 @@ export interface components {
             water_plants?: number | null;
             /** Health Centers */
             health_centers?: number | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelProposedAddress */
+        ParcelProposedAddress: {
+            /** Tier */
+            tier: string;
+            /** Proposed Address */
+            proposed_address: string;
+            /** Method */
+            method: string;
+            /** Nearest Road Name */
+            nearest_road_name?: string | null;
+            /** Nearest Road M */
+            nearest_road_m?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
         };
