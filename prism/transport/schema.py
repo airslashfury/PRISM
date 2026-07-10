@@ -24,6 +24,16 @@ def create_schema(engine: Engine) -> None:
             )
         """))
 
+        # F10c-7 — nearest-clinic fields (idempotent ADD COLUMN, since the
+        # table above already existed pre-F10c on every running deployment).
+        conn.execute(text("""
+            ALTER TABLE transport.road_access_cost
+                ADD COLUMN IF NOT EXISTS nearest_clinic_vid     bigint,
+                ADD COLUMN IF NOT EXISTS nearest_clinic_name    text,
+                ADD COLUMN IF NOT EXISTS clinic_travel_dist_m   double precision,
+                ADD COLUMN IF NOT EXISTS clinic_travel_time_min double precision
+        """))
+
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS transport.bridge_inventory (
                 bridge_id           bigint      PRIMARY KEY

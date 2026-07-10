@@ -13,6 +13,27 @@ it gets scheduled.
 > domain + model correctness + consistency sweep)**, composed from the post-F9 backlog audit.
 > The weather candidate below was pulled up; preferences was explicitly deferred again.
 
+### `frontend/lib/api.ts` → generated-schema interface migration  *(carved out of F10c-4, 2026-07-10)*
+F10c item 4 asked to replace ~110 hand-typed duplicate interfaces in `api.ts` with
+`Schemas["Foo"]` re-exports from the generated `api-types.ts` (`npm run gen:api`). Attempted and
+reverted: `openapi-typescript` emits every Pydantic field with a Python-side default
+(`x: str | None = None` — extremely common for nullable API fields) as a TS-*optional* property
+(`x?: T`) rather than required-but-nullable (`x: T | null`), because it strictly follows the
+OpenAPI `required:` array (Pydantic doesn't list defaulted fields as required even though
+FastAPI always serializes the key). The hand-typed interfaces had correctly modeled these as
+required-non-optional (matching runtime reality); swapping to the generated type broke 100+
+call sites across ~15 dashboard files (`.map()`/`Object.keys()` on now-possibly-`undefined`
+fields, `ConfidenceTierKey` literal-union vs generated plain `string`, etc.). `api-types.ts` was
+still regenerated and kept (safe, additive — picks up new schemas from F10a/F10b/F10c). Two
+paths forward, pick one before re-attempting:
+1. **Accept optional-everywhere generated types** and retrofit every consumer (add `?? ""` /
+   `?.`/narrow-then-use patterns) — mechanical but touches ~15 files.
+2. **Configure the generator or Pydantic side** to emit required-nullable instead of optional
+   for defaulted fields — e.g. an `openapi-typescript` transform, or setting
+   `model_config = ConfigDict(...)` / explicit `Field(...)` on the Pydantic models so FastAPI's
+   OpenAPI output lists these fields in `required:` even though they're nullable. Fixes it at
+   the source for every future regen, no per-consumer changes needed — worth investigating first.
+
 ### Weather / climate domain  **→ SCHEDULED as ROADMAP F10a (2026-07-10)**
 Promoted out of BACKLOG into **F10a — weather/climate domain, absorbing /storm** (NOAA NCEI
 normals → `sync.climate_normals`, per-municipio aggregates, `/weather` page with a storm lens

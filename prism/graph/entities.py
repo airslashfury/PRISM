@@ -32,6 +32,7 @@ _NAME_COLUMNS: list[tuple[str, str]] = [
     ("optimize.portfolio_items", "entity_name"),
     ("resilience.scenario_scores", "entity_name"),
     ("transport.road_access_cost", "nearest_hosp_name"),
+    ("transport.road_access_cost", "nearest_clinic_name"),
 ]
 
 

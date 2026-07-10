@@ -333,14 +333,20 @@ def _community(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
 def _road_access(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
     with engine.connect() as conn:
         row = conn.execute(text("""
-            SELECT nearest_hosp_name, travel_time_min
+            SELECT nearest_hosp_name, travel_time_min,
+                   nearest_clinic_name, clinic_travel_time_min
             FROM transport.road_access_cost WHERE barrio_entity_id = :bid
         """), {"bid": barrio_id}).mappings().fetchone()
-    if row is None or row["nearest_hosp_name"] is None:
+    if row is None or (row["nearest_hosp_name"] is None and row["nearest_clinic_name"] is None):
         return None
+    # F10c-7: fall back to the nearest community clinic when no true hospital
+    # is road-reachable (disconnected road-graph component) — primary care,
+    # never shown as a hospital substitute.
     return {
         "nearest_hospital": row["nearest_hosp_name"],
-        "travel_time_min": float(row["travel_time_min"]),
+        "travel_time_min": float(row["travel_time_min"]) if row["travel_time_min"] is not None else None,
+        "nearest_clinic": row["nearest_clinic_name"],
+        "clinic_travel_time_min": float(row["clinic_travel_time_min"]) if row["clinic_travel_time_min"] is not None else None,
         "confidence_tier": _tier("transport.road_access_cost"),
     }
 

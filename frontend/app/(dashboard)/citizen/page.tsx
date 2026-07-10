@@ -150,12 +150,30 @@ function CivicCardView({ barrio }: { barrio: BarrioOption }) {
             <ConfidenceChip tier={card.road_access.confidence_tier} />
           </CardHeader>
           <CardContent className="text-sm">
-            <p>
-              The nearest hospital, <span className="font-semibold text-foreground">{card.road_access.nearest_hospital}</span>,
-              is roughly <span className="font-semibold text-foreground">{card.road_access.travel_time_min.toFixed(0)} minutes</span> away
-              by road under normal conditions (assuming a flat 40 km/h average — real travel time varies with traffic
-              and road damage).
-            </p>
+            {card.road_access.nearest_hospital && card.road_access.travel_time_min != null ? (
+              <p>
+                The nearest hospital, <span className="font-semibold text-foreground">{card.road_access.nearest_hospital}</span>,
+                is roughly <span className="font-semibold text-foreground">{card.road_access.travel_time_min.toFixed(0)} minutes</span> away
+                by road under normal conditions (assuming a flat 40 km/h average — real travel time varies with traffic
+                and road damage).
+              </p>
+            ) : (
+              // F10c-7: no true hospital is reachable by road from here (a disconnected
+              // road-graph component) — fall back to the nearest community clinic rather
+              // than silently omitting this card. A clinic is primary care, not an ER.
+              <p>
+                No hospital is reachable by road from here in PRISM&apos;s model.{" "}
+                {card.road_access.nearest_clinic && card.road_access.clinic_travel_time_min != null ? (
+                  <>
+                    The nearest community clinic, <span className="font-semibold text-foreground">{card.road_access.nearest_clinic}</span>,
+                    is roughly <span className="font-semibold text-foreground">{card.road_access.clinic_travel_time_min.toFixed(0)} minutes</span> away
+                    by road — primary care, not emergency capacity.
+                  </>
+                ) : (
+                  "No nearby community clinic was found either."
+                )}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

@@ -190,6 +190,8 @@ class ConsequenceSummary(BaseModel):
 class WaterBarrio(BaseModel):
     entity_id: int
     name: str | None
+    lon: float | None = None
+    lat: float | None = None
 
 
 class WaterConsequence(BaseModel):
@@ -206,6 +208,8 @@ class WaterConsequence(BaseModel):
 class TelecomBarrio(BaseModel):
     entity_id: int
     name: str | None
+    lon: float | None = None
+    lat: float | None = None
 
 
 class TelecomConsequence(BaseModel):
@@ -889,8 +893,13 @@ class CivicCommunityResilience(BaseModel):
 
 
 class CivicRoadAccess(BaseModel):
-    nearest_hospital: str
-    travel_time_min: float
+    nearest_hospital: str | None = None
+    travel_time_min: float | None = None
+    # F10c-7 — a barrio can lack a road-graph-reachable hospital but still
+    # reach a community clinic (primary care, not ER capacity — never shown
+    # as a hospital substitute).
+    nearest_clinic: str | None = None
+    clinic_travel_time_min: float | None = None
     confidence_tier: str
 
 
@@ -1163,8 +1172,12 @@ class ParcelCommunity(BaseModel):
 
 
 class ParcelRoadAccess(BaseModel):
-    nearest_hospital: str
-    travel_time_min: float
+    nearest_hospital: str | None = None
+    travel_time_min: float | None = None
+    # F10c-7 — see CivicRoadAccess: a fallback for barrios with no
+    # road-reachable hospital (primary care, never a hospital substitute).
+    nearest_clinic: str | None = None
+    clinic_travel_time_min: float | None = None
     confidence_tier: str
 
 
@@ -1423,6 +1436,7 @@ class WaterSourceWhat(BaseModel):
 class WaterSourceServes(BaseModel):
     barrios_served: int
     sample_barrios: list[str] = Field(default_factory=list)
+    barrio_points: list[WaterBarrio] = Field(default_factory=list)
 
 
 class WaterSourceHazards(BaseModel):
@@ -1506,6 +1520,7 @@ class TelecomSourceWhat(BaseModel):
 class TelecomSourceServes(BaseModel):
     barrios_covered: int
     sample_barrios: list[str] = Field(default_factory=list)
+    barrio_points: list[TelecomBarrio] = Field(default_factory=list)
 
 
 class TelecomSourceHazards(BaseModel):

@@ -130,27 +130,27 @@ def test_svi_lookup_no_match(engine):
     assert "error" in result
 
 
-def test_address_lookup(engine):
-    from prism.ask.tools import address_lookup
+def test_barrio_lookup(engine):
+    from prism.ask.tools import barrio_lookup
 
-    result = address_lookup(engine, query="Playa")
+    result = barrio_lookup(engine, query="Playa")
     assert "civic_card" in result
     assert result["civic_card"]["barrio_name"] is not None
     assert len(result["map_points"]) == 1
     assert "flood_exposure" in result["confidence_tiers"]
 
 
-def test_address_lookup_no_match(engine):
-    from prism.ask.tools import address_lookup
+def test_barrio_lookup_no_match(engine):
+    from prism.ask.tools import barrio_lookup
 
-    result = address_lookup(engine, query="zzzznotreal")
+    result = barrio_lookup(engine, query="zzzznotreal")
     assert "error" in result
 
 
-def test_address_lookup_empty(engine):
-    from prism.ask.tools import address_lookup
+def test_barrio_lookup_empty(engine):
+    from prism.ask.tools import barrio_lookup
 
-    result = address_lookup(engine, query="   ")
+    result = barrio_lookup(engine, query="   ")
     assert "error" in result
 
 

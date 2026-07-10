@@ -60,8 +60,8 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "params": {"barrio_name": "string, required"},
     },
     {
-        "name": "address_lookup",
-        "description": "The full citizen civic card for a barrio or municipio — power, flood, emergency access, planned investments. Use this for 'what about my area / neighborhood' questions.",
+        "name": "barrio_lookup",
+        "description": "The full citizen civic card for a barrio or municipio — power, flood, emergency access, planned investments. Use this for 'what about my area / neighborhood' questions. Resolves a barrio/municipio name, not a street address.",
         "params": {"query": "string, required — barrio or municipio name"},
     },
     {
@@ -110,7 +110,7 @@ _TOOL_FUNCS = {
     "portfolio_items": tools.portfolio_items,
     "corridor_compare": tools.corridor_compare,
     "svi_lookup": tools.svi_lookup,
-    "address_lookup": tools.address_lookup,
+    "barrio_lookup": tools.barrio_lookup,
     "owner_lookup": tools.owner_lookup,
     "whats_new": tools.whats_new,
     "parcel_query": tools.parcel_query,

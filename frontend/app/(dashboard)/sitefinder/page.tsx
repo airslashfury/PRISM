@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import { ChevronLeft, RotateCcw, Anchor, Plane } from "lucide-react";
@@ -14,12 +14,31 @@ import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { useSiteFinderMeta, useSiteScore, useSiteParcel, useSiteAccessPoints } from "@/lib/hooks";
 import { suitColor, SUIT_LEGEND_STOPS, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum } from "@/lib/utils";
+import { patchUrl, readParam } from "@/lib/url-state";
 import type { SiteResult, SiteScorecard, SiteAccessPoint, ConfidenceTierKey } from "@/lib/api";
 
 const TOP_N = 200;
 const PORT_PRIMARY_RGB: RGB = [37, 99, 235];
 const PORT_BULK_RGB: RGB = [20, 160, 160];
 const AIRPORT_RGB: RGB = [168, 85, 247];
+
+/** Compact "key:value,key:value" weight-map encoding for the URL (F10c-3) —
+ *  every criterion is a 0–0.5 slider, so this stays short even with all
+ *  ~10 keys present. */
+function encodeWeights(w: Record<string, number> | null): string | null {
+  if (!w) return null;
+  const entries = Object.entries(w);
+  return entries.length ? entries.map(([k, v]) => `${k}:${v}`).join(",") : null;
+}
+function decodeWeights(raw: string | null): Record<string, number> | null {
+  if (!raw) return null;
+  const out: Record<string, number> = {};
+  for (const pair of raw.split(",")) {
+    const [k, v] = pair.split(":");
+    if (k && v !== undefined && Number.isFinite(Number(v))) out[k] = Number(v);
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 function km(m: number | null): string {
   return m == null ? "—" : `${(m / 1000).toFixed(1)} km`;
@@ -66,18 +85,56 @@ export default function SiteFinderPage() {
   const access = useSiteAccessPoints();
   const [weights, setWeights] = useState<Record<string, number> | null>(null);
   const [useType, setUseType] = useState<string>("all");
+  const [municipio, setMunicipio] = useState<string>("");
   const [selected, setSelected] = useState<number | null>(null);
 
-  // Initialize the sliders from the model's default weights once meta arrives.
+  // ── Permalinks (F10c-3): weights + municipio + use_type live in the URL ───
+  // Read on mount (see lib/url-state.ts for why not in the initializers) —
+  // a `w` param wins over the meta-defaults init below since it sets weights
+  // non-null first.
+  const hydrated = useRef(false);
+  useEffect(() => {
+    const w = decodeWeights(readParam("w"));
+    if (w) setWeights(w);
+    const use = readParam("use");
+    if (use) setUseType(use);
+    const mun = readParam("mun");
+    if (mun) setMunicipio(mun);
+    hydrated.current = true;
+  }, []);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ w: encodeWeights(weights) });
+  }, [weights]);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ use: useType === "all" ? null : useType });
+  }, [useType]);
+  useEffect(() => {
+    if (hydrated.current) patchUrl({ mun: municipio || null });
+  }, [municipio]);
+
+  // Initialize the sliders from the model's default weights once meta arrives
+  // (skipped if a permalinked `w` already set them above).
   useEffect(() => {
     if (meta.data && weights == null) {
       setWeights(Object.fromEntries(meta.data.criteria.map((c) => [c.key, c.default_weight])));
     }
   }, [meta.data, weights]);
 
+  // Debounce the municipio filter so it doesn't re-score on every keystroke.
+  const [debouncedMunicipio, setDebouncedMunicipio] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedMunicipio(municipio), 400);
+    return () => clearTimeout(t);
+  }, [municipio]);
+
   const scoreReq = useMemo(
-    () => ({ weights: weights ?? undefined, limit: TOP_N, use_type: useType === "all" ? undefined : useType }),
-    [weights, useType],
+    () => ({
+      weights: weights ?? undefined,
+      limit: TOP_N,
+      use_type: useType === "all" ? undefined : useType,
+      municipio: debouncedMunicipio.trim() || undefined,
+    }),
+    [weights, useType, debouncedMunicipio],
   );
   const score = useSiteScore(scoreReq);
   const rows = useMemo(() => score.data ?? [], [score.data]);
@@ -241,6 +298,13 @@ export default function SiteFinderPage() {
                     label: `Business${meta.data?.use_type_counts.commercial ? ` (${fmtInt(meta.data.use_type_counts.commercial)})` : ""}`,
                   },
                 ]}
+              />
+              <input
+                type="text"
+                value={municipio}
+                onChange={(e) => setMunicipio(e.target.value)}
+                placeholder="Filter by municipio…"
+                className="mt-2 w-full rounded-md border border-border/70 bg-background/60 px-2.5 py-1.5 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div className="border-b border-border/60 p-3">

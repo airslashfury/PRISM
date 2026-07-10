@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ScatterplotLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, ArcLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import { Droplets } from "lucide-react";
 
@@ -20,8 +20,12 @@ import { EntityDrawer, Row, type DrawerSection } from "@/components/entity-drawe
 import { useWaterSources, useWaterSource, useWaterGauges } from "@/lib/hooks";
 import { riskColor, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum, fmtRelative, fmtDateTime } from "@/lib/utils";
-import type { WaterSource, WaterGauge } from "@/lib/api";
-import { usePulse, usePrefersReducedMotion } from "@/lib/map-motion";
+import type { WaterSource, WaterGauge, BarrioPoint } from "@/lib/api";
+import { usePulse, usePrefersReducedMotion, useStagedTimeline, domainRgb } from "@/lib/map-motion";
+
+/** Cascade-arc reveal duration (F10c-2) — a single wave (source → served
+ *  barrios), unlike resilience's multi-domain staged sequence. */
+const CASCADE_STAGE_MS = 900;
 
 const RISK_STOPS: RGB[] = [
   [34, 197, 158],
@@ -111,6 +115,17 @@ export default function WaterPage() {
         : undefined,
     [selectedSource, sources],
   );
+
+  // Cascade-arc target barrios (F10c-2): same queryKey as SourceDrawer's own
+  // fetch below, so react-query dedupes — no extra request.
+  const { data: selectedDetail } = useWaterSource(selected);
+  const barrioTargets = selectedDetail?.serves.barrio_points ?? [];
+  const cascadeTimeline = useStagedTimeline(1, {
+    stageMs: CASCADE_STAGE_MS,
+    active: selected != null && barrioTargets.length > 0,
+    key: selected,
+  });
+  const cascadeProgress = cascadeTimeline.progress[0] ?? 0;
 
   // Gauge ripple: active only while the gauge layer is toggled on and gauges exist.
   const gaugePulsePhase = usePulse(GAUGE_PULSE_MS, showGauges && !!gauges?.length);
@@ -267,8 +282,56 @@ export default function WaterPage() {
       }
     }
 
+    // Cascade arc (F10c-2): source → each served barrio, fading in once on
+    // selection — mirrors resilience's per-wave ArcLayer/ripple pair, but a
+    // single wave since /water only has one downstream hop (barrios).
+    if (selectedSource && barrioTargets.length > 0 && cascadeProgress > 0) {
+      const [cr, cg, cb] = domainRgb("water");
+      ls.push(
+        new ArcLayer<BarrioPoint>({
+          id: "cascade-arc-water",
+          data: barrioTargets,
+          getSourcePosition: () => [selectedSource.lon ?? 0, selectedSource.lat ?? 0],
+          getTargetPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
+          getSourceColor: [cr, cg, cb, 255],
+          getTargetColor: [cr, cg, cb, 140],
+          getHeight: 0.35,
+          getWidth: 1.6,
+          opacity: cascadeProgress,
+          pickable: false,
+        }),
+      );
+      ls.push(
+        new ScatterplotLayer<BarrioPoint>({
+          id: "cascade-ripple-water",
+          data: barrioTargets,
+          getPosition: (d) => [d.lon ?? 0, d.lat ?? 0],
+          getRadius: 2 + cascadeProgress * 6,
+          radiusUnits: "pixels",
+          getFillColor: [cr, cg, cb, Math.round((1 - cascadeProgress) * 160)] as [
+            number,
+            number,
+            number,
+            number,
+          ],
+          stroked: false,
+          pickable: false,
+          updateTriggers: { getRadius: [cascadeProgress], getFillColor: [cascadeProgress] },
+        }),
+      );
+    }
+
     return ls;
-  }, [showGauges, gauges, gaugePulsePhase, selectedSource, selectPulsePhase, reducedMotion]);
+  }, [
+    showGauges,
+    gauges,
+    gaugePulsePhase,
+    selectedSource,
+    selectPulsePhase,
+    reducedMotion,
+    barrioTargets,
+    cascadeProgress,
+  ]);
 
   const layers = useMemo(() => [...baseLayers, ...motionLayers], [baseLayers, motionLayers]);
 

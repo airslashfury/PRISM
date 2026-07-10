@@ -1,9 +1,32 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { ImageResponse } from "next/og";
 
 import { fetchJson } from "@/lib/server-api";
 import type { ConsequenceSummary, StormResponse, ParcelDetail } from "@/lib/api";
 
 export const revalidate = 300;
+
+/** Inter TTFs (F10c-5) — Satori/next-og needs raw ttf/otf font bytes, which
+ *  next/font/google's self-hosting doesn't expose (it only ships woff2,
+ *  which Satori doesn't support, and the build output is content-hashed).
+ *  Mirrored once into the repo instead of fetched per-request. */
+const FONT_DIR = join(process.cwd(), "assets", "og-fonts");
+let fontsPromise: Promise<{ name: string; data: Buffer; weight: 400 | 600 | 700; style: "normal" }[]> | null = null;
+function loadFonts() {
+  if (!fontsPromise) {
+    fontsPromise = Promise.all(
+      ([400, 600, 700] as const).map(async (weight) => ({
+        name: "Inter",
+        data: await readFile(join(FONT_DIR, `Inter-${weight}.ttf`)),
+        weight,
+        style: "normal" as const,
+      })),
+    );
+  }
+  return fontsPromise;
+}
 
 const WIDTH = 1200;
 const HEIGHT = 630;
@@ -84,7 +107,7 @@ function Frame({
         backgroundImage: `linear-gradient(${BORDER}22 1px, transparent 1px), linear-gradient(90deg, ${BORDER}22 1px, transparent 1px)`,
         backgroundSize: "44px 44px",
         color: FOREGROUND,
-        fontFamily: "sans-serif",
+        fontFamily: "Inter",
         position: "relative",
       }}
     >
@@ -379,10 +402,18 @@ export async function GET(request: Request, { params }: { params: { view: string
       node = <DefaultCard />;
     }
 
-    return new ImageResponse(node as React.ReactElement, { width: WIDTH, height: HEIGHT });
+    return new ImageResponse(node as React.ReactElement, { width: WIDTH, height: HEIGHT, fonts: await loadFonts() });
   } catch {
     // Metadata/images must never 500 a share preview — fall back to the
-    // generic default card on any unexpected failure (bad params, render bug).
-    return new ImageResponse(<DefaultCard />, { width: WIDTH, height: HEIGHT });
+    // generic default card on any unexpected failure (bad params, render bug,
+    // or a font-load failure — loadFonts() is re-awaited so a bad font file
+    // doesn't itself take down the fallback path).
+    let fonts: Awaited<ReturnType<typeof loadFonts>> = [];
+    try {
+      fonts = await loadFonts();
+    } catch {
+      // fall through with the Satori default — better an unstyled card than none.
+    }
+    return new ImageResponse(<DefaultCard />, { width: WIDTH, height: HEIGHT, fonts });
   }
 }

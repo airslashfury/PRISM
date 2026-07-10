@@ -53,8 +53,18 @@ Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9**. Each
 > (scheduled 2026-07-10 from the post-F9 backlog audit; see Item F10 below) is in progress on
 > `feat/f10-weather` (off `main`, after `feat/f9b-structure` merged 2026-07-10): **F10a (weather
 > domain, absorbing /storm) is DONE — Opus GO 2026-07-10** (one fix at gate: the NOAA normals
-> mirror had to be re-run from the host, not the container, to satisfy data-sovereignty). **The
-> active item is F10b — economy model correctness** (below).
+> mirror had to be re-run from the host, not the container, to satisfy data-sovereignty).
+> **F10b (economy model correctness) is DONE — Opus GO 2026-07-10** (VOLL/discount-rate
+> reconciliation + exposure barrio dedup; a Dockerfile.api gap left by F10a — the `prism/weather`
+> module was never added to the api image's COPY list, so `/weather` and `/storm` had been down
+> in this dev environment since F10a shipped — was found and fixed while rebuilding the api
+> container for the config change). **F10c (consistency & polish sweep) is DONE — Opus GO
+> 2026-07-10** on items 1/2/3/5/6/7 (rename, cascade-arc centroids, sitefinder permalinks, OG
+> font embedding, F9d yield measurement, nearest-clinic field); item 4 (api.ts hybrid cleanup)
+> was carved out and re-scoped to BACKLOG.md after hitting a real `openapi-typescript` tooling
+> obstacle (Pydantic-defaulted fields render as TS-optional, not required-nullable, breaking
+> ~100 call sites) — reverted safely rather than shipped half-fixed. **The F10 arc (weather
+> domain + model correctness + consistency sweep) is now COMPLETE.**
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -530,7 +540,7 @@ domains and shows cross-domain dependency; the address-source memo has a recomme
   full score rows.
 - **C3 — Trust Center rationale + Rail cost basis.** (1) `/methods` gains **"Assumptions &
   choices"**: per load-bearing assumption — value, why chosen, source, what would change it
-  (VOLL $2,389/person-30yr derivation, 40 km/h road speed, 4 km telecom radius, feeder Voronoi,
+  (VOLL $2,707/person-30yr derivation, 40 km/h road speed, 4 km telecom radius, feeder Voronoi,
   median+clamp sales stats, ×0.3 generator discount, Cat-3 hazard weights) — sourced from a new
   `config/assumption_rationale.yml` so it's data, not prose. (2) `/corridor` cost figures get a
   **"Cost basis" popover** citing `config/cost_references.yml` (research handoff: Tren Urbano
@@ -590,7 +600,8 @@ composed locally and flagged approximate.
   street." There is no second street-geocoding route to diverge from, so `geocode_address` is the
   sole canonical street-address path as built, no merge needed. Residual: `address_lookup` is a
   misnomer worth a rename (e.g. `barrio_lookup`) so a future street-address tool on the Ask side
-  doesn't get wired into it by mistake — carried forward, not blocking.
+  doesn't get wired into it by mistake — carried forward, not blocking. **Renamed to
+  `barrio_lookup` in F10c-1 (2026-07-10).**
 - ✅ **D2 — "Census Proposed Address" label** *(v2, fast-follow)* — **DONE 2026-07-10, Opus GO.**
   A tiered, per-parcel best-effort
   address, each row carrying its own method + proxy confidence (fits the provenance spine), in a new
@@ -622,6 +633,18 @@ composed locally and flagged approximate.
   near-zero once D1 traffic accumulates, revisit `display_address()` normalization toward Census's
   expected input. Catalog description prose doesn't repeat the literal word "proxy" (the tier
   stamp itself is correct in `confidence.yml`) — cosmetic, folded into a future doc sweep.
+  **F10c-6 yield measurement (2026-07-10):** `crim.geocode_cache` held 33 rows, 26 of which are
+  pytest fixture artifacts (`TEST TIE STREET …` / `TEST STREET … NO CACHE YET`, re-inserted every
+  test run). Of the 7 remaining real queries: "101 Calle Fortaleza" / "Calle Fortaleza 101" (same
+  Old San Juan address, two word orders) both hit **Tier A `match`**; "2018 urb colinas de
+  alturas" (Mayaguez, 3 phrasing attempts), "Bo Bejucos" / "Bo Bejucos, Isabela" (Utuado/Isabela),
+  and "Santurce, Pesante 409, San Juan" all landed **`no_match`**. So real Tier A yield is low but
+  not zero — the one address that matched was a clean, standard-format urban street address;
+  every rural/barrio-style or loosely-phrased query missed. Too small a sample (one real
+  distinct successful match) to justify a `display_address()` normalization rebuild now; the
+  pattern (urban standard-format addresses hit, rural/barrio-style ones don't) matches what D1/D2
+  already predicted from the Census geocoder's known behavior, not a new finding. Re-measure once
+  organic `/parcels` "Search by address" traffic accumulates past pytest-fixture noise.
 
 **Done when:** a user can type a rough address and land on the right parcel (or an honest nearest-
 candidate list) without touching the map; every parcel offers a readable proposed address that is
@@ -721,11 +744,32 @@ translation) affects climate.py and its NWIS/USGS-quakes/PREPA/LUMA siblings —
 intact, but a Windows-written mirror can't self-verify against its own manifest; fix is a one-line
 `write_bytes` swap per module, tracked separately, not blocking.
 
-#### F10b — Economy model correctness  *(closes task chips task_f389670d + task_b6170436)*
+#### F10b — Economy model correctness  *(closes task chips task_f389670d + task_b6170436)* — ✅ DONE (2026-07-10, Opus GO)
 
 The two most consequential "documented, not fixed" items in the model. Both perturb published
 numbers, which is exactly why they get their own gate with a validation pass — the numbers change
 once, honestly, with the diff written down.
+
+> Shipped: `prism/economy/exposure.py` now derives its 30-yr NPV factor from the same 3%/yr
+> `discount_rate` as `config/confidence.yml`/the optimizer/`/corridor` (19.60, was its own 4%/yr →
+> 17.29) — VOLL benefit per person is now **$2,707** (was $2,389); `assumption_rationale.yml` +
+> `confidence.yml` rewritten to state the reconciliation, not the prior "known inconsistency, not
+> yet reconciled." The exposure SQL's recursive FEEDS-closure CTE wasn't deduplicated by entity_id
+> (a diamond in the substation graph could reach the same barrio via two path lengths and double-
+> count its population), fixed with a `powered_barrios AS (SELECT DISTINCT …)` CTE between the
+> recursive sweep and the aggregation — the same per-barrio dedup `graph/downstream_summary.py`
+> already did in Python. Verified live: all 354 `substation_exposure` rows now match
+> `graph.downstream_summary` exactly (SABANA LLANA 511K→311,216, matching the deduped consequence
+> lens precisely). Validation pass: resilience top-10 composite ranking byte-identical before/after
+> (doesn't depend on VOLL); ILP portfolio picks at $200M/$500M identical (40/46 items, same spend/
+> uplift) — empirically re-confirming the "VOLL is a uniform multiplier, can't reorder the
+> ranking" claim on live portfolio runs, not just the sensitivity-sweep's synthetic check. Full
+> pytest 631 passed/1 skipped/990s. Gate-adjacent fix: rebuilding the `prism-api` image to pick up
+> the config change (baked in at build time, not bind-mounted) surfaced that F10a had never added
+> `COPY prism/weather ./prism/weather` to `docker/Dockerfile.api` — `/weather` (and redirected
+> `/storm`) had been silently down in this dev environment since F10a shipped, masked because
+> nobody had rebuilt the api container since. Fixed in the same session; verified `/weather`,
+> `/economy/exposure`, `/provenance/assumption-rationale` all serve correctly post-rebuild.
 
 - **Discount-rate reconciliation** (`task_f389670d`) — `prism/economy/exposure.py`'s NPV factor
   uses 4%/yr while `config/confidence.yml`'s global `discount_rate` is 3%/yr (surfaced by F9c C3,
@@ -746,41 +790,71 @@ once, honestly, with the diff written down.
 consequence lens; the before/after diff is written down; full pytest green (~16 min — a long run
 is not a hang).
 
-#### F10c — Consistency & polish sweep  *(batched small items, one gate)*
+#### F10c — Consistency & polish sweep  *(batched small items, one gate)* — ✅ DONE (2026-07-10, Opus GO — items 1/2/3/5/6/7; item 4 carved out, see below)
 
-1. **`address_lookup` → `barrio_lookup` rename** (F9d D1 residual) — `prism/ask/tools.py:230`
-   plus its 4 self-referential `"tool":` return strings, `prism/ask/agent.py` TOOL_SPECS +
-   `_TOOL_FUNCS`, `tests/test_ask.py`, the `/ask` capabilities-panel copy if it names the tool,
-   and ROADMAP/CLAUDE mentions.
-2. **Cascade-arc centroids** (F8 residual) — add barrio lon/lat to `water_downstream_of` /
-   `telecom_downstream_of` (`prism/graph/water.py`, `prism/graph/telecom.py` — extend the
-   `SELECT b.entity_id, b.name` to include a WGS84 centroid) and to the `/water/source/{id}` +
-   `/telecom/source/{id}` payloads; wire the F8 map-theatre cascade ArcLayers on `/water` +
-   `/telecom` selections (shell + `frontend/lib/map-motion.ts` already exist — this lights up
-   the cascade on both pages).
-3. **`/sitefinder` permalinks** — the last un-permalinked map page (after F10a covers
-   `/weather`): `url-state.ts` with weights + municipio + use_type.
-4. **api.ts hybrid cleanup** — ~110 hand-typed interfaces in `frontend/lib/api.ts` duplicate
-   what the generated `api-types.ts` now covers (routers declare `response_model=`
-   consistently — re-verified). Re-run `npm run gen:api` against the live OpenAPI (API container
-   running), replace duplicates with `Schemas[...]` re-exports, keep only genuinely missing
-   shapes. Typecheck is the net.
-5. **OG font embedding** (F8 minor) — pass the already-self-hosted `next/font` font file to
-   `ImageResponse`'s `fonts:` option in `frontend/app/og/[view]/route.tsx` (Satori: no React
-   fragments).
-6. **F9d Tier A yield measurement** (measure-only) — match-tier stats over `crim.geocode_cache`
-   once real D1 traffic exists; record the census-match rate in the F9d entry above; if ~0, file
-   the `display_address()`-normalization follow-up as its own item (do **not** build it here).
-7. **Nearest-clinic second field** (F9a carry-forward; the largest sweep item — the gate may
-   split it out) — 15 barrios have NULL nearest-hospital (disconnected road-graph components /
-   islands); add a `nearest_clinic` field (CSC/CSF/C MED PRIMARIA destinations) via a second
-   pgRouting pass in `prism/transport/access.py` + a citizen-card line — restores signal without
-   re-lying about hospitals.
+1. ✅ **`address_lookup` → `barrio_lookup` rename** (F9d D1 residual) — `prism/ask/tools.py:230`
+   (function + its 4 self-referential `"tool":` return strings), `prism/ask/agent.py` TOOL_SPECS +
+   `_TOOL_FUNCS`, `tests/test_ask.py` all renamed. No frontend copy named the tool. Historical
+   ROADMAP/CLAUDE gate-finding narrative left as history, annotated with the rename date.
+   Verified live: `POST /ask` with a barrio query returns `"tool":"barrio_lookup"`.
+2. ✅ **Cascade-arc centroids** (F8 residual) — `prism/graph/water.py`/`telecom.py`'s
+   `water_downstream_of`/`telecom_downstream_of` now select each barrio's WGS84 centroid;
+   `/water/source/{id}` + `/telecom/source/{id}` gained an uncapped `barrio_points` field
+   alongside the existing capped `sample_barrios` display list (new `WaterSourceServes.
+   barrio_points`/`TelecomSourceServes.barrio_points` schema fields). `/water` + `/telecom`
+   pages gained a single-wave ArcLayer + ripple (mirroring `/resilience`'s F8 pattern, simplified
+   since these pages have one downstream hop, not a multi-domain chain) via `useStagedTimeline`/
+   `domainRgb` from `frontend/lib/map-motion.ts`. Verified live in a browser: Municipio Carolina
+   water plant → 25-barrio blue arc fan; a Hormigueros cell tower → 9-barrio violet arc fan.
+3. ✅ **`/sitefinder` permalinks** — added a municipio filter (net-new UI; the backend
+   `SiteScoreRequest.municipio` param existed with no frontend control) + `w`/`use`/`mun`
+   permalink read/write via the standard `hydrated` ref + `patchUrl`/`readParam` pattern.
+   Verified live: dial weights + filter Ponce + Factory tab, reload, all three restore exactly.
+4. ⏸️ **api.ts hybrid cleanup — CARVED OUT, not completed.** `npm run gen:api` regenerated
+   (kept, +154/-4, genuinely new schemas picked up). The ~110-interface → `Schemas[...]`
+   mechanical replacement was attempted but produced 100+ new tsc errors across ~15 dashboard
+   files: `openapi-typescript` marks every Pydantic field with a Python default as TS-*optional*
+   (`x?: T`) rather than required-but-nullable (`x: T | null`), which doesn't match how FastAPI
+   actually serializes responses (the key is always present) — the hand-typed interfaces had
+   modeled this correctly, the generated ones don't. Reverted `api.ts` to its pre-session state
+   plus only the two additive field sets item 2 + item 7 actually needed (kept hand-typed, matching
+   the file's existing convention); `tsc --noEmit` clean. **Re-scoped as its own future item**:
+   either accept optional-everywhere generated types and retrofit every consumer, or configure the
+   generator/Pydantic side to emit required-nullable for defaulted fields, before attempting the
+   interface swap again.
+5. ✅ **OG font embedding** (F8 minor) — three Inter TTF weights (400/600/700, sourced via Google
+   Fonts' legacy-UA ttf endpoint since Satori/`next/og` doesn't support woff2 and next/font/
+   google's self-hosted output is woff2-only + build-hashed) mirrored into `frontend/assets/
+   og-fonts/` and passed to `ImageResponse`'s `fonts:` option on both the success and
+   catch-fallback paths in `frontend/app/og/[view]/route.tsx`; `fontFamily` "sans-serif"→"Inter".
+   **Gate-adjacent fix:** `docker/Dockerfile.frontend`'s `run` stage never copied `assets/` —
+   added `COPY --from=build /app/assets ./assets`. Couldn't visually verify via the Windows dev
+   server (reproduces the same pre-existing Windows-path `next/og` crash documented at the F10a
+   gate, confirmed identical on the untouched `/og/storm` — unrelated to this fix); verified
+   instead via the real Linux Docker container: `/og/default` + `/og/weather` both render valid
+   PNGs with Inter (bold + regular weights visible).
+6. ✅ **F9d Tier A yield measurement** (measure-only) — `crim.geocode_cache` had 33 rows (26
+   pytest fixture noise); of 7 real queries, 2 (same Old San Juan address, two word orders) hit
+   Tier A `match`, 5 rural/barrio-style queries fell to `no_match`. Low but non-zero — too small
+   a sample to trigger a `display_address()` rebuild now; filed as background task
+   `task_9173b44b` per the "do not build it here" instruction. Recorded in the F9d entry above.
+7. ✅ **Nearest-clinic second field** (F9a carry-forward) — `prism/transport/access.py` gained a
+   shared `_nearest_destination()` helper (generalizing the batched pgr_dijkstra logic) run twice:
+   true hospitals (unchanged) and `kind='health_center'` (the CDT/CSF/CSC community-clinic source
+   table — the literal "CSC/CSF/C MED PRIMARIA" clasif values from the original spec only exist as
+   3 miscategorized outliers under kind='hospital', not a real destination set; `health_center` is
+   PRISM's actual primary-care source, 123/124 of its rows are genuine clinics). 4 new columns on
+   `transport.road_access_cost` (idempotent `ADD COLUMN IF NOT EXISTS`); citizen card + Parcel 360
+   card both fall back to the clinic, explicitly labeled "primary care, not emergency capacity" —
+   never conflated with a hospital. Verified live: of the 15 NULL-hospital barrios, 6 (all Culebra)
+   now get an honest clinic fallback ("CS COMUNAL DE CULEBRA"); the other 9 correctly remain NULL
+   (genuinely no clinic in range either — an honest absence, not a bug).
 
 **Done when:** each item verified live — the rename via an `/ask` round-trip; arcs visibly firing
 on `/water` + `/telecom`; a sitefinder permalink survives reload; typecheck green post-cleanup;
 an OG card renders with the brand font; the yield number is written into the F9d entry; the
-clinic field shows on the citizen card for a previously-NULL barrio.
+clinic field shows on the citizen card for a previously-NULL barrio. **All met except item 4's
+typecheck-post-cleanup, which is why it was carved out rather than blocking the other six.**
 
 **F11 candidates (recorded, not scheduled):** fiber layer + real callsign service-area polygons
 on `/telecom` (F7 deferral); multi-hazard overlays — landslide/liquefaction/seismic + a Guánica

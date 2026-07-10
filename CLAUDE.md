@@ -142,6 +142,8 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F9c — Grounded, not vibes | **COMPLETE** | 2026-07-09 | Opus GO x3 (C1/C2/C3) |
 | F9d — Find your parcel by address (D1+D2) | **COMPLETE** | 2026-07-10 | Opus GO x2 |
 | F10a — Weather domain, absorbing /storm | **COMPLETE** | 2026-07-10 | Opus GO (one fix at gate) |
+| F10b — Economy model correctness | **COMPLETE** | 2026-07-10 | Opus GO |
+| F10c — Consistency & polish sweep | **COMPLETE** | 2026-07-10 | Opus GO (item 4 carved out) |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -221,7 +223,7 @@ de-navved (route stays live, linked from WhatsNew + Trust Center instead of prim
 - **Data layer:** 3.6 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; ~166 catalog entries
 - **Knowledge graph:** 48,801 nodes, 68,272+ edges; `graph.downstream_summary` (961 substations, M5a)
 - **Resilience:** 315 substations scored across 3 scenarios; top composite 84.10 (PALO SECO SP TC)
-- **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with real per-tract ACS; 5-component SVI
+- **Economy:** VOLL model ($2,707/person 30yr); 981 tracts with real per-tract ACS; 5-component SVI
 - **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (equity-aware); budget allocator live on `/portfolio` (budget + equity sliders → job-queue ILP re-run + A/B diff panel, since 2026-06-15)
 - **Transport:** pgRouting road-access (892/901 barrios reachable); 3,168 bridges, NBI spans for ~67%
 - **Digital Twin / live feeds:** WFS re-sync spine; auto rescore on hazard-layer change; PREPA generation + LUMA outage feeds
@@ -328,6 +330,14 @@ match rate against CRIM's address format is unmeasured — both live rows this s
 Tier B; revisit `display_address()` normalization if Tier A proves near-zero yield once D1 traffic
 accumulates. **F9d (D1+D2) is now COMPLETE — and with it the whole F9 arc.**
 
+**F10c-6 measurement (2026-07-10):** of `crim.geocode_cache`'s 33 rows, 26 are pytest fixture
+noise; of the 7 real queries, the 2 that hit Tier A `match` were both the same clean, standard-
+format Old San Juan address ("101/Calle Fortaleza" in either word order) — every rural/barrio-
+style query (Mayaguez urbanización, Utuado/Isabela barrio, a Santurce house-number address) fell
+to `no_match`/Tier B. Low but non-zero yield, too small a sample to justify a
+`display_address()` rebuild now; background task filed (`task_9173b44b`) to revisit once organic
+`/parcels` traffic accumulates past fixture noise.
+
 **F10 — weather domain + model correctness + consistency sweep** (scheduled 2026-07-10 from the
 post-F9 backlog audit; full chunk specs in ROADMAP.md Item F10). Three Opus-gated chunks on
 `feat/f10-weather` off `main` (branched after `feat/f9b-structure` merged 2026-07-10).
@@ -351,17 +361,48 @@ a background task): `mirror_raw()`'s text-mode write vs. byte-mode checksum comp
 on Windows (CRLF translation) across climate.py + its NWIS/USGS-quakes/PREPA/LUMA siblings —
 content is provably intact, one-line `write_bytes` fix per module, tracked separately.
 
-**Active item: F10b** — economy model correctness: reconcile the VOLL 4%-vs-3% discount rate
-(task_f389670d) + fix the exposure barrio double-count vs the deduped `graph.downstream_summary`
-(task_b6170436), with a before/after validation pass (numbers change once, honestly). **F10c** —
-consistency sweep:
-`address_lookup`→`barrio_lookup` rename, water/telecom cascade-arc barrio centroids (lights up
-the F8 map theatre on both pages), `/sitefinder` permalinks, api.ts hybrid cleanup (~110
-hand-typed interfaces vs regenerated `api-types.ts`), OG font embedding, F9d Tier A yield
-measurement (measure-only), nearest-clinic second field for the 15 NULL-hospital barrios.
+**F10b batch (2026-07-10, Opus GO) — closes task_f389670d + task_b6170436:**
+`prism/economy/exposure.py`'s VOLL NPV factor reconciled from its own 4%/yr (17.29) onto
+`config/confidence.yml`'s global 3%/yr `discount_rate` (19.60) — VOLL benefit is now
+$2,707/person 30yr (was $2,389); `assumption_rationale.yml`/`confidence.yml` rewritten to state
+the reconciliation. Exposure's recursive FEEDS-closure SQL wasn't deduped by entity_id (a diamond
+in the substation graph double-counted barrios reached via two path lengths); fixed with a
+`powered_barrios AS (SELECT DISTINCT …)` CTE, matching `graph/downstream_summary.py`'s existing
+per-barrio Python dedup. Verified live: all 354 `substation_exposure` rows now match
+`downstream_summary` exactly (SABANA LLANA 511K→311,216). Validation pass: resilience top-10
+byte-identical before/after (doesn't depend on VOLL); ILP portfolio picks at $200M/$500M
+identical (40/46 items, same spend/uplift) — confirms VOLL is a uniform multiplier on live
+portfolio runs, not just the sensitivity-sweep's synthetic check. Full pytest 631/1-skipped/990s.
+Gate-adjacent fix: rebuilding `prism-api` to pick up the config change (baked in at build time,
+not bind-mounted) surfaced that F10a never added `COPY prism/weather ./prism/weather` to
+`docker/Dockerfile.api` — `/weather`+`/storm` had been silently down in this dev env since F10a
+shipped; fixed same session.
+
+**F10c batch (2026-07-10, Opus GO on 6/7 items) — closes the F10 arc:**
+`address_lookup`→`barrio_lookup` rename (verified live via an `/ask` round-trip); water/telecom
+cascade-arc barrio centroids (single-wave ArcLayer + ripple lighting up the F8 map theatre on
+both `/water` and `/telecom`, verified live — 25-barrio fan from a water plant, 9-barrio fan from
+a cell tower); `/sitefinder` permalinks (+ a net-new municipio filter input); OG font embedding
+(3 Inter TTFs mirrored into `frontend/assets/og-fonts/`, gate-adjacent fix: `Dockerfile.frontend`'s
+`run` stage never copied `assets/`; couldn't verify visually via the Windows dev server — same
+pre-existing Windows-path `next/og` crash documented at F10a, reproduces identically on the
+untouched `/og/storm` — verified instead via the real Linux Docker container); F9d Tier A yield
+measurement (7 real queries, 2 match/5 no_match, too small to trigger a rebuild, follow-up filed
+as background task `task_9173b44b`); nearest-clinic second field (`prism/transport/access.py`'s
+shared `_nearest_destination()` helper now also routes to `kind='health_center'` — PRISM's actual
+community-clinic source, since the literal CSC/CSF/C MED PRIMARIA clasif values are only 3
+miscategorized outliers — 6 of 15 NULL-hospital barrios, all Culebra, now get an honest clinic
+fallback labeled "primary care, not emergency capacity"). **Item 4 (api.ts hybrid cleanup) carved
+out, not completed** — the ~110-interface migration to `Schemas[...]` re-exports broke 100+ call
+sites because `openapi-typescript` renders Pydantic-defaulted fields as TS-optional rather than
+required-nullable; reverted to a safe additive-only state (regenerated `api-types.ts` kept, tsc
+clean) and re-scoped to `BACKLOG.md` with two documented fix paths. Full pytest 631/1
+skipped/1316s (up from ~16min — item 7 doubled the pgRouting cost across transport tests).
 Preferences/admin portal was offered (incl. localStorage stopgap) and **declined** — stays parked
 on M6 auth. F11 candidates recorded in ROADMAP: fiber/callsign polygons, multi-hazard overlays,
 distribution geometry, public API docs.
+
+**The F10 arc (weather domain + model correctness + consistency sweep) is now COMPLETE.**
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

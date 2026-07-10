@@ -805,8 +805,23 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
       {/* Road access */}
       {d.road_access && (
         <Section title="Emergency access" tier={d.road_access.confidence_tier}>
-          <Row label="Nearest hospital" value={d.road_access.nearest_hospital} />
-          <Row label="Travel time" value={`${fmtNum(d.road_access.travel_time_min, 0)} min`} />
+          {d.road_access.nearest_hospital && d.road_access.travel_time_min != null ? (
+            <>
+              <Row label="Nearest hospital" value={d.road_access.nearest_hospital} />
+              <Row label="Travel time" value={`${fmtNum(d.road_access.travel_time_min, 0)} min`} />
+            </>
+          ) : d.road_access.nearest_clinic && d.road_access.clinic_travel_time_min != null ? (
+            // F10c-7: no true hospital reachable by road (disconnected road-graph
+            // component) — fall back to the nearest community clinic (primary
+            // care, not emergency capacity — labeled distinctly, not as a hospital).
+            <>
+              <Row label="No hospital reachable by road" value="—" />
+              <Row label="Nearest clinic" value={d.road_access.nearest_clinic} />
+              <Row label="Travel time" value={`${fmtNum(d.road_access.clinic_travel_time_min, 0)} min`} />
+            </>
+          ) : (
+            <Row label="No hospital or clinic reachable by road" value="—" />
+          )}
         </Section>
       )}
 

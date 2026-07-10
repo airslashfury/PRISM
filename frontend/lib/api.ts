@@ -258,8 +258,13 @@ export interface CivicCommunityResilience {
 }
 
 export interface CivicRoadAccess {
-  nearest_hospital: string;
-  travel_time_min: number;
+  nearest_hospital: string | null;
+  travel_time_min: number | null;
+  /** F10c-7 — fallback for barrios with no road-reachable hospital (a
+   *  disconnected road-graph component); primary care, never a hospital
+   *  substitute. */
+  nearest_clinic: string | null;
+  clinic_travel_time_min: number | null;
   confidence_tier: ConfidenceTierKey;
 }
 
@@ -682,8 +687,12 @@ export interface ParcelCommunity {
 }
 
 export interface ParcelRoadAccess {
-  nearest_hospital: string;
-  travel_time_min: number;
+  nearest_hospital: string | null;
+  travel_time_min: number | null;
+  /** F10c-7 — see CivicRoadAccess: fallback for parcels with no
+   *  road-reachable hospital; primary care, never a hospital substitute. */
+  nearest_clinic: string | null;
+  clinic_travel_time_min: number | null;
   confidence_tier: ConfidenceTierKey;
 }
 
@@ -899,9 +908,19 @@ export interface WaterSourceWhat {
   has_generator: boolean;
 }
 
+/** entity_id/name/lon/lat for a downstream barrio — mirrors api.schemas.WaterBarrio /
+ *  TelecomBarrio. Powers the F8 map-theatre cascade arcs (F10c-2). */
+export interface BarrioPoint {
+  entity_id: number;
+  name: string | null;
+  lon: number | null;
+  lat: number | null;
+}
+
 export interface WaterSourceServes {
   barrios_served: number;
   sample_barrios: string[];
+  barrio_points: BarrioPoint[];
 }
 
 export interface WaterSourceHazards {
@@ -985,6 +1004,7 @@ export interface TelecomSourceWhat {
 export interface TelecomSourceServes {
   barrios_covered: number;
   sample_barrios: string[];
+  barrio_points: BarrioPoint[];
 }
 
 export interface TelecomSourceHazards {
