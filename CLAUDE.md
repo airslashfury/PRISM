@@ -140,6 +140,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F9a — Legibility sweep | **COMPLETE** | 2026-07-08 | Opus GO |
 | F9b — Municipio-first structure | **COMPLETE** | 2026-07-09 | Opus GO |
 | F9c — Grounded, not vibes | **COMPLETE** | 2026-07-09 | Opus GO x3 (C1/C2/C3) |
+| F9d D1 — Address-first parcel search | **COMPLETE** | 2026-07-10 | Opus GO (D2 fast-follow open) |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -283,11 +284,29 @@ load-bearing constants from new `config/assumption_rationale.yml`, surfaced an u
 4%-vs-3% VOLL/optimizer discount-rate inconsistency — documented not fixed, task chip filed) +
 `/corridor` "Cost basis" popover citing new `config/cost_references.yml` (Tren Urbano actuals, FTA
 Capital Cost Database, 3 comparable light-rail projects — every comparable found sits above
-PRISM's per-km tiers, stated plainly). **Active: F9d** — find-your-parcel-by-address (address-first
-discovery + Census PR forward-geocoder proposed address, D1 v1 greenlit). Routed to BACKLOG from
-the F9b review: weather/climate domain (F10 candidate), preferences / admin back-portal, Census PR
-geocoder as an optional address enrichment (superseded in spirit by F9d D1, which uses it for
-forward search rather than reverse address labeling).
+PRISM's per-km tiers, stated plainly). Routed to BACKLOG from the F9b review: weather/climate
+domain (F10 candidate), preferences / admin back-portal, Census PR geocoder as an optional address
+enrichment (superseded in spirit by F9d D1, which uses it for forward search rather than reverse
+address labeling).
+
+**F9d D1 (2026-07-10, Opus GO) — address-first parcel discovery:** `prism/crim/geocode.py` (new) —
+a keyless client for the Census Bureau's PR forward geocoder (`geocoding.geo.census.gov/geocoder/
+locations/addressPR`), every response mirrored into a new `crim.geocode_cache` table (cache-first,
+0.5s self-throttle). Match-quality policy: only the geocoder's single-exact-match tier is trusted;
+zero or multiple matches both collapse to an honest "no confident match" — never guessed between.
+`prism.crim.query.search_by_address()` geocodes the query then finds the nearest parcel(s) within
+500m (spatial, `ST_DWithin`/`ST_Distance` in EPSG:32161); new endpoint `GET /crim/parcels/search/
+address`; `/parcels` gained a "Search by address" tab (street/urb/municipio inputs, a "we read that
+as: …" standardized-address echo, candidate cards opening the existing parcel drawer, explicit
+discovery-not-resolution copy). Tagged `confidence_tier: proxy` in `config/confidence.yml` +
+`catalog/metadata.json` — the geocode point itself is authoritative-quality, but PRISM's
+nearest-parcel spatial assignment off that point is the proxy step. Verified live: a known Old San
+Juan address resolves to the correct catastro at 0m; a rural Utuado address returns the honest
+fallback. Gate finding: build note (3)'s "reuse Ask's `address_lookup`" was based on a false
+premise — that tool resolves a barrio/municipio *name*, not a street address, so there was no
+second address route to diverge from; `geocode_address` is the sole canonical street-address path.
+Residual (non-blocking): `address_lookup` is a misnomer worth a rename later. **Active: F9d D2** —
+"Census Proposed Address" label (v2 fast-follow, per-parcel tiered address on the parcel card).
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

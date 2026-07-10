@@ -541,7 +541,7 @@ cost figure traces to a reference; /methods states why each load-bearing value w
 Gate protocol per sub-item (three Opus gates); Fable plans / Sonnet implements per chunk;
 `/ui-ux` skill loaded for every copy-bearing chunk.
 
-#### F9d — Find your parcel by address  *(address-first discovery + proposed address)* — **ACTIVE (2026-07-09)**
+#### F9d — Find your parcel by address  *(address-first discovery + proposed address)* — **D1 DONE (2026-07-10, Opus GO); D2 ACTIVE**
 
 **Why this exists.** CRIM records drift from what's actually on the ground: transfers and sales
 aren't always recorded in the fabric, and PR addresses never standardized (see F9b B5 —
@@ -557,8 +557,8 @@ reverse-geocode** (coords → address returns only census geographies, never a s
 can't be pulled from geometry via Census; it is either Census-validated from a forward match or
 composed locally and flagged approximate.
 
-- **D1 — Address-first search → parcel** *(v1, greenlit; the high-value, low-risk layer)*.
-  `prism/crim/geocode.py` (new): a keyless client for the Census PR forward geocoder
+- ✅ **D1 — Address-first search → parcel** *(v1, greenlit; the high-value, low-risk layer)* —
+  **DONE 2026-07-10, Opus GO.** `prism/crim/geocode.py` (new): a keyless client for the Census PR forward geocoder
   (`geocoding.geo.census.gov/geocoder/locations/addressPR`, street + urb + municipio), responses
   **mirrored + cached** locally (data-sovereignty rule; on-demand, **not** a blind 1.53M batch —
   low yield on exactly the rural parcels that matter, real API cost). `search_parcels`
@@ -578,6 +578,13 @@ composed locally and flagged approximate.
   local cache before every call and rate-limit the client. (3) **Reuse, don't fork** — Ask PRISM's
   existing `address_lookup` tool (`prism/ask/tools.py`) should be backed by the same geocode path,
   or the two address routes will diverge.
+  **Gate finding (2026-07-10):** build note (3) turned out to be based on a false premise — Ask's
+  `address_lookup` resolves a **barrio/municipio name** to its civic card (substring match against
+  `list_barrios()`), not a street address; "address" there means "which neighborhood," not "which
+  street." There is no second street-geocoding route to diverge from, so `geocode_address` is the
+  sole canonical street-address path as built, no merge needed. Residual: `address_lookup` is a
+  misnomer worth a rename (e.g. `barrio_lookup`) so a future street-address tool on the Ask side
+  doesn't get wired into it by mistake — carried forward, not blocking.
 - **D2 — "Census Proposed Address" label** *(v2, fast-follow)*. A tiered, per-parcel best-effort
   address, each row carrying its own method + proxy confidence (fits the provenance spine), in a new
   derived `crim.parcel_proposed_address` table (alembic migration; confidence.yml + catalog stamp,
