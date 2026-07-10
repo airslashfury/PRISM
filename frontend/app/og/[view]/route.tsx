@@ -294,6 +294,28 @@ async function StormCard(searchParams: URLSearchParams) {
   );
 }
 
+async function WeatherCard(searchParams: URLSearchParams) {
+  // F10a: /storm folded into /weather as a lens — the storm share card is
+  // unchanged, just reachable at /og/weather?lens=storm too.
+  if (searchParams.get("lens") === "storm") {
+    return StormCard(searchParams);
+  }
+
+  return (
+    <Frame dot={null}>
+      <div style={{ display: "flex", fontSize: 15, color: AMBER, textTransform: "uppercase", letterSpacing: 2, fontWeight: 600 }}>
+        Weather
+      </div>
+      <div style={{ display: "flex", fontSize: 44, fontWeight: 700, marginTop: 10, maxWidth: 620, lineHeight: 1.15 }}>
+        Puerto Rico&apos;s climate, by municipio
+      </div>
+      <div style={{ display: "flex", marginTop: 14, fontSize: 19, color: MUTED, maxWidth: 600 }}>
+        Rain days, temperature, and estimated workable construction days from NOAA&apos;s 1991-2020 normals.
+      </div>
+    </Frame>
+  );
+}
+
 async function ParcelsCard(catastro: string | null) {
   const detail = catastro
     ? await fetchJson<ParcelDetail>(`/crim/parcel/${encodeURIComponent(catastro)}`, { revalidate: 300 })
@@ -349,6 +371,8 @@ export async function GET(request: Request, { params }: { params: { view: string
       node = await ResilienceCard(selRaw != null ? Number(selRaw) : null);
     } else if (view === "storm") {
       node = await StormCard(searchParams);
+    } else if (view === "weather") {
+      node = await WeatherCard(searchParams);
     } else if (view === "parcels") {
       node = await ParcelsCard(searchParams.get("sel"));
     } else {

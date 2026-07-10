@@ -548,6 +548,20 @@ tables:
       Accumulate an append-only history table (mirrors the PREPA/LUMA pattern)
       for real hydrographs instead of a latest-only snapshot.
 
+  sync.climate_normals:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Monthly 1991-2020 climate normals (temperature, precipitation, rain-day
+      counts) for a curated set of 19 PR GHCN stations, from NOAA NCEI's Access
+      Data Service — NOAA is the climate-normals authority. Static 30-year
+      baseline, not a live feed; refreshed on a monthly cron mainly so a fresh
+      deploy isn't empty.
+    upgrade_path: >-
+      A full PR station inventory (NCEI's search API returns aggregations, not
+      a station list, so this is a curated subset) would tighten per-municipio
+      nearest-station distance.
+
   resilience.telecom_scores:
     method: proxy
     confidence_tier: proxy

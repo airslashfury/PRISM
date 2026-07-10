@@ -1213,6 +1213,35 @@ export interface MunicipioDetail extends MunicipioRollup {
   confidence_tiers: Record<string, ConfidenceTierKey>;
 }
 
+// ── Weather/climate rollup (F10a) ───────────────────────────────────────────
+
+/** Mirrors api.schemas.WeatherMunicipioRollup — also the per-feature
+ *  `properties` of GET /weather/municipios. */
+export interface WeatherMunicipioRollup {
+  name: string;
+  geoid: string;
+  station_id: string | null;
+  station_name: string | null;
+  station_dist_km: number | null;
+  workable_days_per_year: number | null;
+  rain_days_per_year: number | null;
+  tavg_normal_f: number | null;
+  prcp_normal_in_per_year: number | null;
+}
+
+export interface WeatherMonthlyNormal {
+  month: number;
+  tavg_normal_f: number | null;
+  prcp_normal_in: number | null;
+  rain_days: number | null;
+}
+
+/** Mirrors api.schemas.WeatherMunicipioDetail. */
+export interface WeatherMunicipioDetail extends WeatherMunicipioRollup {
+  monthly: WeatherMonthlyNormal[];
+  confidence_tiers: Record<string, ConfidenceTierKey>;
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -1334,6 +1363,10 @@ export const api = {
   economyMunicipios: () => apiGet<FeatureCollection>("/economy/municipios"),
   economyMunicipioDetail: (name: string) =>
     apiGet<MunicipioDetail>(`/economy/municipio/${encodeURIComponent(name)}`),
+
+  weatherMunicipios: () => apiGet<FeatureCollection>("/weather/municipios"),
+  weatherMunicipioDetail: (name: string) =>
+    apiGet<WeatherMunicipioDetail>(`/weather/municipio/${encodeURIComponent(name)}`),
 
   corridorRoutes: () => apiGet<CorridorRoute[]>("/corridor/routes"),
   corridorRoutesGeojson: () => apiGet<FeatureCollection>("/corridor/routes/geojson"),

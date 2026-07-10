@@ -505,6 +505,35 @@ class MunicipioDetail(MunicipioRollup):
 
 
 # --------------------------------------------------------------------------- #
+# Weather / climate (F10a)                                                     #
+# --------------------------------------------------------------------------- #
+class WeatherMunicipioRollup(BaseModel):
+    """One municipio's climate rollup — per-feature properties of
+    GET /weather/municipios (prism.weather.municipios.municipio_rollup)."""
+    name: str
+    geoid: str
+    station_id: str | None = None
+    station_name: str | None = None
+    station_dist_km: float | None = None
+    workable_days_per_year: float | None = None
+    rain_days_per_year: float | None = None
+    tavg_normal_f: float | None = None
+    prcp_normal_in_per_year: float | None = None
+
+
+class WeatherMonthlyNormal(BaseModel):
+    month: int
+    tavg_normal_f: float | None = None
+    prcp_normal_in: float | None = None
+    rain_days: float | None = None
+
+
+class WeatherMunicipioDetail(WeatherMunicipioRollup):
+    monthly: list[WeatherMonthlyNormal] = Field(default_factory=list)
+    confidence_tiers: dict[str, str] = Field(default_factory=dict)
+
+
+# --------------------------------------------------------------------------- #
 # Corridor                                                                     #
 # --------------------------------------------------------------------------- #
 class CorridorRoute(BaseModel):

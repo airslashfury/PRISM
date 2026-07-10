@@ -22,6 +22,7 @@ const MAP_ROUTES: { path: string; overlay: (p: Page) => Locator }[] = [
   { path: "/playground", overlay: (p) => p.getByPlaceholder(/scenario/i).first() },
   { path: "/water", overlay: (p) => p.getByText("Water-source risk").first() },
   { path: "/telecom", overlay: (p) => p.getByText("Telecom risk").first() },
+  { path: "/weather", overlay: (p) => p.getByText("Workable days").first() },
 ];
 
 /** Number of distinct (quantized) colors in the biggest canvas's screenshot. */

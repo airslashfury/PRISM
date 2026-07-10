@@ -131,12 +131,13 @@ test("/telecom renders scored nodes and the risk map", async ({ page }) => {
   expect(errors, `uncaught page errors on /telecom: ${errors.join("; ")}`).toEqual([]);
 });
 
-test("/storm renders the advisory or the calm state", async ({ page }) => {
+test("/storm redirects to the /weather storm lens", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
 
   await page.goto("/storm", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Storm", level: 1 })).toBeVisible();
+  await expect(page).toHaveURL(/\/weather\?lens=storm/);
+  await expect(page.getByRole("heading", { name: "Weather", level: 1 })).toBeVisible();
 
   // Either a replayed/live advisory renders, or the calm empty state does.
   await expect(
@@ -149,7 +150,18 @@ test("/storm renders the advisory or the calm state", async ({ page }) => {
 
   await expect(page.locator("canvas").first()).toBeVisible();
 
-  expect(errors, `uncaught page errors on /storm: ${errors.join("; ")}`).toEqual([]);
+  expect(errors, `uncaught page errors on /weather (storm lens): ${errors.join("; ")}`).toEqual([]);
+});
+
+test("/weather renders the climate choropleth", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/weather", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Weather", level: 1 })).toBeVisible();
+  await expect(page.locator("canvas").first()).toBeVisible({ timeout: 30_000 });
+
+  expect(errors, `uncaught page errors on /weather: ${errors.join("; ")}`).toEqual([]);
 });
 
 // ── Score explainers (ROADMAP F9a A1): every score explains itself in place ──

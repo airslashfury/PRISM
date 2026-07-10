@@ -87,6 +87,21 @@ assumptions:
       Verified generator capacity / fuel-autonomy data per site would
       replace the flat 0.3 discount with a site-specific one.
 
+  - key: workable_days_formula
+    label: Expected workable construction days
+    value: "days_in_month x (1 - rain_day_frac) x heat_derate, summed over 12 months"
+    why_chosen: >-
+      A rain day (>=0.10in precip, NOAA's own AVGNDS-GE010HI threshold) is
+      treated as lost outdoor-work time; average monthly temperature above
+      80F/85F applies a 0.85x/0.70x productivity derate. Both are coarse,
+      easy-to-audit proxies for "can crews work outside today," not a
+      calibrated OSHA heat-stress or productivity-loss model.
+    source: "prism/weather/municipios.py — _heat_derate() + _annual_from_monthly(). Inputs: sync.climate_normals (NOAA NCEI 1991-2020)."
+    what_would_change_it: >-
+      A validated construction-productivity study (heat index + precipitation
+      intensity, not just monthly averages) would replace the flat
+      derate/threshold heuristic.
+
   - key: cat3_hazard_weights
     label: Category 3 hazard scenario
     value: "flood x1.5 surge proxy"

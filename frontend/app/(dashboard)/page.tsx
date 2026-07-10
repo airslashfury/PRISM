@@ -194,7 +194,7 @@ export default function OverviewPage() {
       {/* Storm banner — only when an advisory is on the board */}
       {advisory && (
         <Link
-          href="/storm"
+          href="/weather?lens=storm"
           className="flex items-center gap-3 rounded-lg border border-border/60 border-l-2 border-l-domain-hazard bg-card/60 px-4 py-2.5 transition-colors hover:bg-card"
         >
           <Wind className="h-4 w-4 shrink-0 text-domain-hazard" />

@@ -190,6 +190,27 @@ async def sync_nwis_gauges(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def sync_climate_normals(ctx: dict) -> dict:
+    """Monthly pull of NOAA NCEI 1991-2020 climate normals (F10a).
+
+    Normals are a static 30-year baseline, not a live feed, so a monthly
+    cadence is generous — this exists mainly so a fresh deploy doesn't need a
+    manual `python -m prism.sync --source climate` before the /weather page
+    has data. mirror=False for the same reason as PREPA/LUMA/NHC/NWIS (no
+    data/raw volume on the worker); durable mirrors come from the host CLI.
+    """
+    from prism.sync.climate import sync_climate
+
+    engine = get_engine()
+    try:
+        summary = sync_climate(engine, mirror=False)
+        log.info("Scheduled climate normals sync: %s", summary)
+        return summary
+    except Exception as exc:  # don't let one bad fetch kill the cron
+        log.warning("Scheduled climate normals sync failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 async def check_stale_feeds(ctx: dict) -> dict:
     """Hourly sweep: alert on any live/registry feed that's gone stale (F5 chunk D)."""
     from prism.alerts import check_stale_feeds as _check_stale_feeds
@@ -263,6 +284,7 @@ class WorkerSettings:
         sync_luma_outages,
         sync_nhc_feed,
         sync_nwis_gauges,
+        sync_climate_normals,
         check_stale_feeds,
     ]
     cron_jobs = [
@@ -285,6 +307,9 @@ class WorkerSettings:
         # NWIS gauges update every 15-60 min at the source; 6-hourly is a
         # comfortable, near-free cadence for the water live-gauge panel (F6).
         cron(sync_nwis_gauges, hour={0, 6, 12, 18}, minute={20}, run_at_startup=True),
+        # Climate normals are a static 30-year baseline; a monthly cadence on
+        # the 1st is generous (F10a). run_at_startup so a fresh deploy has data.
+        cron(sync_climate_normals, day={1}, hour={4}, minute={0}, run_at_startup=True),
         # Alert on stale feeds once an hour (F5 chunk D).
         cron(check_stale_feeds, minute={15}),
     ]

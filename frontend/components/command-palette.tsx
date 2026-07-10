@@ -45,7 +45,7 @@ interface StaticAction {
 const ACTIONS: StaticAction[] = [
   { label: "Run Cat-3 scenario", desc: "Category 3 hurricane overlay on Resilience", href: "/resilience?scenario=cat3" },
   { label: "Compare combined scenario", desc: "Sea-level rise + hurricane surge overlay", href: "/resilience?scenario=combined" },
-  { label: "Track the live storm", desc: "The current NHC advisory cone, if active", href: "/storm" },
+  { label: "Track the live storm", desc: "The current NHC advisory cone, if active", href: "/weather?lens=storm" },
   { label: "Open the assumptions lab", desc: "Dial VOLL, hazard, and feeder confidence", href: "/assumptions" },
   { label: "Find industrial sites", desc: "Rank industrial parcels by port/grid/water access", href: "/sitefinder" },
 ];

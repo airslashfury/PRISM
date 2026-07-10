@@ -155,6 +155,18 @@ export const useEconomyMunicipioDetail = (name: string | null) =>
     staleTime: 10 * MIN,
   });
 
+/** Municipio-first climate rollup (F10a): 78-feature choropleth + per-municipio panel. */
+export const useWeatherMunicipios = () =>
+  useQuery({ queryKey: ["weatherMunicipios"], queryFn: api.weatherMunicipios, staleTime: 30 * MIN });
+
+export const useWeatherMunicipioDetail = (name: string | null) =>
+  useQuery({
+    queryKey: ["weatherMunicipioDetail", name],
+    queryFn: () => api.weatherMunicipioDetail(name as string),
+    enabled: name != null,
+    staleTime: 10 * MIN,
+  });
+
 export const useCorridorRoutes = () =>
   useQuery({ queryKey: ["corridorRoutes"], queryFn: api.corridorRoutes, staleTime: 30 * MIN });
 

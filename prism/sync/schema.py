@@ -373,6 +373,33 @@ def create_schema(engine: Engine) -> None:
             "ON sync.nwis_gauges_history (site_no, param_cd, recorded_at)"
         ))
 
+        # ── NOAA NCEI 1991-2020 climate normals (F10a) ─────────────────────────
+        # Monthly climate normals for a curated set of PR GHCN stations (keyless
+        # Access Data Service API). Normals are static (a 30-year baseline, not a
+        # live feed) so this is a one-shot/monthly load, not a frequent poll.
+        # NOAA is the climate-normals authority.
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync.climate_normals (
+                station_id   TEXT NOT NULL,
+                station_name TEXT,
+                month        INT  NOT NULL,
+                tavg_normal_f DOUBLE PRECISION,
+                tmax_normal_f DOUBLE PRECISION,
+                tmin_normal_f DOUBLE PRECISION,
+                prcp_normal_in DOUBLE PRECISION,
+                rain_days     DOUBLE PRECISION,
+                lon           DOUBLE PRECISION,
+                lat           DOUBLE PRECISION,
+                geom          GEOMETRY(POINT, 32161),
+                fetched_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+                PRIMARY KEY (station_id, month)
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_climate_normals_geom "
+            "ON sync.climate_normals USING GIST (geom)"
+        ))
+
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:

@@ -82,6 +82,11 @@ _DDL = [
     "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS crim_totalval DOUBLE PRECISION",
     "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS s_land_value  DOUBLE PRECISION",
 
+    # Workable-days criterion (F10a) — nearest weather station's annual
+    # workable-days estimate (prism/weather/municipios.py).
+    "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS workable_days_per_year DOUBLE PRECISION",
+    "ALTER TABLE sitefinder.site_scores ADD COLUMN IF NOT EXISTS s_workable_days        DOUBLE PRECISION",
+
     "CREATE INDEX IF NOT EXISTS idx_sf_parcels_geom     ON sitefinder.candidate_parcels USING GIST (geom)",
     "CREATE INDEX IF NOT EXISTS idx_sf_parcels_centroid ON sitefinder.candidate_parcels USING GIST (centroid)",
     "CREATE INDEX IF NOT EXISTS idx_sf_parcels_catastro ON sitefinder.candidate_parcels (num_catastro)",

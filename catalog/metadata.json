@@ -2459,6 +2459,19 @@
       "compute_date": "2026-07-02",
       "license": "derived"
     },
+    "derived:sync.climate_normals": {
+      "source": "derived",
+      "title": "sync.climate_normals",
+      "schema": "sync",
+      "table": "climate_normals",
+      "description": "NOAA NCEI 1991-2020 monthly climate normals (avg/max/min temperature, precipitation, rain-day counts) for 19 curated Puerto Rico GHCN stations. Static 30-year baseline, refreshed monthly. Keyless, no auth. Authoritative — NOAA is the climate-normals authority.",
+      "inputs": [
+        "ncei.noaa.gov/access/services/data/v1 (normals-monthly-1991-2020)",
+        "prism/sync/climate.py"
+      ],
+      "compute_date": "2026-07-10",
+      "license": "derived"
+    },
     "derived:resilience.telecom_scores": {
       "source": "derived",
       "title": "resilience.telecom_scores",
