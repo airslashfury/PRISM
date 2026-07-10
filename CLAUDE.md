@@ -139,6 +139,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F8 — Excellence pass (wow arc) | **COMPLETE** | 2026-07-05 | Opus GO (one fix at gate) |
 | F9a — Legibility sweep | **COMPLETE** | 2026-07-08 | Opus GO |
 | F9b — Municipio-first structure | **COMPLETE** | 2026-07-09 | Opus GO |
+| F9c — Grounded, not vibes | **COMPLETE** | 2026-07-09 | Opus GO x3 (C1/C2/C3) |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -271,10 +272,22 @@ Finder + `display_address()` composer + 77,070-parcel municipio backfill; /trend
 drill-down + year scrubber + heatmap; /resilience symmetric domain switcher + substation
 Cross-domain section; B5 address memo → parcel geometry stays the canonical locator, external
 address DBs a NO-GO). The mojibake carry-forward was investigated and **does not reproduce** (a
-Windows-terminal display artifact, not a data bug). **Active: F9c** grounding (portfolio reframe,
-playground snapping, assumption rationale + rail cost references). Routed to BACKLOG from the same
-review: weather/climate domain (F10 candidate), preferences / admin back-portal, Census PR
-geocoder as an optional address enrichment (F9b B5 verdict).
+Windows-terminal display artifact, not a data bug — reconfirmed again during F9c). **F9c (grounded,
+not vibes) is DONE — Opus GO x3 2026-07-09** on `feat/f9b-structure`: C1 portfolio reframed as an
+investment plan (per-item "why picked" joining the deduped `graph.downstream_summary`, not the
+double-counting `economy.substation_exposure`; client-side post-hoc protection-per-dollar rank);
+C2 playground draw-to-substation snapping (500m threshold, 961-row slim payload, tie line + halo +
+chip) + honest per-asset-type includes/excludes panel (gate caught and fixed a misstated rail NPV
+horizon + an overly generous 50km anchor ceiling); C3 `/methods` "Assumptions & choices" (7
+load-bearing constants from new `config/assumption_rationale.yml`, surfaced an undocumented
+4%-vs-3% VOLL/optimizer discount-rate inconsistency — documented not fixed, task chip filed) +
+`/corridor` "Cost basis" popover citing new `config/cost_references.yml` (Tren Urbano actuals, FTA
+Capital Cost Database, 3 comparable light-rail projects — every comparable found sits above
+PRISM's per-km tiers, stated plainly). **Active: F9d** — find-your-parcel-by-address (address-first
+discovery + Census PR forward-geocoder proposed address, D1 v1 greenlit). Routed to BACKLOG from
+the F9b review: weather/climate domain (F10 candidate), preferences / admin back-portal, Census PR
+geocoder as an optional address enrichment (superseded in spirit by F9d D1, which uses it for
+forward search rather than reverse address labeling).
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

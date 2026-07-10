@@ -477,7 +477,27 @@ water, telecom, flood, community, access, market, and Site Finder context on one
 readable address; /trends drills into a municipio and scrubs across years; /resilience switches
 domains and shows cross-domain dependency; the address-source memo has a recommendation.
 
-#### F9c — Grounded, not vibes  *(trust deepening on the judgment pages)* — **ACTIVE (2026-07-09)**
+#### F9c — Grounded, not vibes  *(trust deepening on the judgment pages)* — ✅ DONE (2026-07-09, Opus GO x3)
+
+> Shipped on `feat/f9b-structure` (C1 `e10f519`+`451f9af` / C2 `d9ccbe3`+`1d6a417` / C3 `a674d0f`):
+> **C1** — `/portfolio` reframed as an investment plan; each item's "why picked" line joins the
+> deduped `graph.downstream_summary` (not the double-counting `economy.substation_exposure`) and a
+> client-side post-hoc protection-per-dollar rank; budget utilization/leftover + glossary strip;
+> `interventions.ts` gained `new_access_road` + `redundant_feed`. **C2** — Playground draw-to-
+> substation snapping (500 m threshold, slim 961-row client payload, tie line + halo + chip);
+> `evaluate.py`'s pre-existing nearest-substation lookup surfaced as a results-panel anchor (10 km
+> ceiling, "Evaluated against" only for transmission/substation where it's a real input, "Nearest
+> substation" elsewhere); honest per-asset-type includes/excludes panel. Gate caught a misstated
+> rail-maintenance NPV horizon (15yr claimed, actually 30yr@5%) and a too-generous 50 km anchor
+> ceiling — both fixed same session, re-gated GO. **C3** — `/methods` "Assumptions & choices" (7
+> load-bearing constants: VOLL, road speed, telecom radius, feeder Voronoi, sales median+clamp,
+> generator discount, Cat-3 hazard weights) from new `config/assumption_rationale.yml`; surfaced an
+> undocumented 4%-vs-3% discount-rate inconsistency between the VOLL model and the optimizer/corridor
+> (documented, not fixed — task chip filed); `/corridor` "Cost basis" popover citing new
+> `config/cost_references.yml` (Tren Urbano actuals, FTA Capital Cost Database, 3 comparable US
+> light-rail projects, URLs embedded in the file) — every real comparable found sits above PRISM's
+> per-km tiers, stated plainly rather than hidden; AI corridor briefing prompt now fed the same
+> comparables.
 
 - **C1 — Portfolio reframe** *(rework first; deprecation is the gate's call if it still doesn't
   land)*: page reframed as an **investment plan**, not a shopping list — per-item "why picked"
@@ -521,7 +541,7 @@ cost figure traces to a reference; /methods states why each load-bearing value w
 Gate protocol per sub-item (three Opus gates); Fable plans / Sonnet implements per chunk;
 `/ui-ux` skill loaded for every copy-bearing chunk.
 
-#### F9d — Find your parcel by address  *(address-first discovery + proposed address)* — **PLANNED (2026-07-09)**
+#### F9d — Find your parcel by address  *(address-first discovery + proposed address)* — **ACTIVE (2026-07-09)**
 
 **Why this exists.** CRIM records drift from what's actually on the ground: transfers and sales
 aren't always recorded in the fabric, and PR addresses never standardized (see F9b B5 —
