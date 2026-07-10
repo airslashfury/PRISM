@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { GeoJsonLayer, ColumnLayer, PathLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { PathStyleExtension } from "@deck.gl/extensions";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
-import { Mountain, Sparkles, TrainFront, Video, X } from "lucide-react";
+import { BookOpen, Mountain, Sparkles, TrainFront, Video, X } from "lucide-react";
 
 import { MapCanvas, tip, type PrismMapApi } from "@/components/map/map-canvas";
 import { Segmented } from "@/components/ui/segmented";
@@ -17,7 +17,13 @@ import { InfoPanel } from "@/components/info-panel";
 import { ElevationProfile } from "@/components/charts/elevation-profile";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
-import { useCorridorGeojson, useCorridorProfile, useCorridorRoute, useCorridorRoutes } from "@/lib/hooks";
+import {
+  useCorridorCostReferences,
+  useCorridorGeojson,
+  useCorridorProfile,
+  useCorridorRoute,
+  useCorridorRoutes,
+} from "@/lib/hooks";
 import { streamCorridorNarrative } from "@/lib/api";
 import { rankColor, type RGB } from "@/lib/colors";
 import { fmtInt, fmtKm, fmtNum, fmtPct, fmtUsd } from "@/lib/utils";
@@ -606,6 +612,9 @@ export default function CorridorPage() {
                 <Metric label="Population served" value={fmtInt(detail.population_served)} />
                 <Metric label="Flood exposure" value={fmtPct(detail.flood_exposure_frac)} />
               </div>
+              <div className="flex justify-end">
+                <CostBasisPopover />
+              </div>
 
               <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                 <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -709,6 +718,69 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-sm font-semibold tnum">{value}</div>
+    </div>
+  );
+}
+
+/** Click-open citation popover for the per-km cost tiers — the evidence trail
+ * behind them (Tren Urbano actuals, FTA Capital Cost Database, comparable
+ * light-rail projects), not just the "$15M/$40M/$120M" figures on their own
+ * (F9c C3). */
+function CostBasisPopover() {
+  const { data: refs } = useCorridorCostReferences();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+      >
+        <BookOpen className="h-3 w-3" /> Cost basis
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 max-h-96 w-80 overflow-y-auto rounded-lg border border-border bg-popover p-3 text-xs shadow-lg">
+          <div className="mb-1 font-semibold text-foreground">What these figures are checked against</div>
+          <p className="mb-2 text-muted-foreground">
+            PRISM&apos;s per-km tiers (standard $15M, elevated $40M, tunnel $120M) are DTOP/FTA PRIITS
+            2024 planning estimates — here are the real as-built comparables they should be
+            weighed against.
+          </p>
+          <div className="space-y-2.5 border-t border-border/60 pt-2">
+            {(refs ?? []).map((r) => (
+              <div key={r.key}>
+                <div className="font-medium text-foreground">{r.label}</div>
+                <div className="tnum text-muted-foreground">{r.value}</div>
+                <div className="mt-0.5 text-muted-foreground">{r.relevance}</div>
+                <div className="mt-0.5 flex flex-wrap gap-2">
+                  {(r.sources ?? []).map((url) => (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline underline-offset-2"
+                    >
+                      source
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

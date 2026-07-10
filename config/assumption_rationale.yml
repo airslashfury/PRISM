@@ -1,0 +1,100 @@
+# F9c chunk C3 — per load-bearing assumption: value, why we chose it, where it
+# comes from, and what would change it. Surfaced verbatim on the Trust Center's
+# "Assumptions & choices" section (frontend/app/(dashboard)/methods) — this is
+# the source of truth, not hand-written page prose, so it can't drift silently.
+# Distinct from config/confidence.yml's `assumptions:` block, which stamps
+# per-table confidence tiers; this file explains the *reasoning* behind the
+# handful of constants that actually shape model outputs.
+
+assumptions:
+  - key: voll_per_person_30yr
+    label: Value of Lost Load (30-yr, per person)
+    value: "$2,389"
+    why_chosen: >-
+      Standard outage-cost economics: monetize lost service as average load x
+      price x expected outage hours, then NPV it over a 30-year horizon so
+      it's comparable to one-time construction cost.
+    source: >-
+      0.822 kW/person (PR average per-capita load) x $5/kWh (national VOLL
+      literature default) x 33.6 hr/yr (post-Maria Cat-3 distribution-outage
+      default, 336 hr / 10-yr return period) x 17.29 (30yr NPV factor @
+      4%/yr) = $2,389/person 30yr. prism/economy/exposure.py. Note: this NPV
+      factor uses 4%/yr, while config/confidence.yml's global discount_rate
+      (used by the optimizer and /corridor) is 3%/yr — a known inconsistency
+      between the two models, not yet reconciled.
+    what_would_change_it: >-
+      A PR-specific VOLL study using PREB/LUMA outage-cost data would replace
+      the national $5/kWh default with a local figure.
+
+  - key: road_speed_kmh
+    label: Road travel speed
+    value: "40 km/h"
+    why_chosen: >-
+      A flat speed keeps hospital-access routing tractable island-wide
+      without per-road-class speed data PRISM doesn't have.
+    source: "prism/transport/access.py — ROAD_SPEED_M_PER_MIN, a single assumed rural/mixed speed."
+    what_would_change_it: >-
+      Per-road-class speed limits (DTOP) or observed travel-time data would
+      replace the flat assumption with road-specific speeds.
+
+  - key: telecom_coverage_radius
+    label: Telecom coverage radius
+    value: "4 km"
+    why_chosen: >-
+      A straight-line proxy for a cell tower's coverage footprint, chosen so
+      every tower gets island-wide coverage without carrier-specific
+      propagation models.
+    source: "prism/graph/telecom.py — COVERAGE_RADIUS_M. Not an RF propagation model."
+    what_would_change_it: >-
+      Carrier-provided coverage polygons, or a terrain-aware RF propagation
+      model, would replace the flat radius.
+
+  - key: feeder_voronoi
+    label: Feeder assignment (Voronoi proxy)
+    value: "nearest-substation Voronoi cell"
+    why_chosen: >-
+      LUMA's actual feeder topology isn't public. Voronoi cells over
+      distribution-capable substations are the best available proxy for
+      "which substation serves this barrio."
+    source: "prism/graph/relationships.py — build_powers(); per-edge confidence 0.4-0.7 by distance/overlap."
+    what_would_change_it: >-
+      A LUMA feeder-topology data-sharing agreement would replace the proxy
+      with ground truth.
+
+  - key: sales_median_clamp
+    label: CRIM sales statistics (median + clamp)
+    value: "median, clamped to $1K-$50M"
+    why_chosen: >-
+      Raw CRIM sale amounts contain corrupt outliers (up to 10^13). Median is
+      robust to them where a mean is not, and the clamp removes clearly
+      erroneous rows before aggregation.
+    source: "prism/crim/trends.py — the _SANE filter + percentile_disc(0.5)."
+    what_would_change_it: >-
+      A CRIM data-quality pass upstream (validated sale amounts) would let
+      the clamp be loosened or removed.
+
+  - key: generator_discount
+    label: Backup-generator risk discount
+    value: "x0.3"
+    why_chosen: >-
+      A site registered as having a backup generator is assumed to retain
+      ~70% of its function during a grid outage — applied only where
+      generator presence is actually recorded.
+    source: >-
+      prism/resilience/water.py — _GENERATOR_DISCOUNT. Not applied to
+      telecom (source registrations there don't carry generator info).
+    what_would_change_it: >-
+      Verified generator capacity / fuel-autonomy data per site would
+      replace the flat 0.3 discount with a site-specific one.
+
+  - key: cat3_hazard_weights
+    label: Category 3 hazard scenario
+    value: "flood x1.5 surge proxy"
+    why_chosen: >-
+      PRISM has no live storm-surge model. The Cat-3 scenario approximates
+      surge by scaling the observed Cat-2 marejada (storm-surge) flood layer
+      by 1.5x, with no sea-level-rise term.
+    source: "prism/resilience/hazard.py — _CAT3_FLOOD_MULTIPLIER, SCENARIOS[\"cat3\"]."
+    what_would_change_it: >-
+      A calibrated storm-surge model (e.g. NOAA SLOSH) would replace the
+      flood-multiplier heuristic.

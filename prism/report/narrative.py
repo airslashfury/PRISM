@@ -26,6 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from prism.llm import _TIER_ORDER
+from prism.provenance import list_cost_references
 from prism.report.schema import create_schema
 from prism.report.compare import ComparisonResult
 
@@ -139,6 +140,19 @@ def _load_corridor_context(engine: Engine) -> str:
             f"obj=${score/1e6:.0f}M"
         )
 
+    return "\n".join(lines)
+
+
+def _load_cost_reference_context() -> str:
+    """As-built rail cost comparables (config/cost_references.yml, F9c C3) —
+    grounds the corridor briefing's cost commentary in real precedent instead
+    of treating PRISM's parametric $/km tiers as ground truth."""
+    refs = list_cost_references()
+    if not refs:
+        return ""
+    lines = ["Real-world cost comparables (for context — cite when relevant, don't restate all):"]
+    for r in refs:
+        lines.append(f"  - {r['label']}: {r['value']} — {r['relevance']}")
     return "\n".join(lines)
 
 
@@ -555,6 +569,7 @@ def _corridor_prompt(engine: Engine) -> str:
     """Build the prompt for the rail corridor comparison briefing."""
     corridor_ctx = _load_corridor_context(engine)
     community_ctx = _load_community_context(engine)
+    cost_ref_ctx = _load_cost_reference_context()
 
     return f"""Generate a PRISM rail corridor comparison briefing.
 
@@ -562,8 +577,13 @@ CONTEXT:
 Puerto Rico Infrastructure Simulation Model — Phase 10 Rail Corridor Study.
 Greenfield corridors routed via least-cost-path over a composite cost surface
 (terrain slope, flood exposure, SVI-weighted population benefit) at 300 m resolution.
+These are planning-level parametric estimates, not engineering cost estimates —
+when discussing cost, be candid that real projects have landed well above
+PRISM's per-km tiers (see cost comparables below).
 
 {corridor_ctx}
+
+{cost_ref_ctx}
 
 {community_ctx}
 

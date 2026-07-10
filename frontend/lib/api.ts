@@ -105,6 +105,12 @@ export interface Assumption {
   upgrade_path?: string | null;
 }
 
+/** F9c C3 — the Trust Center's "Assumptions & choices" section. */
+export type AssumptionRationale = Schemas["AssumptionRationale"];
+
+/** F9c C3 — /corridor's "Cost basis" popover citation source. */
+export type CostReference = Schemas["CostReference"];
+
 /** MVP3 Pillar 2 — not yet in the generated OpenAPI types (api/routers/validate.py),
  * typed by hand to match `api.schemas.BacktestResult`/`SensitivityResult`/`ModelCard`. */
 export interface BacktestHit {
@@ -1302,6 +1308,7 @@ export const api = {
   corridorRoutesGeojson: () => apiGet<FeatureCollection>("/corridor/routes/geojson"),
   corridorRoute: (id: number) => apiGet<CorridorRouteDetail>(`/corridor/routes/${id}`),
   corridorProfile: (id: number) => apiGet<ProfilePoint[]>(`/corridor/routes/${id}/profile`),
+  corridorCostReferences: () => apiGet<CostReference[]>("/corridor/cost-references"),
 
   syncSources: () => apiGet<SyncSource[]>("/sync/sources"),
   syncLog: (limit = 50) => apiGet<SyncLogEntry[]>("/sync/log", { limit }),
@@ -1342,6 +1349,7 @@ export const api = {
 
   confidenceTiers: () => apiGet<ConfidenceTier[]>("/provenance/tiers"),
   provenanceAssumptions: () => apiGet<Assumption[]>("/provenance/assumptions"),
+  assumptionRationale: () => apiGet<AssumptionRationale[]>("/provenance/assumption-rationale"),
   provenanceInventory: () => apiGet<InventoryEntry[]>("/provenance/inventory"),
   provenanceTable: (table: string) => apiGet<ProvenanceRecord>(`/provenance/${table}`),
   provenanceLayer: (layerId: string) =>

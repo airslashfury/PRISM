@@ -214,6 +214,15 @@ export const useConfidenceTiers = () =>
 export const useProvenanceAssumptions = () =>
   useQuery({ queryKey: ["provenanceAssumptions"], queryFn: api.provenanceAssumptions, staleTime: 60 * MIN });
 
+/** Why each load-bearing assumption was chosen, its source, and what would
+ * change it (F9c C3) — the Trust Center's "Assumptions & choices" section. */
+export const useAssumptionRationale = () =>
+  useQuery({ queryKey: ["assumptionRationale"], queryFn: api.assumptionRationale, staleTime: 60 * MIN });
+
+/** F9c C3 — /corridor's "Cost basis" popover citation source. */
+export const useCorridorCostReferences = () =>
+  useQuery({ queryKey: ["corridorCostReferences"], queryFn: api.corridorCostReferences, staleTime: 60 * MIN });
+
 export const useProvenanceInventory = () =>
   useQuery({ queryKey: ["provenanceInventory"], queryFn: api.provenanceInventory, staleTime: 60 * MIN });
 

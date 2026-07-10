@@ -8,7 +8,9 @@ from one place.
 from prism.provenance.catalog import (
     get_layer_provenance,
     get_table_provenance,
+    list_assumption_rationale,
     list_assumptions,
+    list_cost_references,
     list_inventory,
     list_tiers,
 )
@@ -16,7 +18,9 @@ from prism.provenance.catalog import (
 __all__ = [
     "get_layer_provenance",
     "get_table_provenance",
+    "list_assumption_rationale",
     "list_assumptions",
+    "list_cost_references",
     "list_inventory",
     "list_tiers",
 ]

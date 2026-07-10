@@ -9,6 +9,7 @@ import { InfoPanel } from "@/components/info-panel";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { Segmented } from "@/components/ui/segmented";
 import {
+  useAssumptionRationale,
   useConfidenceTiers,
   useProvenanceAssumptions,
   useProvenanceInventory,
@@ -27,6 +28,7 @@ const TIER_FILTERS: { value: "all" | ConfidenceTierKey; label: string }[] = [
 export default function MethodsPage() {
   const { data: tiers, isLoading: tiersLoading, error: tiersError } = useConfidenceTiers();
   const { data: assumptions } = useProvenanceAssumptions();
+  const { data: rationale } = useAssumptionRationale();
   const { data: inventory, isLoading: invLoading, error: invError } = useProvenanceInventory();
 
   const [tierFilter, setTierFilter] = useState<"all" | ConfidenceTierKey>("all");
@@ -183,6 +185,38 @@ export default function MethodsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground">Assumptions & choices ({(rationale ?? []).length})</h2>
+        <p className="text-xs text-muted-foreground">
+          The handful of constants that most shape what PRISM tells you — why each one was
+          chosen, where it comes from, and what would need to change for a better number.
+        </p>
+        <div className="space-y-2">
+          {(rationale ?? []).map((r) => (
+            <div key={r.key} className="rounded-lg border border-border/70 p-3 text-xs">
+              <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-medium text-foreground">{r.label}</span>
+                <span className="tnum rounded bg-muted/40 px-1.5 py-0.5 font-medium text-foreground">{r.value}</span>
+              </div>
+              <dl className="grid gap-1.5 sm:grid-cols-3">
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Why chosen</dt>
+                  <dd className="mt-0.5 text-muted-foreground">{r.why_chosen}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Source</dt>
+                  <dd className="mt-0.5 text-muted-foreground">{r.source}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">What would change it</dt>
+                  <dd className="mt-0.5 text-muted-foreground">{r.what_would_change_it}</dd>
+                </div>
+              </dl>
+            </div>
+          ))}
         </div>
       </section>
 

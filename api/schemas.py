@@ -744,6 +744,23 @@ class Assumption(BaseModel):
     upgrade_path: str | None = None
 
 
+class AssumptionRationale(BaseModel):
+    key: str
+    label: str
+    value: str
+    why_chosen: str
+    source: str
+    what_would_change_it: str
+
+
+class CostReference(BaseModel):
+    key: str
+    label: str
+    value: str
+    relevance: str
+    sources: list[str] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------------- #
 # Calibration & Validation (MVP3 Pillar 2)                                     #
 # --------------------------------------------------------------------------- #

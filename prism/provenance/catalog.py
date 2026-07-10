@@ -16,6 +16,8 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 CATALOG_PATH = REPO / "catalog" / "metadata.json"
 CONFIDENCE_PATH = REPO / "config" / "confidence.yml"
+ASSUMPTION_RATIONALE_PATH = REPO / "config" / "assumption_rationale.yml"
+COST_REFERENCES_PATH = REPO / "config" / "cost_references.yml"
 
 DEFAULT_TIER = "authoritative"
 
@@ -39,6 +41,30 @@ def list_tiers() -> dict[str, Any]:
 def list_assumptions() -> list[dict[str, Any]]:
     """Global Estimated/Proxy constants baked into the models (VOLL, discount rate, ...)."""
     return list(_confidence().get("assumptions", []))
+
+
+@lru_cache(maxsize=1)
+def _assumption_rationale() -> dict[str, Any]:
+    return yaml.safe_load(ASSUMPTION_RATIONALE_PATH.read_text(encoding="utf-8")) or {}
+
+
+def list_assumption_rationale() -> list[dict[str, Any]]:
+    """Why each load-bearing assumption was chosen, its source, and what would
+    change it (F9c C3) — distinct from `list_assumptions()`'s confidence-tier
+    stamps: this is the reasoning, not the tier."""
+    return list(_assumption_rationale().get("assumptions", []))
+
+
+@lru_cache(maxsize=1)
+def _cost_references() -> dict[str, Any]:
+    return yaml.safe_load(COST_REFERENCES_PATH.read_text(encoding="utf-8")) or {}
+
+
+def list_cost_references() -> list[dict[str, Any]]:
+    """As-built rail cost comparables (Tren Urbano, FTA Capital Cost Database,
+    comparable US light-rail projects) backing /corridor's per-km figures
+    (F9c C3) — the "Cost basis" popover's citation source."""
+    return list(_cost_references().get("references", []))
 
 
 def get_table_provenance(table: str) -> dict[str, Any] | None:

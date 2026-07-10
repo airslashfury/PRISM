@@ -350,6 +350,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/corridor/cost-references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cost References
+         * @description As-built rail cost comparables (Tren Urbano, FTA Capital Cost Database,
+         *     comparable US light-rail projects) backing the per-km figures below —
+         *     the "Cost basis" popover's citation source (F9c C3).
+         */
+        get: operations["cost_references_corridor_cost_references_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/corridor/routes": {
         parameters: {
             query?: never;
@@ -1162,6 +1184,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/provenance/assumption-rationale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assumption Rationale
+         * @description Why each load-bearing assumption was chosen, its source, and what would
+         *     change it (F9c C3) — the Trust Center's "Assumptions & choices" section.
+         */
+        get: operations["assumption_rationale_provenance_assumption_rationale_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/provenance/inventory": {
         parameters: {
             query?: never;
@@ -1810,6 +1853,21 @@ export interface components {
             /** Upgrade Path */
             upgrade_path?: string | null;
         };
+        /** AssumptionRationale */
+        AssumptionRationale: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Why Chosen */
+            why_chosen: string;
+            /** Source */
+            source: string;
+            /** What Would Change It */
+            what_would_change_it: string;
+        };
         /** BacktestResult */
         BacktestResult: {
             /** Event Key */
@@ -2100,6 +2158,19 @@ export interface components {
             cost_per_km: number | null;
             /** Km */
             km: number | null;
+        };
+        /** CostReference */
+        CostReference: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Relevance */
+            relevance: string;
+            /** Sources */
+            sources?: string[];
         };
         /** CrimBaseline */
         CrimBaseline: {
@@ -4687,6 +4758,26 @@ export interface operations {
             };
         };
     };
+    cost_references_corridor_cost_references_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostReference"][];
+                };
+            };
+        };
+    };
     routes_corridor_routes_get: {
         parameters: {
             query?: never;
@@ -5896,6 +5987,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Assumption"][];
+                };
+            };
+        };
+    };
+    assumption_rationale_provenance_assumption_rationale_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssumptionRationale"][];
                 };
             };
         };
