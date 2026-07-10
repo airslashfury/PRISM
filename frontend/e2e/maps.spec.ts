@@ -151,6 +151,34 @@ test("/parcels owner search resolves an entity and opens the drawer", async ({ p
   expect(errors, `uncaught page errors on /parcels: ${errors.join("; ")}`).toEqual([]);
 });
 
+// ── F9d D1: address-first parcel discovery ────────────────────────────────────
+
+test("/parcels address search finds the right candidate for a known San Juan address", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/parcels", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Search by address" }).click();
+  await page.getByPlaceholder(/House number \+ street/).fill("101 Calle Fortaleza");
+  await page.getByPlaceholder("Municipio").fill("San Juan");
+  await page.getByRole("button", { name: "Find parcel" }).click();
+
+  await expect(page.getByText(/We read that as:/)).toBeVisible();
+  await expect(page.getByText(/candidate parcels near that address/)).toBeVisible();
+
+  expect(errors, `uncaught page errors on /parcels address search: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("/parcels address search gives an honest no-confident-match fallback for a rural address", async ({ page }) => {
+  await page.goto("/parcels", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Search by address" }).click();
+  await page.getByPlaceholder(/House number \+ street/).fill("Bo Bejucos");
+  await page.getByPlaceholder("Municipio").fill("Utuado");
+  await page.getByRole("button", { name: "Find parcel" }).click();
+
+  await expect(page.getByText("No confident match for that address")).toBeVisible();
+});
+
 // ── F8 excellence pass, chunk F: palette / hero / presentation / motion / OG ──
 
 test("palette: Ctrl+K, type resil, Enter navigates to Resilience", async ({ page }) => {

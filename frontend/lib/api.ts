@@ -599,6 +599,25 @@ export interface ParcelSearchResult {
   confidence_tier: ConfidenceTierKey;
 }
 
+export interface AddressSearchCandidate {
+  num_catastro: string;
+  municipio: string | null;
+  owner: string | null;
+  address: string | null;
+  totalval: number | null;
+  tipo: string | null;
+  lon: number | null;
+  lat: number | null;
+  distance_m: number;
+}
+
+export interface AddressSearchResult {
+  status: "match" | "no_candidates" | "no_confident_match";
+  standardized_address: string | null;
+  candidates: AddressSearchCandidate[];
+  confidence_tier: ConfidenceTierKey;
+}
+
 export interface ParcelCrimRecord {
   owner: string | null;
   physical_address: string | null;
@@ -1379,6 +1398,13 @@ export const api = {
   siteAccessPoints: () => apiGet<SiteAccessPoint[]>("/sitefinder/access-points"),
 
   parcelSearch: (q: string) => apiGet<ParcelSearchResult>("/crim/parcels/search", { q }),
+  parcelSearchByAddress: (street: string, opts?: { urb?: string; municipio?: string; zip?: string }) =>
+    apiGet<AddressSearchResult>("/crim/parcels/search/address", {
+      street,
+      ...(opts?.urb ? { urb: opts.urb } : {}),
+      ...(opts?.municipio ? { municipio: opts.municipio } : {}),
+      ...(opts?.zip ? { zip: opts.zip } : {}),
+    }),
   parcelDetail: (numCatastro: string) =>
     apiGet<ParcelDetail>(`/crim/parcel/${encodeURIComponent(numCatastro)}`),
   ownerSearch: (q: string) => apiGet<OwnerSearchResult>("/crim/owners/search", { q }),

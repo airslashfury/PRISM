@@ -288,6 +288,22 @@ export const useParcelSearch = (q: string | null) =>
     placeholderData: keepPreviousData,
   });
 
+/** F9d D1 — address-first parcel discovery: geocode -> nearest parcel(s). */
+export interface AddressSearchQuery {
+  street: string;
+  urb?: string;
+  municipio?: string;
+  zip?: string;
+}
+export const useAddressSearch = (q: AddressSearchQuery | null) =>
+  useQuery({
+    queryKey: ["parcelSearchByAddress", q],
+    queryFn: () => api.parcelSearchByAddress(q!.street, { urb: q!.urb, municipio: q!.municipio, zip: q!.zip }),
+    enabled: !!q && q.street.trim().length > 0,
+    staleTime: 5 * MIN,
+    placeholderData: keepPreviousData,
+  });
+
 export const useParcelDetail = (numCatastro: string | null) =>
   useQuery({
     queryKey: ["parcelDetail", numCatastro],

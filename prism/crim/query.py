@@ -32,6 +32,12 @@ FLOOD_TIER = "authoritative"  # direct FEMA flood-zone geometry + measured overl
 # always reported separately so an owner with thousands of parcels still shows "N".
 MAX_HIGHLIGHT_POINTS = 4000
 
+# Address-search candidate radius (F9d D1) — same order of magnitude as the
+# other "is this actually near that thing" spatial cutoffs in the codebase
+# (economy._RELOCATION_RADIUS_M, hazard._SLOPE_RADIUS_M).
+ADDRESS_SEARCH_RADIUS_M = 500
+ADDRESS_SEARCH_MAX_CANDIDATES = 5
+
 # A catastro id is groups of digits joined by dashes (e.g. 007-013-346-07), so a
 # query made only of digits / dashes / spaces routes to the id lookup.
 _DIGITS_DASH_RE = re.compile(r"^[0-9][0-9\-\s]*$")
@@ -138,6 +144,81 @@ def search_parcels(
         "bbox": bbox,
         "parcels": parcels,
         "confidence_tier": CRIM_TIER,
+    }
+
+
+def search_by_address(
+    engine: Engine,
+    street: str,
+    *,
+    urb: str | None = None,
+    municipio: str | None = None,
+    zip_code: str | None = None,
+) -> dict[str, Any]:
+    """Address-first parcel discovery (F9d D1): geocode the query via the
+    Census PR forward geocoder, then find the parcel(s) at or nearest that
+    point (capped radius, spatial). Discovery, not resolution — this surfaces
+    the record, it does not adjudicate ownership.
+
+    Returns ``{status, standardized_address, candidates, confidence_tier}``
+    where ``status`` is 'match' (candidates found), 'no_candidates' (address
+    geocoded fine but nothing within the radius — honest "browse the area"
+    case), or 'no_confident_match' (the geocoder itself couldn't resolve the
+    address — Tie/no-match tiers are never guessed between).
+    """
+    from prism.crim.geocode import geocode_address
+
+    geo = geocode_address(engine, street, urb=urb, municipio=municipio, zip_code=zip_code)
+    if geo["status"] != "match":
+        return {
+            "status": "no_confident_match",
+            "standardized_address": None,
+            "candidates": [],
+            "confidence_tier": "proxy",
+        }
+
+    with engine.connect() as conn:
+        rows = conn.execute(text(f"""
+            WITH pt AS (
+                SELECT ST_Transform(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), 32161) AS geom
+            ),
+            nearby AS (
+                SELECT DISTINCT ON (p.num_catastro)
+                       p.num_catastro, p.municipio, p.contact AS owner,
+                       p.direccion_fisica AS address, p.totalval, p.tipo,
+                       {_LON} AS lon, {_LAT} AS lat,
+                       ST_Distance(p.geom, pt.geom) AS distance_m
+                FROM crim.parcelas p, pt
+                WHERE p.num_catastro IS NOT NULL
+                  AND ST_DWithin(p.geom, pt.geom, :radius)
+                ORDER BY p.num_catastro, distance_m ASC
+            )
+            SELECT * FROM nearby ORDER BY distance_m ASC LIMIT :lim
+        """), {
+            "lon": geo["lon"], "lat": geo["lat"],
+            "radius": ADDRESS_SEARCH_RADIUS_M, "lim": ADDRESS_SEARCH_MAX_CANDIDATES,
+        }).mappings().fetchall()
+
+    candidates = sorted((
+        {
+            "num_catastro": r["num_catastro"],
+            "municipio": r["municipio"],
+            "owner": r["owner"],
+            "address": r["address"],
+            "totalval": float(r["totalval"]) if r["totalval"] is not None else None,
+            "tipo": r["tipo"],
+            "lon": float(r["lon"]) if r["lon"] is not None else None,
+            "lat": float(r["lat"]) if r["lat"] is not None else None,
+            "distance_m": round(float(r["distance_m"]), 1),
+        }
+        for r in rows
+    ), key=lambda c: c["distance_m"])
+
+    return {
+        "status": "match" if candidates else "no_candidates",
+        "standardized_address": geo["standardized_address"],
+        "candidates": candidates,
+        "confidence_tier": "proxy",
     }
 
 

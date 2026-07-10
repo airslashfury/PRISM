@@ -4,14 +4,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo, MapViewState } from "@deck.gl/core";
-import { Search, ChevronLeft, X, Building2, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, X, Building2, ChevronRight, MapPin } from "lucide-react";
 
 import { MapCanvas, tip } from "@/components/map/map-canvas";
 import { InfoPanel } from "@/components/info-panel";
 import { ConfidenceChip } from "@/components/provenance-badge";
 import { ScoreExplainer } from "@/components/score-explainer";
 import { LoadingBlock, ErrorBlock, SkeletonRows, EmptyState } from "@/components/query-state";
-import { useParcelSearch, useParcelDetail, useOwnerSearch, useOwnerDetail } from "@/lib/hooks";
+import {
+  useParcelSearch,
+  useParcelDetail,
+  useOwnerSearch,
+  useOwnerDetail,
+  useAddressSearch,
+  type AddressSearchQuery,
+} from "@/lib/hooks";
 import { tileUrl } from "@/lib/api";
 import type {
   ParcelSearchHit,
@@ -19,6 +26,7 @@ import type {
   ConfidenceTierKey,
   OwnerSearchHit,
   OwnerDetail,
+  AddressSearchCandidate,
 } from "@/lib/api";
 import { fmtInt, fmtUsd, fmtNum, fmtPct, fmtDateTime } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
@@ -49,6 +57,15 @@ export default function ParcelsPage() {
   const [view, setView] = useState<MapViewState | null>(null);
   const [zoom, setZoom] = useState(8.3);
 
+  // F9d D1 — address-first discovery: a second search mode alongside the
+  // free-text catastro/owner/address box above. Discovery, not resolution —
+  // results are framed as "near this address", never "this is your address".
+  const [searchTab, setSearchTab] = useState<"free" | "address">("free");
+  const [addrStreet, setAddrStreet] = useState("");
+  const [addrMunicipio, setAddrMunicipio] = useState("");
+  const [addrUrb, setAddrUrb] = useState("");
+  const [addrQuery, setAddrQuery] = useState<AddressSearchQuery | null>(null);
+
   // ── Permalinks (F4): search + parcel/owner selection live in the URL ──────
   // Read on mount (see lib/url-state.ts for why not in the initializers).
   const hydrated = useRef(false);
@@ -77,7 +94,13 @@ export default function ParcelsPage() {
   const search = useParcelSearch(submitted);
   const result = search.data;
   const hits = useMemo(() => result?.parcels ?? [], [result]);
-  const matched = useMemo(() => new Set(hits.map((h) => h.num_catastro)), [hits]);
+
+  const addrSearch = useAddressSearch(addrQuery);
+  const addrResult = addrSearch.data;
+  const addrHits = useMemo(() => addrResult?.candidates ?? [], [addrResult]);
+
+  const activeHits = searchTab === "address" ? addrHits : hits;
+  const matched = useMemo(() => new Set(activeHits.map((h) => h.num_catastro)), [activeHits]);
 
   // Owner resolution: when a search routes to owner/address, offer the collapsed
   // owner entities; selecting one shows its island-wide footprint + portfolio.
@@ -93,7 +116,21 @@ export default function ParcelsPage() {
     if (!t) return;
     setSelected(null);
     setOwnerKey(null);
+    setAddrQuery(null);
     setSubmitted(t);
+  };
+
+  const runAddressSearch = () => {
+    const street = addrStreet.trim();
+    if (!street) return;
+    setSelected(null);
+    setOwnerKey(null);
+    setSubmitted(null);
+    setAddrQuery({
+      street,
+      urb: addrUrb.trim() || undefined,
+      municipio: addrMunicipio.trim() || undefined,
+    });
   };
 
   // Fit the map to the matched set once results arrive for a new query.
@@ -102,6 +139,20 @@ export default function ParcelsPage() {
     if (!ownerKey && result?.bbox) setView(fitView(result.bbox));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
+
+  // Fit the map to the address-search candidates (no server bbox — compute locally).
+  const addrFitKey = useMemo(
+    () => addrHits.map((h) => `${h.lon},${h.lat}`).join("|"),
+    [addrHits],
+  );
+  useEffect(() => {
+    const pts = addrHits.filter((h) => h.lon != null && h.lat != null);
+    if (!pts.length) return;
+    const lons = pts.map((p) => p.lon as number);
+    const lats = pts.map((p) => p.lat as number);
+    setView(fitView([Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)], 2.5));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addrFitKey]);
 
   // Fit to the owner's footprint when one is selected.
   const ownerBboxKey = ownerKey ? ownerDetail.data?.bbox?.join(",") ?? null : null;
@@ -171,11 +222,11 @@ export default function ParcelsPage() {
       );
     }
     // Matched centroids — visible at every zoom, so an owner footprint reads island-wide.
-    if (hits.length) {
+    if (activeHits.length) {
       ls.push(
         new ScatterplotLayer<ParcelSearchHit>({
           id: "matches",
-          data: hits.filter((h) => h.lon != null && h.lat != null),
+          data: activeHits.filter((h) => h.lon != null && h.lat != null),
           getPosition: (d) => [d.lon as number, d.lat as number],
           getRadius: (d) => (d.num_catastro === selected ? 11 : 6),
           radiusUnits: "pixels",
@@ -193,7 +244,7 @@ export default function ParcelsPage() {
       );
     }
     return ls;
-  }, [hits, matched, selected, zoom, ownerKey, ownerFootprint]);
+  }, [activeHits, matched, selected, zoom, ownerKey, ownerFootprint]);
 
   const getTooltip = (info: PickingInfo) => {
     if (info.layer?.id === "matches" || info.layer?.id === "owner-footprint") {
@@ -252,6 +303,16 @@ export default function ParcelsPage() {
                 {ownerDetail.data.footprint_capped && ` · first ${fmtInt(ownerFootprint.length)} mapped`}
               </div>
             </div>
+          ) : searchTab === "address" && addrResult && addrResult.candidates.length > 0 ? (
+            <div className="pointer-events-none absolute left-4 top-4 max-w-[18rem] rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <MapPin className="h-3 w-3" /> Near this address
+              </div>
+              <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(addrResult.candidates.length)}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {addrResult.candidates.length === 1 ? "candidate parcel" : "candidate parcels"}
+              </div>
+            </div>
           ) : (
             result && result.count > 0 && (
               <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
@@ -275,50 +336,109 @@ export default function ParcelsPage() {
       </div>
 
       <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[420px] md:shrink-0 md:border-l md:border-t-0">
-        <div className="border-b border-border/70 p-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              runSearch(input);
-            }}
-            className="relative"
-          >
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Catastro, owner, or address…"
-              className="w-full rounded-md border border-border/70 bg-background/60 py-2 pl-9 pr-9 text-sm outline-none focus:border-primary/60"
-            />
-            {input && (
-              <button
-                type="button"
-                onClick={() => {
-                  setInput("");
-                  setSubmitted(null);
-                  setSelected(null);
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </form>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {["007-013-346-07", "MUNICIPIO DE PONCE", "AUTORIDAD"].map((ex) => (
-              <button
-                key={ex}
-                onClick={() => {
-                  setInput(ex);
-                  runSearch(ex);
-                }}
-                className="rounded-full border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground"
-              >
-                {ex}
-              </button>
-            ))}
-          </div>
+        <div className="flex border-b border-border/70">
+          {(["free", "address"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setSearchTab(tab)}
+              className={`flex-1 px-4 py-2.5 text-xs font-medium transition-colors ${
+                searchTab === tab
+                  ? "border-b-2 border-primary text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab === "free" ? "Search" : "Search by address"}
+            </button>
+          ))}
         </div>
+
+        {searchTab === "free" ? (
+          <div className="border-b border-border/70 p-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                runSearch(input);
+              }}
+              className="relative"
+            >
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Catastro, owner, or address…"
+                className="w-full rounded-md border border-border/70 bg-background/60 py-2 pl-9 pr-9 text-sm outline-none focus:border-primary/60"
+              />
+              {input && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInput("");
+                    setSubmitted(null);
+                    setSelected(null);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </form>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {["007-013-346-07", "MUNICIPIO DE PONCE", "AUTORIDAD"].map((ex) => (
+                <button
+                  key={ex}
+                  onClick={() => {
+                    setInput(ex);
+                    runSearch(ex);
+                  }}
+                  className="rounded-full border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="border-b border-border/70 p-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                runAddressSearch();
+              }}
+              className="space-y-2"
+            >
+              <input
+                value={addrStreet}
+                onChange={(e) => setAddrStreet(e.target.value)}
+                placeholder="House number + street (e.g. 101 Calle Fortaleza)"
+                className="w-full rounded-md border border-border/70 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/60"
+              />
+              <div className="flex gap-2">
+                <input
+                  value={addrMunicipio}
+                  onChange={(e) => setAddrMunicipio(e.target.value)}
+                  placeholder="Municipio"
+                  className="w-1/2 rounded-md border border-border/70 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                />
+                <input
+                  value={addrUrb}
+                  onChange={(e) => setAddrUrb(e.target.value)}
+                  placeholder="Urbanización (optional)"
+                  className="w-1/2 rounded-md border border-border/70 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/60"
+                />
+              </div>
+              <button
+                type="submit"
+                className="flex w-full items-center justify-center gap-1.5 rounded-md bg-primary/90 py-2 text-sm font-medium text-primary-foreground hover:bg-primary"
+              >
+                <MapPin className="h-3.5 w-3.5" /> Find parcel
+              </button>
+            </form>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Discovery, not resolution — this finds the parcel nearest a street address; it does
+              not confirm or adjudicate legal ownership.
+            </p>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {selected ? (
@@ -330,6 +450,14 @@ export default function ParcelsPage() {
               error={ownerDetail.error}
               onBack={() => setOwnerKey(null)}
               onSelectParcel={(nc) => selectParcel(nc)}
+            />
+          ) : searchTab === "address" ? (
+            <AddressResults
+              query={addrQuery}
+              isLoading={addrSearch.isLoading}
+              error={addrSearch.error}
+              result={addrResult}
+              onSelect={selectParcel}
             />
           ) : (
             <>
@@ -366,6 +494,93 @@ export default function ParcelsPage() {
           )}
         </div>
       </aside>
+    </div>
+  );
+}
+
+function AddressResults({
+  query,
+  isLoading,
+  error,
+  result,
+  onSelect,
+}: {
+  query: AddressSearchQuery | null;
+  isLoading: boolean;
+  error: unknown;
+  result: { status: string; standardized_address: string | null; candidates: AddressSearchCandidate[] } | undefined;
+  onSelect: (nc: string, lon?: number | null, lat?: number | null) => void;
+}) {
+  if (!query) {
+    return (
+      <div className="p-4">
+        <InfoPanel
+          sections={[
+            {
+              title: "What this is",
+              body: "Type a street address to find the parcel(s) nearest it — for the person standing on the ground, not the person who already knows the catastro number.",
+            },
+            {
+              title: "How it works",
+              body: "The address is geocoded by the U.S. Census Bureau's Puerto Rico endpoint, then PRISM finds the nearest parcel(s) to that point (within 500m). Results are framed as \"near this address\" — a rough address is not always unique in PR (see /methods).",
+            },
+            {
+              title: "Accuracy",
+              body: "This is discovery, not resolution: PRISM surfaces the CRIM record, it does not confirm or adjudicate legal ownership. A rural or unaddressed location may return no confident match — browse the map instead.",
+            },
+          ]}
+        />
+      </div>
+    );
+  }
+  if (isLoading) return <SkeletonRows className="pt-2" />;
+  if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
+  if (!result || result.status === "no_confident_match") {
+    return (
+      <EmptyState
+        icon={MapPin}
+        title="No confident match for that address"
+        hint="The Census geocoder couldn't resolve it to a single point (or it doesn't carry enough of the PR grammar — street, urb, municipio). Try adding the urbanización, or browse the map directly."
+      />
+    );
+  }
+  if (result.status === "no_candidates") {
+    return (
+      <EmptyState
+        icon={MapPin}
+        title="Address matched, but no parcel nearby"
+        hint={`Census matched this to "${result.standardized_address}", but no CRIM parcel sits within 500m of that point. Browse the map at that location instead.`}
+      />
+    );
+  }
+  return (
+    <div>
+      <div className="px-4 pt-3 text-[11px] text-muted-foreground">
+        We read that as: <span className="font-medium text-foreground">{result.standardized_address}</span>
+      </div>
+      <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {result.candidates.length} candidate {result.candidates.length === 1 ? "parcel" : "parcels"} near that address
+      </div>
+      <ul>
+        {result.candidates.map((c) => (
+          <li key={c.num_catastro}>
+            <button
+              onClick={() => onSelect(c.num_catastro, c.lon, c.lat)}
+              className="flex w-full items-center gap-3 border-l-2 border-transparent px-4 py-2.5 text-left transition-colors hover:bg-accent/40"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{c.owner ?? "—"}</span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {c.num_catastro} · {c.municipio ?? ""} · {fmtNum(c.distance_m, 0)}m away
+                </span>
+              </span>
+              {c.totalval != null && (
+                <span className="shrink-0 text-xs tnum text-muted-foreground">{fmtUsd(c.totalval, 0)}</span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

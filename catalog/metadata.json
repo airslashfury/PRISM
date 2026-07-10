@@ -2383,6 +2383,16 @@
       "pulled_at": "2026-06-29",
       "computed_by": "prism.crim.snapshots.compute_deltas"
     },
+    "derived:crim.geocode_cache": {
+      "title": "crim.geocode_cache — Census PR forward-geocoder response mirror",
+      "description": "Local mirror (F9d D1) of Census Bureau PR-specific forward-geocoder responses (geocoding.geo.census.gov/geocoder/locations/addressPR), keyed on the normalized query. Call-time enrichment, not a batch pull — populated on demand as users search /parcels by address. Confidence tier 'proxy': a spatial nearest-parcel lookup off a geocoded point can pick the wrong parcel among close neighbors, so results are framed as 'near this address', never an authoritative match.",
+      "source": "U.S. Census Bureau — PR forward geocoder (addressPR endpoint)",
+      "domain": "territorio",
+      "license": "public domain (U.S. Census Bureau)",
+      "priority": "P2",
+      "pulled_at": "2026-07-10",
+      "computed_by": "prism.crim.geocode.geocode_address"
+    },
     "derived:sync.seismic_events": {
       "source": "derived",
       "title": "sync.seismic_events",

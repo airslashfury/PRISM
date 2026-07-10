@@ -59,6 +59,25 @@ _DDL = [
     "CREATE EXTENSION IF NOT EXISTS pg_trgm",
     "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_contact_trgm   ON crim.parcelas USING gin (contact gin_trgm_ops)",
     "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_dirfisica_trgm ON crim.parcelas USING gin (direccion_fisica gin_trgm_ops)",
+
+    # Local mirror of Census PR forward-geocoder responses (F9d D1) — call-time
+    # cache, keyed on the normalized query, so repeat/duplicate address searches
+    # never re-hit the external host. Data-sovereignty rule: mirror before relying.
+    """
+    CREATE TABLE IF NOT EXISTS crim.geocode_cache (
+        cache_key       TEXT PRIMARY KEY,
+        query_street    TEXT,
+        query_urb       TEXT,
+        query_municipio TEXT,
+        query_zip       TEXT,
+        match_tier      TEXT NOT NULL,   -- 'match' | 'tie' | 'no_match'
+        matched_address TEXT,
+        lon             DOUBLE PRECISION,
+        lat             DOUBLE PRECISION,
+        raw_response    JSONB,
+        queried_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
 ]
 
 # Two derived materialized views, reproducible from `crim.parcelas`:

@@ -389,8 +389,10 @@ tables:
       authoritative CRIM assessed values; no geometry. Used for current
       ownership/value lookups and the Site Finder land-value join.
     upgrade_path: >-
-      Rebuild on each monthly CRIM re-download; formalize as a reproducible
-      materialized view when item 6 (monthly snapshots + trends) lands.
+      Formalized as a reproducible materialized view (prism/crim/schema.py) with
+      an automatic refresh as the first step of the monthly snapshot cycle
+      (prism.crim.snapshots.run_monthly) — done 2026-07-10, closing a gap where
+      a stale dedup view could make deltas silently read as zero.
 
   crim.parcelas_history:
     method: authoritative
@@ -427,6 +429,24 @@ tables:
     upgrade_path: >-
       Cross-check inferred sales against the CRIM transaction registry for exact
       recording dates and market prices.
+
+  crim.geocode_cache:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F9d D1 address-first parcel discovery. The Census Bureau's PR forward
+      geocoder (public domain, keyless) resolves a street address to a
+      standardized address + point at authoritative quality — but PRISM then
+      does a spatial nearest-parcel lookup off that point (capped at 500m),
+      which can pick the wrong parcel among close neighbors (subdivided lots,
+      dense urban blocks). Only the geocoder's single-exact-match tier is
+      trusted; Tie/no-match are both treated as "no confident match" and never
+      guessed between. Discovery, not resolution — never presented as
+      confirmed ownership.
+    upgrade_path: >-
+      If D2 (Census Proposed Address tiering) lands, promote the Tier-A
+      Census-matched case toward authoritative for the address label itself
+      (the point), while the parcel-assignment step stays proxy.
 
   sync.seismic_events:
     method: measured

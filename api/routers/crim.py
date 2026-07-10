@@ -29,6 +29,19 @@ def search(
     return query.search_parcels(engine, q, limit=limit)
 
 
+@router.get("/parcels/search/address", response_model=schemas.AddressSearchResult)
+def search_by_address(
+    street: str = Query(..., min_length=1, description="House number + street name"),
+    urb: str | None = Query(None, description="Urbanización, if known"),
+    municipio: str | None = Query(None, description="Municipio"),
+    zip: str | None = Query(None, alias="zip", description="ZIP code"),
+    engine: Engine = Depends(engine_dep),
+) -> dict:
+    """Address-first parcel discovery (F9d D1): geocode -> nearest parcel(s)
+    within a capped radius. Discovery, not resolution — see query.search_by_address."""
+    return query.search_by_address(engine, street, urb=urb, municipio=municipio, zip_code=zip)
+
+
 @router.get("/parcel/{num_catastro}", response_model=schemas.ParcelDetail)
 def parcel(num_catastro: str, engine: Engine = Depends(engine_dep)) -> dict:
     """Full enriched record for one parcel (raw CRIM + power/flood/community/road/site joins)."""

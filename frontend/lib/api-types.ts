@@ -1527,6 +1527,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/crim/parcels/search/address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search By Address
+         * @description Address-first parcel discovery (F9d D1): geocode -> nearest parcel(s)
+         *     within a capped radius. Discovery, not resolution — see query.search_by_address.
+         */
+        get: operations["search_by_address_crim_parcels_search_address_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/crim/parcel/{num_catastro}": {
         parameters: {
             query?: never;
@@ -1768,6 +1789,38 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddressSearchCandidate */
+        AddressSearchCandidate: {
+            /** Num Catastro */
+            num_catastro: string;
+            /** Municipio */
+            municipio?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Totalval */
+            totalval?: number | null;
+            /** Tipo */
+            tipo?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Distance M */
+            distance_m: number;
+        };
+        /** AddressSearchResult */
+        AddressSearchResult: {
+            /** Status */
+            status: string;
+            /** Standardized Address */
+            standardized_address?: string | null;
+            /** Candidates */
+            candidates?: components["schemas"]["AddressSearchCandidate"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
         /** AskMapPoint */
         AskMapPoint: {
             /** Entity Id */
@@ -6412,6 +6465,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParcelSearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_by_address_crim_parcels_search_address_get: {
+        parameters: {
+            query: {
+                /** @description House number + street name */
+                street: string;
+                /** @description Urbanización, if known */
+                urb?: string | null;
+                /** @description Municipio */
+                municipio?: string | null;
+                /** @description ZIP code */
+                zip?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddressSearchResult"];
                 };
             };
             /** @description Validation Error */

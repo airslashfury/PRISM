@@ -1051,6 +1051,25 @@ class ParcelSearchResult(BaseModel):
     confidence_tier: str
 
 
+class AddressSearchCandidate(BaseModel):
+    num_catastro: str
+    municipio: str | None = None
+    owner: str | None = None
+    address: str | None = None
+    totalval: float | None = None
+    tipo: str | None = None
+    lon: float | None = None
+    lat: float | None = None
+    distance_m: float
+
+
+class AddressSearchResult(BaseModel):
+    status: str    # 'match' | 'no_candidates' | 'no_confident_match'
+    standardized_address: str | None = None
+    candidates: list[AddressSearchCandidate] = Field(default_factory=list)
+    confidence_tier: str
+
+
 class ParcelCrimRecord(BaseModel):
     owner: str | None = None
     physical_address: str | None = None
