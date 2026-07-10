@@ -94,6 +94,59 @@ def normalize_address(direccion_fisica: str | None, municipio: str | None) -> st
     return addr
 
 
+# ── Human-readable address composer (F9b chunk B2) ──────────────────────────
+
+# CRIM's `direccion_fisica` is a comma-joined template that always carries the
+# same placeholder junk when a field is unset: "." for a blank line, "PR" /
+# "Puerto Rico" for the (redundant) state, "00000" for an unset zip. Observed
+# across a random 30-row sample of the live fabric — see tests for the exact
+# strings. A *real* 5-digit zip (e.g. "00771") is never junk and is kept.
+_ADDR_JUNK_TOKENS = frozenset({"", ".", "PR", "PUERTO RICO"})
+_FAKE_ZIP = "00000"
+_ZIP_RE = re.compile(r"^\d{5}$")
+
+
+def display_address(direccion_fisica: str | None, municipio: str | None) -> str | None:
+    """Human-readable address: junk stripped, municipio injected, title-cased.
+
+    Splits the comma-joined CRIM template, drops placeholder segments
+    (``.``, ``PR``, ``Puerto Rico``, the fake ``00000`` zip), and — unless the
+    municipio is already one of the segments — inserts it before a trailing
+    real zip (or at the end, if there is none). Returns ``None`` when both
+    inputs are blank.
+    """
+    muni = _WS.sub(" ", (municipio or "").strip())
+    segments = [
+        _WS.sub(" ", seg.strip())
+        for seg in (direccion_fisica or "").split(",")
+    ]
+    kept = [
+        seg for seg in segments
+        if seg and seg.upper() not in _ADDR_JUNK_TOKENS and seg.upper() != _FAKE_ZIP
+    ]
+
+    zip_code = None
+    if kept and _ZIP_RE.match(kept[-1]):
+        zip_code = kept.pop()
+
+    if muni and not any(_fold_accents(seg).upper() == _fold_accents(muni).upper() for seg in kept):
+        kept.append(muni)
+    if zip_code:
+        kept.append(zip_code)
+
+    if not kept:
+        return None
+    return ", ".join(_title_case(seg) if seg != zip_code else seg for seg in kept)
+
+
+def _title_case(segment: str) -> str:
+    """Title-case a display segment; already-lowercase-cased text (e.g. a
+    municipio pulled straight from `municipios`) passes through unchanged."""
+    if segment.islower() or segment != segment.upper():
+        return segment
+    return segment.title()
+
+
 # ── Build the derived tables ────────────────────────────────────────────────
 
 _DDL = [
@@ -152,6 +205,27 @@ def _source_table(engine: Engine) -> str:
         if conn.execute(text("SELECT to_regclass('crim.parcelas_dedup')")).scalar() is not None:
             return "crim.parcelas_dedup"
     return "crim.parcelas"
+
+
+def backfill_municipio(engine: Engine) -> int:
+    """Spatial municipio backfill for `crim.parcelas` rows missing it (F9b B2).
+
+    CRIM's own `municipio` column is NULL on ~77K of 1.53M parcels even though
+    the parcel geometry sits inside one of the 78 `public.municipios` polygons.
+    One-shot, idempotent (`WHERE municipio IS NULL` — reruns are a no-op once
+    caught up), point-in-polygon on each parcel's point-on-surface.
+    """
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            UPDATE crim.parcelas p
+            SET municipio = m."NAME"
+            FROM public.municipios m
+            WHERE p.municipio IS NULL
+              AND ST_Contains(m.geom, ST_PointOnSurface(p.geom))
+        """))
+        n = result.rowcount
+    log.info("Municipio spatial backfill: %d parcels updated", n)
+    return n
 
 
 def build(engine: Engine, *, batch: int = 10_000) -> dict:

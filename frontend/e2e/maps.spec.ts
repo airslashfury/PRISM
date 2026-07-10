@@ -18,7 +18,7 @@ const MAP_ROUTES: { path: string; overlay: (p: Page) => Locator }[] = [
   { path: "/sitefinder", overlay: (p) => p.getByText("Weight the criteria").first() },
   { path: "/trends", overlay: (p) => p.getByText(/property market/i).first() },
   { path: "/corridor", overlay: (p) => p.getByText(/societal-value objective/i).first() },
-  { path: "/economy", overlay: (p) => p.getByText("Social vulnerability").first() },
+  { path: "/economy", overlay: (p) => p.getByText("Mean social vulnerability").first() },
   { path: "/playground", overlay: (p) => p.getByPlaceholder(/scenario/i).first() },
   { path: "/water", overlay: (p) => p.getByText("Water-source risk").first() },
   { path: "/telecom", overlay: (p) => p.getByText("Telecom risk").first() },
@@ -89,6 +89,49 @@ test("/ overview leads with the what-changed cockpit", async ({ page }) => {
   expect(errors, `uncaught page errors on /: ${errors.join("; ")}`).toEqual([]);
 });
 
+// ── F9b chunk B1: municipio-first economy ────────────────────────────────────
+
+test("/economy municipio panel opens from the largest-municipios list", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/economy", { waitUntil: "domcontentloaded" });
+
+  // Deselected aside: island totals + the top-5-by-population list.
+  await expect(page.getByText("Island totals")).toBeVisible();
+  const first = page.getByTestId("muni-top-item").first();
+  await expect(first).toBeVisible();
+  await first.click();
+
+  // The aside becomes the municipio panel and shows a population stat.
+  const panel = page.getByTestId("muni-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText(/residents/)).toBeVisible();
+  // Selection is a permalink (m= param).
+  await expect(page).toHaveURL(/m=/);
+
+  expect(errors, `uncaught page errors on /economy: ${errors.join("; ")}`).toEqual([]);
+});
+
+// ── F9b chunk B2: parcel 360 (water / telecom / market + display address) ────
+
+test("/parcels detail drawer shows water, telecom, and market sections", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  // A high-value San Juan catastro with rich cross-domain data (see B2 gate check).
+  await page.goto("/parcels?q=062-000-005-57", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /062-000-005-57/ }).first().click();
+
+  await expect(page.getByText("Serving sources")).toBeVisible();
+  await expect(page.getByText("Covering towers/sites")).toBeVisible();
+  await expect(page.getByText(/sales \(12mo\)/)).toBeVisible();
+  // Positive shared-infrastructure framing, not the failure-framed headline.
+  await expect(page.getByText(/the same feed serves/)).toBeVisible();
+
+  expect(errors, `uncaught page errors on /parcels: ${errors.join("; ")}`).toEqual([]);
+});
+
 test("/parcels owner search resolves an entity and opens the drawer", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -106,6 +149,34 @@ test("/parcels owner search resolves an entity and opens the drawer", async ({ p
   await expect(page.getByText("Normalized owner entity")).toBeVisible();
   await expect(page.getByText("Parcels owned")).toBeVisible();
   expect(errors, `uncaught page errors on /parcels: ${errors.join("; ")}`).toEqual([]);
+});
+
+// ── F9d D1: address-first parcel discovery ────────────────────────────────────
+
+test("/parcels address search finds the right candidate for a known San Juan address", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/parcels", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Search by address" }).click();
+  await page.getByPlaceholder(/House number \+ street/).fill("101 Calle Fortaleza");
+  await page.getByPlaceholder("Municipio").fill("San Juan");
+  await page.getByRole("button", { name: "Find parcel" }).click();
+
+  await expect(page.getByText(/We read that as:/)).toBeVisible();
+  await expect(page.getByText(/candidate parcels near that address/)).toBeVisible();
+
+  expect(errors, `uncaught page errors on /parcels address search: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("/parcels address search gives an honest no-confident-match fallback for a rural address", async ({ page }) => {
+  await page.goto("/parcels", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Search by address" }).click();
+  await page.getByPlaceholder(/House number \+ street/).fill("Bo Bejucos");
+  await page.getByPlaceholder("Municipio").fill("Utuado");
+  await page.getByRole("button", { name: "Find parcel" }).click();
+
+  await expect(page.getByText("No confident match for that address")).toBeVisible();
 });
 
 // ── F8 excellence pass, chunk F: palette / hero / presentation / motion / OG ──

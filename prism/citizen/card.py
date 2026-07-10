@@ -67,6 +67,21 @@ def _consequence(engine: Engine, substation_id: int) -> dict[str, Any] | None:
         """), {"sid": substation_id}).mappings().fetchone()
     if row is None:
         return None
+
+    # Quake scenario context (F9a chunk A3): "other situations" alongside the
+    # Cat-3 hurricane line. Score-based only (rank among scored substations) —
+    # deliberately no population claim, since downstream_summary is scenario-
+    # agnostic and a quake-specific population figure would be fabricated.
+    # Not every substation has a quake row (332/354) — None means "not scored".
+    with engine.connect() as conn:
+        quake = conn.execute(text("""
+            SELECT rank, composite_score,
+                   (SELECT max(rank) FROM resilience.scenario_scores
+                    WHERE scenario_name = 'quake') AS total
+            FROM resilience.scenario_scores
+            WHERE entity_id = :sid AND scenario_name = 'quake'
+        """), {"sid": substation_id}).mappings().fetchone()
+
     return {
         "headline": row["headline"],
         "population_affected": row["population_affected"],
@@ -74,6 +89,10 @@ def _consequence(engine: Engine, substation_id: int) -> dict[str, Any] | None:
         "water_plants": row["water_plants"],
         "health_centers": row["health_centers"],
         "confidence_tier": _tier("graph.downstream_summary"),
+        "quake_rank": quake["rank"] if quake else None,
+        "quake_total": quake["total"] if quake else None,
+        "quake_composite_score": float(quake["composite_score"]) if quake else None,
+        "quake_confidence_tier": _tier("resilience.scenario_scores"),
     }
 
 
@@ -172,6 +191,50 @@ def _planned_nearby(engine: Engine, entity_ids: list[int]) -> list[dict[str, Any
     ]
 
 
+def _today(engine: Engine) -> dict[str, Any] | None:
+    """Island-wide 'right now' snapshot — same for every barrio, but gives the
+    Power section a live, day-to-day data point alongside the hypothetical
+    hurricane/quake scenarios (F9a chunk A3). Reuses the same live feeds as
+    `/network/generation` and `/network/outages` — nothing computed fresh.
+
+    LUMA's outage feed is per operational region (7 regions), and PRISM has no
+    region→municipio crosswalk built yet (the module docstring in
+    `prism.sync.luma_ops` names one as future work) — so this reports the
+    honest island-wide percentage rather than fabricating a local number.
+    """
+    with engine.connect() as conn:
+        grid = conn.execute(text("""
+            SELECT generation_mw, fetched_at FROM sync.grid_snapshot WHERE id = 1
+        """)).mappings().fetchone()
+        plants = conn.execute(text("""
+            SELECT count(*) FILTER (WHERE status = 'offline') AS offline, count(*) AS total
+            FROM sync.generation_status
+        """)).mappings().fetchone()
+        outages = conn.execute(text("""
+            SELECT sum(total_clients) AS total_clients,
+                   sum(clients_without_service) AS without_service,
+                   max(fetched_at) AS fetched_at
+            FROM sync.luma_outages
+        """)).mappings().fetchone()
+
+    result: dict[str, Any] = {}
+
+    if grid is not None and grid["generation_mw"] is not None:
+        result["generation_mw"] = round(float(grid["generation_mw"]), 0)
+        result["plants_offline"] = int(plants["offline"]) if plants and plants["total"] else None
+        result["plants_total"] = int(plants["total"]) if plants and plants["total"] else None
+        result["generation_as_of"] = grid["fetched_at"]
+        result["generation_confidence_tier"] = _tier("sync.grid_snapshot")
+
+    if outages is not None and outages["total_clients"]:
+        pct = 100.0 * float(outages["without_service"]) / float(outages["total_clients"])
+        result["outage_pct_island"] = round(pct, 2)
+        result["outage_as_of"] = outages["fetched_at"]
+        result["outage_confidence_tier"] = _tier("sync.luma_outages")
+
+    return result or None
+
+
 def get_civic_card(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
     """Aggregate every existing model output relevant to one barrio."""
     with engine.connect() as conn:
@@ -199,4 +262,5 @@ def get_civic_card(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
         "road_access": _road_access(engine, barrio_id),
         "flood_exposure": _flood_exposure(engine, barrio_id),
         "planned_nearby": _planned_nearby(engine, planned_ids),
+        "today": _today(engine),
     }

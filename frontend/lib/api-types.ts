@@ -101,6 +101,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/resilience/substations/slim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Substations Slim
+         * @description Every substation's id/name/lon/lat, unscored — a lightweight payload for
+         *     client-side snapping (Playground draw-to-nearest-substation, F9c C2), not
+         *     the full scored rows /scores returns.
+         */
+        get: operations["substations_slim_resilience_substations_slim_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/resilience/current": {
         parameters: {
             query?: never;
@@ -224,6 +246,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/economy/municipios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Municipios
+         * @description Municipio-first choropleth: all 78 municipios, each feature carrying the
+         *     full rollup row (population/SVI, grid exposure, property market) as its
+         *     properties. Geometry is simplified in metres, then reprojected to WGS84.
+         */
+        get: operations["municipios_economy_municipios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/economy/municipio/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Municipio
+         * @description One municipio's rollup row plus its tract list, top substations by VOLL
+         *     exposure, water/telecom counts, and sales-by-year series. The name is the
+         *     proper-case accented municipio name (percent-encoding is decoded upstream).
+         */
+        get: operations["municipio_economy_municipio__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/economy/tracts": {
         parameters: {
             query?: never;
@@ -276,6 +342,28 @@ export interface paths {
          * @description Substation VOLL exposure with centroid lon/lat for a bubble layer.
          */
         get: operations["exposure_economy_exposure_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/corridor/cost-references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cost References
+         * @description As-built rail cost comparables (Tren Urbano, FTA Capital Cost Database,
+         *     comparable US light-rail projects) backing the per-km figures below —
+         *     the "Cost basis" popover's citation source (F9c C3).
+         */
+        get: operations["cost_references_corridor_cost_references_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1096,6 +1184,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/provenance/assumption-rationale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assumption Rationale
+         * @description Why each load-bearing assumption was chosen, its source, and what would
+         *     change it (F9c C3) — the Trust Center's "Assumptions & choices" section.
+         */
+        get: operations["assumption_rationale_provenance_assumption_rationale_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/provenance/inventory": {
         parameters: {
             query?: never;
@@ -1418,6 +1527,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/crim/parcels/search/address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search By Address
+         * @description Address-first parcel discovery (F9d D1): geocode -> nearest parcel(s)
+         *     within a capped radius. Discovery, not resolution — see query.search_by_address.
+         */
+        get: operations["search_by_address_crim_parcels_search_address_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/crim/parcel/{num_catastro}": {
         parameters: {
             query?: never;
@@ -1494,6 +1624,49 @@ export interface paths {
          *     ≥2 monthly snapshots.
          */
         get: operations["sales_trends_crim_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/trends/municipio/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales Trends Municipio
+         * @description One municipio's market drill-down (F9b chunk B3, cached 1h): momentum,
+         *     a year-by-year sales/median series, and its top barrios by recent sale
+         *     count — the panel behind clicking a hot spot on `/trends`.
+         */
+        get: operations["sales_trends_municipio_crim_trends_municipio__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/crim/trends/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales Trends Matrix
+         * @description Sales + median price for every (year, municipio) pair since `since`
+         *     (cached 1h) — backs the `/trends` heatmap toggle and year scrubber.
+         */
+        get: operations["sales_trends_matrix_crim_trends_matrix_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1616,6 +1789,38 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddressSearchCandidate */
+        AddressSearchCandidate: {
+            /** Num Catastro */
+            num_catastro: string;
+            /** Municipio */
+            municipio?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Totalval */
+            totalval?: number | null;
+            /** Tipo */
+            tipo?: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Distance M */
+            distance_m: number;
+        };
+        /** AddressSearchResult */
+        AddressSearchResult: {
+            /** Status */
+            status: string;
+            /** Standardized Address */
+            standardized_address?: string | null;
+            /** Candidates */
+            candidates?: components["schemas"]["AddressSearchCandidate"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
         /** AskMapPoint */
         AskMapPoint: {
             /** Entity Id */
@@ -1701,6 +1906,21 @@ export interface components {
             /** Upgrade Path */
             upgrade_path?: string | null;
         };
+        /** AssumptionRationale */
+        AssumptionRationale: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Why Chosen */
+            why_chosen: string;
+            /** Source */
+            source: string;
+            /** What Would Change It */
+            what_would_change_it: string;
+        };
         /** BacktestResult */
         BacktestResult: {
             /** Event Key */
@@ -1767,6 +1987,7 @@ export interface components {
             flood_exposure: components["schemas"]["CivicFloodExposure"];
             /** Planned Nearby */
             planned_nearby?: components["schemas"]["CivicPlannedItem"][];
+            today?: components["schemas"]["CivicToday"] | null;
         };
         /** CivicCommunityResilience */
         CivicCommunityResilience: {
@@ -1791,6 +2012,14 @@ export interface components {
             health_centers: number;
             /** Confidence Tier */
             confidence_tier: string;
+            /** Quake Rank */
+            quake_rank?: number | null;
+            /** Quake Total */
+            quake_total?: number | null;
+            /** Quake Composite Score */
+            quake_composite_score?: number | null;
+            /** Quake Confidence Tier */
+            quake_confidence_tier?: string | null;
         };
         /** CivicFloodExposure */
         CivicFloodExposure: {
@@ -1822,6 +2051,32 @@ export interface components {
             travel_time_min: number;
             /** Confidence Tier */
             confidence_tier: string;
+        };
+        /**
+         * CivicToday
+         * @description Island-wide 'right now' snapshot (F9a chunk A3) — same for every civic
+         *     card, a live day-to-day data point alongside the hypothetical hazard
+         *     scenarios. Reuses sync.grid_snapshot / sync.generation_status /
+         *     sync.luma_outages, the same tables /network/generation and
+         *     /network/outages already read.
+         */
+        CivicToday: {
+            /** Generation Mw */
+            generation_mw?: number | null;
+            /** Plants Offline */
+            plants_offline?: number | null;
+            /** Plants Total */
+            plants_total?: number | null;
+            /** Generation As Of */
+            generation_as_of?: string | null;
+            /** Generation Confidence Tier */
+            generation_confidence_tier?: string | null;
+            /** Outage Pct Island */
+            outage_pct_island?: number | null;
+            /** Outage As Of */
+            outage_as_of?: string | null;
+            /** Outage Confidence Tier */
+            outage_confidence_tier?: string | null;
         };
         /** CommitResult */
         CommitResult: {
@@ -1956,6 +2211,19 @@ export interface components {
             cost_per_km: number | null;
             /** Km */
             km: number | null;
+        };
+        /** CostReference */
+        CostReference: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Relevance */
+            relevance: string;
+            /** Sources */
+            sources?: string[];
         };
         /** CrimBaseline */
         CrimBaseline: {
@@ -2330,6 +2598,80 @@ export interface components {
             /** Results */
             results?: components["schemas"]["SensitivityResult"][];
         };
+        /**
+         * MunicipioDetail
+         * @description Rollup row plus the drill-down lists behind it. `substations` stays the
+         *     count (as in the rollup); the ranked list is `top_substations`.
+         */
+        MunicipioDetail: {
+            /** Name */
+            name: string;
+            /** Geoid */
+            geoid: string;
+            /** Population */
+            population: number;
+            /** Tract Count */
+            tract_count: number;
+            /** Svi Mean */
+            svi_mean?: number | null;
+            /** High Svi Tracts */
+            high_svi_tracts: number;
+            /** Substations */
+            substations: number;
+            /** Voll Exposure Usd */
+            voll_exposure_usd?: number | null;
+            /** Parcel Count */
+            parcel_count: number;
+            /** Assessed Value Usd */
+            assessed_value_usd?: number | null;
+            /** Sales 12Mo */
+            sales_12mo: number;
+            /** Median Price 12Mo */
+            median_price_12mo?: number | null;
+            /** Tracts */
+            tracts?: components["schemas"]["MunicipioTract"][];
+            /** Top Substations */
+            top_substations?: components["schemas"]["MunicipioSubstation"][];
+            /** Water Sources */
+            water_sources: number;
+            /** Telecom Sites */
+            telecom_sites: number;
+            /** Sales By Year */
+            sales_by_year?: components["schemas"]["MunicipioSalesYear"][];
+            /** Confidence Tiers */
+            confidence_tiers?: {
+                [key: string]: string;
+            };
+        };
+        /** MunicipioSalesYear */
+        MunicipioSalesYear: {
+            /** Year */
+            year: number;
+            /** Sales */
+            sales: number;
+            /** Median Price */
+            median_price?: number | null;
+        };
+        /** MunicipioSubstation */
+        MunicipioSubstation: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            /** Population Affected */
+            population_affected?: number | null;
+            /** Voll Exposure Usd */
+            voll_exposure_usd?: number | null;
+        };
+        /** MunicipioTract */
+        MunicipioTract: {
+            /** Tract Geoid */
+            tract_geoid: string;
+            /** Population */
+            population?: number | null;
+            /** Svi Score */
+            svi_score?: number | null;
+        };
         /** MunicipioTrend */
         MunicipioTrend: {
             /** Municipio */
@@ -2626,6 +2968,9 @@ export interface components {
             catastro?: string | null;
             /** Municipio */
             municipio?: string | null;
+            /** Display Address */
+            display_address?: string | null;
+            proposed_address?: components["schemas"]["ParcelProposedAddress"] | null;
             /** Barrio Entity Id */
             barrio_entity_id?: number | null;
             /** Barrio Name */
@@ -2642,6 +2987,9 @@ export interface components {
             community?: components["schemas"]["ParcelCommunity"] | null;
             road_access?: components["schemas"]["ParcelRoadAccess"] | null;
             site_finder?: components["schemas"]["ParcelSiteFinder"] | null;
+            water?: components["schemas"]["ParcelWater"] | null;
+            telecom?: components["schemas"]["ParcelTelecom"] | null;
+            market?: components["schemas"]["ParcelMarket"] | null;
         };
         /** ParcelFlood */
         ParcelFlood: {
@@ -2651,6 +2999,17 @@ export interface components {
             level: string;
             /** Worst Zone */
             worst_zone?: string | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelMarket */
+        ParcelMarket: {
+            /** Municipio */
+            municipio: string;
+            /** Sales 12Mo */
+            sales_12mo: number;
+            /** Median Price 12Mo */
+            median_price_12mo?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
         };
@@ -2664,8 +3023,12 @@ export interface components {
             edge_confidence: number;
             /** Cat3 Composite */
             cat3_composite?: number | null;
+            /** Cat3 Percentile */
+            cat3_percentile?: number | null;
             /** Headline */
             headline?: string | null;
+            /** Served Headline */
+            served_headline?: string | null;
             /** Population Affected */
             population_affected?: number | null;
             /** Hospitals */
@@ -2674,6 +3037,25 @@ export interface components {
             water_plants?: number | null;
             /** Health Centers */
             health_centers?: number | null;
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelProposedAddress */
+        ParcelProposedAddress: {
+            /** Tier */
+            tier: string;
+            /** Proposed Address */
+            proposed_address: string;
+            /** Method */
+            method: string;
+            /** Nearest Road Name */
+            nearest_road_name?: string | null;
+            /** Nearest Road M */
+            nearest_road_m?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
         };
@@ -2749,6 +3131,50 @@ export interface components {
             composite_score?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
+        };
+        /** ParcelTelecom */
+        ParcelTelecom: {
+            /** Count */
+            count: number;
+            /** Top */
+            top?: components["schemas"]["ParcelTelecomSite"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelTelecomSite */
+        ParcelTelecomSite: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            /** Kind */
+            kind: string;
+            /** Rank */
+            rank?: number | null;
+            /** Composite Score */
+            composite_score?: number | null;
+        };
+        /** ParcelWater */
+        ParcelWater: {
+            /** Count */
+            count: number;
+            /** Sources */
+            sources?: components["schemas"]["ParcelWaterSource"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
+        /** ParcelWaterSource */
+        ParcelWaterSource: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name?: string | null;
+            /** Kind */
+            kind: string;
+            /** Rank */
+            rank?: number | null;
+            /** Composite Score */
+            composite_score?: number | null;
         };
         /** PhaseStatus */
         PhaseStatus: {
@@ -2894,6 +3320,12 @@ export interface components {
             cumulative_cost_usd: number | null;
             /** Cumulative Uplift */
             cumulative_uplift: number | null;
+            /** Population Affected */
+            population_affected: number | null;
+            /** Hospitals */
+            hospitals: number | null;
+            /** Headline */
+            headline: string | null;
         };
         /** PortfolioRun */
         PortfolioRun: {
@@ -3224,6 +3656,8 @@ export interface components {
             label: string;
             /** Description */
             description: string;
+            /** Unit */
+            unit: string;
             /** Tier */
             tier: string;
             /** Default Weight */
@@ -3527,6 +3961,17 @@ export interface components {
             /** Lat */
             lat: number;
         };
+        /** SubstationSlim */
+        SubstationSlim: {
+            /** Entity Id */
+            entity_id: number;
+            /** Name */
+            name: string | null;
+            /** Lon */
+            lon: number;
+            /** Lat */
+            lat: number;
+        };
         /** SyncLogEntry */
         SyncLogEntry: {
             /** Run Id */
@@ -3590,6 +4035,11 @@ export interface components {
             headline: string;
             /** Barrios */
             barrios: components["schemas"]["TelecomBarrio"][];
+            /**
+             * Top Names
+             * @default []
+             */
+            top_names: string[];
         };
         /** TelecomSource */
         TelecomSource: {
@@ -3678,6 +4128,43 @@ export interface components {
             /** Confidence Tier */
             confidence_tier: string;
         };
+        /** TrendsBarrio */
+        TrendsBarrio: {
+            /** Barrio Name */
+            barrio_name: string;
+            /** Sales */
+            sales: number;
+        };
+        /** TrendsMatrixResponse */
+        TrendsMatrixResponse: {
+            /** Since */
+            since: number;
+            /** Rows */
+            rows?: components["schemas"]["TrendsYearMunicipio"][];
+        };
+        /**
+         * TrendsMunicipioDetail
+         * @description /trends drill-down panel (F9b chunk B3) — one municipio's momentum,
+         *     year series, and top barrios by recent sale count.
+         */
+        TrendsMunicipioDetail: {
+            /** Municipio */
+            municipio: string;
+            /** Sales */
+            sales: number;
+            /** Prior Sales */
+            prior_sales: number;
+            /** Median Price */
+            median_price?: number | null;
+            /** Volume */
+            volume?: number | null;
+            /** By Year */
+            by_year?: components["schemas"]["YearTrend"][];
+            /** Top Barrios */
+            top_barrios?: components["schemas"]["TrendsBarrio"][];
+            /** Confidence Tier */
+            confidence_tier: string;
+        };
         /** TrendsResponse */
         TrendsResponse: {
             summary: components["schemas"]["TrendsSummary"];
@@ -3711,6 +4198,17 @@ export interface components {
             latest_delta_month?: string | null;
             /** Confidence Tier */
             confidence_tier: string;
+        };
+        /** TrendsYearMunicipio */
+        TrendsYearMunicipio: {
+            /** Year */
+            year: number;
+            /** Municipio */
+            municipio: string;
+            /** Sales */
+            sales: number;
+            /** Median Price */
+            median_price?: number | null;
         };
         /** TypeAllocation */
         TypeAllocation: {
@@ -3759,6 +4257,11 @@ export interface components {
             headline: string;
             /** Barrios */
             barrios: components["schemas"]["WaterBarrio"][];
+            /**
+             * Top Names
+             * @default []
+             */
+            top_names: string[];
         };
         /** WaterGauge */
         WaterGauge: {
@@ -4017,6 +4520,26 @@ export interface operations {
             };
         };
     };
+    substations_slim_resilience_substations_slim_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubstationSlim"][];
+                };
+            };
+        };
+    };
     current_state_resilience_current_get: {
         parameters: {
             query?: never;
@@ -4186,6 +4709,57 @@ export interface operations {
             };
         };
     };
+    municipios_economy_municipios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureCollection"];
+                };
+            };
+        };
+    };
+    municipio_economy_municipio__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MunicipioDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     tracts_economy_tracts_get: {
         parameters: {
             query?: never;
@@ -4253,6 +4827,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cost_references_corridor_cost_references_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostReference"][];
                 };
             };
         };
@@ -5470,6 +6064,26 @@ export interface operations {
             };
         };
     };
+    assumption_rationale_provenance_assumption_rationale_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssumptionRationale"][];
+                };
+            };
+        };
+    };
     inventory_provenance_inventory_get: {
         parameters: {
             query?: never;
@@ -5884,6 +6498,44 @@ export interface operations {
             };
         };
     };
+    search_by_address_crim_parcels_search_address_get: {
+        parameters: {
+            query: {
+                /** @description House number + street name */
+                street: string;
+                /** @description Urbanización, if known */
+                urb?: string | null;
+                /** @description Municipio */
+                municipio?: string | null;
+                /** @description ZIP code */
+                zip?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddressSearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     parcel_crim_parcel__num_catastro__get: {
         parameters: {
             query?: never;
@@ -6002,6 +6654,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrendsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sales_trends_municipio_crim_trends_municipio__name__get: {
+        parameters: {
+            query?: {
+                /** @description Trailing window for momentum + top barrios */
+                months?: number;
+                /** @description First year of the year series */
+                since?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendsMunicipioDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sales_trends_matrix_crim_trends_matrix_get: {
+        parameters: {
+            query?: {
+                since?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendsMatrixResponse"];
                 };
             };
             /** @description Validation Error */

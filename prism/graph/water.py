@@ -246,6 +246,9 @@ def water_downstream_of(engine: Engine, substation_entity_id: int) -> dict:
     wells = sum(1 for w in water_nodes if w["kind"] == "water_well")
     plants = sum(1 for w in water_nodes if w["kind"] == "water_plant")
     barrio_list = [{"entity_id": b["entity_id"], "name": b["name"]} for b in barrios]
+    # De-dupe (order-preserving): sources can share a name; a top-5 repeating one
+    # name is noise, not signal.
+    top_names = list(dict.fromkeys(w["name"] for w in water_nodes if w["name"]))[:5]
     return {
         "entity_id": substation_entity_id,
         "pump_stations": pumps,
@@ -253,5 +256,6 @@ def water_downstream_of(engine: Engine, substation_entity_id: int) -> dict:
         "water_plants": plants,
         "barrios_affected": len(barrio_list),
         "barrios": barrio_list,
+        "top_names": top_names,
         "headline": build_water_headline(len(barrio_list), pumps, wells),
     }

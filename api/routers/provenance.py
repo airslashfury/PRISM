@@ -27,6 +27,13 @@ def assumptions() -> list[dict]:
     return provenance.list_assumptions()
 
 
+@router.get("/assumption-rationale", response_model=list[schemas.AssumptionRationale])
+def assumption_rationale() -> list[dict]:
+    """Why each load-bearing assumption was chosen, its source, and what would
+    change it (F9c C3) — the Trust Center's "Assumptions & choices" section."""
+    return provenance.list_assumption_rationale()
+
+
 @router.get("/inventory", response_model=list[schemas.InventoryEntry])
 def inventory() -> list[dict]:
     """Every catalog entry (mirrored source layers + derived tables), tiered. Powers the Trust Center."""

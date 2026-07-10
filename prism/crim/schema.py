@@ -1,8 +1,12 @@
 """DDL for the crim schema — CRIM Catastro Digital parcel fabric."""
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+log = logging.getLogger(__name__)
 
 _DDL = [
     "CREATE SCHEMA IF NOT EXISTS crim",
@@ -55,16 +59,87 @@ _DDL = [
     "CREATE EXTENSION IF NOT EXISTS pg_trgm",
     "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_contact_trgm   ON crim.parcelas USING gin (contact gin_trgm_ops)",
     "CREATE INDEX IF NOT EXISTS idx_crim_parcelas_dirfisica_trgm ON crim.parcelas USING gin (direccion_fisica gin_trgm_ops)",
+
+    # Local mirror of Census PR forward-geocoder responses (F9d D1) — call-time
+    # cache, keyed on the normalized query, so repeat/duplicate address searches
+    # never re-hit the external host. Data-sovereignty rule: mirror before relying.
+    """
+    CREATE TABLE IF NOT EXISTS crim.geocode_cache (
+        cache_key       TEXT PRIMARY KEY,
+        query_street    TEXT,
+        query_urb       TEXT,
+        query_municipio TEXT,
+        query_zip       TEXT,
+        match_tier      TEXT NOT NULL,   -- 'match' | 'tie' | 'no_match'
+        matched_address TEXT,
+        lon             DOUBLE PRECISION,
+        lat             DOUBLE PRECISION,
+        raw_response    JSONB,
+        queried_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+
+    # Per-parcel best-effort address (F9d D2) — lazy, populated on-demand off
+    # the parcel-detail path. Two tiers, each self-describing (`method` +
+    # `confidence_tier`) so the API/UI never has to guess how a row was made:
+    #   census_matched      — display_address() forward-geocoded to a single
+    #                         confident Census match; proposed_address is the
+    #                         standardized address Census returned.
+    #   composed_approximate — no confident match; proposed_address is composed
+    #                         locally from geometry PRISM already has (nearest
+    #                         state road + barrio + municipio), flagged approximate.
+    """
+    CREATE TABLE IF NOT EXISTS crim.parcel_proposed_address (
+        num_catastro      TEXT PRIMARY KEY,
+        tier              TEXT NOT NULL,   -- 'census_matched' | 'composed_approximate'
+        proposed_address  TEXT NOT NULL,
+        method            TEXT NOT NULL,
+        nearest_road_name TEXT,            -- Tier B only, e.g. 'PR-2'; null if none within radius
+        nearest_road_m    DOUBLE PRECISION,
+        lon               DOUBLE PRECISION,
+        lat               DOUBLE PRECISION,
+        computed_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
 ]
 
-# Note: two derived tables also live in the `crim` schema but are built outside
-# this module (ad-hoc, during the CRIM/Site Finder work) and are queried
-# defensively (guarded by to_regclass) where used:
-#   crim.parcelas_dedup   — one row per num_catastro (no geom)
-#   crim.parcelas_history — recorded sales per parcel (sale_rank), feeds the
-#                           parcel-detail sale history + the future trends work.
-# Formalize these as first-class, reproducible tables when item 6 (monthly
-# snapshots + trends) lands.
+# Two derived materialized views, reproducible from `crim.parcelas`:
+#   crim.parcelas_dedup   — one row per num_catastro (no geom), most recent record
+#   crim.parcelas_history — recorded sales per parcel (sale_rank <= 5), feeds the
+#                           parcel-detail sale history + /trends.
+# Both are STALE after any reload of crim.parcelas until refresh_views() runs —
+# the monthly snapshot/delta cycle (prism/crim/snapshots.py run_monthly()) calls
+# it before taking a snapshot so deltas never silently diff against old data.
+_MATVIEW_DDL = [
+    """
+    CREATE MATERIALIZED VIEW IF NOT EXISTS crim.parcelas_dedup AS
+    SELECT DISTINCT ON (num_catastro)
+        num_catastro, land, structure, totalval, salesamt, salesdttm,
+        contact, cabida, municipio, tipo, direccion_fisica
+    FROM crim.parcelas
+    WHERE num_catastro IS NOT NULL
+    ORDER BY num_catastro, objectid DESC
+    """,
+    "CREATE INDEX IF NOT EXISTS parcelas_dedup_num_catastro_idx ON crim.parcelas_dedup (num_catastro)",
+    "CREATE INDEX IF NOT EXISTS parcelas_dedup_municipio_idx    ON crim.parcelas_dedup (municipio)",
+
+    """
+    CREATE MATERIALIZED VIEW IF NOT EXISTS crim.parcelas_history AS
+    SELECT num_catastro, objectid, contact, land, structure, totalval, salesamt,
+           salesdttm, sellername, byername, deedbook, deedpage, deednum, cabida,
+           municipio, tipo, sale_rank
+    FROM (
+        SELECT parcelas.*,
+               row_number() OVER (PARTITION BY num_catastro ORDER BY objectid DESC) AS sale_rank
+        FROM crim.parcelas
+        WHERE num_catastro IS NOT NULL
+    ) ranked
+    WHERE sale_rank <= 5
+    """,
+    "CREATE INDEX IF NOT EXISTS parcelas_history_num_catastro_idx           ON crim.parcelas_history (num_catastro)",
+    "CREATE INDEX IF NOT EXISTS parcelas_history_num_catastro_sale_rank_idx ON crim.parcelas_history (num_catastro, sale_rank)",
+    "CREATE INDEX IF NOT EXISTS parcelas_history_salesdttm_idx              ON crim.parcelas_history (salesdttm) WHERE salesdttm IS NOT NULL",
+]
 
 _DROP_DDL = [
     "DROP TABLE IF EXISTS crim.parcelas CASCADE",
@@ -76,9 +151,23 @@ def create_schema(engine: Engine) -> None:
     with engine.begin() as conn:
         for stmt in _DDL:
             conn.execute(text(stmt))
+        for stmt in _MATVIEW_DDL:
+            conn.execute(text(stmt))
 
 
 def drop_schema(engine: Engine) -> None:
     with engine.begin() as conn:
         for stmt in _DROP_DDL:
             conn.execute(text(stmt))
+
+
+def refresh_views(engine: Engine) -> None:
+    """Refresh crim.parcelas_dedup + crim.parcelas_history against the current
+    crim.parcelas. Must run after any reload before snapshotting/querying —
+    both views are ordinary (non-concurrent) materialized views, so this holds
+    a brief lock; fine for the monthly batch cadence this runs on."""
+    create_schema(engine)
+    with engine.begin() as conn:
+        conn.execute(text("REFRESH MATERIALIZED VIEW crim.parcelas_dedup"))
+        conn.execute(text("REFRESH MATERIALIZED VIEW crim.parcelas_history"))
+    log.info("Refreshed crim.parcelas_dedup + crim.parcelas_history")

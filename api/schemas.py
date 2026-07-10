@@ -122,6 +122,13 @@ class SubstationScore(BaseModel):
     lat: float
 
 
+class SubstationSlim(BaseModel):
+    entity_id: int
+    name: str | None
+    lon: float
+    lat: float
+
+
 class SubstationDetail(SubstationScore):
     scenario: str
     downstream_hospitals: int | None = None
@@ -193,6 +200,7 @@ class WaterConsequence(BaseModel):
     barrios_affected: int
     headline: str
     barrios: list[WaterBarrio]
+    top_names: list[str] = []
 
 
 class TelecomBarrio(BaseModel):
@@ -207,6 +215,7 @@ class TelecomConsequence(BaseModel):
     barrios_affected: int
     headline: str
     barrios: list[TelecomBarrio]
+    top_names: list[str] = []
 
 
 # --- PREPA live generation (operationdata.prepa.pr.gov) -------------------- #
@@ -379,6 +388,9 @@ class PortfolioItem(BaseModel):
     uplift_per_million: float | None
     cumulative_cost_usd: float | None
     cumulative_uplift: float | None
+    population_affected: int | None
+    hospitals: int | None
+    headline: str | None
 
 
 class TypeAllocation(BaseModel):
@@ -440,6 +452,56 @@ class ExposureRow(BaseModel):
     property_impact_usd: float | None
     lon: float | None = None
     lat: float | None = None
+
+
+# ── Municipio-first rollup (F9b chunk B1) ────────────────────────────────────
+
+
+class MunicipioRollup(BaseModel):
+    """One municipio's aggregate row — also the per-feature properties of
+    GET /economy/municipios (prism.economy.municipios.municipio_rollup)."""
+    name: str
+    geoid: str                          # 5-char county FIPS, e.g. "72127"
+    population: int
+    tract_count: int
+    svi_mean: float | None = None
+    high_svi_tracts: int                # tracts at svi_score >= 0.75
+    substations: int                    # spatially contained (ST_Contains)
+    voll_exposure_usd: float | None = None   # 30-yr VOLL summed over them
+    parcel_count: int
+    assessed_value_usd: float | None = None  # CRIM assessed, not market
+    sales_12mo: int
+    median_price_12mo: float | None = None
+
+
+class MunicipioTract(BaseModel):
+    tract_geoid: str
+    population: int | None = None
+    svi_score: float | None = None
+
+
+class MunicipioSubstation(BaseModel):
+    entity_id: int
+    name: str | None = None
+    population_affected: int | None = None
+    voll_exposure_usd: float | None = None
+
+
+class MunicipioSalesYear(BaseModel):
+    year: int
+    sales: int
+    median_price: float | None = None
+
+
+class MunicipioDetail(MunicipioRollup):
+    """Rollup row plus the drill-down lists behind it. `substations` stays the
+    count (as in the rollup); the ranked list is `top_substations`."""
+    tracts: list[MunicipioTract] = Field(default_factory=list)
+    top_substations: list[MunicipioSubstation] = Field(default_factory=list)
+    water_sources: int
+    telecom_sites: int
+    sales_by_year: list[MunicipioSalesYear] = Field(default_factory=list)
+    confidence_tiers: dict[str, str] = Field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #
@@ -682,6 +744,23 @@ class Assumption(BaseModel):
     upgrade_path: str | None = None
 
 
+class AssumptionRationale(BaseModel):
+    key: str
+    label: str
+    value: str
+    why_chosen: str
+    source: str
+    what_would_change_it: str
+
+
+class CostReference(BaseModel):
+    key: str
+    label: str
+    value: str
+    relevance: str
+    sources: list[str] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------------- #
 # Calibration & Validation (MVP3 Pillar 2)                                     #
 # --------------------------------------------------------------------------- #
@@ -766,6 +845,12 @@ class CivicConsequence(BaseModel):
     water_plants: int
     health_centers: int
     confidence_tier: str
+    # Quake scenario context (F9a chunk A3) — score-based, not every substation
+    # has a quake row (332/354), so these are None when unscored.
+    quake_rank: int | None = None
+    quake_total: int | None = None
+    quake_composite_score: float | None = None
+    quake_confidence_tier: str | None = None
 
 
 class CivicCommunityResilience(BaseModel):
@@ -794,6 +879,24 @@ class CivicPlannedItem(BaseModel):
     confidence_tier: str
 
 
+class CivicToday(BaseModel):
+    """Island-wide 'right now' snapshot (F9a chunk A3) — same for every civic
+    card, a live day-to-day data point alongside the hypothetical hazard
+    scenarios. Reuses sync.grid_snapshot / sync.generation_status /
+    sync.luma_outages, the same tables /network/generation and
+    /network/outages already read."""
+    generation_mw: float | None = None
+    plants_offline: int | None = None
+    plants_total: int | None = None
+    generation_as_of: datetime | None = None
+    generation_confidence_tier: str | None = None
+    # Island-wide, not per-municipio — LUMA's feed is per operational region
+    # (7 regions) and PRISM has no region→municipio crosswalk built yet.
+    outage_pct_island: float | None = None
+    outage_as_of: datetime | None = None
+    outage_confidence_tier: str | None = None
+
+
 class CivicCard(BaseModel):
     barrio_entity_id: int
     barrio_name: str
@@ -804,6 +907,7 @@ class CivicCard(BaseModel):
     road_access: CivicRoadAccess | None = None
     flood_exposure: CivicFloodExposure
     planned_nearby: list[CivicPlannedItem] = Field(default_factory=list)
+    today: CivicToday | None = None
 
 
 # ── Ask PRISM (MVP3 P3-shared) ──────────────────────────────────────────────
@@ -839,6 +943,7 @@ class SiteCriterion(BaseModel):
     key: str
     label: str
     description: str
+    unit: str
     tier: str
     default_weight: float
 
@@ -946,6 +1051,25 @@ class ParcelSearchResult(BaseModel):
     confidence_tier: str
 
 
+class AddressSearchCandidate(BaseModel):
+    num_catastro: str
+    municipio: str | None = None
+    owner: str | None = None
+    address: str | None = None
+    totalval: float | None = None
+    tipo: str | None = None
+    lon: float | None = None
+    lat: float | None = None
+    distance_m: float
+
+
+class AddressSearchResult(BaseModel):
+    status: str    # 'match' | 'no_candidates' | 'no_confident_match'
+    standardized_address: str | None = None
+    candidates: list[AddressSearchCandidate] = Field(default_factory=list)
+    confidence_tier: str
+
+
 class ParcelCrimRecord(BaseModel):
     owner: str | None = None
     physical_address: str | None = None
@@ -986,7 +1110,9 @@ class ParcelPower(BaseModel):
     substation_name: str | None = None
     edge_confidence: float
     cat3_composite: float | None = None
+    cat3_percentile: float | None = None
     headline: str | None = None
+    served_headline: str | None = None
     population_affected: int | None = None
     hospitals: int | None = None
     water_plants: int | None = None
@@ -1020,10 +1146,58 @@ class ParcelSiteFinder(BaseModel):
     confidence_tier: str
 
 
+class ParcelWaterSource(BaseModel):
+    entity_id: int
+    name: str | None = None
+    kind: str
+    rank: int | None = None
+    composite_score: float | None = None
+
+
+class ParcelWater(BaseModel):
+    count: int
+    sources: list[ParcelWaterSource] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class ParcelTelecomSite(BaseModel):
+    entity_id: int
+    name: str | None = None
+    kind: str
+    rank: int | None = None
+    composite_score: float | None = None
+
+
+class ParcelTelecom(BaseModel):
+    count: int
+    top: list[ParcelTelecomSite] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class ParcelMarket(BaseModel):
+    municipio: str
+    sales_12mo: int
+    median_price_12mo: float | None = None
+    confidence_tier: str
+
+
+class ParcelProposedAddress(BaseModel):
+    tier: str                      # 'census_matched' | 'composed_approximate'
+    proposed_address: str
+    method: str
+    nearest_road_name: str | None = None
+    nearest_road_m: float | None = None
+    lon: float | None = None
+    lat: float | None = None
+    confidence_tier: str
+
+
 class ParcelDetail(BaseModel):
     num_catastro: str
     catastro: str | None = None
     municipio: str | None = None
+    display_address: str | None = None
+    proposed_address: ParcelProposedAddress | None = None
     barrio_entity_id: int | None = None
     barrio_name: str | None = None
     lon: float | None = None
@@ -1035,6 +1209,9 @@ class ParcelDetail(BaseModel):
     community: ParcelCommunity | None = None
     road_access: ParcelRoadAccess | None = None
     site_finder: ParcelSiteFinder | None = None
+    water: ParcelWater | None = None
+    telecom: ParcelTelecom | None = None
+    market: ParcelMarket | None = None
 
 
 # ── CRIM owner intelligence (F1 — normalized owner entities) ─────────────────
@@ -1151,6 +1328,36 @@ class TrendsResponse(BaseModel):
     by_municipio: list[MunicipioTrend] = Field(default_factory=list)
     by_year: list[YearTrend] = Field(default_factory=list)
     recent_deltas: RecentDeltas
+
+
+class TrendsBarrio(BaseModel):
+    barrio_name: str
+    sales: int
+
+
+class TrendsMunicipioDetail(BaseModel):
+    """/trends drill-down panel (F9b chunk B3) — one municipio's momentum,
+    year series, and top barrios by recent sale count."""
+    municipio: str
+    sales: int
+    prior_sales: int
+    median_price: float | None = None
+    volume: float | None = None
+    by_year: list[YearTrend] = Field(default_factory=list)
+    top_barrios: list[TrendsBarrio] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class TrendsYearMunicipio(BaseModel):
+    year: int
+    municipio: str
+    sales: int
+    median_price: float | None = None
+
+
+class TrendsMatrixResponse(BaseModel):
+    since: int
+    rows: list[TrendsYearMunicipio] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #

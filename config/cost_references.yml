@@ -1,0 +1,78 @@
+# F9c chunk C3 — citation hygiene for /corridor's rail cost figures.
+#
+# PRISM's rail cost model (prism/assets/rail.py) uses three flat per-km tiers
+# by terrain (standard $15M/km, elevated $40M/km, tunnel $120M/km, from DTOP/FTA
+# PRIITS 2024 unit-cost estimates). This file is the evidence trail behind
+# those numbers — the actual as-built comparables they should be checked
+# against — cited here directly (with URLs) so the file stands alone as
+# evidence, not just inside the /corridor "Cost basis" popover that reads it.
+#
+# Honest disclosure this research surfaced: every real comparable found is
+# well above PRISM's "standard" (at-grade) tier. The cheapest at-grade US
+# comparable found (Norfolk, VA) is ~$27M/km — nearly double PRISM's $15M/km.
+# Puerto Rico's own only heavy-rail precedent, Tren Urbano, came in at
+# ~$130M/km (mostly elevated/underground, so closer to PRISM's own tunnel
+# tier). Treat PRISM's rail cost outputs as a conservative floor, not a
+# ceiling, until a PR-specific unit-cost study replaces the PRIITS estimate.
+
+references:
+  - key: tren_urbano_actual
+    label: Tren Urbano (San Juan, PR) — as-built cost
+    value: "~$210M/mile (~$130M/km) total project cost"
+    relevance: >-
+      The only real Puerto Rico heavy-rail precedent. 17.2 km (10.7 mi),
+      $2.25B total (final cost, roughly double the original 1996 estimate of
+      $1.25B). Mostly elevated/underground urban alignment through San Juan
+      — closer in character to PRISM's "tunnel" tier ($120M/km) than its
+      "standard" at-grade tier. Construction spanned 8 years with significant
+      delays and disputes, which the $ figure does not capture as a schedule
+      risk factor.
+    sources:
+      - "https://www.transportation.gov/buildamerica/projects/tren-urbano"
+      - "https://www.transit.dot.gov/sites/fta.dot.gov/files/2008-Puerto-Rico-San-Juan-Tren-Urbano-Heavy-Rail-Project.pdf"
+      - "https://en.wikipedia.org/wiki/Tren_Urbano"
+
+  - key: fta_capital_cost_database
+    label: FTA Capital Cost Database
+    value: "65 as-built federally funded transit projects (BRT/commuter/light/heavy rail/trolley)"
+    relevance: >-
+      The federal government's own as-built cost database — the standard
+      reference for conceptual, order-of-magnitude transit cost estimates.
+      PRISM's per-km tiers are meant to approximate the low end of this
+      database's range for comparable terrain, not match any single project.
+    sources:
+      - "https://www.transit.dot.gov/capital-cost-database"
+      - "https://www.transit.dot.gov/sites/fta.dot.gov/files/2023-06/FTA-Cost-Database-Quick-Guide-June-2023_0.pdf"
+
+  - key: norfolk_tide_atgrade
+    label: The Tide (Norfolk, VA) — at-grade light rail
+    value: "~$43M/mile (~$27M/km)"
+    relevance: >-
+      The cheapest at-grade US light-rail comparable found — an existing
+      street-level corridor with minimal grade separation, the closest real
+      analog to PRISM's "standard" terrain tier ($15M/km). Even this
+      cheapest case is ~1.8x PRISM's standard-tier estimate.
+    sources:
+      - "https://ti.org/antiplanner/?p=14829"
+
+  - key: portland_milwaukie_orange
+    label: Portland-Milwaukie MAX Orange Line — mixed at-grade/elevated
+    value: "~$204M/mile (~$127M/km)"
+    relevance: >-
+      A mid-size US light-rail extension with mixed at-grade and elevated
+      segments — brackets the upper end of PRISM's "elevated" tier ($40M/km)
+      by a wide margin, illustrating how sensitive real costs are to station
+      count, utility relocation, and land acquisition that PRISM's flat
+      per-km model does not itemize.
+    sources:
+      - "https://ti.org/antiplanner/?p=14829"
+
+  - key: la_crenshaw_mixed
+    label: LA Metro Crenshaw Line — at-grade/elevated with short subway sections
+    value: "~$165M/mile (~$103M/km)"
+    relevance: >-
+      A comparable with short underground segments — between PRISM's
+      elevated and tunnel tiers, useful for sanity-checking mixed-terrain
+      corridors.
+    sources:
+      - "https://ti.org/antiplanner/?p=14829"

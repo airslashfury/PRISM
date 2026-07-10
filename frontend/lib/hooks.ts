@@ -39,6 +39,15 @@ export const useScores = (scenario: string, top = 400) =>
     staleTime: 5 * MIN,
   });
 
+/** Slim id/name/lon/lat for every substation (~961) — fetched once for
+ * client-side draw-to-nearest-substation snapping on /playground (F9c C2). */
+export const useSubstationsSlim = () =>
+  useQuery({
+    queryKey: ["substationsSlim"],
+    queryFn: api.substationsSlim,
+    staleTime: 60 * MIN,
+  });
+
 export const useSpof = () =>
   useQuery({ queryKey: ["spof"], queryFn: api.spof, staleTime: 5 * MIN });
 
@@ -62,6 +71,25 @@ export const useSubstation = (id: number | null, scenario: string) =>
     queryFn: () => api.substation(id as number, scenario),
     enabled: id != null,
     staleTime: 5 * MIN,
+  });
+
+/** Cross-domain (F9b B4): water sources and telecom towers a substation powers. */
+export const useWaterConsequence = (id: number | null) =>
+  useQuery({
+    queryKey: ["waterConsequence", id],
+    queryFn: () => api.waterConsequence(id as number),
+    enabled: id != null,
+    staleTime: 10 * MIN,
+    retry: false,
+  });
+
+export const useTelecomConsequence = (id: number | null) =>
+  useQuery({
+    queryKey: ["telecomConsequence", id],
+    queryFn: () => api.telecomConsequence(id as number),
+    enabled: id != null,
+    staleTime: 10 * MIN,
+    retry: false,
   });
 
 /** Water cascade (F6): scored water sources for the map. */
@@ -109,11 +137,23 @@ export const usePortfolioRun = (id: number | null) =>
     enabled: id != null,
   });
 
-export const useEconomyTracts = () =>
-  useQuery({ queryKey: ["economyTracts"], queryFn: api.economyTracts, staleTime: 30 * MIN });
+export const useEconomyTracts = (enabled = true) =>
+  useQuery({ queryKey: ["economyTracts"], queryFn: api.economyTracts, staleTime: 30 * MIN, enabled });
 
-export const useExposure = (limit = 400) =>
-  useQuery({ queryKey: ["exposure", limit], queryFn: () => api.exposure(limit), staleTime: 10 * MIN });
+export const useExposure = (limit = 400, enabled = true) =>
+  useQuery({ queryKey: ["exposure", limit], queryFn: () => api.exposure(limit), staleTime: 10 * MIN, enabled });
+
+/** Municipio-first economy rollup (F9b): 78-feature choropleth + per-municipio panel. */
+export const useEconomyMunicipios = () =>
+  useQuery({ queryKey: ["economyMunicipios"], queryFn: api.economyMunicipios, staleTime: 30 * MIN });
+
+export const useEconomyMunicipioDetail = (name: string | null) =>
+  useQuery({
+    queryKey: ["economyMunicipioDetail", name],
+    queryFn: () => api.economyMunicipioDetail(name as string),
+    enabled: name != null,
+    staleTime: 10 * MIN,
+  });
 
 export const useCorridorRoutes = () =>
   useQuery({ queryKey: ["corridorRoutes"], queryFn: api.corridorRoutes, staleTime: 30 * MIN });
@@ -173,6 +213,15 @@ export const useConfidenceTiers = () =>
 
 export const useProvenanceAssumptions = () =>
   useQuery({ queryKey: ["provenanceAssumptions"], queryFn: api.provenanceAssumptions, staleTime: 60 * MIN });
+
+/** Why each load-bearing assumption was chosen, its source, and what would
+ * change it (F9c C3) — the Trust Center's "Assumptions & choices" section. */
+export const useAssumptionRationale = () =>
+  useQuery({ queryKey: ["assumptionRationale"], queryFn: api.assumptionRationale, staleTime: 60 * MIN });
+
+/** F9c C3 — /corridor's "Cost basis" popover citation source. */
+export const useCorridorCostReferences = () =>
+  useQuery({ queryKey: ["corridorCostReferences"], queryFn: api.corridorCostReferences, staleTime: 60 * MIN });
 
 export const useProvenanceInventory = () =>
   useQuery({ queryKey: ["provenanceInventory"], queryFn: api.provenanceInventory, staleTime: 60 * MIN });
@@ -239,6 +288,22 @@ export const useParcelSearch = (q: string | null) =>
     placeholderData: keepPreviousData,
   });
 
+/** F9d D1 — address-first parcel discovery: geocode -> nearest parcel(s). */
+export interface AddressSearchQuery {
+  street: string;
+  urb?: string;
+  municipio?: string;
+  zip?: string;
+}
+export const useAddressSearch = (q: AddressSearchQuery | null) =>
+  useQuery({
+    queryKey: ["parcelSearchByAddress", q],
+    queryFn: () => api.parcelSearchByAddress(q!.street, { urb: q!.urb, municipio: q!.municipio, zip: q!.zip }),
+    enabled: !!q && q.street.trim().length > 0,
+    staleTime: 5 * MIN,
+    placeholderData: keepPreviousData,
+  });
+
 export const useParcelDetail = (numCatastro: string | null) =>
   useQuery({
     queryKey: ["parcelDetail", numCatastro],
@@ -269,5 +334,21 @@ export const useCrimTrends = (months = 12, since = 2010, top = 25) =>
   useQuery({
     queryKey: ["crimTrends", months, since, top],
     queryFn: () => api.crimTrends(months, since, top),
+    staleTime: 30 * MIN,
+  });
+
+/** F9b chunk B3: municipio drill-down panel + year×municipio matrix for the /trends scrubber. */
+export const useCrimTrendsMunicipio = (name: string | null, months = 12, since = 2010) =>
+  useQuery({
+    queryKey: ["crimTrendsMunicipio", name, months, since],
+    queryFn: () => api.crimTrendsMunicipio(name as string, months, since),
+    enabled: name != null,
+    staleTime: 30 * MIN,
+  });
+
+export const useCrimTrendsMatrix = (since = 2010) =>
+  useQuery({
+    queryKey: ["crimTrendsMatrix", since],
+    queryFn: () => api.crimTrendsMatrix(since),
     staleTime: 30 * MIN,
   });

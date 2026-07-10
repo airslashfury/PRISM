@@ -218,10 +218,15 @@ def compute_deltas(engine: Engine, to_month: date | None = None) -> dict:
 
 
 def run_monthly(engine: Engine, month: date | None = None) -> dict:
-    """One monthly cycle: snapshot the current state, then diff vs. last month.
+    """One monthly cycle: refresh the derived views, snapshot, then diff vs. last month.
 
-    Call this *after* a fresh CRIM re-download + load. Safe to re-run.
+    Call this *after* a fresh CRIM re-download + load. Safe to re-run. Refreshing
+    crim.parcelas_dedup/_history first is required — take_snapshot() sources from
+    parcelas_dedup, which is a materialized view left stale by the reload.
     """
+    from prism.crim.schema import refresh_views
+
+    refresh_views(engine)
     snap = take_snapshot(engine, month)
     deltas = compute_deltas(engine, month)
 

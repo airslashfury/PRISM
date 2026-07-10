@@ -21,8 +21,11 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   }
 
-  const namePart = `${advisory.storm_name ?? "Unnamed storm"} advisory #${advisory.advisory_num}`;
-  const title = `${advisory.replay ? "Replay: " : ""}${namePart} — Storm · PRISM`;
+  // No REPLAY badge is possible in a plain <title>/og:title string, so a
+  // replayed advisory is marked inline — matches the "(demo)" convention
+  // used everywhere else a bare storm name renders (F9a A2).
+  const namePart = `${advisory.storm_name ?? "Unnamed storm"}${advisory.replay ? " (demo)" : ""} advisory #${advisory.advisory_num}`;
+  const title = `${namePart} — Storm · PRISM`;
   const description = data?.consequence?.headline ?? GENERIC_DESC;
 
   return {

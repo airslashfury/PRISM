@@ -137,6 +137,10 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F6 — Water cascade + shell extraction | **COMPLETE** | 2026-07-02 | Opus GO |
 | F7 — Telecom cascade (on F6 shell) | **COMPLETE** | 2026-07-03 | Opus GO |
 | F8 — Excellence pass (wow arc) | **COMPLETE** | 2026-07-05 | Opus GO (one fix at gate) |
+| F9a — Legibility sweep | **COMPLETE** | 2026-07-08 | Opus GO |
+| F9b — Municipio-first structure | **COMPLETE** | 2026-07-09 | Opus GO |
+| F9c — Grounded, not vibes | **COMPLETE** | 2026-07-09 | Opus GO x3 (C1/C2/C3) |
+| F9d — Find your parcel by address (D1+D2) | **COMPLETE** | 2026-07-10 | Opus GO x2 |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -256,10 +260,91 @@ output-shaped features for an audience that doesn't exist yet. Status (2026-07-0
    + command-center landing + cascade-play map theatre + UI system pass + ⌘K palette + OG cards /
    presentation mode + consistency sweep; 32/32 e2e; only new dep `cmdk`
 
-**The F1–F8 frontend product arc is COMPLETE (all Opus GO).** F1–F7 merged to `main`; F8 on
-`feat/f8-excellence` (pushed). No scheduled item remains — next direction is the user's call
-(see `BACKLOG.md`: fiber layer, LUMA feeder to lift the POWERS proxy ceiling, crime enrichment,
-public methods/API docs, water/telecom cascade-arc centroids).
+**The F1–F8 frontend product arc is COMPLETE (all Opus GO); F8 merged to `main` (PR #1).**
+**The active item is F9 — the Legibility & Trust arc** (ROADMAP.md), scheduled 2026-07-07 from
+the user's first full product review. **F9a (legibility sweep) is DONE — Opus GO 2026-07-08**
+on `feat/f9a-legibility` (score explainers + percentile context everywhere, "Fiona (demo)"
+labeling end-to-end, Ask capabilities panel, Site Finder weight/unit semantics, cuerdas+m²,
+drawer overflow fix, citizen-card rework incl. hospitals-only road access — Caracol/Añasco now
+routes to a real hospital). **F9b (municipio-first structure) is DONE — Opus GO 2026-07-09** on
+`feat/f9b-structure` (economy leads with a 78-municipio choropleth + drill-down, power demoted to
+a lens; parcel 360 — one card surfaces power/water/telecom/flood/community/access/market/Site
+Finder + `display_address()` composer + 77,070-parcel municipio backfill; /trends municipio
+drill-down + year scrubber + heatmap; /resilience symmetric domain switcher + substation
+Cross-domain section; B5 address memo → parcel geometry stays the canonical locator, external
+address DBs a NO-GO). The mojibake carry-forward was investigated and **does not reproduce** (a
+Windows-terminal display artifact, not a data bug — reconfirmed again during F9c). **F9c (grounded,
+not vibes) is DONE — Opus GO x3 2026-07-09** on `feat/f9b-structure`: C1 portfolio reframed as an
+investment plan (per-item "why picked" joining the deduped `graph.downstream_summary`, not the
+double-counting `economy.substation_exposure`; client-side post-hoc protection-per-dollar rank);
+C2 playground draw-to-substation snapping (500m threshold, 961-row slim payload, tie line + halo +
+chip) + honest per-asset-type includes/excludes panel (gate caught and fixed a misstated rail NPV
+horizon + an overly generous 50km anchor ceiling); C3 `/methods` "Assumptions & choices" (7
+load-bearing constants from new `config/assumption_rationale.yml`, surfaced an undocumented
+4%-vs-3% VOLL/optimizer discount-rate inconsistency — documented not fixed, task chip filed) +
+`/corridor` "Cost basis" popover citing new `config/cost_references.yml` (Tren Urbano actuals, FTA
+Capital Cost Database, 3 comparable light-rail projects — every comparable found sits above
+PRISM's per-km tiers, stated plainly). Routed to BACKLOG from the F9b review: weather/climate
+domain (F10 candidate), preferences / admin back-portal, Census PR geocoder as an optional address
+enrichment (superseded in spirit by F9d D1, which uses it for forward search rather than reverse
+address labeling).
+
+**F9d D1 (2026-07-10, Opus GO) — address-first parcel discovery:** `prism/crim/geocode.py` (new) —
+a keyless client for the Census Bureau's PR forward geocoder (`geocoding.geo.census.gov/geocoder/
+locations/addressPR`), every response mirrored into a new `crim.geocode_cache` table (cache-first,
+0.5s self-throttle). Match-quality policy: only the geocoder's single-exact-match tier is trusted;
+zero or multiple matches both collapse to an honest "no confident match" — never guessed between.
+`prism.crim.query.search_by_address()` geocodes the query then finds the nearest parcel(s) within
+500m (spatial, `ST_DWithin`/`ST_Distance` in EPSG:32161); new endpoint `GET /crim/parcels/search/
+address`; `/parcels` gained a "Search by address" tab (street/urb/municipio inputs, a "we read that
+as: …" standardized-address echo, candidate cards opening the existing parcel drawer, explicit
+discovery-not-resolution copy). Tagged `confidence_tier: proxy` in `config/confidence.yml` +
+`catalog/metadata.json` — the geocode point itself is authoritative-quality, but PRISM's
+nearest-parcel spatial assignment off that point is the proxy step. Verified live: a known Old San
+Juan address resolves to the correct catastro at 0m; a rural Utuado address returns the honest
+fallback. Gate finding: build note (3)'s "reuse Ask's `address_lookup`" was based on a false
+premise — that tool resolves a barrio/municipio *name*, not a street address, so there was no
+second address route to diverge from; `geocode_address` is the sole canonical street-address path.
+Residual (non-blocking): `address_lookup` is a misnomer worth a rename later.
+
+**F9d D2 (2026-07-10, Opus GO) — "Census Proposed Address" label:** `crim.parcel_proposed_address`
+(new table, alembic `0013`) holds a lazy, per-parcel best-effort address computed on first
+parcel-detail read (`prism/crim/proposed_address.py`), tiered: **Tier A `census_matched`** —
+`display_address()` forward-geocoded to a confident Census match, label is Census's own
+standardized address string; **Tier B `composed_approximate`** — no confident match, composed
+locally from the nearest *state highway* (`PR-xx` route, capped 3km — PR's local/municipal street
+layer isn't mirrored in PostGIS, so a parcel off a numbered route falls back to barrio+municipio
+only, never a fabricated street name) + barrio + municipio. Surfaced on the parcel card beside
+`display_address()`, tier-colored (emerald "Census-matched" / amber "approximate, may not be
+accurate"), with an explicit "not a resolution of ownership or a mailing address" line. Stamped
+`proxy` in `config/confidence.yml` + `catalog/metadata.json`. Verified live end-to-end (two
+un-mocked Census calls both correctly fell to Tier B — "Near PR-25, Bo. Santurce, San Juan" and
+"Near PR-472, Bo. Bejucos, Isabela") + frontend DOM/style inspection. Gate finding: fixed a
+pre-existing gap D1 had left — `tests/test_provenance.py::test_api_inventory` hardcoded the
+catalog inventory count and hadn't been bumped when D1 added `crim.geocode_cache`; now bumped to
+189 to cover both D1's and D2's new catalog entries. Residual (non-blocking): Tier A's real-world
+match rate against CRIM's address format is unmeasured — both live rows this session landed in
+Tier B; revisit `display_address()` normalization if Tier A proves near-zero yield once D1 traffic
+accumulates. **F9d (D1+D2) is now COMPLETE — and with it the whole F9 arc.**
+
+**Active item: F10 — weather domain + model correctness + consistency sweep** (scheduled
+2026-07-10 from the post-F9 backlog audit; full chunk specs in ROADMAP.md Item F10 — read them
+there before dispatching). Three Opus-gated chunks on `feat/f10-weather` off `main` (after
+`feat/f9b-structure` merges): **F10a** — weather/climate domain (NOAA NCEI normals →
+`sync.climate_normals` copying the nwis.py pattern; per-municipio aggregates copying
+`economy/municipios.py`; `/weather` MapWorkspace choropleth **absorbing `/storm` as a lens**
+(`/storm` → redirect, nav + OG + Playwright updated); Site Finder `workable_days` criterion at
+default weight 0; workable-days formula documented in `assumption_rationale.yml`). **F10b** —
+economy model correctness: reconcile the VOLL 4%-vs-3% discount rate (task_f389670d) + fix the
+exposure barrio double-count vs the deduped `graph.downstream_summary` (task_b6170436), with a
+before/after validation pass (numbers change once, honestly). **F10c** — consistency sweep:
+`address_lookup`→`barrio_lookup` rename, water/telecom cascade-arc barrio centroids (lights up
+the F8 map theatre on both pages), `/sitefinder` permalinks, api.ts hybrid cleanup (~110
+hand-typed interfaces vs regenerated `api-types.ts`), OG font embedding, F9d Tier A yield
+measurement (measure-only), nearest-clinic second field for the 15 NULL-hospital barrios.
+Preferences/admin portal was offered (incl. localStorage stopgap) and **declined** — stays parked
+on M6 auth. F11 candidates recorded in ROADMAP: fiber/callsign polygons, multi-hazard overlays,
+distribution geometry, public API docs.
 
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +

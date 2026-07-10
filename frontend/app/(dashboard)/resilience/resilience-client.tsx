@@ -5,7 +5,7 @@ import { ScatterplotLayer, ArcLayer } from "@deck.gl/layers";
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
-import { PowerOff, TriangleAlert, RotateCcw, Presentation, X } from "lucide-react";
+import { PowerOff, TriangleAlert, RotateCcw, Presentation, X, Droplets, RadioTower } from "lucide-react";
 
 import { MapWorkspace } from "@/components/map/map-workspace";
 import { MapCanvas, tip, PR_VIEW } from "@/components/map/map-canvas";
@@ -13,15 +13,24 @@ import type { PrismMapApi } from "@/components/map/map-canvas";
 import { BrandWordmark } from "@/components/brand";
 import { formatViewport, parseViewport, patchUrl, patchUrlDebounced, readParam } from "@/lib/url-state";
 import { GradientLegend } from "@/components/legend";
+import { ScoreExplainer, percentileContext } from "@/components/score-explainer";
 import { Segmented } from "@/components/ui/segmented";
 import { Badge } from "@/components/ui/badge";
 import { SeverityLabel } from "@/components/severity";
 import { LoadingBlock, ErrorBlock, SkeletonRows } from "@/components/query-state";
 import { ProvenanceBadge } from "@/components/provenance-badge";
 import { EntityDrawer, type DrawerSection } from "@/components/entity-drawer";
-import { useScores, useSubstation, useConsequence, useCurrentState } from "@/lib/hooks";
+import { DomainSwitcher } from "@/components/domain-switcher";
+import {
+  useScores,
+  useSubstation,
+  useConsequence,
+  useCurrentState,
+  useWaterConsequence,
+  useTelecomConsequence,
+} from "@/lib/hooks";
 import type { ConsequenceSummary, ConsequenceEntity } from "@/lib/api";
-import { riskColor, DOMAIN_RGB, type RGB } from "@/lib/colors";
+import { riskColor, rgbCss, DOMAIN_RGB, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtIntTiered, fmtNum, fmtUsdTiered } from "@/lib/utils";
 import { tileUrl } from "@/lib/api";
 import { usePulse, useStagedTimeline, usePrefersReducedMotion, kindDomain, CASCADE_WAVES } from "@/lib/map-motion";
@@ -96,6 +105,11 @@ export default function ResiliencePage() {
   // Live zoom, tracked off onViewChange (already wired for the permalink) so
   // the ease-in never zooms *out* of wherever the user currently is.
   const currentZoomRef = useRef<number>(PR_VIEW.zoom!);
+  // Full current viewport (F9b B4): fed to the domain switcher so Water/Telecom
+  // open at the same camera position even before the user's first gesture —
+  // `?view=` in the URL only gets written on interaction, so this can't just
+  // read the URL. Seeded from the initial (possibly permalinked) viewport.
+  const currentViewRef = useRef<{ longitude?: number; latitude?: number; zoom?: number }>(PR_VIEW);
 
   // ── Permalinks (F4): scenario + selection + viewport live in the URL ──────
   // Read on mount (not in initializers — the server render has no URL and a
@@ -116,6 +130,7 @@ export default function ResiliencePage() {
   useEffect(() => {
     hadExplicitView.current = parseViewport(readParam("view")) != null;
     currentZoomRef.current = initialView.zoom ?? PR_VIEW.zoom!;
+    currentViewRef.current = initialView;
     const m = readParam("scenario");
     if (m && MODES.some((x) => x.value === m)) setMode(m);
     const sel = Number(readParam("sel"));
@@ -210,6 +225,14 @@ export default function ResiliencePage() {
   }, [points]);
 
   const offlinePoints = useMemo(() => points.filter((p) => p.is_offline), [points]);
+
+  // Distribution for the drawer's score explainers (F9a A1): useScores loads
+  // the full scored set (cap 400 > ~315 scored), so a client-side percentile
+  // is honest — it's the whole population, not a top-N slice.
+  const compositeDistribution = useMemo(
+    () => (scores.data ?? []).map((s) => s.composite_score),
+    [scores.data],
+  );
 
   // Live outage pulse (current-state only): a continuous expanding ring over
   // every offline node — the grid "breathing" rather than a static red dot.
@@ -716,6 +739,7 @@ export default function ResiliencePage() {
       initialViewState={initialView}
       onViewChange={(vs) => {
         if (vs.zoom != null) currentZoomRef.current = vs.zoom;
+        currentViewRef.current = vs;
         patchUrlDebounced({ view: formatViewport(vs) });
       }}
       onMapReady={(api) => {
@@ -801,18 +825,21 @@ export default function ResiliencePage() {
             )}
           </div>
 
-          <GradientLegend
-            className="absolute bottom-6 left-4"
-            title={isCurrent ? "Consequence if it fails today" : "Predicted consequence score"}
-            stops={RISK_STOPS}
-            minLabel={fmtNum(min, 0)}
-            maxLabel={fmtNum(max, 0)}
-          />
+          <div className="absolute bottom-6 left-4 space-y-2">
+            <MapKey />
+            <GradientLegend
+              title={isCurrent ? "Consequence if it fails today" : "Predicted consequence score"}
+              stops={RISK_STOPS}
+              minLabel={fmtNum(min, 0)}
+              maxLabel={fmtNum(max, 0)}
+            />
+          </div>
         </>
       }
       sidebar={
         <>
           <div className="border-b border-border/70 p-4">
+            <DomainSwitcher className="mb-3" active="power" getView={() => currentViewRef.current} />
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex-1">
                 <Segmented options={MODES as never} value={mode} onChange={setMode} className="w-full" />
@@ -846,7 +873,7 @@ export default function ResiliencePage() {
               <div className="border-b border-border/50 px-4 py-3">
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
                   {isCurrent
-                    ? "Consequence = cascade impact × network centrality — what's downstream and whether there's a backup path. A node feeding hospitals with no alternate route ranks highest. Switch to a scenario to see how a hazard reshapes the ranking."
+                    ? "Consequence = cascade impact × network centrality — what's downstream and whether there's a backup path. A substation feeding hospitals with no alternate route ranks highest. Switch to a scenario to see how a hazard reshapes the ranking."
                     : "Score = hazard probability × cascade impact × network centrality. A substation with hospitals downstream and no backup path scores highest — failure there is both likely under this scenario and catastrophic. Ring = single point of failure."}
                 </p>
               </div>
@@ -855,6 +882,7 @@ export default function ResiliencePage() {
               <DetailPanel
                 id={selected}
                 scenario={detailScenario}
+                distribution={compositeDistribution}
                 onBack={() => setSelected(null)}
                 cascade={cascade}
                 waveCount={waves.length}
@@ -904,6 +932,54 @@ function LayerToggle({
         />
       </span>
     </button>
+  );
+}
+
+/** What the arcs and rings mean (F9a A1) — the toggleable layers already show
+ *  their color chips in the layer control, so this key covers only what has no
+ *  other explanation: consequence arcs, the selection ring, the cascade wave
+ *  order, and the honest caveat that arcs land on area centers (the model
+ *  doesn't draw service boundaries). Hidden on very narrow screens where it
+ *  would collide with the risk legend. */
+const WAVE_LABEL: Record<string, string> = {
+  power: "power",
+  telecom: "telecom",
+  water: "water",
+  hazard: "health",
+  economy: "barrios",
+};
+
+function MapKey() {
+  return (
+    <div className="pointer-events-none hidden rounded-lg border border-border/70 bg-card/85 p-3 text-xs shadow-lg backdrop-blur sm:block">
+      <div className="mb-1.5 font-medium text-foreground/90">Map key</div>
+      <div className="space-y-1">
+        <KeyRow color={CONSEQUENCE_RGB} label="Downstream consequence (hover)" />
+        <KeyRow color={SELECTED_RGB} label="Selected substation" />
+      </div>
+      <div className="mt-1.5 flex max-w-[13.5rem] flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground">
+        <span>Cascade order:</span>
+        {CASCADE_WAVES.map((d, i) => (
+          <span key={d} className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full" style={{ background: rgbCss(DOMAIN_RGB[d]) }} />
+            {WAVE_LABEL[d] ?? d}
+            {i < CASCADE_WAVES.length - 1 && <span className="text-muted-foreground/50">→</span>}
+          </span>
+        ))}
+      </div>
+      <div className="mt-1.5 max-w-[13.5rem] text-[10px] leading-snug text-muted-foreground">
+        Arcs land on the center of an affected area, not its exact boundary.
+      </div>
+    </div>
+  );
+}
+
+function KeyRow({ color, label }: { color: RGB; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="h-2.5 w-2.5 rounded-full" style={{ background: rgbCss(color) }} />
+      <span className="text-muted-foreground">{label}</span>
+    </div>
   );
 }
 
@@ -985,7 +1061,7 @@ function TopList({
   return (
     <div>
       <div className="flex items-center gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {isCurrent ? "Most critical nodes" : "Highest consequence"} · top {rows.length}
+        {isCurrent ? "Highest-consequence substations" : "Highest predicted risk"} · top {rows.length}
         <ProvenanceBadge table={isCurrent ? "sync.generation_status" : "resilience.scenario_scores"} />
       </div>
       <ul>
@@ -1041,6 +1117,7 @@ function StagedValue({
 function DetailPanel({
   id,
   scenario,
+  distribution,
   onBack,
   cascade,
   waveCount,
@@ -1050,6 +1127,8 @@ function DetailPanel({
 }: {
   id: number;
   scenario: string;
+  /** Composite scores of the full scored set, for the percentile context line. */
+  distribution: number[];
   onBack: () => void;
   /** Consequence summary for this same entity (F8 B1) — the source for the
    *  staged wave-by-wave counters below; independently fetched by the page. */
@@ -1060,6 +1139,10 @@ function DetailPanel({
   reducedMotion: boolean;
 }) {
   const { data, isLoading, error } = useSubstation(id, scenario);
+  // Cross-domain (F9b B4): the same POWERS edges that drive the cascade above,
+  // read through the water/telecom join instead of graph.downstream_summary.
+  const { data: water } = useWaterConsequence(id);
+  const { data: telecom } = useTelecomConsequence(id);
 
   if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
   if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
@@ -1082,9 +1165,28 @@ function DetailPanel({
       title: "Metrics",
       body: (
         <div className="grid grid-cols-3 gap-2">
-          <Metric label="Composite" value={fmtNum(data.composite_score, 1)} />
-          <Metric label="Hazard P" value={fmtNum(data.hazard_score, 2)} />
-          <Metric label="Cascade" value={fmtNum(data.cascade_impact, 1)} />
+          <ScoreExplainer
+            className="rounded-lg border border-border/60 bg-background/40 p-2.5"
+            label="Composite"
+            value={fmtNum(data.composite_score, 1)}
+            what="How much is at stake if this substation fails, weighted by how likely this scenario is to knock it out."
+            formula="hazard probability × cascade impact × (1 + network centrality)"
+            context={percentileContext(data.composite_score, distribution, "scored substations")}
+          />
+          <ScoreExplainer
+            className="rounded-lg border border-border/60 bg-background/40 p-2.5"
+            label="Hazard P"
+            value={fmtNum(data.hazard_score, 2)}
+            what="The chance this site itself goes down in this scenario — 0 is safe, 1 is near-certain."
+            formula="flood, surge, sea-level-rise, slope and fault exposure measured at this location"
+          />
+          <ScoreExplainer
+            className="rounded-lg border border-border/60 bg-background/40 p-2.5"
+            label="Cascade"
+            value={fmtNum(data.cascade_impact, 1)}
+            what="How much fails downstream when this does — the hospitals, water plants and barrios that lose power with it."
+            formula="downstream assets reached through the grid, weighted by what they are (hospitals weigh most)"
+          />
         </div>
       ),
     },
@@ -1145,6 +1247,47 @@ function DetailPanel({
       ),
     },
     {
+      id: "cross-domain",
+      title: "Cross-domain",
+      hidden: !water && !telecom,
+      body: (
+        <div className="space-y-3">
+          {water && (water.pump_stations + water.wells + water.water_plants) > 0 && (
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-domain-water">
+                  <Droplets className="h-3 w-3" />
+                  {fmtInt(water.pump_stations + water.wells + water.water_plants)} water sources
+                </span>
+                <a href="/water" className="text-[11px] text-primary hover:underline">
+                  View on Water cascade →
+                </a>
+              </div>
+              {water.top_names.length > 0 && (
+                <div className="text-[11px] text-muted-foreground">{water.top_names.join(", ")}</div>
+              )}
+            </div>
+          )}
+          {telecom && (telecom.towers + telecom.cell_sites) > 0 && (
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-domain-telecom">
+                  <RadioTower className="h-3 w-3" />
+                  {fmtInt(telecom.towers + telecom.cell_sites)} telecom sites
+                </span>
+                <a href="/telecom" className="text-[11px] text-primary hover:underline">
+                  View on Telecom cascade →
+                </a>
+              </div>
+              {telecom.top_names.length > 0 && (
+                <div className="text-[11px] text-muted-foreground">{telecom.top_names.join(", ")}</div>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
       id: "hazards",
       title: "Economic exposure (VOLL — 30yr NPV)",
       badge: <ProvenanceBadge table="economy.substation_exposure" />,
@@ -1191,11 +1334,4 @@ function DetailPanel({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 bg-background/40 p-2.5 text-center">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-sm font-semibold tnum">{value}</div>
-    </div>
-  );
-}
+

@@ -82,6 +82,78 @@ def test_every_barrio_has_a_civic_card(engine):
         assert card["flood_exposure"]["level"] in {"minimal", "low", "moderate", "high"}
 
 
+# ── F9a A3: quake scenario + island-wide "today" block ─────────────────────
+
+
+def test_civic_card_quake_scenario_fields(engine):
+    """Consequence carries the quake scenario alongside Cat-3 — score-based
+    (rank among scored substations), never a fabricated population figure."""
+    from prism.citizen import get_civic_card
+
+    card = get_civic_card(engine, 46007)
+    c = card["consequence"]
+    assert c is not None
+    for key in ("quake_rank", "quake_total", "quake_composite_score", "quake_confidence_tier"):
+        assert key in c
+    if c["quake_rank"] is not None:
+        assert 1 <= c["quake_rank"] <= c["quake_total"]
+        assert c["quake_composite_score"] >= 0.0
+        assert c["quake_confidence_tier"] == "proxy"
+
+
+def test_civic_card_quake_rank_present_for_scored_substation(engine):
+    """Caracol (Añasco, 46582) — the barrio from the user report — is served by
+    ANASCO TC, which has a quake row; the scenario must surface."""
+    from prism.citizen import get_civic_card
+
+    card = get_civic_card(engine, 46582)
+    c = card["consequence"]
+    assert c is not None
+    assert c["quake_rank"] is not None
+    assert c["quake_total"] >= c["quake_rank"]
+
+
+def test_civic_card_today_block(engine):
+    """Island-wide 'right now' snapshot from the live PREPA/LUMA feeds. Only
+    island-wide outage figures — LUMA is per-region with no municipio
+    crosswalk, so no local number may ever appear here."""
+    from prism.citizen import get_civic_card
+
+    card = get_civic_card(engine, 46007)
+    today = card["today"]
+    assert today is not None, "PREPA/LUMA live feeds are populated in the dev stack"
+    assert ("generation_mw" in today) or ("outage_pct_island" in today)
+    if "generation_mw" in today:
+        assert today["generation_mw"] > 0
+        assert today["plants_total"] >= today["plants_offline"] >= 0
+        assert today["generation_confidence_tier"] == "authoritative"
+        assert today["generation_as_of"] is not None
+    if "outage_pct_island" in today:
+        assert 0.0 <= today["outage_pct_island"] <= 100.0
+        assert today["outage_confidence_tier"] == "authoritative"
+        assert today["outage_as_of"] is not None
+
+
+def test_civic_card_road_access_is_true_hospital(engine):
+    """The Caracol (Añasco) regression: nearest_hospital must be a clasif='HOSP'
+    facility, never the UPR Mayagüez campus clinic (kind='health_center')."""
+    from sqlalchemy import text
+
+    from prism.citizen import get_civic_card
+
+    card = get_civic_card(engine, 46582)
+    ra = card["road_access"]
+    assert ra is not None
+    assert ra["nearest_hospital"] != "UPR RECINTO UNIVERSITARIO DE MAYAGUEZ"
+    with engine.connect() as conn:
+        is_hosp = conn.execute(text("""
+            SELECT count(*) FROM graph.entities
+            WHERE domain = 'health' AND kind = 'hospital'
+              AND attrs->>'clasif' = 'HOSP' AND name = :name
+        """), {"name": ra["nearest_hospital"]}).scalar()
+    assert is_hosp > 0
+
+
 @pytest.fixture(scope="module")
 def client():
     from fastapi.testclient import TestClient
@@ -104,6 +176,21 @@ def test_api_card(client):
     body = r.json()
     assert body["barrio_name"] == "Playa"
     assert body["flood_exposure"]["level"] == "high"
+
+
+def test_api_card_today_and_quake_additive(client):
+    """F9a A3 additions survive the response model: quake fields on the
+    consequence, and the island-wide today block."""
+    r = client.get("/citizen/card/46582")  # Caracol, Añasco
+    assert r.status_code == 200
+    body = r.json()
+    c = body["consequence"]
+    assert c is not None
+    assert "quake_rank" in c and "quake_total" in c
+    assert "today" in body
+    if body["today"] is not None:
+        keys = set(body["today"].keys())
+        assert keys & {"generation_mw", "outage_pct_island"}
 
 
 def test_api_card_404(client):

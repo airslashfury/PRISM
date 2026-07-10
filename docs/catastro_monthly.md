@@ -30,8 +30,11 @@ python -m prism.mirror.crim_catastro --layer parcelas
 # 2. Load into PostGIS (rebuilds crim.parcelas; --drop replaces the prior load)
 python -m prism.crim --drop
 
-# 3. Rebuild the derived dedup/history tables (if maintained as a script/MV refresh)
-#    — see catalog: derived:crim.parcelas_dedup / _history
+# 3. Rebuild the derived dedup/history views (crim.parcelas_dedup / _history are
+#    materialized views left stale by step 2's reload). --snapshot below runs
+#    this automatically as its first step — this line is only needed if you
+#    want to inspect the refreshed views before snapshotting.
+python -m prism.crim --refresh-views
 
 # 4. Freeze this month's snapshot + compute deltas vs last month
 python -m prism.crim --snapshot

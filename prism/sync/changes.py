@@ -211,14 +211,17 @@ def _storm_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
     """PR-affecting NHC advisories from the last 14 days (F5 — live storm).
 
     Replayed advisories (e.g. Fiona) have fetched_at=now() so they surface
-    here too — that's intentional, they're labeled by storm name and are
-    real evidence, not noise.
+    here too — that's intentional, they're real evidence, not noise. Their
+    headline is marked "(demo)" via storm_label() (F9a A2) so a replayed
+    advisory in this feed is never mistaken for an active storm.
     """
     if not _exists(engine, "sync.nhc_advisories"):
         return []
+    from prism.resilience.storm import storm_label
+
     with engine.connect() as conn:
         rows = conn.execute(text("""
-            SELECT a.storm_id, a.advisory_num, a.storm_name, a.classification,
+            SELECT a.storm_id, a.advisory_num, a.storm_name, a.classification, a.replay,
                    COALESCE(a.issued_at, a.fetched_at) AS at, c.headline
             FROM sync.nhc_advisories a
             LEFT JOIN sync.nhc_consequences c ON c.advisory_pk = a.advisory_pk
@@ -230,7 +233,10 @@ def _storm_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
     return [
         {
             "kind": "storm",
-            "headline": f"{r['storm_name'] or r['storm_id']} advisory #{r['advisory_num']}",
+            "headline": (
+                f"{storm_label(r['storm_name'], r['storm_id'], bool(r['replay']))} "
+                f"advisory #{r['advisory_num']}"
+            ),
             "detail": r["headline"] or r["classification"],
             "at": r["at"].isoformat() if r["at"] else None,
             "href": "/storm",

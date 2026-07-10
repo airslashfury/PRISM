@@ -89,11 +89,14 @@ def run_detail(run_id: int, engine: Engine = Depends(engine_dep)) -> dict:
     items = fetch_all(
         engine,
         """
-        SELECT item_id, priority, entity_id, entity_name, intervention_type, cost_usd,
-               resilience_uplift, uplift_per_million, cumulative_cost_usd, cumulative_uplift
-        FROM optimize.portfolio_items
-        WHERE run_id = :run_id
-        ORDER BY priority NULLS LAST, cost_usd DESC
+        SELECT pi.item_id, pi.priority, pi.entity_id, pi.entity_name, pi.intervention_type,
+               pi.cost_usd, pi.resilience_uplift, pi.uplift_per_million,
+               pi.cumulative_cost_usd, pi.cumulative_uplift,
+               ds.population_affected, ds.hospitals, ds.headline
+        FROM optimize.portfolio_items pi
+        LEFT JOIN graph.downstream_summary ds ON ds.entity_id = pi.entity_id
+        WHERE pi.run_id = :run_id
+        ORDER BY pi.priority NULLS LAST, pi.cost_usd DESC
         """,
         run_id=run_id,
     )

@@ -140,6 +140,111 @@ def by_year(engine: Engine, *, since: int = 2010) -> list[dict]:
     ]
 
 
+def municipio_detail(engine: Engine, name: str, *, months: int = 12, since: int = 2010, barrio_limit: int = 10) -> dict | None:
+    """One municipio's market trend: momentum, year series, and top barrios by
+    recent sale count (F9b chunk B3 — the /trends drill-down panel). Returns
+    None if `name` isn't a known municipio (validated against the TIGER view
+    that backs the choropleth in `prism.economy.municipios`)."""
+    with engine.connect() as conn:
+        known = conn.execute(
+            text('SELECT 1 FROM public.municipios WHERE "NAME" = :name'), {"name": name},
+        ).scalar()
+        if known is None:
+            return None
+
+        cur = conn.execute(text(f"""
+            SELECT count(*) AS sales,
+                   percentile_disc(0.5) WITHIN GROUP (ORDER BY h.salesamt) AS median_price,
+                   sum(h.salesamt) AS volume
+            FROM crim.parcelas_history h
+            WHERE {_SANE} AND h.municipio = :name
+              AND h.salesdttm >= CURRENT_DATE - make_interval(months => :months)
+        """), {"name": name, "months": months}).mappings().first()
+
+        prior = conn.execute(text(f"""
+            SELECT count(*) AS sales
+            FROM crim.parcelas_history h
+            WHERE {_SANE} AND h.municipio = :name
+              AND h.salesdttm >= CURRENT_DATE - make_interval(months => :months2)
+              AND h.salesdttm <  CURRENT_DATE - make_interval(months => :months)
+        """), {"name": name, "months": months, "months2": months * 2}).mappings().first()
+
+        year_rows = conn.execute(text(f"""
+            SELECT extract(year FROM h.salesdttm)::int AS year,
+                   count(*) AS sales,
+                   percentile_disc(0.5) WITHIN GROUP (ORDER BY h.salesamt) AS median_price
+            FROM crim.parcelas_history h
+            WHERE {_SANE} AND h.municipio = :name AND h.salesdttm >= make_date(:since, 1, 1)
+            GROUP BY year ORDER BY year
+        """), {"name": name, "since": since}).mappings().fetchall()
+
+        # One representative geom per recently-sold catastro (picks the highest-
+        # value subparcel, matching prism.crim.query.get_parcel_detail), then a
+        # single ST_Contains against the barrio layer — bounded to one
+        # municipio's trailing-window sales, so this stays cheap.
+        barrio_rows = conn.execute(text(f"""
+            WITH sales AS (
+                SELECT DISTINCT h.num_catastro
+                FROM crim.parcelas_history h
+                WHERE {_SANE} AND h.municipio = :name
+                  AND h.salesdttm >= CURRENT_DATE - make_interval(months => :months)
+            ),
+            rep AS (
+                SELECT DISTINCT ON (p.num_catastro) p.num_catastro, p.geom
+                FROM crim.parcelas p JOIN sales s USING (num_catastro)
+                ORDER BY p.num_catastro, p.totalval DESC NULLS LAST
+            )
+            SELECT b.name AS barrio_name, count(*) AS sales
+            FROM rep
+            JOIN graph.entities b
+              ON b.kind = 'barrio' AND ST_Contains(b.geom, ST_PointOnSurface(rep.geom))
+            GROUP BY b.name
+            ORDER BY sales DESC
+            LIMIT :limit
+        """), {"name": name, "months": months, "limit": barrio_limit}).mappings().fetchall()
+
+    return {
+        "municipio": name,
+        "sales": int(cur["sales"] or 0) if cur else 0,
+        "prior_sales": int(prior["sales"] or 0) if prior else 0,
+        "median_price": _f(cur["median_price"]) if cur else None,
+        "volume": _f(cur["volume"]) if cur else None,
+        "by_year": [
+            {"year": int(r["year"]), "sales": int(r["sales"]), "median_price": _f(r["median_price"])}
+            for r in year_rows
+        ],
+        "top_barrios": [
+            {"barrio_name": r["barrio_name"], "sales": int(r["sales"])} for r in barrio_rows
+        ],
+        "confidence_tier": TIER,
+    }
+
+
+def year_municipio_matrix(engine: Engine, *, since: int = 2010) -> list[dict]:
+    """Sales + median price for every (year, municipio) pair since `since` —
+    backs the /trends heatmap toggle and year timeline scrubber."""
+    sql = text(f"""
+        SELECT extract(year FROM h.salesdttm)::int AS year, h.municipio,
+               count(*) AS sales,
+               percentile_disc(0.5) WITHIN GROUP (ORDER BY h.salesamt) AS median_price
+        FROM crim.parcelas_history h
+        WHERE {_SANE} AND h.salesdttm >= make_date(:since, 1, 1) AND h.municipio IS NOT NULL
+        GROUP BY year, h.municipio
+        ORDER BY year, h.municipio
+    """)
+    with engine.connect() as conn:
+        rows = conn.execute(sql, {"since": since}).mappings().fetchall()
+    return [
+        {
+            "year": int(r["year"]),
+            "municipio": r["municipio"],
+            "sales": int(r["sales"]),
+            "median_price": _f(r["median_price"]),
+        }
+        for r in rows
+    ]
+
+
 def recent_deltas(engine: Engine, *, limit: int = 50) -> dict:
     """Most-recent month-over-month parcel changes (empty until a 2nd snapshot)."""
     if not _has(engine, "crim.parcel_deltas"):

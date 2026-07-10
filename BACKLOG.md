@@ -9,10 +9,41 @@ it gets scheduled.
 
 ## Near-term (likely next, after the active queue)
 
-> **2026-07-03 — the F1–F7 frontend arc is COMPLETE (all Opus GO).** No scheduled item remains
-> in `ROADMAP.md`; the items below are the candidate pool for the next direction.
+> **2026-07-10 — F9 COMPLETE (a/b/c/d, all Opus GO); the active ROADMAP item is F10 (weather
+> domain + model correctness + consistency sweep)**, composed from the post-F9 backlog audit.
+> The weather candidate below was pulled up; preferences was explicitly deferred again.
 
-### Deferred from F7 (telecom, 2026-07-03)
+### Weather / climate domain  **→ SCHEDULED as ROADMAP F10a (2026-07-10)**
+Promoted out of BACKLOG into **F10a — weather/climate domain, absorbing /storm** (NOAA NCEI
+normals → `sync.climate_normals`, per-municipio aggregates, `/weather` page with a storm lens
+replacing `/storm`, Site Finder workable-days criterion). ROADMAP is the authoritative spec.
+
+### Preferences panel / admin back-portal  *(pre-auth design note — deferred again 2026-07-10)*
+When users/accounts land (M6 trigger below), the `/assumptions` lab becomes per-user: saved
+assumption sets, default scenario, home municipio for "My Area", unit preferences — plus
+**admin-set global defaults** so an org can pin its own VOLL/discount-rate baseline. Design
+constraint to honor now: keep assumption evaluation stateless/read-only (it already is) so
+per-user defaults are a thin preferences table, not a model fork. **2026-07-10 (F10 scoping):
+offered again — including a cheap localStorage stopgap for last-used dials — and the user
+declined both; stays parked on the M6 auth trigger.**
+
+### Address geocoding enrichment — Census PR geocoder  **→ SCHEDULED as ROADMAP F9d (2026-07-09)**
+Promoted out of BACKLOG into **F9d — Find your parcel by address** (address-first discovery + tiered
+"Census Proposed Address"), driven by the heir-property / untraceable-transfer discoverability case:
+records drift from the ground, so address must be the front door to finding a parcel. Original
+research note retained below for context. Optional, call-time enrichment — **not** a spatial backbone. The B5 spike
+(`docs/data_requests/address_enrichment_research.md`) settled that **parcel geometry (CRIM) stays
+the canonical locator**; no external address *database* (NAD = no PR coverage, OpenAddresses = loops
+back to CRIM, USPS = license-incompatible) is worth mirroring, and none defeats PR's structural
+address ambiguity (~30% of dwellings unaddressed; urbanización-scoped uniqueness with no urb
+boundaries). The one worthwhile external asset is the **Census PR-aware geocoder**
+(`geocoding.geo.census.gov/geocoder/locations/addressPR`, keyless, public domain, PR grammar
+street+urb+municipio): use it on demand to (a) let a user paste a street address into search and land
+on the right parcel, and (b) validate/standardize the urb on a `display_address()` label. TIGER/Line
+address ranges are the coarse interpolation fallback. **Re-check trigger:** if the federal PR Address
+Data Working Group later lands PR into NAD with real coverage, re-evaluate NAD as a mirrored complement.
+
+### Deferred from F7 (telecom, 2026-07-03)  *(F11 candidate — considered and passed for F10, 2026-07-10)*
 - **Fiber layer on `/telecom`** — `g37_telecom_conductos_fibra_optica_act_2012` (50 conduit
   MultiLineStrings) + the ROW optical-fiber lease layer are mirrored but NOT surfaced. Deferred at
   the F7 gate: fiber has no power-dependency in the cascade model, so on the map it's static
@@ -81,11 +112,13 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
 - **Telecom / comms domain**  **→ SCHEDULED as ROADMAP F7** — `prism/assets/telecom.py`; tower/fiber
   entities from the 2012 layers (`cellular`, `antenas`, `conductos_fibra_optica`); power→telecom
   cascade; coverage-loss scoring. The "Comms" rung of the dependency chain.
-- **Multi-hazard resilience** — extend `hazard.py` with landslide (`g15_riesgo_geol_deslizamientos`),
-  liquefaction (`licuacion`), seismic (`sismos`) overlays — pairs with ROADMAP items 3+4; backtest
-  against the 2020 Guánica sequence (P2 calibration opportunity).
-- **Distribution geometry** — the 2014 `g37_electric_*` layers (distribution lines, transformers,
-  switches, fuses, poles) could tighten the feeder Voronoi proxy and raise its confidence tier.
+- **Multi-hazard resilience** *(F11 candidate — considered and passed for F10, 2026-07-10)* —
+  extend `hazard.py` with landslide (`g15_riesgo_geol_deslizamientos`), liquefaction (`licuacion`),
+  seismic (`sismos`) overlays — pairs with ROADMAP items 3+4; backtest against the 2020 Guánica
+  sequence (P2 calibration opportunity).
+- **Distribution geometry** *(F11 candidate — considered and passed for F10, 2026-07-10)* — the
+  2014 `g37_electric_*` layers (distribution lines, transformers, switches, fuses, poles) could
+  tighten the feeder Voronoi proxy and raise its confidence tier.
 
 ---
 
@@ -94,11 +127,17 @@ Each = the four asset models + graph edges + a page, shipping *with* confidence 
   cone/track overlay replaces this with a real, live-data storm track instead of a synthetic
   Cat-3 sweep.
 - **M6 Auth / multi-user / K8s** — elective; the real trigger is the first feature wanting
-  per-user state (P3-eng assumptions, the parked scenario library above).
+  per-user state (P3-eng assumptions, the parked scenario library above, and the preferences /
+  admin back-portal note in Near-term — added from the 2026-07-07 review).
 
 ---
 
 ## Standing data / quality carry-forwards
+- **Economy-model correctness chips → SCHEDULED as ROADMAP F10b (2026-07-10)** — the VOLL
+  4%-vs-3% discount-rate inconsistency (task_f389670d, surfaced F9c C3) and the
+  `economy.substation_exposure` barrio double-count (task_b6170436, surfaced by the F8-era
+  downstream-summary fix). Both fixed together behind one gate with a before/after validation
+  pass, since they perturb published portfolio/economy numbers.
 - **CRIM valuation official export** — valuation/sales loaded and trusted for now; the
   token-secured official export (`sigejp.pr.gov`) would harden it. Join key `NUM_CATASTRO`.
 - **`eid=XXX` name-resolution gap — mostly RESOLVED (2026-06-15, `3d736ca`)** — entity-name

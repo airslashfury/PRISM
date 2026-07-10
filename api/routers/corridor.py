@@ -7,10 +7,19 @@ from sqlalchemy.engine import Engine
 from api import schemas
 from api.db import fetch_all, fetch_geojson, fetch_one
 from api.deps import engine_dep
+from prism import provenance
 from prism.report.narrative import _parse_response
 from prism.terrain.profile import sample_route_profile
 
 router = APIRouter(prefix="/corridor", tags=["corridor"])
+
+
+@router.get("/cost-references", response_model=list[schemas.CostReference])
+def cost_references() -> list[dict]:
+    """As-built rail cost comparables (Tren Urbano, FTA Capital Cost Database,
+    comparable US light-rail projects) backing the per-km figures below —
+    the "Cost basis" popover's citation source (F9c C3)."""
+    return provenance.list_cost_references()
 
 # Lower objective_score is better (cost minus population value); rank within each O-D pair.
 _RANK = "rank() OVER (PARTITION BY from_city, to_city ORDER BY objective_score ASC)"

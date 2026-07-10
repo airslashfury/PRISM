@@ -11,6 +11,7 @@ export type Overview = Schemas["OverviewResponse"];
 export type HealthResponse = Schemas["HealthResponse"];
 export type ScenarioInfo = Schemas["ScenarioInfo"];
 export type SubstationScore = Schemas["SubstationScore"];
+export type SubstationSlim = Schemas["SubstationSlim"];
 export type SubstationDetail = Schemas["SubstationDetail"];
 export type SpofEntity = Schemas["SpofEntity"];
 export type ConsequenceEntity = Schemas["ConsequenceEntity"];
@@ -103,6 +104,12 @@ export interface Assumption {
   assumptions: string;
   upgrade_path?: string | null;
 }
+
+/** F9c C3 — the Trust Center's "Assumptions & choices" section. */
+export type AssumptionRationale = Schemas["AssumptionRationale"];
+
+/** F9c C3 — /corridor's "Cost basis" popover citation source. */
+export type CostReference = Schemas["CostReference"];
 
 /** MVP3 Pillar 2 — not yet in the generated OpenAPI types (api/routers/validate.py),
  * typed by hand to match `api.schemas.BacktestResult`/`SensitivityResult`/`ModelCard`. */
@@ -236,6 +243,12 @@ export interface CivicConsequence {
   water_plants: number;
   health_centers: number;
   confidence_tier: ConfidenceTierKey;
+  /** Quake scenario context (F9a chunk A3) — score-based; null when this
+   * substation has no quake row (332/354 are scored). */
+  quake_rank: number | null;
+  quake_total: number | null;
+  quake_composite_score: number | null;
+  quake_confidence_tier: ConfidenceTierKey | null;
 }
 
 export interface CivicCommunityResilience {
@@ -264,6 +277,20 @@ export interface CivicPlannedItem {
   confidence_tier: ConfidenceTierKey;
 }
 
+/** Island-wide "right now" snapshot (F9a chunk A3) — same for every civic
+ * card. Outages are island-wide, not per-municipio (no LUMA region→municipio
+ * crosswalk exists yet). */
+export interface CivicToday {
+  generation_mw: number | null;
+  plants_offline: number | null;
+  plants_total: number | null;
+  generation_as_of: string | null;
+  generation_confidence_tier: ConfidenceTierKey | null;
+  outage_pct_island: number | null;
+  outage_as_of: string | null;
+  outage_confidence_tier: ConfidenceTierKey | null;
+}
+
 export interface CivicCard {
   barrio_entity_id: number;
   barrio_name: string;
@@ -274,6 +301,7 @@ export interface CivicCard {
   road_access: CivicRoadAccess | null;
   flood_exposure: CivicFloodExposure;
   planned_nearby: CivicPlannedItem[];
+  today: CivicToday | null;
 }
 
 /** MVP3 P3-shared — not yet in the generated OpenAPI types (api/routers/ask.py),
@@ -439,6 +467,7 @@ export interface SiteCriterion {
   key: string;
   label: string;
   description: string;
+  unit: string;
   tier: ConfidenceTierKey;
   default_weight: number;
 }
@@ -570,6 +599,25 @@ export interface ParcelSearchResult {
   confidence_tier: ConfidenceTierKey;
 }
 
+export interface AddressSearchCandidate {
+  num_catastro: string;
+  municipio: string | null;
+  owner: string | null;
+  address: string | null;
+  totalval: number | null;
+  tipo: string | null;
+  lon: number | null;
+  lat: number | null;
+  distance_m: number;
+}
+
+export interface AddressSearchResult {
+  status: "match" | "no_candidates" | "no_confident_match";
+  standardized_address: string | null;
+  candidates: AddressSearchCandidate[];
+  confidence_tier: ConfidenceTierKey;
+}
+
 export interface ParcelCrimRecord {
   owner: string | null;
   physical_address: string | null;
@@ -610,7 +658,9 @@ export interface ParcelPower {
   substation_name: string | null;
   edge_confidence: number;
   cat3_composite: number | null;
+  cat3_percentile: number | null;
   headline: string | null;
+  served_headline: string | null;
   population_affected: number | null;
   hospitals: number | null;
   water_plants: number | null;
@@ -644,10 +694,58 @@ export interface ParcelSiteFinder {
   confidence_tier: ConfidenceTierKey;
 }
 
+export interface ParcelWaterSource {
+  entity_id: number;
+  name: string | null;
+  kind: string;
+  rank: number | null;
+  composite_score: number | null;
+}
+
+export interface ParcelWater {
+  count: number;
+  sources: ParcelWaterSource[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelTelecomSite {
+  entity_id: number;
+  name: string | null;
+  kind: string;
+  rank: number | null;
+  composite_score: number | null;
+}
+
+export interface ParcelTelecom {
+  count: number;
+  top: ParcelTelecomSite[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelMarket {
+  municipio: string;
+  sales_12mo: number;
+  median_price_12mo: number | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ParcelProposedAddress {
+  tier: "census_matched" | "composed_approximate";
+  proposed_address: string;
+  method: string;
+  nearest_road_name: string | null;
+  nearest_road_m: number | null;
+  lon: number | null;
+  lat: number | null;
+  confidence_tier: ConfidenceTierKey;
+}
+
 export interface ParcelDetail {
   num_catastro: string;
   catastro: string | null;
   municipio: string | null;
+  display_address: string | null;
+  proposed_address: ParcelProposedAddress | null;
   barrio_entity_id: number | null;
   barrio_name: string | null;
   lon: number | null;
@@ -659,6 +757,9 @@ export interface ParcelDetail {
   community: ParcelCommunity | null;
   road_access: ParcelRoadAccess | null;
   site_finder: ParcelSiteFinder | null;
+  water: ParcelWater | null;
+  telecom: ParcelTelecom | null;
+  market: ParcelMarket | null;
 }
 
 // ── CRIM owner intelligence (normalized entities) ───────────────────────────
@@ -922,6 +1023,23 @@ export interface TelecomConsequence {
   barrios_affected: number;
   headline: string;
   barrios: TelecomBarrio[];
+  top_names: string[];
+}
+
+export interface WaterBarrio {
+  entity_id: number;
+  name: string | null;
+}
+
+export interface WaterConsequence {
+  entity_id: number;
+  pump_stations: number;
+  wells: number;
+  water_plants: number;
+  barrios_affected: number;
+  headline: string;
+  barrios: WaterBarrio[];
+  top_names: string[];
 }
 
 // ── What's new (overview cockpit: what-changed + stale-data) ─────────────────
@@ -1016,6 +1134,85 @@ export interface TrendsResponse {
   recent_deltas: RecentDeltas;
 }
 
+// ── Market Trends drill-down + time (F9b chunk B3) ──────────────────────────
+
+export interface TrendsBarrio {
+  barrio_name: string;
+  sales: number;
+}
+
+export interface TrendsMunicipioDetail {
+  municipio: string;
+  sales: number;
+  prior_sales: number;
+  median_price: number | null;
+  volume: number | null;
+  by_year: YearTrend[];
+  top_barrios: TrendsBarrio[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface TrendsYearMunicipio {
+  year: number;
+  municipio: string;
+  sales: number;
+  median_price: number | null;
+}
+
+export interface TrendsMatrixResponse {
+  since: number;
+  rows: TrendsYearMunicipio[];
+}
+
+// ── Municipio-first economy rollup (F9b chunk B1) ───────────────────────────
+
+/** Mirrors api.schemas.MunicipioRollup — also the per-feature `properties` of
+ *  GET /economy/municipios. */
+export interface MunicipioRollup {
+  name: string;
+  geoid: string;
+  population: number;
+  tract_count: number;
+  svi_mean: number | null;
+  high_svi_tracts: number;
+  substations: number;
+  voll_exposure_usd: number | null;
+  parcel_count: number;
+  assessed_value_usd: number | null;
+  sales_12mo: number;
+  median_price_12mo: number | null;
+}
+
+export interface MunicipioTract {
+  tract_geoid: string;
+  population: number | null;
+  svi_score: number | null;
+}
+
+export interface MunicipioSubstation {
+  entity_id: number;
+  name: string | null;
+  population_affected: number | null;
+  voll_exposure_usd: number | null;
+}
+
+export interface MunicipioSalesYear {
+  year: number;
+  sales: number;
+  median_price: number | null;
+}
+
+/** Mirrors api.schemas.MunicipioDetail. `substations` stays the count (as in
+ *  the rollup); the ranked list is `top_substations`. */
+export interface MunicipioDetail extends MunicipioRollup {
+  tracts: MunicipioTract[];
+  top_substations: MunicipioSubstation[];
+  water_sources: number;
+  telecom_sites: number;
+  sales_by_year: MunicipioSalesYear[];
+  confidence_tiers: Record<string, ConfidenceTierKey>;
+}
+
 /** Loose GeoJSON shape for Deck.gl ingestion. */
 export interface FeatureCollection {
   type: "FeatureCollection";
@@ -1092,6 +1289,7 @@ export const api = {
   scenarios: () => apiGet<ScenarioInfo[]>("/resilience/scenarios"),
   scores: (scenario: string, top = 400) =>
     apiGet<SubstationScore[]>("/resilience/scores", { scenario, top }),
+  substationsSlim: () => apiGet<SubstationSlim[]>("/resilience/substations/slim"),
   currentState: () => apiGet<CurrentStateResponse>("/resilience/current"),
   spof: () => apiGet<SpofEntity[]>("/resilience/spof"),
   consequence: (entityId: number) => apiGet<ConsequenceSummary>(`/network/consequence/${entityId}`),
@@ -1106,6 +1304,8 @@ export const api = {
     apiGet<WaterSourcesResponse>("/water/sources", { scenario }),
   waterSource: (entityId: number) => apiGet<WaterSourceDetail>(`/water/source/${entityId}`),
   waterGauges: () => apiGet<WaterGauge[]>("/water/gauges"),
+  waterConsequence: (subId: number) =>
+    apiGet<WaterConsequence>(`/network/water-consequence/${subId}`),
 
   telecomSources: (scenario = "cat3") =>
     apiGet<TelecomSourcesResponse>("/telecom/sources", { scenario }),
@@ -1131,11 +1331,15 @@ export const api = {
   economyTracts: () => apiGet<FeatureCollection>("/economy/tracts"),
   economyCommunity: () => apiGet<FeatureCollection>("/economy/community"),
   exposure: (limit = 400) => apiGet<ExposureRow[]>("/economy/exposure", { limit }),
+  economyMunicipios: () => apiGet<FeatureCollection>("/economy/municipios"),
+  economyMunicipioDetail: (name: string) =>
+    apiGet<MunicipioDetail>(`/economy/municipio/${encodeURIComponent(name)}`),
 
   corridorRoutes: () => apiGet<CorridorRoute[]>("/corridor/routes"),
   corridorRoutesGeojson: () => apiGet<FeatureCollection>("/corridor/routes/geojson"),
   corridorRoute: (id: number) => apiGet<CorridorRouteDetail>(`/corridor/routes/${id}`),
   corridorProfile: (id: number) => apiGet<ProfilePoint[]>(`/corridor/routes/${id}/profile`),
+  corridorCostReferences: () => apiGet<CostReference[]>("/corridor/cost-references"),
 
   syncSources: () => apiGet<SyncSource[]>("/sync/sources"),
   syncLog: (limit = 50) => apiGet<SyncLogEntry[]>("/sync/log", { limit }),
@@ -1176,6 +1380,7 @@ export const api = {
 
   confidenceTiers: () => apiGet<ConfidenceTier[]>("/provenance/tiers"),
   provenanceAssumptions: () => apiGet<Assumption[]>("/provenance/assumptions"),
+  assumptionRationale: () => apiGet<AssumptionRationale[]>("/provenance/assumption-rationale"),
   provenanceInventory: () => apiGet<InventoryEntry[]>("/provenance/inventory"),
   provenanceTable: (table: string) => apiGet<ProvenanceRecord>(`/provenance/${table}`),
   provenanceLayer: (layerId: string) =>
@@ -1205,6 +1410,13 @@ export const api = {
   siteAccessPoints: () => apiGet<SiteAccessPoint[]>("/sitefinder/access-points"),
 
   parcelSearch: (q: string) => apiGet<ParcelSearchResult>("/crim/parcels/search", { q }),
+  parcelSearchByAddress: (street: string, opts?: { urb?: string; municipio?: string; zip?: string }) =>
+    apiGet<AddressSearchResult>("/crim/parcels/search/address", {
+      street,
+      ...(opts?.urb ? { urb: opts.urb } : {}),
+      ...(opts?.municipio ? { municipio: opts.municipio } : {}),
+      ...(opts?.zip ? { zip: opts.zip } : {}),
+    }),
   parcelDetail: (numCatastro: string) =>
     apiGet<ParcelDetail>(`/crim/parcel/${encodeURIComponent(numCatastro)}`),
   ownerSearch: (q: string) => apiGet<OwnerSearchResult>("/crim/owners/search", { q }),
@@ -1212,6 +1424,10 @@ export const api = {
     apiGet<OwnerDetail>(`/crim/owner/${encodeURIComponent(ownerKey)}`),
   crimTrends: (months = 12, since = 2010, top = 25) =>
     apiGet<TrendsResponse>("/crim/trends", { months, since, top }),
+  crimTrendsMunicipio: (name: string, months = 12, since = 2010) =>
+    apiGet<TrendsMunicipioDetail>(`/crim/trends/municipio/${encodeURIComponent(name)}`, { months, since }),
+  crimTrendsMatrix: (since = 2010) =>
+    apiGet<TrendsMatrixResponse>("/crim/trends/matrix", { since }),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

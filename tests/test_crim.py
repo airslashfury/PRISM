@@ -100,6 +100,11 @@ def test_parcel_detail_is_enriched_not_a_dupe(engine):
     assert d["power"] is not None
     assert d["power"]["substation_name"]
     assert d["power"]["confidence_tier"] == "proxy"  # feeder-assignment proxy
+    # F9a A1: the drawer's risk explainer needs the score plus where it sits
+    # among all cat3-scored substations; both present or both absent.
+    assert (d["power"]["cat3_composite"] is None) == (d["power"]["cat3_percentile"] is None)
+    if d["power"]["cat3_percentile"] is not None:
+        assert 0.0 <= d["power"]["cat3_percentile"] <= 1.0
     assert d["flood"]["level"] in {"minimal", "low", "moderate", "high"}
     assert d["flood"]["confidence_tier"] == "authoritative"
     # community / road access resolve through the parcel's barrio

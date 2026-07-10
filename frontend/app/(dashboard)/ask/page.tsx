@@ -17,6 +17,9 @@ const EXAMPLES = [
   "What about my area in Mayagüez?",
   "What's the top investment in the current portfolio?",
   "Compare rail routes from San Juan to Ponce",
+  "Who owns the most land in Bayamón?",
+  "What's the largest industrial parcel in Ponce?",
+  "Did anything change in the data this week?",
 ];
 
 interface Turn {
@@ -83,12 +86,47 @@ export default function AskPage() {
       </div>
 
       <InfoPanel
+        title="What you can ask"
+        defaultOpen
+        sections={[
+          {
+            title: "Infrastructure & failures",
+            body: "“What happens if Palo Seco substation fails?” — what breaks downstream.",
+          },
+          {
+            title: "Resilience rankings",
+            body: "“What are the highest-risk substations under a Cat-3 hurricane?”",
+          },
+          {
+            title: "The investment plan",
+            body: "“What's the top investment in the current portfolio?”",
+          },
+          {
+            title: "Community vulnerability (SVI)",
+            body: "“How vulnerable is Comerío to a disruption?”",
+          },
+          {
+            title: "Parcels, owners & addresses (CRIM)",
+            body: "“Who owns the most land in Bayamón?”",
+          },
+          {
+            title: "What changed recently",
+            body: "“Did anything change in the data this week?”",
+          },
+          {
+            title: "Rail corridors",
+            body: "“Compare rail routes from San Juan to Ponce.”",
+          },
+        ]}
+      />
+
+      <InfoPanel
         title="About Ask PRISM"
         sections={[
           {
             title: "What this is",
             body:
-              "A natural-language front end over a handful of PRISM's existing read-only models: entity lookup, downstream-failure consequences, top resilience risks, the investment portfolio, rail corridor comparisons, and barrio social-vulnerability/civic data. A small model routes your question to one of those models; another model writes up the answer.",
+              "A natural-language front end over a handful of PRISM's existing read-only models: entity lookup, downstream-failure consequences, top resilience risks, the investment portfolio, rail corridor comparisons, barrio social-vulnerability/civic data, CRIM owner and parcel lookups, and the what-changed feed. A small model routes your question to one of those models; another model writes up the answer.",
           },
           {
             title: "Honest by construction",
@@ -114,7 +152,7 @@ export default function AskPage() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask about a substation, barrio, the portfolio, or a rail corridor..."
+          placeholder="Ask about a substation, an owner, a parcel, the portfolio, or what changed recently..."
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </form>

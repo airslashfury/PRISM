@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from prism.crim.normalize import normalize_address, normalize_owner
+from prism.crim.normalize import display_address, normalize_address, normalize_owner
 
 
 # ── Owner key ───────────────────────────────────────────────────────────────
@@ -97,3 +97,42 @@ def test_address_all_empty_is_none():
 def test_address_collapses_whitespace_and_uppercases():
     out = normalize_address("  calle   luna   10 ", "san juan")
     assert out == "CALLE LUNA 10, SAN JUAN"
+
+
+# ── display_address (F9b B2) — observed junk patterns from a live sample ────
+
+def test_display_strips_dot_placeholder_and_fake_zip():
+    out = display_address("BO COCOS , ., PR, Puerto Rico, 00000", "Añasco")
+    assert out == "Bo Cocos, Añasco"
+
+
+def test_display_keeps_real_zip():
+    out = display_address("URB OLYMPIC VILLE A 42 , PR, Puerto Rico, 00771", "San Juan")
+    assert out == "Urb Olympic Ville A 42, San Juan, 00771"
+
+
+def test_display_keeps_real_zip_no_puerto_rico_segment():
+    out = display_address("BO MATUYAS ALTO, PR, 00707", "Yauco")
+    assert out == "Bo Matuyas Alto, Yauco, 00707"
+
+
+def test_display_appends_municipio_when_absent():
+    out = display_address("PUERTA DE TIERRA, BAHIA URBANA, LOTE A AVE FERNANDEZ JUNCOS, PR, 00000",
+                            "San Juan")
+    assert out == "Puerta De Tierra, Bahia Urbana, Lote A Ave Fernandez Juncos, San Juan"
+
+
+def test_display_does_not_duplicate_municipio_already_present():
+    out = display_address("BO CANABONCITO, SAN JUAN, PR, Puerto Rico, 00000", "San Juan")
+    assert out.count("San Juan") + out.count("SAN JUAN") == 1
+
+
+def test_display_empty_address_falls_back_to_municipio():
+    assert display_address(None, "Ponce") == "Ponce"
+    assert display_address("   ", "Ponce") == "Ponce"
+
+
+def test_display_all_empty_is_none():
+    assert display_address(None, None) is None
+    assert display_address("", "") is None
+    assert display_address(", ., PR, Puerto Rico, 00000", None) is None

@@ -1,9 +1,17 @@
 """
 Phase 8 — Road access cost computation via pgRouting.
 
-For each barrio centroid, finds the nearest hospital/health_center reachable
-by road and computes travel time at 40 km/h (666.7 m/min).  Barrios on islands
-with no road network (Culebra, Vieques) are stored with NULL travel fields.
+For each barrio centroid, finds the nearest TRUE hospital reachable by road
+and computes travel time at 40 km/h (666.7 m/min).  Barrios on islands with
+no road network (Culebra, Vieques) are stored with NULL travel fields.
+
+Destination set is restricted to kind='hospital' AND attrs->>'clasif'='HOSP'
+(F9a chunk A3) — the WFS health layer also tags smaller primary-care/community
+health centers (CSC, CSF, C MED PRIMARIA) as kind='hospital', and separately
+carries university/CDT campus health facilities as kind='health_center'
+(e.g. "UPR RECINTO UNIVERSITARIO DE MAYAGUEZ", a campus clinic, not an ER).
+Routing citizens to either produced a false "nearest hospital". Only
+clasif='HOSP' facilities are real hospitals with emergency capacity.
 
 Stores results in transport.road_access_cost.
 """
@@ -41,8 +49,8 @@ class AccessRow:
 def compute_road_access(engine: Engine) -> list[AccessRow]:
     """
     Run pgr_dijkstra (hospitals → all barrio vertices) and return one row
-    per barrio with travel distance and time to the nearest hospital or
-    health_center.
+    per barrio with travel distance and time to the nearest true hospital
+    (clasif='HOSP' — see module docstring).
     """
     create_schema(engine)
 
@@ -70,7 +78,10 @@ def compute_road_access(engine: Engine) -> list[AccessRow]:
             WHERE e.domain = 'admin' AND e.kind = 'barrio'
         """), {"snap": SNAP_RADIUS_M}).fetchall()
 
-        # 2. Nearest road vertex + name for each hospital / health_center
+        # 2. Nearest road vertex + name for each TRUE hospital (kind='hospital'
+        #    AND clasif='HOSP' — excludes primary-care/community health-center
+        #    rows that also carry kind='hospital', and excludes kind='health_center'
+        #    entirely, which includes university/CDT campus clinics with no ER).
         hosp_verts = conn.execute(text("""
             SELECT
                 e.entity_id,
@@ -83,7 +94,7 @@ def compute_road_access(engine: Engine) -> list[AccessRow]:
                     LIMIT 1
                 ) AS vertex_id
             FROM graph.entities e
-            WHERE e.domain = 'health' AND e.kind IN ('hospital', 'health_center')
+            WHERE e.domain = 'health' AND e.kind = 'hospital' AND e.attrs->>'clasif' = 'HOSP'
         """), {"snap": SNAP_RADIUS_M}).fetchall()
 
     barrios    = [(r[0], r[1], r[2], r[3]) for r in barrio_verts]
