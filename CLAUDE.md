@@ -141,6 +141,7 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F9b — Municipio-first structure | **COMPLETE** | 2026-07-09 | Opus GO |
 | F9c — Grounded, not vibes | **COMPLETE** | 2026-07-09 | Opus GO x3 (C1/C2/C3) |
 | F9d — Find your parcel by address (D1+D2) | **COMPLETE** | 2026-07-10 | Opus GO x2 |
+| F10a — Weather domain, absorbing /storm | **COMPLETE** | 2026-07-10 | Opus GO (one fix at gate) |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -327,17 +328,33 @@ match rate against CRIM's address format is unmeasured — both live rows this s
 Tier B; revisit `display_address()` normalization if Tier A proves near-zero yield once D1 traffic
 accumulates. **F9d (D1+D2) is now COMPLETE — and with it the whole F9 arc.**
 
-**Active item: F10 — weather domain + model correctness + consistency sweep** (scheduled
-2026-07-10 from the post-F9 backlog audit; full chunk specs in ROADMAP.md Item F10 — read them
-there before dispatching). Three Opus-gated chunks on `feat/f10-weather` off `main` (after
-`feat/f9b-structure` merges): **F10a** — weather/climate domain (NOAA NCEI normals →
-`sync.climate_normals` copying the nwis.py pattern; per-municipio aggregates copying
-`economy/municipios.py`; `/weather` MapWorkspace choropleth **absorbing `/storm` as a lens**
-(`/storm` → redirect, nav + OG + Playwright updated); Site Finder `workable_days` criterion at
-default weight 0; workable-days formula documented in `assumption_rationale.yml`). **F10b** —
-economy model correctness: reconcile the VOLL 4%-vs-3% discount rate (task_f389670d) + fix the
-exposure barrio double-count vs the deduped `graph.downstream_summary` (task_b6170436), with a
-before/after validation pass (numbers change once, honestly). **F10c** — consistency sweep:
+**F10 — weather domain + model correctness + consistency sweep** (scheduled 2026-07-10 from the
+post-F9 backlog audit; full chunk specs in ROADMAP.md Item F10). Three Opus-gated chunks on
+`feat/f10-weather` off `main` (branched after `feat/f9b-structure` merged 2026-07-10).
+
+**F10a (2026-07-10, Opus GO) — weather domain, absorbing /storm:** `prism/sync/climate.py` — 19
+curated PR GHCN stations (hand-verified live against NOAA NCEI's keyless Access Data Service;
+there's no PR-wide station-list endpoint, only per-station queries) → `sync.climate_normals` (228
+rows), copying the `nwis.py` fetch/parse/mirror_raw/persist/sync shape. `prism/weather/
+municipios.py` mirrors `economy/municipios.py`'s aggregation shape (nearest-station join by
+centroid distance, all 78 municipios always return) + a workable-days heuristic (days_in_month ×
+(1 − rain-day fraction) × heat derate 0.70/0.85/1.0, documented in
+`assumption_rationale.yml:workable_days_formula`). Site Finder's `workable_days` criterion (weight
+0.00, like `dev_impact`) reuses the same Python formula via a JSONB param rather than duplicating
+it in SQL. `/weather` (MapWorkspace choropleth, metric switcher, ScoreExplainer) **absorbs
+`/storm` as a lens** — `storm-client.tsx` imported unmodified so all prior tested storm behavior
+survives untouched; `/storm` is now a pure redirect to `/weather?lens=storm`; nav/OG/Playwright
+updated. Full pytest green (631 passed). Gate fix: the NOAA mirror was first written inside the
+`prism-api` container (ephemeral, not the host bind mount) — violates the data-sovereignty rule;
+re-ran from the host venv to land the durable mirror before GO. Residual (non-blocking, filed as
+a background task): `mirror_raw()`'s text-mode write vs. byte-mode checksum computation mismatches
+on Windows (CRLF translation) across climate.py + its NWIS/USGS-quakes/PREPA/LUMA siblings —
+content is provably intact, one-line `write_bytes` fix per module, tracked separately.
+
+**Active item: F10b** — economy model correctness: reconcile the VOLL 4%-vs-3% discount rate
+(task_f389670d) + fix the exposure barrio double-count vs the deduped `graph.downstream_summary`
+(task_b6170436), with a before/after validation pass (numbers change once, honestly). **F10c** —
+consistency sweep:
 `address_lookup`→`barrio_lookup` rename, water/telecom cascade-arc barrio centroids (lights up
 the F8 map theatre on both pages), `/sitefinder` permalinks, api.ts hybrid cleanup (~110
 hand-typed interfaces vs regenerated `api-types.ts`), OG font embedding, F9d Tier A yield

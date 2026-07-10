@@ -49,8 +49,12 @@ Sequencing: **F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9**. Each
 > Transport** dependency chain is surfaced and performed (cascade play, command-center landing,
 > ⌘K palette, OG cards, presentation mode). **F9 — the Legibility & Trust arc** (below),
 > scheduled 2026-07-07 from the user's first full product review, is now **DONE** (F9a/b/c/d,
-> all Opus GO, 2026-07-10). **The active item is F10 — weather domain + model correctness +
-> consistency sweep** (scheduled 2026-07-10 from the post-F9 backlog audit; see Item F10 below).
+> all Opus GO, 2026-07-10). **F10 — weather domain + model correctness + consistency sweep**
+> (scheduled 2026-07-10 from the post-F9 backlog audit; see Item F10 below) is in progress on
+> `feat/f10-weather` (off `main`, after `feat/f9b-structure` merged 2026-07-10): **F10a (weather
+> domain, absorbing /storm) is DONE — Opus GO 2026-07-10** (one fix at gate: the NOAA normals
+> mirror had to be re-run from the host, not the container, to satisfy data-sovereignty). **The
+> active item is F10b — economy model correctness** (below).
 
 > **Revised 2026-07-01:** the original F4 (scenario library + Report Studio + provenance
 > exports) was parked to `BACKLOG.md` — output-shaped features for an audience that doesn't
@@ -646,7 +650,7 @@ Sequencing: **F10a → F10b → F10c**, one branch `feat/f10-weather` off `main`
 each GO. Fable plans / Sonnet implements per chunk; `/ui-ux` loaded for every copy-bearing chunk
 (weather metric explainers, the correction note, clinic-field copy).
 
-#### F10a — Weather/climate domain, absorbing /storm  *(marquee chunk)*
+#### F10a — Weather/climate domain, absorbing /storm  *(marquee chunk)* — ✅ DONE (Opus GO, 2026-07-10)
 
 Nothing weather-shaped exists in PRISM (re-verified 2026-07-10: only SLR/SLOSH/NHC hazard
 layers). The user's ask from the 2026-07-07 review: aggregate weather scoring plus average
@@ -693,6 +697,29 @@ humidity/heat/rain — "expected workable days" is a real construction siting/sc
 **Done when:** normals mirrored + loaded with provenance; `/weather` renders the choropleth with
 per-metric explainers; the storm lens is reachable and `/storm` redirects with metadata/OG intact;
 Site Finder exposes workable-days with unit semantics; e2e specs updated and green.
+
+**Built 2026-07-10 (Opus GO):** `prism/sync/climate.py` — 19 curated PR GHCN stations verified live
+against NOAA NCEI's keyless Access Data Service (`normals-monthly-1991-2020`; there is no PR-wide
+station-list endpoint, only per-station queries, so the set was hand-verified and spans
+north/south/east/west coastal + central-mountain interior) → `sync.climate_normals` (228 rows);
+`prism/weather/municipios.py` mirrors `economy/municipios.py`'s shape (nearest-station join by
+centroid distance, all 78 municipios always return) plus a workable-days heuristic (days_in_month
+× (1 − rain-day fraction) × heat derate 0.70/0.85/1.0, documented in
+`assumption_rationale.yml:workable_days_formula`). Site Finder's `workable_days` criterion (weight
+0.00) reuses the same Python formula via a JSONB param into `score.py`'s SQL, avoiding a second
+implementation. `/weather` (MapWorkspace choropleth, metric switcher, ScoreExplainer on the
+workable-days figure) absorbs `/storm` as a toggleable lens — `storm-client.tsx` is imported
+unmodified so all prior tested storm behavior survives untouched; `/storm` is now a pure redirect.
+`config/confidence.yml`/`catalog/metadata.json`/`test_provenance.py` (189→190) stamped. New tests:
+`tests/test_climate.py`, `tests/test_weather_municipios.py`; e2e: `/storm` redirect + `/weather`
+render specs, `/weather` added to the map-route smoke list. Full pytest green (631 passed). Gate
+fix: the NOAA mirror was first run inside the `prism-api` container (ephemeral overlay fs, not the
+host bind mount) — violates the data-sovereignty rule; re-run from the host venv to land the
+durable `data/raw/climate/<date>/` mirror before GO. Residual (non-blocking, filed as a background
+task): `mirror_raw()`'s text-mode write vs. byte-mode checksum mismatch on Windows (CRLF
+translation) affects climate.py and its NWIS/USGS-quakes/PREPA/LUMA siblings — content is provably
+intact, but a Windows-written mirror can't self-verify against its own manifest; fix is a one-line
+`write_bytes` swap per module, tracked separately, not blocking.
 
 #### F10b — Economy model correctness  *(closes task chips task_f389670d + task_b6170436)*
 
