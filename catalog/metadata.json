@@ -2487,6 +2487,62 @@
       ],
       "compute_date": "2026-07-03",
       "license": "derived"
+    },
+    "derived:ocpr.contracts": {
+      "source": "derived",
+      "title": "ocpr.contracts",
+      "schema": "ocpr",
+      "table": "contracts",
+      "description": "F11e mirror of Puerto Rico's official government-contract register (Oficina del Contralor, consultacontratos.ocpr.gov.pr): 1,141,257 contracts 2012→today — awarding agency, dates, amounts, service class, and document GUIDs. Contractor names live in ocpr.contract_contractors, keyed with normalize_owner() for the CRIM owner join. A multi-contractor contract carries its FULL amount against each contractor in the source; summing by contractor over-counts and PRISM marks those rows shared.",
+      "inputs": [
+        "POST consultacontratos.ocpr.gov.pr/contract/search",
+        "data/raw/contralor_contratos (2012-2023 CSVs, Latin-1)",
+        "prism/sync/ocpr.py"
+      ],
+      "compute_date": "2026-07-18",
+      "license": "PR government (public register)"
+    },
+    "derived:ocpr.government_keys": {
+      "source": "derived",
+      "title": "ocpr.government_keys",
+      "schema": "ocpr",
+      "table": "government_keys",
+      "description": "F11e set of owner keys that are public bodies (1,172), used to default the contractor ranking to private landowners. Data-driven core: every distinct OCPR contracting entity_name through normalize_owner(). Prefix sweep on top (DEPARTAMENTO/AUTORIDAD/MUNICIPIO/ADMINISTRACION/...) for public bodies that only appear as contractors — that part is heuristic.",
+      "inputs": [
+        "ocpr.contracts",
+        "ocpr.contract_contractors",
+        "prism/crim/normalize.py",
+        "prism/ocpr/footprint.py"
+      ],
+      "compute_date": "2026-07-18",
+      "license": "derived"
+    },
+    "derived:sync.aee_shed_feeders": {
+      "source": "derived",
+      "title": "sync.aee_shed_feeders",
+      "schema": "sync",
+      "table": "aee_shed_feeders",
+      "description": "PREPA/AEE manual load-shedding plan, mirrored from the operator's public ArcGIS FeatureServer: 792 distribution feeders across 75 municipios (1,063,427 customers) with service-area polygons in EPSG:32161, shed stage/block, transfer-to circuit, and live shed status. CLIENTS is the solid consequence metric; MW is unreliable per the dashboard's own labeling. Loaded off the data/raw snapshots, never straight from the network.",
+      "inputs": [
+        "services3.arcgis.com/0n3sEGhALDkUSwc5 Manual_Load_Shedding/0",
+        "data/raw/aee_load_shedding/<utc>/load_shedding.geojson",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-19",
+      "license": "PR government (public dashboard)"
+    },
+    "derived:sync.aee_shed_history": {
+      "source": "derived",
+      "title": "sync.aee_shed_history",
+      "schema": "sync",
+      "table": "aee_shed_history",
+      "description": "Per-snapshot shed state for every feeder — the only record of a load-shedding EVENT over time, since PREPA publishes current state and overwrites it. First banked episode: 2026-07-18/19, ramping 40 feeders/45,738 customers at 22:03Z to a peak of 128 feeders/146,138 customers at 01:04Z, back to zero by 04:08Z. Coverage begins 2026-07-18; a missing interval means 'not observed', never 'no shedding'.",
+      "inputs": [
+        "data/raw/aee_load_shedding/*",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-19",
+      "license": "PR government (public dashboard)"
     }
   }
 }

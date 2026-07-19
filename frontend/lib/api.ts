@@ -831,6 +831,65 @@ export interface OwnerDetail {
   top_parcels: OwnerPortfolioParcel[];
 }
 
+// ── OCPR government-contract footprint (F11e) ───────────────────────────────
+
+export interface ContractAgency {
+  entity_name: string | null;
+  contract_count: number;
+  total_amount: number | null;
+}
+
+export interface ContractSummaryRow {
+  contract_id: number;
+  contract_number: string | null;
+  entity_name: string | null;
+  service: string | null;
+  amount: number | null;
+  date_of_grant: string | null;
+  cancelled: boolean;
+  contractor_count: number;
+  /** >1 contractor: `amount` is the FULL contract, not this owner's share. */
+  shared: boolean;
+  co_contractors: string[];
+  doc_id: string | null;
+}
+
+export interface OwnerContractFootprint {
+  owner_key: string;
+  available: boolean;
+  /** False = this owner holds no government contracts (an answer, not an error). */
+  matched: boolean;
+  is_government: boolean;
+  contract_count: number;
+  total_amount: number | null;
+  agency_count: number;
+  shared_count: number;
+  shared_amount: number | null;
+  first_grant: string | null;
+  last_grant: string | null;
+  agencies: ContractAgency[];
+  top_contracts: ContractSummaryRow[];
+  confidence_tier: ConfidenceTierKey;
+}
+
+export interface ContractorOwner {
+  owner_key: string;
+  display_name: string | null;
+  parcel_count: number;
+  total_val: number | null;
+  contract_count: number;
+  total_amount: number | null;
+  is_government: boolean;
+}
+
+export interface ContractorOwnerRanking {
+  include_government: boolean;
+  count: number;
+  owners: ContractorOwner[];
+  available: boolean;
+  confidence_tier: ConfidenceTierKey;
+}
+
 // ── Live storm (F5: NHC advisory feed + pre-landfall consequence) ──────────
 
 /** Hand-typed pending OpenAPI client regen — mirrors api.schemas.Storm*
@@ -1475,6 +1534,13 @@ export const api = {
   ownerSearch: (q: string) => apiGet<OwnerSearchResult>("/crim/owners/search", { q }),
   ownerDetail: (ownerKey: string) =>
     apiGet<OwnerDetail>(`/crim/owner/${encodeURIComponent(ownerKey)}`),
+  ownerContracts: (ownerKey: string) =>
+    apiGet<OwnerContractFootprint>(`/crim/owner/${encodeURIComponent(ownerKey)}/contracts`),
+  contractorOwners: (includeGovernment: boolean, limit = 25) =>
+    apiGet<ContractorOwnerRanking>("/crim/owners/contractors", {
+      include_government: includeGovernment,
+      limit,
+    }),
   crimTrends: (months = 12, since = 2010, top = 25) =>
     apiGet<TrendsResponse>("/crim/trends", { months, since, top }),
   crimTrendsMunicipio: (name: string, months = 12, since = 2010) =>

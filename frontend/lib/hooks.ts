@@ -342,6 +342,23 @@ export const useOwnerDetail = (ownerKey: string | null) =>
     staleTime: 10 * MIN,
   });
 
+/** F11e: one owner's OCPR government-contract footprint (no-match is a result). */
+export const useOwnerContracts = (ownerKey: string | null) =>
+  useQuery({
+    queryKey: ["ownerContracts", ownerKey],
+    queryFn: () => api.ownerContracts(ownerKey as string),
+    enabled: ownerKey != null,
+    staleTime: 10 * MIN,
+  });
+
+/** F11e: property owners ranked by contract value; public bodies off by default. */
+export const useContractorOwners = (includeGovernment: boolean, limit = 25) =>
+  useQuery({
+    queryKey: ["contractorOwners", includeGovernment, limit],
+    queryFn: () => api.contractorOwners(includeGovernment, limit),
+    staleTime: 30 * MIN,
+  });
+
 export const useCrimTrends = (months = 12, since = 2010, top = 25) =>
   useQuery({
     queryKey: ["crimTrends", months, since, top],

@@ -15,6 +15,7 @@ from api import schemas
 from api.cache import cached_response
 from api.deps import engine_dep
 from prism.crim import owners, query, trends
+from prism.ocpr import footprint
 
 router = APIRouter(prefix="/crim", tags=["crim"])
 
@@ -59,6 +60,26 @@ def owner_search(
 ) -> dict:
     """Resolve a name fragment to normalized owner entities (variants collapsed)."""
     return owners.search_owners(engine, q, limit=limit)
+
+
+@router.get("/owners/contractors", response_model=schemas.ContractorOwnerRanking)
+@cached_response("crim_contractor_owners", ttl=3600)
+def contractor_owners(
+    include_government: bool = Query(
+        False, description="Include public bodies — they dominate both sides of the ranking"),
+    limit: int = Query(25, ge=1, le=100),
+    engine: Engine = Depends(engine_dep),
+) -> dict:
+    """Property owners ranked by government-contract value (F11e)."""
+    return footprint.top_contractor_owners(
+        engine, include_government=include_government, limit=limit)
+
+
+@router.get("/owner/{owner_key:path}/contracts", response_model=schemas.OwnerContractFootprint)
+def owner_contracts(owner_key: str, engine: Engine = Depends(engine_dep)) -> dict:
+    """One owner's OCPR government-contract footprint (F11e). Never 404s — an
+    owner with no contracts is a real result (`matched: false`)."""
+    return footprint.owner_contract_footprint(engine, owner_key)
 
 
 @router.get("/owner/{owner_key:path}", response_model=schemas.OwnerDetail)

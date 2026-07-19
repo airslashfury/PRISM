@@ -856,10 +856,175 @@ an OG card renders with the brand font; the yield number is written into the F9d
 clinic field shows on the citizen card for a previously-NULL barrio. **All met except item 4's
 typecheck-post-cleanup, which is why it was carved out rather than blocking the other six.**
 
-**F11 candidates (recorded, not scheduled):** fiber layer + real callsign service-area polygons
-on `/telecom` (F7 deferral); multi-hazard overlays — landslide/liquefaction/seismic + a Guánica
-2020 backtest; distribution geometry (2014 `g37_electric_*`) to tighten the feeder Voronoi and
-raise its confidence tier; public methods/API docs (still audience-gated).
+#### F11f — AEE/PREPA load-shedding feed  *(mirror + load DONE 2026-07-19; feeder network pending)*
+
+PREPA's public "Manual Load Shedding" ArcGIS dashboard, captured under the data-sovereignty rule
+(memory: `aee-load-shedding-arcgis.md`). `prism/sync/aee.py` mirrors to `data/raw/aee_load_shedding/
+<utc>/` on a lastEditDate-triggered poll, and now loads those mirrors into
+`sync.aee_shed_feeders` (792 feeders / 75 municipios / 1,063,427 customers, service-area polygons
+in EPSG:32161, shed stage + transfer-to circuit + live status) and `sync.aee_shed_history`
+(per-snapshot state, 11,880 rows over 15 snapshots). Load is off the mirrors only, never the
+network; 20 source polygons are invalid as published (nested shells) and are `ST_MakeValid`-repaired
+on load with the mirror left untouched.
+
+**Why the history table is the point:** PREPA publishes current state and overwrites it, so a
+shedding episode is unrecoverable once it ends unless PRISM banked it. The first banked episode is
+already complete — 40 feeders / 45,738 customers at 2026-07-18 22:03Z, peaking at **128 feeders /
+146,138 customers at 01:04Z**, back to zero by 04:08Z. (Note: the raw manifest's `total_clients`
+is the whole *plan's* customer base — 1.06M — not customers shed; a regression test guards that
+misreading.)
+
+- **Still to do:** the 486,725-segment distribution feeder network
+  (`Manual_Load_Shedding_Base_Data/0`, with NODE1_ID/NODE2_ID topology) — `mirror_feeder_network()`
+  exists but has never been run. That is the authoritative geometry that would replace PRISM's
+  Voronoi feeder proxy and lift its confidence tier.
+- **Not yet wired:** no worker cron (gaps in the series mean "not observed", never "no shedding"),
+  no graph/resilience join, no UI surface.
+
+**Other F11 candidates (recorded, not scheduled):** fiber layer + real callsign service-area
+polygons on `/telecom` (F7 deferral); multi-hazard overlays — landslide/liquefaction/seismic + a
+Guánica 2020 backtest; distribution geometry (2014 `g37_electric_*`) to tighten the feeder Voronoi
+and raise its confidence tier; public methods/API docs (still audience-gated).
+
+---
+
+### Item F11 — Corporate owner intelligence: link CRIM owners → PR corporations registry  *(ACTIVE — scheduled 2026-07-17)*
+
+Source: user ask 2026-07-16 — "link parcel owners that match this public registry
+(rcp.estado.pr.gov) with all attributes." Assessed + spiked live 2026-07-16/17 (Fable session).
+**Authorization:** user confirmed they reached out and bulk access is "fair game"; the officer
+data is plain public corporate structure (agent/CEO/treasurer, OpenCorporates-style but
+authoritative). See memory `rcp-corporations-registry.md` for the full API contract + spike data.
+
+**Framing (do not oversell):** `rcp.estado.pr.gov` is the Departamento de Estado **corporations
+registry** (Registro de Personas Jurídicas), NOT a property/deeds registry — it cannot say who
+owns a parcel, only enrich the **corporate slice** of CRIM owners. Strict-suffix count is 8,826
+(~1% of owners); the spike's registry→CRIM overlap (34/1102 ≈ 3.1%) extrapolates to **~15–20K
+reachable owners (~2%)** — the strict count is a floor (misses INCORPORADO / cooperatives / etc.).
+Hard ceiling above that: individuals + SUCESION estates have no registry record. High-value slice
+(developers, housing LLCs, land-acquisition, utilities).
+
+**Spike outcomes (2026-07-17, all live-verified):** the search POST is 250-capped and
+sticky-WAF'd (dead end for bulk); but `GET /api/corporation/info/{registrationIndex}` is
+**enumerable** — `registrationNumber` is a global counter, suffix encodes type (`-111` corp,
+`-1511` LLC, `-611` int'l banking). Density ~55% across the two dominant suffixes; payload densely
+complete in bulk (~99% resident agent, ~70% officers). GET tolerates ~10 req/s but overshoot
+triggers a sliding-window cooldown — safe rate ~6 req/s, any 429 → long silent backoff (**no IP
+rotation / evasion; we respect the limit and wait blocks out**). Offline normalized join
+**validated** (34/34 overlap examples link cleanly — punctuation/accents/double-spaces absorbed
+both sides), so exact-normalized-key join carries the bulk, fuzzy only for the typo tail. Full
+~560K mirror ≈ 1.5–2 days at safe rate (number-major, early-stop, ~800K probes).
+
+Sub-chunks, each Opus-gated:
+
+- **F11a — Registry mirror (enumeration pull).** ✅ built + launched 2026-07-17 —
+  `prism/sync/rcp.py` (nwis.py-shaped; `crim.rce_entities` raw JSONB + `crim.rce_pull_progress`
+  checkpoint; number-major early-stop over SUFFIXES=(1511,111,611); ~6 req/s; 429→silent backoff
+  300/600/900/1800s; transient-net short retry; resumable). Durable store = Postgres (`data/raw`
+  isn't host-mounted in the container — the F10a ephemeral-mirror trap). Running detached in
+  prism-api, writing to the `prism_pgdata` volume. **Done when:** the walk completes to ~600K, the
+  entity count stabilizes, and a host-side raw NDJSON export + `catalog/metadata.json` provenance
+  entry land (data-sovereignty finish — currently PG-only). Follow-ups: complete the type-suffix
+  set beyond the three confirmed (tail types — coops/trusts/reserved R-prefix — need a small
+  discovery step, either brute-probe or a one-off search sample once the WAF clears).
+- **F11b — Offline matcher.** New module (mirror `prism/crim/normalize.py` discipline): a
+  **suffix-preserving** match key (NOT `owner_key`, which strips LLC/INC/CORP — the token that
+  distinguishes two registry entities; DANCO BUILDERS CORP vs INC already collapse under owner_key)
+  → exact-normalized join → fuzzy (`pg_trgm`, already indexed on `rce_entities.corp_name`) for the
+  typo tail, single-match-only (multiple candidates → honest no-match, F9d discipline). Writes
+  `crim.owner_rce_match` (owner_key → registration_index + method/confidence/matched_at, sparse —
+  a no-match is a recorded result). Tier `proxy`. **Done when:** the real CRIM→registry match rate
+  is measured (the number the spike couldn't produce without the mirror) and false-merge audited.
+- **F11c — Enrichment surface.** Registry chip on the **existing F1 owner drawer** (status badge,
+  class, formation date, resident agent, "as of" date, deep link to the DoS page) + a one-liner on
+  the parcel-360 card. Status modeled as a slowly-changing dimension → `ACTIVA→DISUELTA/CANCELADA`
+  transitions feed the F2 WhatsNew stream as a typed kind (a dissolved entity still holding parcels
+  is a signal CRIM never emits). Poll only the matched set, monthly, on the CRIM cadence. `/ui-ux`
+  for the "authoritative for the corporate slice only" caveat copy. **Done when:** the drawer chip
+  renders for a matched owner and a status-change event appears in WhatsNew.
+- **F11d — Control-cluster merge (stretch).** Collapse shell LLCs into control clusters on
+  **shared officer identity** (person-name, own accent/case normalization) + `relatedentities`
+  (authoritative) — **NOT shared address** (agent offices host hundreds; use address only as a
+  frequency-weighted signal: many-entities = noise, 2–3 = a real principal). Person→parcels reverse
+  view = deliberate fast-follow, out of v1. Docs/PDFs (agent/members sometimes in filings, mostly
+  boilerplate): lazy-fetch on drill-in only, never bulk (WAF-risky, low-yield).
+
+Sequencing: **F11a → F11b → F11c** (F11d optional). Storage all under the `crim` schema. Branch
+`feat/f11-owner-registry` off `main` when F10 merges. Fable plans / Sonnet implements; `/ui-ux` for
+every copy-bearing chunk.
+
+#### F11e — OCPR government-contracts supplement  *(✅ COMPLETE — Opus GO 2026-07-19)*
+
+A second data source that **supplements** the owner intelligence (not a replacement): government
+contracts from the Oficina del Contralor (`consultacontratos.ocpr.gov.pr`). Joins to the registry
+companies + CRIM owners by **contractor name**, giving each owner a government-contract footprint
+($ total, count, contracting agencies) — a strong "what does this entity actually do" signal. Full
+endpoint contract in memory `ocpr-contralor-contracts.md`. Endpoints assessed + tested live
+2026-07-18 (both the bulk search and the doc pull work; the PoC's doc-pull 404 was a wrong param —
+it's `?code=` not `?id=`). Source is on a fragile/unmaintained system — same gentle-access posture
+as the registry.
+
+- **Data.** Historical base = the CSVs already in `data/raw/contralor_contratos/` (2012–2023,
+  **Latin-1** — decode accordingly). Current = the bulk endpoint `POST /contract/search`
+  (DataTables body, **paginate `start` by `length:1000`**, dates **DD/MM/YYYY**; needs a session:
+  GET `/contract/` for the `__RequestVerificationToken` cookie + form token, echo the token in the
+  request header). `recordsFiltered` = 1,141,286 all-time (2012→now), so ~1,140 pages for a full
+  API mirror (fast + permissive — no aggressive WAF seen, unlike the registry).
+- **Module.** `prism/sync/ocpr.py` (nwis.py-shaped): session bootstrap, paginated pull → tables,
+  CSV loader, `download_doc(code)` helper. Tables under a dedicated **`ocpr`** schema:
+  `ocpr.contracts` (one row per ContractId; gov entity, dates as parsed .NET `/Date(ms)/`, amounts,
+  service, doc GUIDs, source csv|api, raw jsonb) + `ocpr.contract_contractors` (contract_id,
+  contractor_name, **contractor_key** = `normalize_owner()` for the join) + `ocpr.pull_progress`.
+- **Docs.** Keep the doc GUIDs; **lazy-fetch PDFs on demand** (`GET contract/downloaddocument?code=
+  {DocumentWithoutSocialSecurityId}`, no session needed), never bulk (~120K/yr × ~700KB). Tiers:
+  `DocumentWithoutSocialSecurityId` = direct download; only `DocumentWithSocialSecurityId` = gated
+  "Request Document" flow (skip); `CancellationDocumentId` = if cancelled. **Done as a proof
+  (2026-07-18):** top-10 downloadable-by-$ contracts pulled to
+  `data/raw/contralor_contratos/top10_by_amount/` (+ `_manifest.json`) — ENERGIZA $16.7B … NOVUM
+  $1.17B.
+- **Join / surface.** `contractor_key` → `crim.rce_entities` (registry) + CRIM owners; add a
+  government-contract footprint to the F11c owner drawer. **First join measured 2026-07-18:**
+  345,488 distinct contractors, 21,699 (6.3%) also CRIM property owners, $45.78B contract value to
+  them over 64,424 parcels. **Surfacing decisions (user, 2026-07-18):**
+  - **Government/public toggle, default OFF** — the raw ranking mixes private contractors with
+    government entities that are also big landowners (Depto Vivienda 2,516 parcels, Edificios
+    Públicos, municipios). Default view EXCLUDES government/public entities (the "private landowners
+    with government contracts" signal); a toggle reveals them. Government owner_keys are identifiable
+    data-driven (contractor normalized-name ∈ the set of OCPR `EntityName`s, +the DEPARTAMENTO/
+    AUTORIDAD/MUNICIPIO/ADMINISTRACION/… prefixes).
+  - **Shared-contract amount marker** — multi-contractor contracts attribute the full amount to each
+    contractor (over-count). Mark such amounts with an **asterisk + hover tooltip** ("shared
+    contract — value is the full contract, split among N co-contractors"), rather than silently
+    dividing. Derive the flag from `count(*) > 1` over `contract_contractors` per `contract_id`.
+  - **Co-contractors field** — on a contract/owner view, list the other contractors on each shared
+    contract (a self-join on `contract_contractors` by `contract_id`; no schema change needed).
+
+  **Done when:** contracts loaded (done), join measured (done), footprint on the owner drawer with
+  the government toggle (default off), shared-contract asterisk/tooltip, and co-contractors field.
+  **All met — Opus GO 2026-07-19.** Surfacing built as `prism/ocpr/footprint.py` (+ `__main__.py`
+  CLI: `--gov-keys` rebuilds `ocpr.government_keys`, 1,172 keys = all 375 contracting agencies via
+  `normalize_owner()` + a disclosed prefix heuristic) → `GET /crim/owners/contractors` (cached 1h)
+  and `GET /crim/owner/{key}/contracts`, declared *before* the greedy `/owner/{key:path}` route →
+  `ContractsSection` / `ContractRow` / `ContractorLeaders` on `/parcels`. Drawer stays silent for
+  the ~94% of owners with no contracts. Tiers: `ocpr.contracts` authoritative, `government_keys`
+  modeled, `owner_contract_footprint` proxy (name-based join, not an id — merge/split risk stated;
+  the ranking's #2 slot `SWEET` is a live example of the merge). Catalog 190→192.
+  **Gate finding (fixed, blocking):** `contract_contractors` is keyed `(contract_id,
+  contractor_name)`, so one firm spelled two ways ("CARIBE TECNO, CRL" / "CARIBE TECNO,CRL")
+  double-billed its contract to a single `contractor_key` — the same diamond double-count F10b
+  fixed in `economy/exposure.py`, and unlike the shared-contract over-count this one was silently
+  wrong. Every aggregate now joins through a `DISTINCT (contract_id, contractor_key)` view and
+  co-contractor counts are `COUNT(DISTINCT contractor_key)`; Caribe Tecno $362.5M→$359.5M, shared
+  11→10, and a false "shared with" asterisk on a single-contractor contract is gone. Regression
+  test added. Gate-adjacent: `COPY prism/ocpr` was missing from `Dockerfile.api` (the F10a
+  `prism/weather` trap again) — added and proven by running the CLI inside the rebuilt container.
+  Residuals (non-blocking): API-pulled contracts have per-row `raw` jsonb but no file-level
+  `data/raw` mirror, deviating from the `mirror_raw()` convention — a decision, not a bug; the
+  register's own outliers (a $4B `VIVIENDAS` contract) pass through uncorrected, now disclosed in
+  the ranking copy rather than silently ranked.
+
+Runs independently of the registry mirror pull. Encoding note: the API JSON serves Latin-1 bytes
+mislabeled utf-8 (entity names arrive as mojibake) — repair on ingest (`.encode('latin-1').decode('utf-8')`).
 
 ---
 

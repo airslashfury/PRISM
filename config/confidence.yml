@@ -448,6 +448,87 @@ tables:
       Census-matched case toward authoritative for the address label itself
       (the point), while the parcel-assignment step stays proxy.
 
+  sync.aee_shed_feeders:
+    method: authoritative mirror (PREPA/AEE Manual Load Shedding FeatureServer)
+    confidence_tier: authoritative
+    assumptions: >-
+      PREPA's own manual load-shedding plan: 792 distribution feeders with the
+      polygons they serve, the shed STAGE (1-3 or CRITICAL STAGE), customer
+      count, and live STATUS. Authoritative because it is the operator's own
+      published plan, not a PRISM inference. Two source caveats travel with it:
+      MW is unreliable per the dashboard's own labeling (CLIENTS is the solid
+      consequence metric), and the polygons are service areas, not the feeder
+      conductor geometry. 20 of the 792 source polygons are invalid as published
+      (nested shells) and are repaired with ST_MakeValid on load — the data/raw
+      mirror keeps the source exactly as PREPA published it. Loaded from those
+      mirrors, never straight off the network, so a vanished dashboard cannot
+      erase what PRISM holds.
+    upgrade_path: >-
+      Manual_Load_Shedding_Base_Data carries the real 486,725-segment
+      distribution network with NODE1_ID/NODE2_ID topology — mirroring and
+      loading that replaces PRISM's Voronoi feeder proxy with measured
+      geometry and lifts the feeder layer's tier.
+
+  sync.aee_shed_history:
+    method: append-only snapshot series
+    confidence_tier: authoritative
+    assumptions: >-
+      One row per (snapshot, feeder), banked every time the source's
+      lastEditDate advances (~30 min). This is the only record of a shed
+      EVENT over time — PREPA publishes current state and overwrites it, so a
+      shedding episode is unrecoverable once it ends unless PRISM banked it.
+      Coverage starts 2026-07-18; there is no backfill before that date and
+      gaps exist whenever the poller was not running. Interpret a missing
+      interval as "not observed", never as "no shedding".
+    upgrade_path: >-
+      A worker cron on the same cadence as the other live feeds would close
+      the observation gaps and make the series continuous.
+
+  ocpr.contracts:
+    method: authoritative mirror (Oficina del Contralor register)
+    confidence_tier: authoritative
+    assumptions: >-
+      F11e — Puerto Rico's official government-contract register, mirrored
+      whole (2012→today, 1.14M contracts). The amounts, dates, agencies and
+      contractor names are the Contralor's own record, not a PRISM estimate.
+      One caveat travels with every amount: a contract with multiple
+      contractors carries the FULL amount against each of them in the source,
+      so summing by contractor over-counts. PRISM marks such rows shared
+      rather than dividing a number the register never divided.
+    upgrade_path: >-
+      Per-contractor allocations exist only inside the contract PDFs
+      (lazy-fetchable by document GUID); parsing them would let the shared
+      amounts be split for real instead of flagged.
+
+  ocpr.government_keys:
+    method: normalized-name set (contracting entities + public-body prefixes)
+    confidence_tier: modeled
+    assumptions: >-
+      F11e — which owner keys are public bodies, used to default the
+      contractor ranking to private landowners. Data-driven core: every
+      distinct OCPR contracting entity_name run through normalize_owner()
+      (375 agencies, exact). Prefix sweep on top (DEPARTAMENTO, AUTORIDAD,
+      MUNICIPIO, ADMINISTRACION, …) for public bodies that only ever appear
+      as a contractor — that part is a heuristic and can misfile a private
+      firm whose name opens with a government-sounding word.
+    upgrade_path: >-
+      Once the F11a corporations-registry mirror lands, a registry class
+      lookup replaces the prefix heuristic with the entity's declared type.
+
+  ocpr.owner_contract_footprint:
+    method: exact join on normalized owner name
+    confidence_tier: proxy
+    assumptions: >-
+      F11e — joins OCPR contractors to CRIM owners on
+      normalize_owner(name) = owner_key. The join is on a NAME, never an
+      identifier: two unrelated entities sharing a normalized name would
+      merge, and one entity spelled two ways would split. 21,699 of 345,488
+      distinct contractors (6.3%) match a CRIM owner. A no-match is reported
+      as a no-match, never as a guess.
+    upgrade_path: >-
+      F11b's owner→registry matcher gives each side a registration index;
+      joining on that instead of on the name removes the merge/split risk.
+
   crim.parcel_proposed_address:
     method: tiered (census_forward_geocode | nearest_state_road+barrio+municipio)
     confidence_tier: proxy

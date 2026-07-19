@@ -61,6 +61,7 @@ COPY prism/sitefinder ./prism/sitefinder
 COPY prism/economy ./prism/economy
 COPY prism/optimize ./prism/optimize
 COPY prism/weather ./prism/weather
+COPY prism/ocpr ./prism/ocpr
 COPY config ./config
 COPY catalog ./catalog
 COPY alembic ./alembic

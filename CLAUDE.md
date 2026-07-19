@@ -378,6 +378,20 @@ not bind-mounted) surfaced that F10a never added `COPY prism/weather ./prism/wea
 `docker/Dockerfile.api` — `/weather`+`/storm` had been silently down in this dev env since F10a
 shipped; fixed same session.
 
+**F11e (2026-07-19, Opus GO) — OCPR government-contract footprint.** The Contralor's full
+contract register (1,141,257 contracts 2012→today, `ocpr.contracts` + `contract_contractors`,
+pulled by `prism/sync/ocpr.py`) joined to CRIM owners on `normalize_owner()` — 21,699 of 345,488
+distinct contractors (6.3%) are also property owners. New read layer `prism/ocpr/footprint.py`
+(+ `python -m prism.ocpr --gov-keys|--rank`): `ocpr.government_keys` (1,172 public-body keys),
+per-owner footprint, and a contractor-owner ranking that **excludes government by default** (public
+bodies are both the biggest landowners and the biggest counterparties). Surfaced on `/parcels` —
+a "Government contracts" drawer section (silent for the ~94% with none) and a ranking panel with
+the government toggle. Shared contracts are **flagged, never divided**: the register bills the full
+amount to every co-contractor, so those rows carry an amber `*` + tooltip and name their
+co-contractors. Gate caught a second, silent double-count (duplicate contractor *spellings* under
+one key) — fixed by deduping every aggregate on `(contract_id, contractor_key)`. Built while the
+F11a registry mirror walks in the background (~102K entities so far).
+
 **F10c batch (2026-07-10, Opus GO on 6/7 items) — closes the F10 arc:**
 `address_lookup`→`barrio_lookup` rename (verified live via an `/ask` round-trip); water/telecom
 cascade-arc barrio centroids (single-wave ArcLayer + ripple lighting up the F8 map theatre on

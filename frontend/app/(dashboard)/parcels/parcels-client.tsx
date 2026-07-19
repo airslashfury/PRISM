@@ -16,6 +16,8 @@ import {
   useParcelDetail,
   useOwnerSearch,
   useOwnerDetail,
+  useOwnerContracts,
+  useContractorOwners,
   useAddressSearch,
   type AddressSearchQuery,
 } from "@/lib/hooks";
@@ -27,6 +29,7 @@ import type {
   OwnerSearchHit,
   OwnerDetail,
   AddressSearchCandidate,
+  ContractSummaryRow,
 } from "@/lib/api";
 import { fmtInt, fmtUsd, fmtNum, fmtPct, fmtDateTime } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
@@ -487,6 +490,9 @@ export default function ParcelsPage() {
                       },
                     ]}
                   />
+                  <div className="pt-3">
+                    <ContractorLeaders onSelect={selectOwner} />
+                  </div>
                 </div>
               )}
               {result && result.count > 0 && <ResultList hits={hits} total={result.count} onSelect={selectParcel} />}
@@ -838,6 +844,166 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
   );
 }
 
+/** F11e — what public money this landowner has received, and from whom.
+ *
+ *  Silent when the owner holds no contracts: most owners don't, and an empty
+ *  "no government contracts" block on 99% of drawers is noise, not an answer.
+ */
+function ContractsSection({ ownerKey }: { ownerKey: string }) {
+  const { data, isLoading } = useOwnerContracts(ownerKey);
+  if (isLoading || !data?.available || !data.matched) return null;
+
+  const years =
+    data.first_grant && data.last_grant
+      ? `${data.first_grant.slice(0, 4)}–${data.last_grant.slice(0, 4)}`
+      : null;
+
+  return (
+    <Section title="Government contracts" tier={data.confidence_tier}>
+      <p className="pb-1 text-[12px] leading-snug text-muted-foreground">
+        {data.is_government ? "This is a public body — it both awards and receives contracts. " : ""}
+        Awarded {fmtUsd(data.total_amount ?? 0, 0)} across {fmtInt(data.contract_count)}{" "}
+        {data.contract_count === 1 ? "contract" : "contracts"} from {fmtInt(data.agency_count)}{" "}
+        {data.agency_count === 1 ? "agency" : "agencies"}
+        {years ? `, ${years}` : ""} — public money paid to an owner whose property PRISM tracks.
+      </p>
+
+      {data.shared_count > 0 && (
+        <p className="pb-1 text-[11px] leading-snug text-amber-600 dark:text-amber-500">
+          {fmtInt(data.shared_count)} of these are shared contracts (
+          {fmtUsd(data.shared_amount ?? 0, 0)} of the total). The Contralor records the{" "}
+          <strong>full contract amount</strong> against every co-contractor, so that share is
+          over-counted — PRISM marks it{" "}
+          <span className="font-semibold">*</span> rather than splitting a number the source
+          never split.
+        </p>
+      )}
+
+      {data.agencies.length > 0 && (
+        <div className="pt-1">
+          <div className="pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Who hired them
+          </div>
+          {data.agencies.map((a) => (
+            <Row
+              key={a.entity_name ?? "—"}
+              label={a.entity_name ?? "—"}
+              value={`${fmtInt(a.contract_count)} · ${fmtUsd(a.total_amount ?? 0, 0)}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {data.top_contracts.length > 0 && (
+        <div className="pt-2">
+          <div className="pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Largest contracts
+          </div>
+          <ul className="space-y-1.5">
+            {data.top_contracts.map((c) => (
+              <ContractRow key={c.contract_id} c={c} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function ContractRow({ c }: { c: ContractSummaryRow }) {
+  const sharedTitle = c.shared
+    ? `Shared contract — this value is the full contract, split among ${c.contractor_count} co-contractors.`
+    : undefined;
+  return (
+    <li className="border-b border-border/40 pb-1.5 last:border-0">
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[12px] font-medium">{c.entity_name ?? "—"}</span>
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {[c.service, c.date_of_grant].filter(Boolean).join(" · ")}
+            {c.cancelled ? " · cancelled" : ""}
+          </span>
+        </span>
+        <span className="shrink-0 text-xs tnum font-medium" title={sharedTitle}>
+          {c.amount != null ? fmtUsd(c.amount, 0) : "—"}
+          {c.shared && <span className="cursor-help text-amber-600 dark:text-amber-500">*</span>}
+        </span>
+      </div>
+      {c.co_contractors.length > 0 && (
+        <div className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
+          Shared with {c.co_contractors.join(", ")}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** F11e — private landowners ranked by the public money they've been paid. */
+function ContractorLeaders({ onSelect }: { onSelect: (key: string) => void }) {
+  const [includeGov, setIncludeGov] = useState(false);
+  const { data, isLoading } = useContractorOwners(includeGov, 12);
+  if (isLoading) return <SkeletonRows className="pt-2" />;
+  if (!data?.available || data.owners.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/30 p-3">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Property owners paid by government
+          <ConfidenceChip tier={data.confidence_tier} />
+        </div>
+      </div>
+      <p className="pb-2 text-[12px] leading-snug text-muted-foreground">
+        Who owns land in Puerto Rico <em>and</em> holds government contracts — ranked by contract
+        value from the Contralor&apos;s register (2012–today). Totals are as recorded there:
+        contracts held with a partner count in full on both sides, and the register&apos;s own
+        data-entry outliers are passed through uncorrected. Open an owner for the contract-level
+        breakdown.
+      </p>
+      <label className="mb-2 flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={includeGov}
+          onChange={(e) => setIncludeGov(e.target.checked)}
+          className="h-3 w-3 accent-current"
+        />
+        Include government bodies — they are among the island&apos;s largest landowners and
+        contract counterparties, so they crowd out the private signal.
+      </label>
+      <ul className="-mx-1">
+        {data.owners.map((o) => (
+          <li key={o.owner_key}>
+            <button
+              onClick={() => onSelect(o.owner_key)}
+              className="flex w-full items-center gap-2 rounded px-1 py-1.5 text-left transition-colors hover:bg-accent/40"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium">
+                  {o.display_name?.trim() || o.owner_key}
+                  {o.is_government && (
+                    <span
+                      className="ml-1.5 cursor-help rounded bg-muted px-1 py-px text-[10px] font-normal text-muted-foreground"
+                      title="Identified as a public body from the register's own list of contracting agencies, or from a government-sounding name prefix — the prefix half is a heuristic."
+                    >
+                      government
+                    </span>
+                  )}
+                </span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {fmtInt(o.parcel_count)} parcels · {fmtInt(o.contract_count)} contracts
+                </span>
+              </span>
+              <span className="shrink-0 text-xs tnum text-muted-foreground">
+                {o.total_amount != null ? fmtUsd(o.total_amount, 0) : "—"}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Section({ title, tier, children }: { title: string; tier: ConfidenceTierKey; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border/60 bg-background/30 p-3">
@@ -964,6 +1130,8 @@ function OwnerSections({ d, onSelectParcel }: { d: OwnerDetail; onSelectParcel: 
           )}
         </Section>
       )}
+
+      <ContractsSection ownerKey={d.owner_key} />
 
       {d.top_parcels.length > 0 && (
         <Section title="Largest parcels" tier={d.confidence_tier}>

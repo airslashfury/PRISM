@@ -1317,6 +1317,64 @@ class OwnerDetail(BaseModel):
     top_parcels: list[OwnerPortfolioParcel] = Field(default_factory=list)
 
 
+# ── OCPR government-contract footprint (F11e) ────────────────────────────────
+
+
+class ContractAgency(BaseModel):
+    entity_name: str | None = None      # the government body that awarded
+    contract_count: int
+    total_amount: float | None = None
+
+
+class ContractSummaryRow(BaseModel):
+    contract_id: int
+    contract_number: str | None = None
+    entity_name: str | None = None
+    service: str | None = None
+    amount: float | None = None
+    date_of_grant: str | None = None
+    cancelled: bool = False
+    contractor_count: int = 1
+    shared: bool = False                # >1 contractor: `amount` is the FULL contract
+    co_contractors: list[str] = Field(default_factory=list)
+    doc_id: str | None = None           # OCPR document GUID (lazy-fetchable PDF)
+
+
+class OwnerContractFootprint(BaseModel):
+    owner_key: str
+    available: bool                     # False until the OCPR mirror is loaded
+    matched: bool                       # False = no contracts (an answer, not an error)
+    is_government: bool
+    contract_count: int
+    total_amount: float | None = None
+    agency_count: int
+    shared_count: int                   # contracts whose amount is over-counted
+    shared_amount: float | None = None
+    first_grant: str | None = None
+    last_grant: str | None = None
+    agencies: list[ContractAgency] = Field(default_factory=list)
+    top_contracts: list[ContractSummaryRow] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class ContractorOwner(BaseModel):
+    owner_key: str
+    display_name: str | None = None
+    parcel_count: int
+    total_val: float | None = None
+    contract_count: int
+    total_amount: float | None = None
+    is_government: bool
+
+
+class ContractorOwnerRanking(BaseModel):
+    include_government: bool
+    count: int
+    owners: list[ContractorOwner] = Field(default_factory=list)
+    available: bool
+    confidence_tier: str
+
+
 # ── CRIM sales trends (item 6 — monthly snapshots + deltas) ──────────────────
 
 
