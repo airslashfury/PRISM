@@ -881,6 +881,87 @@ misreading.)
 - **Not yet wired:** no worker cron (gaps in the series mean "not observed", never "no shedding"),
   no graph/resilience join, no UI surface.
 
+---
+
+### Item F12 — Spanish (es-PR) language toggle  *(QUEUED — requested 2026-07-19, sequence after F11)*
+
+PRISM models Puerto Rico for Puerto Rico, and its chrome is English while its **data is already
+Spanish** — municipio and barrio names, CRIM owner names, OCPR service classes (`VIVIENDAS`,
+`ESCUELAS`), AEE feeder names (`PUERTA DE TIERRA`). Translating the interface removes an
+asymmetry rather than adding one.
+
+**Locale tag: `es-PR`, not `es-ES`.** Verified against `Intl` — PR writes numbers the US way and
+Spain does not:
+
+| Locale | Number | Currency | Date |
+|---|---|---|---|
+| `es-PR` | 1,234,567.89 | $1,234,567.89 | 07/18/2026 |
+| `es-ES` | 1.234.567,89 | 1.234.567,89 US$ | 18/7/2026 |
+
+So the tag is load-bearing: passing `es-PR` through the existing `fmtUsd`/`fmtInt`/`fmtNum`/
+`fmtDateTime` helpers in `frontend/lib/utils.ts` keeps every number correct for free, while
+`es-ES` would silently make all ~1,000 formatted values read as foreign.
+
+**Register + dialect policy.** Puerto Rican written formal Spanish *is* RAE-standard Spanish
+plus a local institutional lexicon — the dialect shows in vocabulary, not grammar. So: RAE
+orthography and grammar, `usted` throughout (the audience is planners, officials, and residents
+reading a government-adjacent tool), PR lexicon where the terms differ. Do **not** import
+Peninsular vocabulary or the anglicisms of casual PR speech; a public-sector product should read
+as institutional PR Spanish.
+
+Load-bearing term choices (get these wrong and it reads as machine-translated):
+
+| English | es-PR | Not |
+|---|---|---|
+| municipality | **municipio** | ~~municipalidad~~ |
+| power outage | **apagón** (colloquial), *interrupción del servicio* (formal) | ~~corte de luz~~ |
+| load shedding | **relevo de carga** (the AEE term) | ~~deslastre de carga~~ |
+| grid | **red eléctrica** | ~~el grid~~ |
+| substation / feeder | **subestación** / **alimentador** (or *circuito*) | — |
+| storm surge | **marejada ciclónica** | ~~marea de tormenta~~ |
+| parcel / catastro no. | **parcela** / **número de catastro** | — |
+| assessed value | **valor tasado** | — |
+| owner | **titular** (formal), *dueño* | — |
+| land area | **cuerdas** (already surfaced, F9a) + m² | — |
+| flood zone | **zona inundable** | — |
+| sea level rise | **aumento del nivel del mar** | — |
+| shelter | **refugio** | — |
+
+**Never translated:** institutional names and acronyms (CRIM, LUMA, AEE, AAA, PREPA, NOAA, FEMA,
+Oficina del Contralor, Junta de Planificación), catastro numbers, entity/owner names from the
+data, and PRISM's own module names. Keep `barrio`, `urbanización`, `sector` as-is in both
+languages — they are the real toponymic units, not translatable labels.
+
+Sub-chunks, each Opus-gated:
+
+- **F12a — Infrastructure + the toggle.** Pick the i18n approach (recommend `next-intl` or a
+  hand-rolled dictionary + context — the app is a client-heavy Next 14 App Router build with
+  server `generateMetadata` wrappers from F8, so the choice must cover both). Locale in a cookie +
+  the URL (permalink discipline from F4: a shared link must reproduce the language), toggle in the
+  sidebar next to the theme control, `<html lang>` set correctly, and `frontend/lib/utils.ts`
+  formatters taking the active locale. **Done when:** one page is fully bilingual, a permalink
+  round-trips its language, and numbers render PR-style under both locales.
+- **F12b — Translate the chrome.** All 17 pages, nav, `EntityDrawer`'s 7-section grammar,
+  `MapWorkspace`, `ScoreExplainer`, `InfoPanel`, confidence-tier labels (`authoritative` →
+  *autoritativo*, `modeled` → *modelado*, `proxy` → *aproximado*), `EmptyState`/`ErrorBlock`, the
+  ⌘K palette, toasts. Run every string through `/ui-ux` — the consequence-first voice has to
+  survive translation, and a literal rendering of "make the consequences easy to see" copy will
+  not. **Done when:** no English remains in the chrome under `es-PR` and the e2e suite passes in
+  both locales.
+- **F12c — Generated + long-form text.** Three surfaces the dictionary can't reach: (1) **AI
+  narratives** — `prism/llm.py` needs a language parameter and the M1 output contract needs an
+  es-PR variant, so `/portfolio` diffs, corridor narratives, and Ask PRISM answer in the asked
+  language; (2) **`/methods`** assumption rationale + `/corridor` cost basis, which are long-form
+  and carry the project's credibility; (3) **OG share cards** (`/og/[view]`) and
+  `generateMetadata` titles/descriptions. **Done when:** an Ask PRISM question in Spanish is
+  answered in Spanish, and a shared card renders in the sharer's language.
+
+**Open scope decision:** whether F12c's AI-narrative half ships with the arc or is parked. It is
+the only chunk that touches the Python side and re-opens the M1 text-quality contract; the
+chrome (F12a+b) stands alone and delivers most of the value.
+
+---
+
 **Other F11 candidates (recorded, not scheduled):** fiber layer + real callsign service-area
 polygons on `/telecom` (F7 deferral); multi-hazard overlays — landslide/liquefaction/seismic + a
 Guánica 2020 backtest; distribution geometry (2014 `g37_electric_*`) to tighten the feeder Voronoi
