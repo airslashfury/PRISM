@@ -85,8 +85,18 @@ def test_feeder_rows_map_smallworld_fields():
 
 @pytest.fixture(scope="module")
 def engine():
+    from sqlalchemy import text
     from prism.load.db import get_engine
-    return get_engine()
+    eng = get_engine()
+    # A down/unreachable database is an environment gap, not a test failure —
+    # probe once (short timeout) and skip the whole DB-backed module if it's
+    # not there, so these tests never turn a missing Postgres into a red error.
+    try:
+        with eng.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"database unreachable: {exc}")
+    return eng
 
 
 @pytest.fixture(scope="module")
