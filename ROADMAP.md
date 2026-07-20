@@ -856,7 +856,7 @@ an OG card renders with the brand font; the yield number is written into the F9d
 clinic field shows on the citizen card for a previously-NULL barrio. **All met except item 4's
 typecheck-post-cleanup, which is why it was carved out rather than blocking the other six.**
 
-#### F11f — AEE/PREPA load-shedding feed  *(mirror + load DONE 2026-07-19; feeder network pending)*
+#### F11f — AEE/PREPA load-shedding feed  *(shed-layer + feeder-network mirror & load DONE 2026-07-19/20)*
 
 PREPA's public "Manual Load Shedding" ArcGIS dashboard, captured under the data-sovereignty rule
 (memory: `aee-load-shedding-arcgis.md`). `prism/sync/aee.py` mirrors to `data/raw/aee_load_shedding/
@@ -874,12 +874,22 @@ already complete — 40 feeders / 45,738 customers at 2026-07-18 22:03Z, peaking
 is the whole *plan's* customer base — 1.06M — not customers shed; a regression test guards that
 misreading.)
 
-- **Still to do:** the 486,725-segment distribution feeder network
-  (`Manual_Load_Shedding_Base_Data/0`, with NODE1_ID/NODE2_ID topology) — `mirror_feeder_network()`
-  exists but has never been run. That is the authoritative geometry that would replace PRISM's
-  Voronoi feeder proxy and lift its confidence tier.
-- **Not yet wired:** no worker cron (gaps in the series mean "not observed", never "no shedding"),
-  no graph/resilience join, no UI surface.
+**Feeder network — mirrored + loaded (2026-07-20).** The 486,725-segment distribution network
+(`Manual_Load_Shedding_Base_Data/0`) is mirrored to `data/raw/aee_feeders/` (244 chunks) and loaded
+into `sync.aee_feeders` by `load_feeders()` (`python -m prism.sync.aee feeders-load`): one row per
+Smallworld conductor segment keyed on the globally-unique `G3E_FID`, with NODE1_ID/NODE2_ID
+topology, distribution voltage (2.4–13.2 kV), OH/UG, conductor size/material, switch status, and
+LineString geom in EPSG:32161. Verified: 486,725 segments, **0 invalid geometry, 0 wrong-CRS**,
+full topology on every segment, 1,340 circuits, 27,119 km of conductor; **791 of 792 shed feeders
+(99.9%) join to their real geometry by circuit id** — the live shed layer is now backed by the
+authoritative network. Stamped `authoritative` in `confidence.yml` + catalog (→195).
+
+- **Still to do (the actual proxy replacement):** build substation→feeder→barrio assignment from
+  this topology to replace the Voronoi/voltage-hierarchy proxy in `graph.relationships` — that is
+  what lifts FEEDS/POWERS (and every downstream consequence figure) out of the Proxy tier. Loading
+  the geometry is the prerequisite, not the replacement itself.
+- **Not yet wired:** no worker cron for the shed feed (gaps in the series mean "not observed",
+  never "no shedding"), no graph/resilience join, no UI surface.
 
 ---
 
