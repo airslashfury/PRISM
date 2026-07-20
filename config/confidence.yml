@@ -448,6 +448,23 @@ tables:
       Census-matched case toward authoritative for the address label itself
       (the point), while the parcel-assignment step stays proxy.
 
+  sync.aee_feeders:
+    method: authoritative mirror (PREPA/AEE distribution feeder network)
+    confidence_tier: authoritative
+    assumptions: >-
+      The real distribution feeder network from PREPA's GE Smallworld GIS,
+      486,725 conductor segments with NODE1_ID/NODE2_ID topology, voltage,
+      overhead/underground, and circuit id — the measured geometry behind
+      PRISM's Voronoi feeder proxy. Keyed on the Smallworld G3E_FID (globally
+      unique, verified across the full mirror). Loaded from the data/raw chunks,
+      never straight off the network. voltage_kv is kept as the source string
+      ('7.62/13.20'), not parsed to a number.
+    upgrade_path: >-
+      Building the substation->feeder->barrio assignment from this topology
+      replaces the Voronoi/voltage-hierarchy proxy in graph.relationships with
+      measured feeder routing, lifting FEEDS/POWERS and everything downstream
+      of them from Proxy toward Authoritative.
+
   sync.aee_shed_feeders:
     method: authoritative mirror (PREPA/AEE Manual Load Shedding FeatureServer)
     confidence_tier: authoritative

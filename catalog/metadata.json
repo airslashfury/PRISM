@@ -2543,6 +2543,20 @@
       ],
       "compute_date": "2026-07-19",
       "license": "PR government (public dashboard)"
+    },
+    "derived:sync.aee_feeders": {
+      "source": "derived",
+      "title": "sync.aee_feeders",
+      "schema": "sync",
+      "table": "aee_feeders",
+      "description": "PREPA/AEE distribution feeder network from the operator's GE Smallworld GIS, mirrored from the public ArcGIS FeatureServer: 486,725 conductor segments (LineString, EPSG:32161) with NODE1_ID/NODE2_ID topology, distribution voltage (2.4-13.2 kV), overhead/underground, conductor size/material, and circuit id joining sync.aee_shed_feeders. The measured geometry behind PRISM's Voronoi feeder proxy; keyed on the Smallworld G3E_FID.",
+      "inputs": [
+        "services3.arcgis.com/0n3sEGhALDkUSwc5 Manual_Load_Shedding_Base_Data/0",
+        "data/raw/aee_feeders/chunk_*.geojson",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "PR government (public dashboard)"
     }
   }
 }

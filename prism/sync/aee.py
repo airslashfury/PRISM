@@ -117,6 +117,132 @@ def mirror_feeder_network(page: int = 2000) -> dict:
     return {"last_offset": offset, "chunks": saved}
 
 
+# ── Feeder network load (the authoritative distribution geometry) ───────────
+
+FEEDER_DDL = [
+    """
+    CREATE TABLE IF NOT EXISTS sync.aee_feeders (
+        g3e_fid       BIGINT PRIMARY KEY,   -- Smallworld GIS feature id, globally unique
+        fid           INTEGER,              -- per-export row id (not stable across pulls)
+        g3e_fno       INTEGER,              -- feature-type code
+        circuit       TEXT,                 -- CIRCUIT1, e.g. '6603-01' (joins the shed feeders)
+        state         TEXT,                 -- CD_STATE: In Service / Proposed Removed / ...
+        status        TEXT,                 -- CD_STATUS: switch Open / Closed
+        oh_ug         TEXT,                 -- overhead (OH) / underground (UG)
+        condition     TEXT,
+        size_material TEXT,                 -- conductor size + material, e.g. '4 CU HD'
+        voltage_kv    TEXT,                 -- raw '7.62/13.20' (phase/line); kept unparsed
+        phase_count   INTEGER,              -- PHASE_LEN
+        phase_config  TEXT,                 -- CD_PHASE, e.g. 'BCA'
+        node1_id      BIGINT,               -- topology: the segment's two endpoints
+        node2_id      BIGINT,
+        shape_length  DOUBLE PRECISION,     -- source-reported length (m)
+        geom          geometry(LineString, 32161),
+        loaded_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS ix_aee_feeders_geom ON sync.aee_feeders USING GIST (geom)",
+    "CREATE INDEX IF NOT EXISTS ix_aee_feeders_circuit ON sync.aee_feeders (circuit)",
+    "CREATE INDEX IF NOT EXISTS ix_aee_feeders_node1 ON sync.aee_feeders (node1_id)",
+    "CREATE INDEX IF NOT EXISTS ix_aee_feeders_node2 ON sync.aee_feeders (node2_id)",
+]
+
+_FEEDER_INSERT = """
+    INSERT INTO sync.aee_feeders
+        (g3e_fid, fid, g3e_fno, circuit, state, status, oh_ug, condition,
+         size_material, voltage_kv, phase_count, phase_config, node1_id, node2_id,
+         shape_length, geom, loaded_at)
+    VALUES
+        (:g3e_fid, :fid, :g3e_fno, :circuit, :state, :status, :oh_ug, :condition,
+         :size_material, :voltage_kv, :phase_count, :phase_config, :node1_id, :node2_id,
+         :shape_length,
+         CASE WHEN CAST(:geojson AS TEXT) IS NULL THEN NULL ELSE
+            ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(CAST(:geojson AS TEXT)), 4326), 32161)
+         END,
+         now())
+    ON CONFLICT (g3e_fid) DO UPDATE SET
+        fid = EXCLUDED.fid, g3e_fno = EXCLUDED.g3e_fno, circuit = EXCLUDED.circuit,
+        state = EXCLUDED.state, status = EXCLUDED.status, oh_ug = EXCLUDED.oh_ug,
+        condition = EXCLUDED.condition, size_material = EXCLUDED.size_material,
+        voltage_kv = EXCLUDED.voltage_kv, phase_count = EXCLUDED.phase_count,
+        phase_config = EXCLUDED.phase_config, node1_id = EXCLUDED.node1_id,
+        node2_id = EXCLUDED.node2_id, shape_length = EXCLUDED.shape_length,
+        geom = EXCLUDED.geom, loaded_at = now()
+"""
+
+
+def create_feeder_schema(engine) -> None:
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS sync"))
+        for stmt in FEEDER_DDL:
+            conn.execute(text(stmt))
+
+
+def _feeder_rows(feature_collection: dict) -> list[dict]:
+    out = []
+    for f in feature_collection.get("features", []):
+        p = f.get("properties") or {}
+        fid = p.get("G3E_FID")
+        if fid is None:
+            continue
+        out.append({
+            "g3e_fid": fid,
+            "fid": p.get("FID"),
+            "g3e_fno": p.get("G3E_FNO"),
+            "circuit": _clean(p.get("CIRCUIT1")),
+            "state": _clean(p.get("CD_STATE")),
+            "status": _clean(p.get("CD_STATUS")),
+            "oh_ug": _clean(p.get("CD_OH_UG")),
+            "condition": _clean(p.get("CONDITION")),
+            "size_material": _clean(p.get("SIZE_MATER")),
+            "voltage_kv": _clean(p.get("VOLTAGE_KV")),
+            "phase_count": p.get("PHASE_LEN"),
+            "phase_config": _clean(p.get("CD_PHASE")),
+            "node1_id": p.get("NODE1_ID"),
+            "node2_id": p.get("NODE2_ID"),
+            "shape_length": p.get("Shape__Length"),
+            "geojson": json.dumps(f.get("geometry")) if f.get("geometry") else None,
+        })
+    return out
+
+
+def load_feeders(engine=None) -> dict:
+    """Load the mirrored feeder network (data/raw/aee_feeders/chunk_*.geojson) into
+    sync.aee_feeders. Off the mirror only, never the network. Idempotent — keyed on
+    the Smallworld G3E_FID, so a re-run upserts rather than duplicates. Chunk-at-a-
+    time so an interrupted load resumes cleanly on the next run.
+
+    This is the authoritative distribution geometry (486,725 conductor segments with
+    NODE1_ID/NODE2_ID topology) behind PRISM's Voronoi feeder proxy.
+    """
+    from sqlalchemy import text
+
+    engine = engine or _default_engine()
+    create_feeder_schema(engine)
+    chunks = sorted((RAW / "aee_feeders").glob("chunk_*.geojson"),
+                    key=lambda p: int(p.stem.split("_")[1]))
+    if not chunks:
+        return {"chunks": 0, "segments": 0}
+
+    total = 0
+    for i, chunk in enumerate(chunks, 1):
+        rows = _feeder_rows(json.loads(chunk.read_bytes()))
+        if not rows:
+            continue
+        with engine.begin() as conn:
+            conn.execute(text(_FEEDER_INSERT), rows)
+        total += len(rows)
+        if i % 20 == 0 or i == len(chunks):
+            print(f"feeders load: {i}/{len(chunks)} chunks, {total:,} segments", flush=True)
+    return {"chunks": len(chunks), "segments": total}
+
+
+def _default_engine():
+    from prism.load.db import get_engine
+    return get_engine()
+
+
 # ── PostGIS load (off the mirrors, never off the network) ───────────────────
 
 DDL = [
@@ -305,15 +431,16 @@ def load_all(engine) -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["snapshot", "loop", "feeders", "load"])
+    ap.add_argument("cmd", choices=["snapshot", "loop", "feeders", "load", "feeders-load"])
     ap.add_argument("--interval", type=int, default=1800)
     a = ap.parse_args()
     if a.cmd == "snapshot":
         print(json.dumps(snapshot_load_shedding(), indent=2))
     elif a.cmd == "loop":
         snapshot_loop(interval=a.interval)
-    elif a.cmd == "feeders":
+    elif a.cmd == "feeders":                       # mirror the network off the API
         print(json.dumps(mirror_feeder_network(), indent=2))
-    elif a.cmd == "load":
-        from prism.load.db import get_engine
-        print(json.dumps(load_all(get_engine()), indent=2, default=str))
+    elif a.cmd == "load":                          # load-shedding snapshots -> PostGIS
+        print(json.dumps(load_all(_default_engine()), indent=2, default=str))
+    elif a.cmd == "feeders-load":                  # feeder network mirror -> PostGIS
+        print(json.dumps(load_feeders(), indent=2, default=str))
