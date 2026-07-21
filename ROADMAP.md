@@ -884,12 +884,24 @@ full topology on every segment, 1,340 circuits, 27,119 km of conductor; **791 of
 (99.9%) join to their real geometry by circuit id** — the live shed layer is now backed by the
 authoritative network. Stamped `authoritative` in `confidence.yml` + catalog (→195).
 
-- **Still to do (the actual proxy replacement):** build substation→feeder→barrio assignment from
-  this topology to replace the Voronoi/voltage-hierarchy proxy in `graph.relationships` — that is
-  what lifts FEEDS/POWERS (and every downstream consequence figure) out of the Proxy tier. Loading
-  the geometry is the prerequisite, not the replacement itself.
+**Measured assignment — built, non-destructive (2026-07-20).** `prism/graph/feeders.py` walks the
+loaded conductors into a measured substation→feeder→barrio map, in its own `graph.feeder_*` tables
+(POWERS untouched): `feeder_substation` (circuit→substation by conductor touch, ~0 m; 1,297/1,340
+circuits assigned, 43 left unassigned not guessed; confidence 0.6–0.9), `feeder_barrio`
+(circuit→barrio weighted by conductor length inside each barrio, 4,388 pairs), `feeder_service`
+(substation→barrio rollup, 2,860 pairs). `compare_to_voronoi()`: **the measured map covers 900/901
+barrios but agrees with the proxy on the primary substation for only ~49%** — the proxy was wrong
+for half the island (it put "Canas" on HOLIDAY INN; the conductors show CANAS TC feeding 92 km).
+Stamped `modeled` (a step up from the proxy's `proxy`) in confidence.yml + catalog (→199).
+
+- **Still to do — the gated swap:** fold `graph.feeder_service` into the POWERS edges of
+  `graph.relationships`, replacing the Voronoi assignment, then re-run `downstream_summary` →
+  resilience → economy. This changes **every headline consequence figure in PRISM**, so it needs an
+  Opus phase gate before proceeding — the measured layer + comparison above exist to inform that
+  decision. The 43 unassigned circuits and barrios with no measured feeder need a fallback (keep
+  the proxy edge, tiered proxy) so coverage never regresses.
 - **Not yet wired:** no worker cron for the shed feed (gaps in the series mean "not observed",
-  never "no shedding"), no graph/resilience join, no UI surface.
+  never "no shedding"), no UI surface for the feeder network.
 
 ---
 
