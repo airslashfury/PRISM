@@ -235,7 +235,33 @@ def load_feeders(engine=None) -> dict:
         total += len(rows)
         if i % 20 == 0 or i == len(chunks):
             print(f"feeders load: {i}/{len(chunks)} chunks, {total:,} segments", flush=True)
-    return {"chunks": len(chunks), "segments": total}
+
+    circuits = _build_circuit_rollup(engine)
+    return {"chunks": len(chunks), "segments": total, "circuits": circuits}
+
+
+def _build_circuit_rollup(engine) -> int:
+    """One row per feeder circuit — collected geometry + length, indexed. A
+    downstream helper for substation/barrio assignment (fewer, coarser rows than
+    the 486K segments). Rebuilt from sync.aee_feeders, so it's reproducible."""
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS sync.aee_circuit"))
+        conn.execute(text("""
+            CREATE TABLE sync.aee_circuit AS
+            SELECT circuit,
+                   count(*)              AS seg_count,
+                   sum(ST_Length(geom))  AS length_m,
+                   max(voltage_kv)       AS voltage_kv,
+                   ST_Multi(ST_Collect(geom)) AS geom
+            FROM sync.aee_feeders
+            WHERE circuit IS NOT NULL
+            GROUP BY circuit
+        """))
+        conn.execute(text("ALTER TABLE sync.aee_circuit ADD PRIMARY KEY (circuit)"))
+        conn.execute(text(
+            "CREATE INDEX ix_aee_circuit_geom ON sync.aee_circuit USING GIST (geom)"))
+        return conn.execute(text("SELECT count(*) FROM sync.aee_circuit")).scalar() or 0
 
 
 def _default_engine():

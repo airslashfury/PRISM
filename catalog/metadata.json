@@ -2557,6 +2557,61 @@
       ],
       "compute_date": "2026-07-20",
       "license": "PR government (public dashboard)"
+    },
+    "derived:sync.aee_circuit": {
+      "source": "derived",
+      "title": "sync.aee_circuit",
+      "schema": "sync",
+      "table": "aee_circuit",
+      "description": "Per-feeder-circuit rollup of sync.aee_feeders (1,340 circuits): collected conductor geometry, total length, voltage. A coarser helper for substation/barrio assignment; rebuilt on every feeders-load.",
+      "inputs": [
+        "sync.aee_feeders",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
+    },
+    "derived:graph.feeder_substation": {
+      "source": "derived",
+      "title": "graph.feeder_substation",
+      "schema": "graph",
+      "table": "feeder_substation",
+      "description": "Feeder circuit -> source substation via spatial join (conductors touch their substation at ~0m; substations carry no circuit code). 1,297 of 1,340 circuits assigned within 50m; 43 left unassigned. Cross-dataset (HIFLD substations x PREPA conductors), so Modeled. Per-row confidence 0.6-0.9 by touch distance.",
+      "inputs": [
+        "sync.aee_feeders",
+        "graph.entities (substation)",
+        "prism/graph/feeders.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
+    },
+    "derived:graph.feeder_barrio": {
+      "source": "derived",
+      "title": "graph.feeder_barrio",
+      "schema": "graph",
+      "table": "feeder_barrio",
+      "description": "Feeder circuit -> barrio weighted by conductor length physically inside each barrio (ST_Intersection of feeder segments with Census barrio polygons), 4,388 circuit-barrio pairs. The measured service footprint behind the Voronoi proxy.",
+      "inputs": [
+        "sync.aee_feeders",
+        "graph.entities (barrio)",
+        "prism/graph/feeders.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
+    },
+    "derived:graph.feeder_service": {
+      "source": "derived",
+      "title": "graph.feeder_service",
+      "schema": "graph",
+      "table": "feeder_service",
+      "description": "Substation -> barrio measured POWERS analogue (2,860 pairs, 900 of 901 barrios): a substation powers a barrio when its circuits' conductors run through it, weighted by conductor length. Agrees with the Voronoi POWERS proxy on the primary substation for only ~49% of barrios; kept separate from POWERS pending a gated swap.",
+      "inputs": [
+        "graph.feeder_substation",
+        "graph.feeder_barrio",
+        "prism/graph/feeders.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
     }
   }
 }

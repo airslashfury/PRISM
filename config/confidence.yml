@@ -448,6 +448,57 @@ tables:
       Census-matched case toward authoritative for the address label itself
       (the point), while the parcel-assignment step stays proxy.
 
+  sync.aee_circuit:
+    method: aggregate of sync.aee_feeders (one row per circuit)
+    confidence_tier: authoritative
+    assumptions: >-
+      Per-feeder-circuit rollup of the authoritative conductor geometry (collected
+      geom + total length), a coarser helper for substation/barrio assignment.
+      Rebuilt from sync.aee_feeders on every feeders-load, so it carries that
+      table's tier.
+    upgrade_path: null
+
+  graph.feeder_substation:
+    method: spatial join (conductor within 50 m of a substation point)
+    confidence_tier: modeled
+    assumptions: >-
+      Each feeder circuit assigned to the substation its conductors physically
+      emanate from — a cross-dataset spatial join (HIFLD substation points x PREPA
+      conductors), since substations carry no circuit code. The conductors touch
+      their source substation at ~0 m, so the link is strong, but crossing two
+      independently-sourced datasets makes it Modeled, not Authoritative. 1,297
+      of 1,340 circuits reach a substation within 50 m; the other 43 are left
+      unassigned, never guessed. Per-row confidence 0.6-0.9 by touch distance.
+    upgrade_path: >-
+      A PREPA substation-to-feeder ownership table would make this an exact key
+      join instead of a spatial inference.
+
+  graph.feeder_barrio:
+    method: measured conductor-in-barrio length (ST_Intersection)
+    confidence_tier: modeled
+    assumptions: >-
+      Circuit -> barrio weighted by the conductor length physically inside each
+      barrio (ST_Intersection of feeder segments with Census barrio polygons) -
+      the measured service footprint the Voronoi proxy only approximates. PRISM
+      computation over two Authoritative geometries, hence Modeled.
+    upgrade_path: null
+
+  graph.feeder_service:
+    method: rollup of feeder_substation x feeder_barrio
+    confidence_tier: modeled
+    assumptions: >-
+      Substation -> barrio, the measured analogue of the Voronoi POWERS edge: a
+      substation powers a barrio when its circuits' conductors run through it,
+      weighted by total conductor length. Covers 900 of 901 barrios. Against the
+      proxy it agrees on the primary substation for only ~49% of barrios - where
+      they differ the conductor evidence favors this table (the proxy picks by
+      Voronoi-cell centroid, this by physical wire). Kept SEPARATE from POWERS;
+      folding it in is a gated step because it ripples through downstream_summary,
+      resilience, and economy.
+    upgrade_path: >-
+      Gated swap: replace the Voronoi POWERS edges with these, lifting
+      graph.relationships (and everything downstream) out of the Proxy tier.
+
   sync.aee_feeders:
     method: authoritative mirror (PREPA/AEE distribution feeder network)
     confidence_tier: authoritative
