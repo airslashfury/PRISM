@@ -97,18 +97,27 @@ tables:
     upgrade_path: null
 
   graph.relationships:
-    method: proxy
+    method: mixed (measured geometry · measured feeders · Voronoi proxy)
     confidence_tier: proxy
     assumptions: >-
       LOCATED_IN, CONNECTS_TO, SERVES and CROSSES are geometric joins on measured
-      geometry (confidence ~1.0). FEEDS and POWERS — which substation feeds which
-      facility — are NOT public; they are approximated by a spatial Voronoi /
-      voltage-hierarchy proxy at confidence 0.4-0.7 (per-edge `confidence` column).
-      Every downstream consequence figure inherits this tier.
+      geometry (confidence ~1.0). POWERS is now SPLIT by `method`: substation→barrio
+      edges for 799 of 901 barrios are `feeder_topology` — MEASURED from PREPA's
+      actual distribution conductors (`graph.feeder_service`), confidence 0.8-0.9,
+      tier Modeled. The remaining POWERS edges stay the Voronoi/voltage-hierarchy
+      proxy at 0.4-0.7: all point facilities (hospital/health_center/water_plant/
+      pump/well/telecom), and the 102 barrios whose measured source substation is
+      FEEDS-isolated (kept on proxy so they never drop from upstream cascades).
+      FEEDS (substation→substation) is still the Voronoi voltage-hierarchy proxy.
+      The table's tier stays Proxy because its weakest edges are still Proxy —
+      read the per-edge `method`/`confidence`, not the table tier. The pre-swap
+      Voronoi POWERS is preserved in graph.relationships_powers_voronoi_bak.
     upgrade_path: >-
-      A LUMA feeder-topology data-sharing agreement would replace FEEDS/POWERS
-      with measured assignments, raising this — and everything built on it — to
-      Authoritative.
+      Extend the measured feeder assignment to point facilities (facility →
+      containing barrio → that barrio's measured substation) and wire the 22
+      FEEDS-isolated source substations into the transmission graph, which would
+      move the rest of POWERS off the proxy. A LUMA feeder + FEEDS-topology
+      agreement would make it fully Authoritative.
 
   graph.road_edges:
     method: measured
@@ -129,13 +138,18 @@ tables:
     upgrade_path: null
 
   graph.downstream_summary:
-    method: proxy
+    method: mixed (measured-feeder population · proxy facilities)
     confidence_tier: proxy
     assumptions: >-
-      Per-substation downstream population/facility counts walk the FEEDS/POWERS
-      proxy relationships — inherits graph.relationships' Proxy tier. Headline
-      population figures should render rounded (≈) rather than exact.
-    upgrade_path: Same as graph.relationships — a feeder data-sharing agreement.
+      Per-substation downstream population/facility counts walk FEEDS then POWERS.
+      Since the feeder swap, the POPULATION term is largely MEASURED — it follows
+      the `feeder_topology` substation→barrio edges (real conductors) for 799 of
+      901 barrios; only 102 FEEDS-isolated barrios still contribute via the
+      Voronoi proxy. The FACILITY counts (hospitals/water plants/health centers)
+      still walk the Voronoi proxy POWERS edges, so a consequence figure that
+      leans on facilities stays Proxy. Table tier stays Proxy on the weakest-input
+      rule; population figures are now materially better grounded than pre-swap.
+    upgrade_path: Same as graph.relationships — measured facility POWERS + FEEDS repair.
 
   graph.water_service_area:
     method: modeled
@@ -468,7 +482,8 @@ tables:
       their source substation at ~0 m, so the link is strong, but crossing two
       independently-sourced datasets makes it Modeled, not Authoritative. 1,297
       of 1,340 circuits reach a substation within 50 m; the other 43 are left
-      unassigned, never guessed. Per-row confidence 0.6-0.9 by touch distance.
+      unassigned, never guessed. Per-row confidence 0.8-0.9 by touch distance
+      (the assignment is capped at 50 m, so the 0.6 fallback tier is unreached).
     upgrade_path: >-
       A PREPA substation-to-feeder ownership table would make this an exact key
       join instead of a spatial inference.
@@ -489,7 +504,7 @@ tables:
     assumptions: >-
       Substation -> barrio, the measured analogue of the Voronoi POWERS edge: a
       substation powers a barrio when its circuits' conductors run through it,
-      weighted by total conductor length. Covers 900 of 901 barrios. Against the
+      weighted by total conductor length. Covers 900 of 901 barrios (all but uninhabited Isla de Mona). Against the
       proxy it agrees on the primary substation for only ~49% of barrios - where
       they differ the conductor evidence favors this table (the proxy picks by
       Voronoi-cell centroid, this by physical wire). Kept SEPARATE from POWERS;

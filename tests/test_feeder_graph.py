@@ -96,3 +96,79 @@ def test_feeder_service_weights_are_positive_conductor_lengths(engine, built):
         bad = conn.execute(text(
             "SELECT count(*) FROM graph.feeder_service WHERE length_m <= 0")).scalar()
     assert bad == 0
+
+
+# ── The swap into POWERS (only meaningful once it has been run) ──────────────
+
+@pytest.fixture(scope="module")
+def swapped(engine, built):
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        n = conn.execute(text(
+            "SELECT count(*) FROM graph.relationships "
+            "WHERE rel_type='POWERS' AND method='feeder_topology'")).scalar()
+    if not n:
+        pytest.skip("POWERS not swapped (run `python -m prism.graph.feeders swap-powers`)")
+    return True
+
+
+def test_swap_never_double_powers_a_barrio(engine, swapped):
+    """A barrio must carry measured OR proxy POWERS, never both — else its
+    population would be credited to two substations that don't share it."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        both = conn.execute(text("""
+            WITH m AS (SELECT DISTINCT dst_entity FROM graph.relationships
+                       WHERE rel_type='POWERS' AND method='feeder_topology'),
+                 v AS (SELECT DISTINCT dst_entity FROM graph.relationships
+                       WHERE rel_type='POWERS' AND method LIKE 'voronoi%')
+            SELECT count(*) FROM m JOIN v USING (dst_entity)
+        """)).scalar()
+    assert both == 0
+
+
+def test_swap_preserves_full_barrio_coverage(engine, swapped):
+    """No barrio may drop out of POWERS — the FEEDS-orphan fallback exists so
+    coverage never regresses below the proxy's."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        covered = conn.execute(text("""
+            SELECT count(DISTINCT r.dst_entity)
+            FROM graph.relationships r
+            JOIN graph.entities e ON e.entity_id=r.dst_entity AND e.kind='barrio'
+            WHERE r.rel_type='POWERS'
+        """)).scalar()
+        total = conn.execute(text(
+            "SELECT count(*) FROM graph.entities WHERE kind='barrio'")).scalar()
+    assert covered == total
+
+
+def test_swap_left_point_facilities_on_proxy(engine, swapped):
+    """Option (a): only barrios were swapped; facilities stay on the proxy."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        leaked = conn.execute(text("""
+            SELECT count(*) FROM graph.relationships r
+            JOIN graph.entities e ON e.entity_id=r.dst_entity
+            WHERE r.rel_type='POWERS' AND r.method='feeder_topology'
+              AND e.kind <> 'barrio'
+        """)).scalar()
+    assert leaked == 0
+
+
+def test_swap_is_idempotent(engine, swapped):
+    """Re-running the swap must not change the edge counts (backup already exists,
+    Voronoi already superseded)."""
+    from sqlalchemy import text
+    from prism.graph.feeders import swap_powers
+
+    def counts():
+        with engine.connect() as conn:
+            return conn.execute(text("""
+                SELECT method, count(*) FROM graph.relationships
+                WHERE rel_type='POWERS' GROUP BY method ORDER BY method
+            """)).fetchall()
+
+    before = counts()
+    swap_powers(engine)
+    assert counts() == before

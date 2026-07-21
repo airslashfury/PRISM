@@ -887,19 +887,36 @@ authoritative network. Stamped `authoritative` in `confidence.yml` + catalog (�
 **Measured assignment — built, non-destructive (2026-07-20).** `prism/graph/feeders.py` walks the
 loaded conductors into a measured substation→feeder→barrio map, in its own `graph.feeder_*` tables
 (POWERS untouched): `feeder_substation` (circuit→substation by conductor touch, ~0 m; 1,297/1,340
-circuits assigned, 43 left unassigned not guessed; confidence 0.6–0.9), `feeder_barrio`
+circuits assigned, 43 left unassigned not guessed; confidence 0.8–0.9, capped at the 50 m
+touch threshold), `feeder_barrio`
 (circuit→barrio weighted by conductor length inside each barrio, 4,388 pairs), `feeder_service`
 (substation→barrio rollup, 2,860 pairs). `compare_to_voronoi()`: **the measured map covers 900/901
 barrios but agrees with the proxy on the primary substation for only ~49%** — the proxy was wrong
 for half the island (it put "Canas" on HOLIDAY INN; the conductors show CANAS TC feeding 92 km).
 Stamped `modeled` (a step up from the proxy's `proxy`) in confidence.yml + catalog (→199).
 
-- **Still to do — the gated swap:** fold `graph.feeder_service` into the POWERS edges of
-  `graph.relationships`, replacing the Voronoi assignment, then re-run `downstream_summary` →
-  resilience → economy. This changes **every headline consequence figure in PRISM**, so it needs an
-  Opus phase gate before proceeding — the measured layer + comparison above exist to inform that
-  decision. The 43 unassigned circuits and barrios with no measured feeder need a fallback (keep
-  the proxy edge, tiered proxy) so coverage never regresses.
+**POWERS swap — DONE, gate-approved (2026-07-21, Opus GO-conditional, both must-fixes applied).**
+`swap_powers()` folded `graph.feeder_service` into the substation→barrio POWERS edges
+(`method='feeder_topology'`, confidence 0.8–0.9) and the whole consequence spine was re-run
+(`downstream_summary` → resilience → economy → ILP). The gate caught two flaws that were fixed
+before executing: (1) **over-attachment** — barrios average 3.18 measured subs, so edges aren't
+swapped flat; each barrio keeps its primary (longest-conductor) sub at full touch confidence plus
+only secondaries carrying ≥25% share and ≥1 km, confidence scaled by share, slivers dropped (799
+barrios → 1,036 edges, 237 secondaries); (2) **FEEDS-orphan sources** — 22 measured source subs
+have no FEEDS edge, so their **102 barrios kept the Voronoi proxy** rather than dropping out of
+upstream cascades. Point facilities stay on the Voronoi proxy (gate Option a), so POWERS is now
+per-edge tiered: barrio population `modeled`, facilities `proxy`. Verified: **0 barrios
+double-powered, 901/901 still covered, F10b invariant holds (economy == downstream_summary, 0
+mismatches), no NaN/zero-collapse**; new top consequences are the real TCs (PALO SECO, BAYAMON TC,
+SABANA LLANA TC). Pre-swap POWERS snapshotted to `graph.relationships_powers_voronoi_bak` for
+rollback; `swap_powers` is idempotent. confidence.yml `graph.relationships`/`downstream_summary`
+rewritten to state the split.
+
+- **Follow-ups (recorded):** extend the measured assignment to point facilities (facility →
+  containing barrio → that barrio's measured sub, never raw nearest-conductor) and wire the 22
+  FEEDS-isolated source substations into the transmission graph — together these move the rest of
+  POWERS off the proxy. The 43 unassigned circuits (conductors reaching no substation within 50 m)
+  remain unassigned by design.
 - **Not yet wired:** no worker cron for the shed feed (gaps in the series mean "not observed",
   never "no shedding"), no UI surface for the feeder network.
 
