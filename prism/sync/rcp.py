@@ -57,6 +57,7 @@ REQUEST_DELAY = 0.20          # ~3-4 req/s — bumped from 0.5 once the IP recov
 THROTTLE_CODES = {429, 403, 503}
 BACKOFF_SECONDS = (300, 600, 900, 1800)   # silent waits on repeated 429s; caps at 30 min
 CHECKPOINT_EVERY = 200        # numbers between progress writes
+TRANSIENT_RESET_AFTER = 5     # consecutive network errors before rebuilding the HTTP client
 
 _DDL = [
     "CREATE SCHEMA IF NOT EXISTS crim",
@@ -171,8 +172,12 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
     log.info("RCP enumeration (descending): resume at %d, floor %d, %d entities already mirrored",
              n, MIN_NUMBER, entities)
 
-    client = httpx.Client(timeout=20.0, headers={"Accept": "application/json"})
+    def _new_client() -> httpx.Client:
+        return httpx.Client(timeout=20.0, headers={"Accept": "application/json"})
+
+    client = _new_client()
     throttle_i = 0
+    consec_transient = 0   # a wedged connection pool ConnectErrors forever; rebuild the client
     try:
         while n >= MIN_NUMBER:
             resolved = False       # True once this number is done (hit or genuine gap)
@@ -188,10 +193,26 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                     throttle_i += 1
                     break          # retry the whole number after the wait
                 except _Transient as e:
-                    log.info("RCP transient (%s) at %s — short retry", e, idx)
-                    time.sleep(5.0)
+                    consec_transient += 1
+                    if consec_transient >= TRANSIENT_RESET_AFTER:
+                        # The endpoint is usually still up (a fresh client works);
+                        # the long-lived pool has gone bad. Rebuild it and back off
+                        # a little more each time so a real outage isn't hammered.
+                        try:
+                            client.close()
+                        except Exception:  # noqa: BLE001
+                            pass
+                        client = _new_client()
+                        wait = min(5.0 * consec_transient, 300.0)
+                        log.warning("RCP transient (%s) x%d at %s — rebuilt client, wait %ds",
+                                    e, consec_transient, idx, int(wait))
+                    else:
+                        wait = 5.0
+                        log.info("RCP transient (%s) at %s — short retry", e, idx)
+                    time.sleep(wait)
                     break          # retry the whole number
                 throttle_i = 0
+                consec_transient = 0
                 time.sleep(REQUEST_DELAY)
                 if resp:
                     co = resp.get("corporation") or {}
