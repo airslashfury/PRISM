@@ -5,6 +5,10 @@ services:
       dockerfile: Dockerfile.postgis
     image: prism-postgis:16-3.4
     container_name: prism-postgis
+    # Without this the DB stays down after anything that recycles the Docker/WSL
+    # VM (Windows Update did exactly that at 2026-07-25 04:22, turning a ~15s
+    # blip into a 5h outage while every other service auto-recovered).
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-prism}
       POSTGRES_USER: ${POSTGRES_USER:-prism}
@@ -102,6 +106,7 @@ services:
       dockerfile: docker/Dockerfile.frontend
     image: prism-frontend:0.1.0
     container_name: prism-frontend
+    restart: unless-stopped
     environment:
       API_PROXY_TARGET: http://api:8000
       NEXT_PUBLIC_API_BASE: /api
