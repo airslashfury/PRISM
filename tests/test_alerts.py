@@ -212,3 +212,159 @@ def test_invalidate_prefix_no_redis_returns_zero_no_raise(monkeypatch):
     n = invalidate_prefix("consequence")
     assert isinstance(n, int)
     assert n >= 0
+
+
+# ── Stalled-pull watchdog (multi-day walks die silently) ────────────────────
+
+@pytest.fixture
+def stall_table(engine):
+    """A throwaway progress table shaped like the real ones.
+
+    Never point these tests at `crim.rce_pull_progress` — a multi-day walk may
+    be actively writing to it, and a test that mutates it would corrupt a real
+    pull's checkpoint.
+    """
+    from sqlalchemy import text as _t
+    with engine.begin() as conn:
+        conn.execute(_t("""
+            CREATE TABLE IF NOT EXISTS sync._test_pull_progress (
+                id          text PRIMARY KEY,
+                cursor_val  bigint NOT NULL,
+                updated_at  timestamptz NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(_t("TRUNCATE sync._test_pull_progress"))
+    yield "sync._test_pull_progress"
+    with engine.begin() as conn:
+        conn.execute(_t("DROP TABLE IF EXISTS sync._test_pull_progress"))
+        conn.execute(_t("DELETE FROM sync.alert_log WHERE kind = 'pull_stalled' "
+                        "AND dedup_key LIKE '_test_stall%'"))
+
+
+def _watch(table: str, stale_minutes: int = 30):
+    from prism.alerts import _WatchedPull
+    return _WatchedPull(
+        key="_test_stall", label="Test walk", table=table,
+        cursor_col="cursor_val", stale_minutes=stale_minutes,
+        done_expr="cursor_val <= 0",
+        detail_expr="'at ' || cursor_val",
+    )
+
+
+def _seed(engine, table: str, cursor: int, age_minutes: int) -> None:
+    from sqlalchemy import text as _t
+    with engine.begin() as conn:
+        conn.execute(_t("TRUNCATE " + table))
+        conn.execute(_t(f"""
+            INSERT INTO {table} (id, cursor_val, updated_at)
+            VALUES ('t', :c, now() - make_interval(mins => :age))
+        """), {"c": cursor, "age": age_minutes})
+
+
+def test_stalled_pull_alerts(engine, stall_table, monkeypatch):
+    import prism.alerts as alerts_mod
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (_watch(stall_table),))
+    monkeypatch.delenv("PRISM_ALERT_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("PRISM_ALERT_SMTP_HOST", raising=False)
+
+    _seed(engine, stall_table, cursor=5000, age_minutes=120)
+    assert alerts_mod.check_stalled_pulls(engine) == 1
+
+    from sqlalchemy import text as _t
+    with engine.connect() as conn:
+        row = conn.execute(_t("""
+            SELECT headline, detail FROM sync.alert_log
+            WHERE kind = 'pull_stalled' AND dedup_key = '_test_stall:5000'
+        """)).mappings().fetchone()
+    assert row is not None
+    assert "no progress in" in row["headline"]
+    assert "resumable" in row["detail"]      # the alert must say what to do
+
+
+def test_recently_advanced_pull_is_silent(engine, stall_table, monkeypatch):
+    """Slow between checkpoints is not news."""
+    import prism.alerts as alerts_mod
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (_watch(stall_table),))
+    _seed(engine, stall_table, cursor=5000, age_minutes=2)
+    assert alerts_mod.check_stalled_pulls(engine) == 0
+
+
+def test_finished_walk_is_silent_however_old(engine, stall_table, monkeypatch):
+    """A completed walk stops updating forever — that's success, not a fault."""
+    import prism.alerts as alerts_mod
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (_watch(stall_table),))
+    _seed(engine, stall_table, cursor=0, age_minutes=60 * 24 * 30)
+    assert alerts_mod.check_stalled_pulls(engine) == 0
+
+
+def test_dormant_pull_is_silent(engine, stall_table, monkeypatch):
+    """Nobody is running it. Real case: ocpr.pull_progress has read
+    'offset 202,607 of 1,141,293' since 2026-07-18 while the table holds all
+    1,141,257 rows — the load finished without finalizing its cursor. Nagging
+    daily about that forever is noise, not signal."""
+    import prism.alerts as alerts_mod
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (_watch(stall_table),))
+    _seed(engine, stall_table, cursor=5000, age_minutes=60 * 24 * 7)
+    assert alerts_mod.check_stalled_pulls(engine) == 0
+
+
+def test_stall_window_edges(engine, stall_table, monkeypatch):
+    """Just inside the window alerts; just past dormancy does not."""
+    import prism.alerts as alerts_mod
+    monkeypatch.delenv("PRISM_ALERT_WEBHOOK_URL", raising=False)
+    watch = _watch(stall_table)          # stale at 30 min, dormant after 24 h
+
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (watch,))
+    _seed(engine, stall_table, cursor=7777, age_minutes=60 * 23)      # inside
+    assert alerts_mod.check_stalled_pulls(engine) == 1
+
+    _seed(engine, stall_table, cursor=8888, age_minutes=60 * 25)      # past it
+    assert alerts_mod.check_stalled_pulls(engine) == 0
+
+
+def test_dedup_distinguishes_still_stuck_from_stuck_again(engine, stall_table, monkeypatch):
+    import prism.alerts as alerts_mod
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (_watch(stall_table),))
+    monkeypatch.delenv("PRISM_ALERT_WEBHOOK_URL", raising=False)
+
+    _seed(engine, stall_table, cursor=5000, age_minutes=120)
+    assert alerts_mod.check_stalled_pulls(engine) == 1
+    # Still wedged at the same number — don't spam.
+    assert alerts_mod.check_stalled_pulls(engine) == 0
+    # Advanced, then stalled again — that is genuinely new.
+    _seed(engine, stall_table, cursor=4000, age_minutes=120)
+    assert alerts_mod.check_stalled_pulls(engine) == 1
+
+
+def test_missing_progress_table_is_silent_not_an_error(engine, monkeypatch):
+    """A pull that was never set up here must not alert or raise."""
+    import prism.alerts as alerts_mod
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (_watch("sync._nope_not_here"),))
+    assert alerts_mod.check_stalled_pulls(engine) == 0
+
+
+def test_watchdog_never_raises_on_a_broken_definition(engine, stall_table, monkeypatch):
+    """A watchdog that can kill the worker cron is worse than no watchdog."""
+    import prism.alerts as alerts_mod
+    bad = _watch(stall_table)
+    object.__setattr__(bad, "detail_expr", "this_column_does_not_exist")
+    monkeypatch.setattr(alerts_mod, "WATCHED_PULLS", (bad,))
+    assert alerts_mod.check_stalled_pulls(engine) == 0
+
+
+def test_real_watched_pulls_are_wired_to_existing_tables(engine):
+    """The shipped registry must reference real tables/columns — a typo here
+    would silently disable the watchdog for that pull."""
+    from sqlalchemy import text as _t
+    from prism.alerts import WATCHED_PULLS
+
+    assert {p.key for p in WATCHED_PULLS} >= {"rce_registry", "ocpr_contracts"}
+    with engine.connect() as conn:
+        for pull in WATCHED_PULLS:
+            if not conn.execute(_t("SELECT to_regclass(:t)"), {"t": pull.table}).scalar():
+                continue                     # not set up in this environment
+            # Exercise the real SQL; a bad column/expression raises here.
+            conn.execute(_t(f"""
+                SELECT {pull.cursor_col}, ({pull.done_expr}), ({pull.detail_expr})
+                FROM {pull.table} LIMIT 1
+            """)).fetchall()
