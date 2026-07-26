@@ -1116,7 +1116,7 @@ stamp the new `lab.*` tables in `confidence.yml` + `catalog/metadata.json` and b
 
 ---
 
-### Item F14 — Workspace control, data-exclusion honesty, monthly change reporting, pull resilience  *(ACTIVE — requested 2026-07-25, branch `feat/f14` off `main`)*
+### Item F14 — Workspace control, data-exclusion honesty, monthly change reporting, pull resilience  *(COMPLETE 2026-07-26 — all four sub-items Opus GO, branch `feat/f14` off `main`)*
 
 Source: user ask 2026-07-25, four items. Three of them (b/c/d) share one spine — **PRISM
 already knows things it does not say out loud**: what it silently drops, what changed month over
@@ -1135,7 +1135,7 @@ Sequencing: **F14a → F14b → F14c → F14d**, each Opus-gated at its own "Don
 next begins. a first because it's self-contained and touches no data path; d last because its
 retrofit surface is the widest and b/c both benefit from its pull-health table existing.
 
-#### F14a — Hideable + resizable left and right panes
+#### F14a — Hideable + resizable left and right panes — ✅ DONE (2026-07-26, Opus GO — six follow-up fixes applied same session)
 
 PRISM's shell has been fixed-width since F8: the global `Sidebar` is `w-60`, and every map route's
 right panel is `md:w-[380px]` through `MapWorkspace`'s `sidebarWidth` prop. On a 1440 laptop that
@@ -1170,7 +1170,7 @@ canvas re-renders correctly at every width (not letterboxed or stale), mobile la
 keyboard + `aria` work on both handles, and the e2e suite covers collapse/resize/persist on at
 least one map route at desktop while asserting mobile is unaffected.
 
-#### F14b — Anomalies registry: every exclusion documented
+#### F14b — Anomalies registry: every exclusion documented — ✅ DONE (2026-07-26, Opus GO after one NO-GO round — count corrections + a sentinel-churn double-counting bug fixed)
 
 PRISM excludes data in dozens of places and each exclusion is defensible in isolation — the
 `JOHN-DOE` owner sentinel filter (F1), 14 HIFLD substations whose name is a bare number, 15 barrios
@@ -1203,7 +1203,7 @@ the Contralor, JP) could actually act on. That is the eventual product here; the
 every load-bearing exclusion found in the audit is registered with its scope and remediation; the
 Trust Center surfaces them; a stale doc fails a test; and `CLAUDE.md` carries the going-forward rule.
 
-#### F14c — Monthly change report
+#### F14c — Monthly change report — ✅ DONE (2026-07-26, Opus GO alongside F14b's NO-GO-fix round — scheduled-month bug fixed, RCE floor caveat added)
 
 The deltas are already captured and none of them are *reported*: `crim.parcel_deltas` (ownership
 transfers, sales, reassessments — `snapshots.py::run_monthly`), `crim.rce_status_history`
@@ -1230,7 +1230,7 @@ charts that opens standalone; every figure names its source table and vintage; c
 deduped and shared ones flagged; it runs on a schedule and announces itself; and a month with no
 deltas produces an honest empty report rather than a crash or a fabricated zero.
 
-#### F14d — Pull resilience across every source
+#### F14d — Pull resilience across every source — ✅ DONE (2026-07-26, Opus GO after one NO-GO round — a real regression caught and fixed at re-review)
 
 Today exactly **one** puller is hardened: `prism/sync/rcp.py`, which earned its retry loop, client
 recycling, and watchdog the hard way across the three 2026-07 outages (see memory
@@ -1264,6 +1264,34 @@ resume from their last checkpoint after a kill.
 
 Gate protocol: one Opus `phase-gate-reviewer` gate per chunk at its "Done when"; `/ui-ux` loaded
 for F14a's toggle affordances, F14b's exclusion copy, and F14c's report wording.
+
+**F14d close-up (2026-07-26):** first review was a NO-GO on four items — the CRIM download
+checkpoint could disagree with itself after a kill (a truncated trailing line crashed resume
+outright; a torn/missing offset marker silently duplicated banked features), consecutive-failure
+alerting lived only in `track_pull` so the three sources that call `record_attempt` directly
+(`ocpr.py`, `rcp.py`, `aee.py`) never alerted, a UI-probe row was left live in `sync.pull_health`,
+and two ACS fetches in `svi.py` plus several dead sessions/imports were missed by the retrofit. All
+four fixed same session, plus two should-fix items (`KeyboardInterrupt`/`SystemExit` now propagate
+untouched through `with_retries` instead of misclassifying as permanent; `track_pull` and `rcp.py`
+both record an interrupt as a deliberate stop, not a failure). **Re-review caught a real
+regression the fix itself introduced**: `prism/crim/geocode.py`'s Census-outage fallback caught
+`requests.RequestException`, but `_query_census` now raises `prism_http.PullError` instead — the
+`except` clause had gone silently unreachable, so a Census outage would have 500'd the parcel-360
+card instead of degrading to "no confident match" / Tier B as designed. Fixed and verified live
+end-to-end (`geocode_address`, `search_by_address`, `get_parcel_detail` all confirmed to degrade
+correctly under a simulated outage) before the closing GO. Residuals, recorded not fixed:
+`crim.parcel_proposed_address` pins a parcel to Tier B permanently if first read during a Census
+outage (pre-existing, not introduced here); the CRIM resume sidecar is append-only, so repeated
+kills leave harmless stale blocks past the checkpoint's `banked` mark; `sync.pull_health` exists
+only via a lazy `CREATE TABLE IF NOT EXISTS` with no alembic revision; host-CLI mirror pulls
+(`mirror/http`, `arcgis`, `crim_catastro`, `bridges`, `faults`, `census*`) get retry but write no
+`pull_health` row, so a failure surfaces to the operator's terminal rather than WhatsNew;
+`prism/sync/ocpr.py`'s own retry loop still retries any 4xx (a 4xx there usually means token
+expiry); CRIM's resume checkpoint is same-UTC-day only (a walk started 21:00 and killed 02:00
+restarts from zero, since the mirror directory is dated).
+
+**The F14 arc (workspace panes, anomalies registry, monthly change report, pull resilience) is
+now COMPLETE — all four sub-items Opus GO.**
 
 ---
 

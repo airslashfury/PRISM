@@ -465,7 +465,33 @@ substations, a shed-feed refresh cron — checked and it's a real architecture d
 `data/raw` isn't bind-mounted into the `worker` container, not a quick wire-up — and a
 feeder-network UI layer). **The F11 arc is now CORE COMPLETE.**
 
+**F14 batch (2026-07-26, `feat/f14` off `main`) — workspace panes, anomalies registry, monthly
+change report, pull resilience, all four Opus GO.** Requested out of the queued F12/F13 order,
+built and closed in one session. **F14a** — hideable + resizable global sidebar (56px icon rail)
+and map-route right pane (`frontend/components/ui/resizable-pane.tsx` + `frontend/lib/
+pane-state.ts`, `WorkspaceAside` shared across all eleven map routes), `[`/`]` shortcuts,
+localStorage-persisted, mobile untouched. **F14b** — `config/anomalies.yml`, the exclusion
+registry (39 active entries: sentinel filters, noise floors, capped radii, dropped NULLs) that
+*generates* `ANOMALIES.md` (`make anomalies` / `prism/provenance/anomalies.py`, stale-doc test),
+surfaced at `GET /provenance/anomalies` and on `/methods`; the going-forward rule ("any new
+exclusion registers here in the same session") is now this file's own Exclusion protocol section
+above. **F14c** — `prism/report/monthly.py`: parcel-ownership + corporate-status + contracts-added
+sections, CSV + self-contained HTML (inline SVG, print-to-PDF), wired through `api/routers/
+reports.py` and an arq monthly cron. **F14d** — `prism/sync/http.py`, one resilient fetch (retry +
+backoff + jitter, transient-vs-permanent classification, per-host rate limit, `Retry-After`
+honored, `sync.pull_health` + `track_pull`) retrofitted across every HTTP pull in `prism/` except
+the documented push/local carve-outs (`alerts.py`, `llm.py`) and the three sources that keep their
+own proven transports (`aee.py`, `rcp.py`, `ocpr.py` — health-reporting only); `sync.pull_health`
+failures surface as a red WhatsNew chip distinct from the amber staleness chips. F14b/c/d each hit
+one NO-GO round (count corrections, a sentinel-churn double-count, a CRIM-download checkpoint that
+could disagree with itself after a kill) before GO; F14d's re-review caught a live regression its
+own fix had introduced — `prism/crim/geocode.py`'s Census-outage fallback caught `requests.
+RequestException`, but the retrofitted `_query_census` now raises `prism_http.PullError` instead,
+so the `except` had gone silently unreachable and a Census outage would 500 the parcel-360 card
+instead of degrading to Tier B as designed. Fixed and verified live before the closing GO. Full
+detail and residuals in `ROADMAP.md` → Item F14.
+
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
 `memory/project_state.md` in the same session. **Next up: F12 — Spanish (es-PR) language toggle**
-(ROADMAP.md, queued 2026-07-19, sequenced after F11).
+(ROADMAP.md, queued 2026-07-19, sequenced after F11 and now F14).
