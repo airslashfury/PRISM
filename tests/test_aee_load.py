@@ -56,12 +56,47 @@ def test_snapshot_dir_name_parses_as_the_capture_instant():
     assert got == datetime(2026, 7, 19, 4, 8, 14, tzinfo=timezone.utc)
 
 
+# ── Feeder network parsing (no DB, no network) ──────────────────────────────
+
+def test_feeder_rows_map_smallworld_fields():
+    from prism.sync.aee import _feeder_rows
+
+    fc = {"features": [
+        {"properties": {"G3E_FID": 1000370635, "FID": 1, "G3E_FNO": 24,
+                        "CIRCUIT1": "6603-01", "CD_STATE": "In Service",
+                        "CD_STATUS": "Closed", "CD_OH_UG": "OH", "VOLTAGE_KV": "7.62/13.20",
+                        "PHASE_LEN": 3, "CD_PHASE": "BCA", "NODE1_ID": 1000142024,
+                        "NODE2_ID": 1000142025, "Shape__Length": 193.4},
+         "geometry": {"type": "LineString", "coordinates": [[-66.1, 18.4], [-66.2, 18.5]]}},
+        {"properties": {"FID": 2}, "geometry": None},  # no G3E_FID -> skipped (no PK)
+    ]}
+    rows = _feeder_rows(fc)
+
+    assert len(rows) == 1, "a segment without its Smallworld id has no primary key"
+    r = rows[0]
+    assert r["g3e_fid"] == 1000370635
+    assert r["circuit"] == "6603-01"
+    assert r["node1_id"] == 1000142024 and r["node2_id"] == 1000142025
+    assert r["oh_ug"] == "OH" and r["voltage_kv"] == "7.62/13.20"
+    assert r["geojson"] and '"LineString"' in r["geojson"]
+
+
 # ── Loaded state ────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="module")
 def engine():
+    from sqlalchemy import text
     from prism.load.db import get_engine
-    return get_engine()
+    eng = get_engine()
+    # A down/unreachable database is an environment gap, not a test failure —
+    # probe once (short timeout) and skip the whole DB-backed module if it's
+    # not there, so these tests never turn a missing Postgres into a red error.
+    try:
+        with eng.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"database unreachable: {exc}")
+    return eng
 
 
 @pytest.fixture(scope="module")
@@ -119,3 +154,35 @@ def test_shed_customers_never_exceed_the_feeder_customer_base(engine, loaded):
     if peak is None:
         pytest.skip("no shed event observed in the loaded window")
     assert 0 < peak <= base
+
+
+@pytest.fixture(scope="module")
+def feeders_loaded(engine):
+    from sqlalchemy import text
+    from prism.crim.query import _table_exists
+    if not _table_exists(engine, "sync.aee_feeders"):
+        pytest.skip("feeders not loaded (run `python -m prism.sync.aee feeders-load`)")
+    with engine.connect() as conn:
+        if not conn.execute(text("SELECT count(*) FROM sync.aee_feeders")).scalar():
+            pytest.skip("sync.aee_feeders is empty")
+    return True
+
+
+def test_feeder_network_loads_the_whole_mirror_with_valid_geometry(engine, feeders_loaded):
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT count(*) AS n, count(geom) AS with_geom,
+                   count(DISTINCT circuit) AS circuits,
+                   count(*) FILTER (WHERE ST_SRID(geom) <> 32161) AS wrong_srid,
+                   count(*) FILTER (WHERE geom IS NOT NULL AND NOT ST_IsValid(geom)) AS invalid
+            FROM sync.aee_feeders
+        """)).mappings().fetchone()
+
+    # Uniqueness of the G3E_FID PK across all 244 chunks is proven by the load
+    # completing at all (a dupe would raise); here we assert coverage + CRS.
+    assert row["n"] >= 486_000, "the full mirror is ~486,725 segments"
+    assert row["with_geom"] == row["n"]
+    assert row["wrong_srid"] == 0 and row["invalid"] == 0
+    assert row["circuits"] > 100, "a real feeder network spans many circuits"

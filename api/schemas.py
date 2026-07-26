@@ -78,7 +78,7 @@ class FeedFreshness(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    kind: str                           # sync | rescore | rank | quake | crim | storm
+    kind: str                           # sync | rescore | rank | quake | crim | storm | registry
     headline: str
     detail: str | None = None
     at: str | None = None               # ISO timestamp (or month for CRIM deltas)
@@ -1234,6 +1234,21 @@ class ParcelProposedAddress(BaseModel):
     confidence_tier: str
 
 
+class ParcelRegistry(BaseModel):
+    """Corporate-registry status of the parcel's owner (F11c). Absent entirely
+    when the owner is a person — most parcels."""
+    registration_index: str
+    corp_name: str | None = None
+    status_es: str | None = None
+    status_gloss: str | None = None
+    is_terminal: bool
+    class_es: str | None = None
+    date_formed: str | None = None
+    termination_date: str | None = None
+    entity_count: int                   # >1 when the owner name links to several registrations
+    confidence_tier: str
+
+
 class ParcelDetail(BaseModel):
     num_catastro: str
     catastro: str | None = None
@@ -1245,6 +1260,7 @@ class ParcelDetail(BaseModel):
     lon: float | None = None
     lat: float | None = None
     crim: ParcelCrimRecord
+    registry: ParcelRegistry | None = None
     sale_history: list[ParcelSale] = Field(default_factory=list)
     power: ParcelPower | None = None
     flood: ParcelFlood
@@ -1355,6 +1371,44 @@ class OwnerContractFootprint(BaseModel):
     agencies: list[ContractAgency] = Field(default_factory=list)
     top_contracts: list[ContractSummaryRow] = Field(default_factory=list)
     confidence_tier: str
+
+
+class RegistryEntity(BaseModel):
+    """One corporations-registry record linked to a CRIM owner (F11c)."""
+    registration_index: str
+    corp_name: str | None = None
+    status_es: str | None = None
+    status_gloss: str | None = None     # plain-English gloss of the Spanish status
+    is_terminal: bool                   # no longer active (NOT necessarily dissolved)
+    class_es: str | None = None
+    date_formed: str | None = None
+    termination_date: str | None = None
+    jurisdiction_es: str | None = None
+    resident_agent: str | None = None
+    registered_address: str | None = None
+    match_method: str                   # exact | token_sorted | fuzzy
+    match_confidence: float | None = None
+    municipio_corroborated: bool        # registered address sits where the parcels are
+    as_of: str | None = None            # when PRISM last pulled this record
+
+
+class RegistryNearMiss(BaseModel):
+    """A name that almost matched — surfaced rather than hidden, so the layer
+    never looks more complete than it is."""
+    match_key: str
+    method: str                         # ambiguous | fuzzy_unconfirmed
+    candidates: list[dict] = Field(default_factory=list)
+
+
+class OwnerRegistry(BaseModel):
+    owner_key: str
+    available: bool                     # False until the F11b match has been built
+    matched: bool                       # False = no registry record (an answer, not an error)
+    looked: bool                        # True only when the name looked corporate
+    entities: list[RegistryEntity] = Field(default_factory=list)
+    unresolved: list[RegistryNearMiss] = Field(default_factory=list)
+    confidence_tier: str
+    registry_url: str
 
 
 class ContractorOwner(BaseModel):

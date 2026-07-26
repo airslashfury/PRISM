@@ -225,6 +225,26 @@ async def check_stale_feeds(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def check_stalled_pulls(ctx: dict) -> dict:
+    """Half-hourly sweep: alert on a multi-day pull that stopped advancing.
+
+    These walks run unattended on the host for days, so they outlive the things
+    that kill them (Windows Update recycling the WSL VM, a host restart, a
+    poisoned connection pool) — and they die silently. This is the only thing
+    that notices.
+    """
+    from prism.alerts import check_stalled_pulls as _check_stalled_pulls
+
+    engine = get_engine()
+    try:
+        n = _check_stalled_pulls(engine)
+        log.info("Stalled-pull check: %d alert(s) sent", n)
+        return {"status": "ok", "alerts_sent": n}
+    except Exception as exc:  # don't let one bad pass kill the cron
+        log.warning("Stalled-pull check failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 async def sync_prepa_generation(ctx: dict) -> dict:
     """Scheduled pull of the PREPA/Genera live generation feed.
 
@@ -286,6 +306,7 @@ class WorkerSettings:
         sync_nwis_gauges,
         sync_climate_normals,
         check_stale_feeds,
+        check_stalled_pulls,
     ]
     cron_jobs = [
         # Track the live PREPA (supply) + LUMA (delivery) feeds every
@@ -312,6 +333,10 @@ class WorkerSettings:
         cron(sync_climate_normals, day={1}, hour={4}, minute={0}, run_at_startup=True),
         # Alert on stale feeds once an hour (F5 chunk D).
         cron(check_stale_feeds, minute={15}),
+        # Watch the multi-day pulls for a stalled cursor every 30 min. Detection
+        # lag is at most one interval past the pull's own staleness threshold —
+        # ample for a walk measured in days, and it costs two SELECTs.
+        cron(check_stalled_pulls, minute={10, 40}),
     ]
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     max_jobs = 2

@@ -2,18 +2,19 @@
 # Which Claude tier handles which task, and when to escalate. Mirrors §5.1 of the plan.
 # Confirm exact model IDs + rates at https://platform.claude.com/docs/en/about-claude/models/overview
 # (IDs and prices rev often; rates below are per MILLION tokens, input/output, mid-2026.)
+# IDs are complete as written — never append a date suffix.
 
 models:
   haiku:
-    id: claude-haiku-4-5            # confirm latest point release
+    id: claude-haiku-4-5            # 200K context (confirmed 2026-07-25)
     rate_per_mtok: { input: 1, output: 5 }
     role: fast, high-volume, structured
   sonnet:
-    id: claude-sonnet-4-6           # confirm latest point release
-    rate_per_mtok: { input: 3, output: 15 }
+    id: claude-sonnet-5             # 1M context (confirmed 2026-07-25)
+    rate_per_mtok: { input: 3, output: 15 }   # intro $2/$10 through 2026-08-31
     role: balanced daily driver
   opus:
-    id: claude-opus-4-8             # current flagship (confirmed 2026-06-09)
+    id: claude-opus-5               # current flagship, 1M context (confirmed 2026-07-25)
     rate_per_mtok: { input: 5, output: 25 }
     role: hard reasoning, design, review
 

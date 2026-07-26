@@ -56,7 +56,7 @@ def test_changes_are_newest_first(result):
 
 def test_change_kinds_valid(result):
     for c in result["changes"]:
-        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim", "storm"}
+        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim", "storm", "registry"}
         assert c["headline"]
 
 
@@ -163,3 +163,36 @@ def test_storm_changes_live_row_not_labeled_demo(engine):
         with engine.begin() as conn:
             conn.execute(text("DELETE FROM sync.nhc_advisories WHERE storm_id = :sid"),
                           {"sid": _DEMO_TEST_STORM})
+
+
+# ── F11c residual: pinned items survive the newest-first truncation ────────
+
+def test_pinned_item_survives_truncation_even_with_a_stale_timestamp(monkeypatch, engine):
+    """The registry standing-headline's `at` freezes once the mirror pull ends
+    (F11c residual). Without a pinned exemption, enough newer events would
+    eventually push it below `change_limit` even though the fact stays true."""
+    import prism.sync.changes as changes_mod
+
+    old_pinned = {
+        "kind": "registry", "headline": "old but still true", "detail": None,
+        "at": "2000-01-01T00:00:00+00:00", "href": "/parcels", "pinned": True,
+    }
+    newer_unpinned = [
+        {"kind": "sync", "headline": f"fake event {i}", "detail": None,
+         "at": f"2026-01-{i:02d}T00:00:00+00:00", "href": None}
+        for i in range(1, 6)
+    ]
+
+    monkeypatch.setattr(changes_mod, "_sync_changes", lambda *a, **k: newer_unpinned)
+    monkeypatch.setattr(changes_mod, "_quake_changes", lambda *a, **k: [])
+    monkeypatch.setattr(changes_mod, "_rank_changes", lambda *a, **k: [])
+    monkeypatch.setattr(changes_mod, "_storm_changes", lambda *a, **k: [])
+    monkeypatch.setattr(changes_mod, "_crim_changes", lambda *a, **k: [])
+    monkeypatch.setattr(changes_mod, "_registry_changes", lambda *a, **k: [old_pinned])
+
+    result = changes_mod.whatsnew(engine, change_limit=3)
+    assert len(result["changes"]) == 3          # change_limit is still the total budget
+    assert old_pinned in result["changes"]       # ...but the pinned item always gets a seat
+    # newest-first is still honored among the kept items
+    ats = [c["at"] for c in result["changes"] if c["at"]]
+    assert ats == sorted(ats, reverse=True)

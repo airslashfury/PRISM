@@ -856,7 +856,7 @@ an OG card renders with the brand font; the yield number is written into the F9d
 clinic field shows on the citizen card for a previously-NULL barrio. **All met except item 4's
 typecheck-post-cleanup, which is why it was carved out rather than blocking the other six.**
 
-#### F11f — AEE/PREPA load-shedding feed  *(mirror + load DONE 2026-07-19; feeder network pending)*
+#### F11f — AEE/PREPA load-shedding feed  *(shed-layer + feeder-network mirror & load DONE 2026-07-19/20)*
 
 PREPA's public "Manual Load Shedding" ArcGIS dashboard, captured under the data-sovereignty rule
 (memory: `aee-load-shedding-arcgis.md`). `prism/sync/aee.py` mirrors to `data/raw/aee_load_shedding/
@@ -874,12 +874,59 @@ already complete — 40 feeders / 45,738 customers at 2026-07-18 22:03Z, peaking
 is the whole *plan's* customer base — 1.06M — not customers shed; a regression test guards that
 misreading.)
 
-- **Still to do:** the 486,725-segment distribution feeder network
-  (`Manual_Load_Shedding_Base_Data/0`, with NODE1_ID/NODE2_ID topology) — `mirror_feeder_network()`
-  exists but has never been run. That is the authoritative geometry that would replace PRISM's
-  Voronoi feeder proxy and lift its confidence tier.
-- **Not yet wired:** no worker cron (gaps in the series mean "not observed", never "no shedding"),
-  no graph/resilience join, no UI surface.
+**Feeder network — mirrored + loaded (2026-07-20).** The 486,725-segment distribution network
+(`Manual_Load_Shedding_Base_Data/0`) is mirrored to `data/raw/aee_feeders/` (244 chunks) and loaded
+into `sync.aee_feeders` by `load_feeders()` (`python -m prism.sync.aee feeders-load`): one row per
+Smallworld conductor segment keyed on the globally-unique `G3E_FID`, with NODE1_ID/NODE2_ID
+topology, distribution voltage (2.4–13.2 kV), OH/UG, conductor size/material, switch status, and
+LineString geom in EPSG:32161. Verified: 486,725 segments, **0 invalid geometry, 0 wrong-CRS**,
+full topology on every segment, 1,340 circuits, 27,119 km of conductor; **791 of 792 shed feeders
+(99.9%) join to their real geometry by circuit id** — the live shed layer is now backed by the
+authoritative network. Stamped `authoritative` in `confidence.yml` + catalog (→195).
+
+**Measured assignment — built, non-destructive (2026-07-20).** `prism/graph/feeders.py` walks the
+loaded conductors into a measured substation→feeder→barrio map, in its own `graph.feeder_*` tables
+(POWERS untouched): `feeder_substation` (circuit→substation by conductor touch, ~0 m; 1,297/1,340
+circuits assigned, 43 left unassigned not guessed; confidence 0.8–0.9, capped at the 50 m
+touch threshold), `feeder_barrio`
+(circuit→barrio weighted by conductor length inside each barrio, 4,388 pairs), `feeder_service`
+(substation→barrio rollup, 2,860 pairs). `compare_to_voronoi()`: **the measured map covers 900/901
+barrios but agrees with the proxy on the primary substation for only ~49%** — the proxy was wrong
+for half the island (it put "Canas" on HOLIDAY INN; the conductors show CANAS TC feeding 92 km).
+Stamped `modeled` (a step up from the proxy's `proxy`) in confidence.yml + catalog (→199).
+
+**POWERS swap — DONE, gate-approved (2026-07-21, Opus GO-conditional, both must-fixes applied).**
+`swap_powers()` folded `graph.feeder_service` into the substation→barrio POWERS edges
+(`method='feeder_topology'`, confidence 0.8–0.9) and the whole consequence spine was re-run
+(`downstream_summary` → resilience → economy → ILP). The gate caught two flaws that were fixed
+before executing: (1) **over-attachment** — barrios average 3.18 measured subs, so edges aren't
+swapped flat; each barrio keeps its primary (longest-conductor) sub at full touch confidence plus
+only secondaries carrying ≥25% share and ≥1 km, confidence scaled by share, slivers dropped (799
+barrios → 1,036 edges, 237 secondaries); (2) **FEEDS-orphan sources** — 22 measured source subs
+have no FEEDS edge, so their **102 barrios kept the Voronoi proxy** rather than dropping out of
+upstream cascades. Point facilities stay on the Voronoi proxy (gate Option a), so POWERS is now
+per-edge tiered: barrio population `modeled`, facilities `proxy`. Verified: **0 barrios
+double-powered, 901/901 still covered, F10b invariant holds (economy == downstream_summary, 0
+mismatches), no NaN/zero-collapse**; new top consequences are the real TCs (PALO SECO, BAYAMON TC,
+SABANA LLANA TC). Pre-swap POWERS snapshotted to `graph.relationships_powers_voronoi_bak` for
+rollback; `swap_powers` is idempotent. confidence.yml `graph.relationships`/`downstream_summary`
+rewritten to state the split.
+
+- ⏸️ **Follow-ups — PARKED to `BACKLOG.md` 2026-07-25:** extend the measured assignment to point
+  facilities (facility → containing barrio → that barrio's measured sub, never raw
+  nearest-conductor) and wire the 22 FEEDS-isolated source substations into the transmission
+  graph — together these move the rest of POWERS off the proxy. The 43 unassigned circuits
+  (conductors reaching no substation within 50 m) remain unassigned by design.
+- ⏸️ **Not yet wired — PARKED:** no worker cron for the shed feed (gaps in the series mean "not
+  observed", never "no shedding" — a safe interpretation, not an active bug), no UI surface for the
+  feeder network. **Checked 2026-07-25:** wiring a cron isn't a drop-in — `snapshot_load_shedding()`
+  writes to `data/raw/`, which the `worker` container does not bind-mount (only `api` mounts
+  `data/raw/usgs_3dep`, read-only), so a naive `arq` cron job would silently violate the
+  data-sovereignty mirror-before-reliance rule (the same class of trap as F10a's ephemeral NOAA
+  mirror). Needs either a `data/raw/aee_load_shedding` bind mount on `worker` + an arq cron, or
+  keep it a host-side loop like the F11a mirror pull (`snapshot_loop()` already exists for this) —
+  a real architecture decision, not a quick wire-up, hence parked rather than done under time
+  pressure.
 
 ---
 
@@ -962,6 +1009,113 @@ chrome (F12a+b) stands alone and delivers most of the value.
 
 ---
 
+### Item F13 — Data Lab: notebooks + boards  *(QUEUED — evaluated 2026-07-25, sequence after F12)*
+
+Source: user ask 2026-07-25 — a section shaped like Dynatrace Notebooks (cells that run a query
+and render a table/chart/map) with a way to compose saved cells into dashboards. Viability
+assessed the same day: **viable, ~60% of the machinery already exists.**
+
+**Why this is not the parked Report Studio.** The 2026-07-01 parking of "scenario library /
+Report Studio / provenance-stamped exports" (below, and `BACKLOG.md`) rested on one judgment:
+*output-shaped features for an audience that doesn't exist yet.* Those items package existing
+answers for external stakeholders. A Data Lab is **input**-shaped — it serves the one user who
+does exist, and it lowers the cost of finding the next roadmap item. Different bar, and it
+clears it. Exports stay parked regardless.
+
+**Decisions taken at evaluation (user, 2026-07-25):** internal-only audience (no auth work — the
+M6 trigger is untouched); a **curated parameterized-query registry plus a raw-SQL escape hatch**,
+not raw SQL alone and not a no-code builder alone; **boards built by pinning cells**; sequence
+after F12 so F12b's "17 pages" doesn't grow to cover an internal English-only tool.
+
+**Reuse (already built and proven):** `arq` + `POST /jobs/*` → `GET /jobs/{id}` → `pollJob<T>()`
+for slow cells; `playground.scenarios` as the precedent for a **global, unowned, `author TEXT`,
+JSONB-payload** saved object that doesn't trip M6 auth; `KnobSlider` (`/assumptions`) and
+`ParamForm` (`/playground`) as the backend-schema-driven form pattern; `TOOL_SPECS`/`_TOOL_FUNCS`
+(`prism/ask/agent.py`) as the registry shape — but fixing its two-place manual registration;
+`parcel_query()` (`prism/ask/tools.py:409`) as the text-to-SQL precedent; `MapWorkspace` +
+`lib/colors.ts` for a geo cell; `components/charts.tsx` theme constants; `cached_response`;
+`nav.ts`; `url-state.ts`.
+
+**The differentiator — provenance inheritance.** `get_table_provenance("schema.table")`
+(`prism/provenance/catalog.py:70`) merges `config/confidence.yml` (56 stamped tables) with
+`catalog/metadata.json`, and that file's own rule is exactly the cell-level semantics needed:
+*a figure's tier is the tier of its weakest required input.* A query spec that declares its
+source tables gets a confidence tier for free. This is what keeps the Lab inside the
+"grounded, not vibes" spine instead of undermining it.
+
+**The one real gap — there is no read-only DB role.** `get_engine()` (`api/deps.py:20`) connects
+as `prism`, the role that owns every schema and runs DDL, on a shared `pool_size=5` pool. A grep
+across `api/`, `prism/`, `alembic/`, `docker/` for `statement_timeout|GRANT|CREATE ROLE|
+read_only` returns **zero hits**; `docker/initdb/01_extensions.sql` creates extensions only. The
+only SQL guard today is prompt text plus a `startswith("SELECT")` check
+(`prism/ask/tools.py:511`). Internal-only or not, one unbounded scan over `crim.parcelas` (1.53M)
+or `sync.aee_feeders` (486K) starves the API. **This is L1's first task, not a later hardening
+pass.**
+
+Sub-chunks, each Opus-gated:
+
+- **F13a (L1) — Safe query substrate + single-cell lab.** `prism_ro` role
+  (`docker/initdb/02_readonly_role.sql` + an idempotent `make db-readonly-role`, since initdb
+  only runs on a fresh volume) with `statement_timeout`, `default_transaction_read_only`, and a
+  **separate small pool** via `get_readonly_engine()` so a runaway cell can't starve the API.
+  New `prism/lab/`: `queries.py` (single-place `QuerySpec` registry — id, params, bind-param SQL,
+  declared `tables`, `result_kind`), ~12 seed specs across the real schemas, `execute.py`
+  (`run_query` with row cap + weakest-tier provenance; `run_sql` escape hatch whose *actual*
+  enforcement is the role + timeout, string checks only for fast failure). `api/routers/lab.py`:
+  `GET /lab/queries`, `POST /lab/run`, `POST /jobs/lab/run`. Frontend `/lab` (nav group
+  **Decide**) with the first generic `result-table.tsx` and `result-chart.tsx` — hand-rolled,
+  **no new deps**. **Done when:** 12 curated queries run with correct tiers, a deliberate
+  `SELECT * FROM crim.parcelas` is killed by `statement_timeout` while the main API stays
+  responsive, and raw SQL renders a visible "untiered — your own query" stamp.
+- **F13b (L2) — Notebook: many cells, persisted, permalinked.** `lab.notebooks` + `lab.cells
+  (kind: query|sql|markdown|ask, spec JSONB, viz JSONB)` modeled on `playground.scenarios`;
+  CRUD mirroring `api/routers/playground.py`; reorder via up/down buttons (no `dnd-kit`);
+  markdown through the existing `react-markdown`; an **`ask` cell kind wrapping `POST /ask`** so
+  the NL surface becomes a cell type rather than a rival page; permalink `?nb=<id>`.
+  **Done when:** a 5-cell notebook survives reload, re-runs, and permalinks.
+- **F13c (L3) — Boards.** `lab.boards` + `lab.board_tiles`; "Pin to board" on any cell; the board
+  re-executes tiles on load through L1's cached `POST /lab/run`; fixed 12-column grid with S/M/L
+  presets — add `react-grid-layout` only if free-form dragging proves necessary in use.
+  **Done when:** a 6-tile board loads within a stated budget and every tile shows its tier chip.
+
+**Effort sizing + spike-first (assessed 2026-07-25).** Measured against this repo's own unit for a
+feature slice — ~50-line router + ~200-line `prism/` module + ~400-line page (weather, sitefinder,
+validate all land there):
+
+| Option | What it proves | Effort | Survives into F13a |
+|---|---|---|---|
+| Static mock (fake data) | Layout only | ~2 hours | Little — **skip it** |
+| **Real-data spike** — `/lab`, 4 hardcoded queries on live PostGIS, table + one chart, no persistence/tests/gate | Whether the curated-query surface is *interesting*, and whether a generic Recharts renderer reads as PRISM or as generic BI | **~1 session** | **~75%** — page shell + both renderers carry over unchanged |
+| Full F13a (L1) | — | **3–4× the spike** (F6/F10a scope) | — |
+
+Skip the static mock: PRISM's proposition is real numbers, and a Lab mocked with fake ones can't
+answer the only question a plan can't settle on paper — *are the queries I'd curate interesting
+enough that I'd reach for this?*
+
+**A spike is cheap without being reckless.** Inside a transaction, `SET LOCAL statement_timeout`
+and `SET TRANSACTION READ ONLY` both work as the existing `prism` user — no `GRANT`, no DDL, no
+role. Three lines buy most of the protection. What the dedicated `prism_ro` role adds on top is
+defense-in-depth against a bug in our own guard code, plus a separate connection pool so a runaway
+cell can't starve the API. F13a still owns the role; the spike doesn't need it.
+
+**Therefore:** when F13 starts, do the real-data spike **as F13a's first commit**, not a throwaway
+branch. If the seed queries come out boring, that's one session spent instead of an arc.
+
+**Zero-cost probe available before then:** `/ask`'s `parcel_query` already does text-to-SQL over
+CRIM. Ten real questions through it is evidence about whether ad-hoc querying is something we
+actually reach for — narrower than the Lab, but free today.
+
+**Out of scope:** CSV/GeoPackage exports (stay parked pending external demand); per-user
+notebooks (M6 auth); a DQL-like language of our own; migrating existing pages onto boards.
+
+**Traps to pre-empt:** add `COPY prism/lab ./prism/lab` to `docker/Dockerfile.api` (this has
+bitten three times — `prism/weather` at F10a, `prism/ocpr` at F11e); hand-write the Lab response
+types in `frontend/lib/api.ts` rather than reopening the F10c item-4 `Schemas[...]` migration;
+stamp the new `lab.*` tables in `confidence.yml` + `catalog/metadata.json` and bump
+`tests/test_provenance.py::test_api_inventory`; add `/lab` to `frontend/e2e/interactive.spec.ts`.
+
+---
+
 **Other F11 candidates (recorded, not scheduled):** fiber layer + real callsign service-area
 polygons on `/telecom` (F7 deferral); multi-hazard overlays — landslide/liquefaction/seismic + a
 Guánica 2020 backtest; distribution geometry (2014 `g37_electric_*`) to tighten the feeder Voronoi
@@ -969,7 +1123,7 @@ and raise its confidence tier; public methods/API docs (still audience-gated).
 
 ---
 
-### Item F11 — Corporate owner intelligence: link CRIM owners → PR corporations registry  *(ACTIVE — scheduled 2026-07-17)*
+### Item F11 — Corporate owner intelligence: link CRIM owners → PR corporations registry  *(CORE COMPLETE 2026-07-25 — F11a mirror left running unattended; F11d + F11f follow-ups parked to `BACKLOG.md`)*
 
 Source: user ask 2026-07-16 — "link parcel owners that match this public registry
 (rcp.estado.pr.gov) with all attributes." Assessed + spiked live 2026-07-16/17 (Fable session).
@@ -1008,31 +1162,180 @@ Sub-chunks, each Opus-gated:
   entry land (data-sovereignty finish — currently PG-only). Follow-ups: complete the type-suffix
   set beyond the three confirmed (tail types — coops/trusts/reserved R-prefix — need a small
   discovery step, either brute-probe or a one-off search sample once the WAF clears).
-- **F11b — Offline matcher.** New module (mirror `prism/crim/normalize.py` discipline): a
+- ✅ **F11b — Offline matcher.** *(built 2026-07-25, gate pending)* New module
+  `prism/crim/rce_match.py` (mirrors `prism/crim/normalize.py` discipline): a
   **suffix-preserving** match key (NOT `owner_key`, which strips LLC/INC/CORP — the token that
   distinguishes two registry entities; DANCO BUILDERS CORP vs INC already collapse under owner_key)
-  → exact-normalized join → fuzzy (`pg_trgm`, already indexed on `rce_entities.corp_name`) for the
-  typo tail, single-match-only (multiple candidates → honest no-match, F9d discipline). Writes
-  `crim.owner_rce_match` (owner_key → registration_index + method/confidence/matched_at, sparse —
-  a no-match is a recorded result). Tier `proxy`. **Done when:** the real CRIM→registry match rate
-  is measured (the number the spike couldn't produce without the mirror) and false-merge audited.
-- **F11c — Enrichment surface.** Registry chip on the **existing F1 owner drawer** (status badge,
-  class, formation date, resident agent, "as of" date, deep link to the DoS page) + a one-liner on
-  the parcel-360 card. Status modeled as a slowly-changing dimension → `ACTIVA→DISUELTA/CANCELADA`
-  transitions feed the F2 WhatsNew stream as a typed kind (a dissolved entity still holding parcels
-  is a signal CRIM never emits). Poll only the matched set, monthly, on the CRIM cadence. `/ui-ux`
-  for the "authoritative for the corporate slice only" caveat copy. **Done when:** the drawer chip
-  renders for a matched owner and a status-change event appears in WhatsNew.
-- **F11d — Control-cluster merge (stretch).** Collapse shell LLCs into control clusters on
+  → exact-normalized join → fuzzy (`pg_trgm`) for the typo tail, single-match-only (multiple
+  candidates → honest no-match, F9d discipline). Writes `crim.owner_rce_match` grained on
+  **(owner_key, match_key)** — not owner_key alone, so an owner whose parcels carry both the CORP
+  and INC spelling keeps both links instead of losing the distinction. Tier `proxy`.
+
+  > **Measured 2026-07-25 against a ~54%-complete mirror (302,915 of ~560K entities):**
+  > **10,261 corporate owner keys matched — 52.9% of the 19,403 corporate-suffixed CRIM
+  > owners**, covering 22,067 parcels; plus 141 matches on owner names carrying no legal-form
+  > token (reported separately, NOT folded into the corporate rate — the gate caught the first
+  > draft mixing them, which inflated it). 1.17% of all 887,630 owners; the rest are individuals
+  > and SUCESION estates with no registry record to find, which is why the corporate-suffixed
+  > count is the honest denominator — and it is a floor, not a ceiling, since suffix-less
+  > company names demonstrably match too. 120 ambiguous, recorded with their candidate list and
+  > never guessed between. Re-run as the mirror grows — `run()` is idempotent.
+  >
+  > **Two findings the build produced, both now handled in code:**
+  > 1. **Similarity does not separate good fuzzy matches from bad.** True positives
+  >    ("MARKETIN CLUB"→"MARKETING CLUB") and false positives ("C 3 MANAGEMENT"→"C & M
+  >    MANAGEMENT", "AGM PROPERTIES"→"A.G. PROPERTIES") sit at the *same* trigram score, and the
+  >    corroboration rate is flat across the whole 0.85–1.0 range — so raising the threshold
+  >    would drop good matches without removing bad ones. Instead a trigram hit is accepted only
+  >    when **independently corroborated**: the registry entity's own registered address must sit
+  >    in a municipio where the owner actually holds parcels. 352 of 706 were withdrawn on that
+  >    test (kept as `fuzzy_unconfirmed` with the near-miss preserved, so the audit trail
+  >    survives). Exact matches are exempt — their names are equal, not similar.
+  > 2. **CRIM stores some owner strings rotated** — "REY LLC 119 MATIENZO HATO" for
+  >    "119 MATIENZO HATO REY LLC", a wrap artifact in the export. A deterministic token-sorted
+  >    pass catches these (+172 matches) instead of leaving them to a trigram coincidence.
+  >
+  > Also filtered: the registry's own `UNKNOWN ENTITY - PRIM SCAN` placeholder (7,285 rows share
+  > the exact string — unfiltered it would have collapsed into one enormous ambiguous key, the
+  > registry-side twin of CRIM's JOHN DOE).
+
+  **Done when:** the real CRIM→registry match rate is measured *(done — 52.9% of corporate
+  owners)* and false-merge audited *(done — the fuzzy tail was spot-checked, the failure mode
+  identified, and the corroboration gate added in response)*.
+
+  **Opus gate 2026-07-25: GO.** The reviewer reproduced the rate independently and recomputed
+  corroboration by similarity bucket over all fuzzy candidates (48.1 / 54.3 / 46.6 / 64.5 / 50.0 /
+  35.3% from 0.85→1.0), confirming empirically that the curve is flat and non-monotone — so
+  raising the threshold really would have cost good matches without removing bad ones. Six
+  follow-ups raised; **five fixed in the same session**, one carried forward:
+  1. ✅ **Mixed numerator** — the published rate put matches on suffix-less names over a
+     corporate-only denominator. `stats()` now reports `matched_corporate_keys` against
+     `corporate_owner_keys` like-for-like, with the suffix-less matches counted separately.
+  2. ✅ **Sibling-registration false links.** The reviewer's spot-check found ~5–15 wrong links
+     in the fuzzy tail across two named shapes, both now refused deterministically by
+     `sibling_name()`: a **numeral** in the symmetric token difference (`ATP HOMES INC` vs
+     `ATP HOMES II INC`) and **token containment**, where one extra word carries the whole
+     distinction (`PIER PROPERTY MANAGEMENT INC` vs `PROPERTY MANAGEMENT INC`). Neither fires on
+     a genuine typo, because a misspelling changes a token on both sides rather than adding one.
+  3. ✅ **Ungated short word-order matches.** 89 of 172 token-sorted hits had only two content
+     tokens, where a permutation carries much less evidence (`COMPUTER ADVANTAGE INC` vs
+     `ADVANTAGE COMPUTER INC` could be two firms). Those now face the same corroboration test as
+     the fuzzy tail; longer rotations stay exempt.
+  4. ✅ **Address sentinel.** 51K address rows literally read `UNKNOWN`, collapsing into one
+     `address_key` "shared" by 25K unrelated entities — the address-side twin of the name
+     sentinel. Filtered before F11d can ever cluster on it.
+  5. ✅ New files were untracked on the branch — committed 2026-07-25 once the user asked to
+     close up F11 (the standing rule was to commit only when asked, not to leave it forever).
+  6. ⏳ **`address_key` includes the zip**, so one street line under two zips splits into two keys
+     and fragments an agent office (`1654 CALLE TULIPAN STE 100` appears twice, 1,029 + 863
+     entities). Only matters for F11d clustering, which is parked (below) — rides along with it.
+- ✅ **F11c — Enrichment surface.** *(built 2026-07-25, gate pending)* `prism/crim/registry.py`
+  + `GET /crim/owner/{key}/registry` (declared before the greedy `/owner/{key:path}` route — the
+  F11e lesson) → a "Corporate registry" section on the **existing F1 owner drawer** (status,
+  class, formation date, resident agent, registered address, "as of" date) and a one-liner on the
+  parcel-360 card. Both stay **silent** for the ~98% of owners who are individuals: there is no
+  registry record to find, so an empty state would imply a lookup that never happened. Status
+  modeled as a slowly-changing dimension in `crim.rce_status_history` (baseline seeded: 9,875
+  matched entities) → transitions feed the F2 WhatsNew stream as a typed `registry` kind. `/ui-ux`
+  loaded for the caveat copy: the registry record is the government's own, but PRISM's *link* to a
+  CRIM owner is a name match, and the copy says so wherever the record renders.
+
+  > **The signal is real from day one, without waiting for a transition:** **748 dissolved,
+  > cancelled or merged companies still hold 1,562 CRIM parcels.** Verified live on ROOSEVELT REO
+  > PR CORP. — dissolved 2022-10-25, still on record as the owner. This is precisely what CRIM
+  > structurally cannot emit: its deed record is perfectly current while the legal person behind
+  > it is not.
+
+  **Done when:** the drawer chip renders for a matched owner *(done)* and a status-change event
+  appears in WhatsNew *(the typed kind and the standing inactive-owner headline both render; an
+  observed ACTIVA→DISUELTA **transition** needs a second registry poll a month out, so the
+  transition path is mechanism-verified, not yet observed live — stated plainly rather than
+  claimed, same posture as F5's untested live-storm alert)*.
+
+  **Opus gate 2026-07-25: GO, conditional on 3 fixes — all applied.** The reviewer independently
+  recomputed the standing signal, cross-tabbed `TERMINAL_STATUSES` against the registry's own
+  `isStatusTerminal` (PRISM's set is a deliberate strict subset — inheriting the registry's flag
+  would have called 20 live, *amended* or *converted* companies dead), and drove a synthetic
+  transition through the real SQL. It ruled the unobserved-transition caveat **honest and
+  non-blocking**, on the grounds that every doc, docstring and test says the same thing and the
+  criterion's purpose is met by a real event rendering in the live feed. The three blockers:
+  1. ✅ **The headline over-claimed on the one surface with no tier chip.** "…the company no
+     longer exists" was wrong for **477 of 625**: CANCELADA (451) is an administrative
+     cancellation a company can be revived from, and a FUSIONADA (26) company does exist — inside
+     the survivor. Now "dissolved, cancelled or merged … the register lists the company as no
+     longer active", and the name-inference caveat travels in the detail text, since the overview
+     card is the widest-audience render path and carries no `PROXY` chip beside it.
+  2. ✅ **`record_status_snapshot()` had no production caller** — so the promised monthly re-poll
+     would have refreshed the names and lost the transition it exists to catch. Now runs at the
+     end of `rce_match.run()` and is exposed as `--rce-snapshot`.
+  3. ✅ **`registry_url` was returned, typed, and never rendered**, leaving the "go verify it
+     yourself" posture with no escape hatch. The registry number is now a link.
+
+  Also fixed from the should-list: the drawer and the parcel card **contradicted each other** for
+  an owner with both a live and a dead registration (the drawer led with the dead one) — both now
+  lead with the **active** registration and disclose the rest, since we cannot tell which holds
+  the deed; Spanish statuses carry a plain-English gloss (`CANCELADA — cancelled by the state`,
+  not "dissolved"); `registry` is a typed frontend `ChangeKind` with its own icon and colour;
+  `crim.rce_status_history` got its provenance entry (catalog 202); `_registry_changes` guards on
+  `registry.available()` so a half-built layer degrades instead of 500-ing `/whatsnew`; and the
+  synthetic-transition test now exercises the transition query **inside** the open transaction
+  rather than after the rollback, where it was asserting nothing.
+
+  **Fixed 2026-07-25 (F11 close-up):** the standing headline's `MAX(pulled_at)` timestamp was
+  going to freeze once the mirror pull completes, and newer events would have eventually pushed a
+  permanent-but-true signal below the 12-item cut. `_registry_changes()` now marks that item
+  `"pinned": True` and `whatsnew()`'s truncation exempts pinned items from being the ones dropped
+  (they still count against `change_limit` and sort by their real timestamp — only the "which
+  items survive the cut" rule changed). Regression test:
+  `test_pinned_item_survives_truncation_even_with_a_stale_timestamp` in `tests/test_whatsnew.py`.
+
+  Deferred: a per-entity deep link to the DoS page. The registry's Nuxt app has no documented
+  stable permalink, and probing for one while the F11a mirror is mid-flight against the same
+  operator risks a WAF cooldown that costs days of pulling — the UI links to the public search
+  page instead. Revisit when the pull completes.
+- ⏸️ **F11d — Control-cluster merge (stretch, PARKED to `BACKLOG.md` 2026-07-25 — no user demand
+  yet, and the prerequisite address layer it would build on already shipped inside F11b).** Collapse
+  shell LLCs into control clusters on
   **shared officer identity** (person-name, own accent/case normalization) + `relatedentities`
-  (authoritative) — **NOT shared address** (agent offices host hundreds; use address only as a
-  frequency-weighted signal: many-entities = noise, 2–3 = a real principal). Person→parcels reverse
-  view = deliberate fast-follow, out of v1. Docs/PDFs (agent/members sometimes in filings, mostly
-  boilerplate): lazy-fetch on drill-in only, never bulk (WAF-risky, low-yield).
+  (authoritative). Person→parcels reverse view = deliberate fast-follow, out of v1. Docs/PDFs
+  (agent/members sometimes in filings, mostly boilerplate): lazy-fetch on drill-in only, never
+  bulk (WAF-risky, low-yield).
+
+  **Address, revised 2026-07-25 (user pushback — accepted).** The original wording — "NOT shared
+  address" — conflated two different uses and threw out the second. Rejecting address as a
+  **merge criterion** is still right: resident-agent and law-firm offices host hundreds of
+  unrelated entities, so co-occupancy alone proves nothing about common control. But that is not
+  a reason to leave address *unmodelled*. Without an address entity you cannot ask why a given
+  owner failed to match, cannot corroborate a weak name match, and cannot re-link an owner later
+  when the mirror or the normalization improves — the audit and refinement surface disappears.
+
+  So **F11b built the address layer up front** (`crim.rce_addresses` + `crim.rce_address_entities`,
+  1.28M address rows across 435K distinct addresses from every block the registry publishes:
+  corporate street, mailing, resident agent, officers, domicile). The discipline is that address
+  is **evidence, never identity**:
+  - Every address carries `entity_count`, and 878 addresses hosting >10 entities are flagged
+    `is_agent_office` — the frequency weighting the original note asked for, now materialized as
+    data instead of a caveat.
+  - It is already load-bearing: F11b's fuzzy tail is accepted **only** when the registry entity's
+    registered address municipio matches a municipio the owner holds parcels in. That single
+    corroboration test is what made the approximate-match pass safe enough to ship.
+  - 91.8% of address rows resolve to a canonical PR municipio; barrios, urbanizaciones, and
+    mainland cities are left unresolved rather than guessed at.
+
+  F11d therefore reads officer identity as the **primary** clustering signal and address as a
+  **frequency-weighted corroborator** (2–3 entities at one address = likely a real principal;
+  >10 = an agent office, no signal). Next step for the address layer: geocode the unresolved
+  ~8% so a registered address ties to a barrio rather than only a municipio.
 
 Sequencing: **F11a → F11b → F11c** (F11d optional). Storage all under the `crim` schema. Branch
 `feat/f11-owner-registry` off `main` when F10 merges. Fable plans / Sonnet implements; `/ui-ux` for
 every copy-bearing chunk.
+
+**Close-up (2026-07-25):** F11b + F11c are Opus GO and committed. **F11a is intentionally left
+running unattended** — a host nohup process (self-healing per the watchdog + DB-resilience work),
+at 315K/~560K entities and climbing at close, respecting the registry's own rate limit by design;
+nothing to fix, `rce_match.run()` is idempotent so re-running it later picks up more matches as
+the mirror grows. F11d is parked (above). See `BACKLOG.md` for the condensed pointer list.
 
 #### F11e — OCPR government-contracts supplement  *(✅ COMPLETE — Opus GO 2026-07-19)*
 

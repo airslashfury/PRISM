@@ -351,6 +351,15 @@ export const useOwnerContracts = (ownerKey: string | null) =>
     staleTime: 10 * MIN,
   });
 
+/** F11c: one owner's PR corporations-registry record (no-match is a result). */
+export const useOwnerRegistry = (ownerKey: string | null) =>
+  useQuery({
+    queryKey: ["ownerRegistry", ownerKey],
+    queryFn: () => api.ownerRegistry(ownerKey as string),
+    enabled: ownerKey != null,
+    staleTime: 10 * MIN,
+  });
+
 /** F11e: property owners ranked by contract value; public bodies off by default. */
 export const useContractorOwners = (includeGovernment: boolean, limit = 25) =>
   useQuery({

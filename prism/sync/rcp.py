@@ -29,6 +29,7 @@ from typing import Any
 import httpx
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 
 from prism.load.db import get_engine
 
@@ -57,6 +58,7 @@ REQUEST_DELAY = 0.20          # ~3-4 req/s — bumped from 0.5 once the IP recov
 THROTTLE_CODES = {429, 403, 503}
 BACKOFF_SECONDS = (300, 600, 900, 1800)   # silent waits on repeated 429s; caps at 30 min
 CHECKPOINT_EVERY = 200        # numbers between progress writes
+TRANSIENT_RESET_AFTER = 5     # consecutive network errors before rebuilding the HTTP client
 
 _DDL = [
     "CREATE SCHEMA IF NOT EXISTS crim",
@@ -110,10 +112,49 @@ def _start_number(engine: Engine) -> int:
     return int(row[0])
 
 
-def _checkpoint(engine: Engine, cursor: int, entities: int) -> None:
+DB_RETRY_WAITS = (5, 15, 30, 60, 120, 300)   # escalating waits while the DB is away
+
+
+def _db_retry(engine: Engine, what: str, fn, *, max_attempts: int | None = None):
+    """Run a DB operation, surviving a database restart rather than dying.
+
+    This walk takes days, so it WILL outlive a database outage: Windows Update
+    recycled the Docker/WSL VM under it at 2026-07-25 04:22 and the pull exited
+    on the dropped connection, losing 5 hours. The cursor is checkpointed and the
+    walk is fully resumable, so waiting for the DB to come back always beats
+    exiting. SQLAlchemy's pool still holds dead sockets after such a restart,
+    hence the dispose() before each retry — the same poisoned-pool failure the
+    HTTP client hit on 07-22.
+
+    `max_attempts=None` retries indefinitely; pass a small number where hanging
+    would be worse than giving up (e.g. the final checkpoint during shutdown).
+    """
+    attempt = 0
+    while True:
+        try:
+            return fn()
+        except OperationalError as e:
+            attempt += 1
+            if max_attempts is not None and attempt >= max_attempts:
+                log.error("RCP db still unavailable during %s after %d attempts — giving up",
+                          what, attempt)
+                raise
+            wait = DB_RETRY_WAITS[min(attempt - 1, len(DB_RETRY_WAITS) - 1)]
+            log.warning("RCP db unavailable during %s (%s) — pool reset, retry in %ds",
+                        what, type(e).__name__, wait)
+            try:
+                engine.dispose()      # drop connections poisoned by the restart
+            except Exception:         # noqa: BLE001 — dispose must never mask the outage
+                pass
+            time.sleep(wait)
+
+
+def _checkpoint(engine: Engine, cursor: int, entities: int,
+                *, max_attempts: int | None = None) -> None:
     """Persist the descending cursor (next number to attempt) + mode."""
-    with engine.begin() as conn:
-        conn.execute(text("""
+    def _write() -> None:
+        with engine.begin() as conn:
+            conn.execute(text("""
             INSERT INTO crim.rce_pull_progress (id, last_number, suffixes, entities, mode, updated_at)
             VALUES (:id, :n, :suf, :ent, :mode, now())
             ON CONFLICT (id) DO UPDATE SET
@@ -124,6 +165,8 @@ def _checkpoint(engine: Engine, cursor: int, entities: int) -> None:
                 updated_at = now()
         """), {"id": PROGRESS_ID, "n": cursor, "suf": ",".join(SUFFIXES),
                "ent": entities, "mode": DESC_MODE})
+
+    _db_retry(engine, "checkpoint", _write, max_attempts=max_attempts)
 
 
 class _Throttled(Exception):
@@ -171,8 +214,12 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
     log.info("RCP enumeration (descending): resume at %d, floor %d, %d entities already mirrored",
              n, MIN_NUMBER, entities)
 
-    client = httpx.Client(timeout=20.0, headers={"Accept": "application/json"})
+    def _new_client() -> httpx.Client:
+        return httpx.Client(timeout=20.0, headers={"Accept": "application/json"})
+
+    client = _new_client()
     throttle_i = 0
+    consec_transient = 0   # a wedged connection pool ConnectErrors forever; rebuild the client
     try:
         while n >= MIN_NUMBER:
             resolved = False       # True once this number is done (hit or genuine gap)
@@ -188,27 +235,47 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                     throttle_i += 1
                     break          # retry the whole number after the wait
                 except _Transient as e:
-                    log.info("RCP transient (%s) at %s — short retry", e, idx)
-                    time.sleep(5.0)
+                    consec_transient += 1
+                    if consec_transient >= TRANSIENT_RESET_AFTER:
+                        # The endpoint is usually still up (a fresh client works);
+                        # the long-lived pool has gone bad. Rebuild it and back off
+                        # a little more each time so a real outage isn't hammered.
+                        try:
+                            client.close()
+                        except Exception:  # noqa: BLE001
+                            pass
+                        client = _new_client()
+                        wait = min(5.0 * consec_transient, 300.0)
+                        log.warning("RCP transient (%s) x%d at %s — rebuilt client, wait %ds",
+                                    e, consec_transient, idx, int(wait))
+                    else:
+                        wait = 5.0
+                        log.info("RCP transient (%s) at %s — short retry", e, idx)
+                    time.sleep(wait)
                     break          # retry the whole number
                 throttle_i = 0
+                consec_transient = 0
                 time.sleep(REQUEST_DELAY)
                 if resp:
                     co = resp.get("corporation") or {}
-                    with engine.begin() as conn:
-                        conn.execute(text("""
-                            INSERT INTO crim.rce_entities
-                                (registration_index, register_number, suffix,
-                                 corp_name, status_es, class_es, raw)
-                            VALUES (:idx, :num, :suf, :name, :status, :class, CAST(:raw AS jsonb))
-                            ON CONFLICT (registration_index) DO NOTHING
-                        """), {
-                            "idx": idx, "num": n, "suf": suffix,
-                            "name": co.get("corpName"),
-                            "status": co.get("statusEs"),
-                            "class": co.get("classEs"),
-                            "raw": json.dumps(resp),
-                        })
+
+                    def _insert(_idx=idx, _n=n, _suf=suffix, _co=co, _resp=resp) -> None:
+                        with engine.begin() as conn:
+                            conn.execute(text("""
+                                INSERT INTO crim.rce_entities
+                                    (registration_index, register_number, suffix,
+                                     corp_name, status_es, class_es, raw)
+                                VALUES (:idx, :num, :suf, :name, :status, :class, CAST(:raw AS jsonb))
+                                ON CONFLICT (registration_index) DO NOTHING
+                            """), {
+                                "idx": _idx, "num": _n, "suf": _suf,
+                                "name": _co.get("corpName"),
+                                "status": _co.get("statusEs"),
+                                "class": _co.get("classEs"),
+                                "raw": json.dumps(_resp),
+                            })
+
+                    _db_retry(engine, f"insert {idx}", _insert)
                     entities += 1
                     resolved = True
                     break          # number resolved; move on
@@ -221,7 +288,15 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                     _checkpoint(engine, n, entities)   # cursor = next number to attempt
                     log.info("RCP progress: at number=%d entities=%d", n, entities)
     finally:
-        _checkpoint(engine, n, entities)
+        # Bounded here: on shutdown (Ctrl-C, or the DB genuinely gone) hanging on
+        # an indefinite retry is worse than losing the last few numbers — the
+        # previous periodic checkpoint already bounds how much gets re-walked.
+        try:
+            _checkpoint(engine, n, entities, max_attempts=3)
+        except OperationalError:
+            log.error("RCP could not write the final checkpoint — resume will "
+                      "restart from the last periodic one (at most %d numbers back)",
+                      CHECKPOINT_EVERY)
         client.close()
 
     log.info("RCP enumeration complete: %d entities mirrored, cursor at %d", entities, n)
