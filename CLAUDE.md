@@ -418,6 +418,35 @@ distribution geometry, public API docs.
 
 **The F10 arc (weather domain + model correctness + consistency sweep) is now COMPLETE.**
 
+**F11 batch (2026-07-17→25) — corporate owner intelligence, core complete.** `prism/sync/rcp.py`
+mirrors the PR corporations registry (`crim.rce_entities`, a rate-limited host nohup pull that
+respects the registry's own WAF — still walking, 315K/~560K entities at close, self-healing via
+the same-session watchdog + DB-resilience work, left running unattended by design).
+`prism/crim/rce_match.py` joins it to CRIM owners: suffix-preserving match key, exact then
+address-corroborated fuzzy (52.9% of corporate-suffixed owners matched), writing
+`crim.owner_rce_match` + an address layer (`crim.rce_addresses`, 1.28M rows, agent-office
+frequency-flagged). `prism/crim/registry.py` surfaces it — a "Corporate registry" section on the
+F1 owner drawer + a parcel-360 one-liner, silent for the ~98% with no record; status modeled as a
+slowly-changing dimension (`crim.rce_status_history`) feeding WhatsNew as a typed `registry` kind.
+**The standing signal is real from day one:** 748 dissolved/cancelled/merged companies still hold
+1,562 CRIM parcels — precisely what CRIM's own current-state deed record can't say. Both F11b and
+F11c Opus GO 2026-07-25 (six gate follow-ups, five fixed same-session). AEE/PREPA load-shedding
+(F11f) landed the measured 486K-segment feeder network and swapped it into POWERS for barrio
+population, Opus GO-conditional 2026-07-21; OCPR government-contracts (F11e) landed a
+contractor-owner footprint on `/parcels`, Opus GO 2026-07-19.
+
+**F11 close-up (2026-07-25):** fixed one real latent bug found while closing out — the WhatsNew
+registry standing-headline's `at` timestamp was going to freeze once the mirror pull finishes and
+get silently truncated out of the feed by newer events; `whatsnew()` now exempts `pinned` items
+from the newest-first cut (`prism/sync/changes.py`, regression test in `test_whatsnew.py`).
+**Explicitly parked to `BACKLOG.md`, not built:** F11d control-cluster merge (stretch — the
+prerequisite address layer already shipped inside F11b, so it's scoped for whenever it's picked
+up); F11f's remaining follow-ups (measured facility-level POWERS, wiring the 22 FEEDS-isolated
+substations, a shed-feed refresh cron — checked and it's a real architecture decision since
+`data/raw` isn't bind-mounted into the `worker` container, not a quick wire-up — and a
+feeder-network UI layer). **The F11 arc is now CORE COMPLETE.**
+
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
-`memory/project_state.md` in the same session.
+`memory/project_state.md` in the same session. **Next up: F12 — Spanish (es-PR) language toggle**
+(ROADMAP.md, queued 2026-07-19, sequenced after F11).

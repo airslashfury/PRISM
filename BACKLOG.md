@@ -23,11 +23,33 @@ Pull an item up into `ROADMAP.md` when it gets scheduled.
   (`g15_riesgo_geol_deslizamientos`), liquefaction (`licuacion`), and seismic (`sismos`)
   overlays (all already mirrored); backtest against the 2020 Guánica sequence (calibration
   opportunity).
-- **Distribution geometry** — the 2014 `g37_electric_*` layers (distribution lines,
-  transformers, switches, fuses, poles) could tighten the feeder Voronoi proxy and raise its
-  confidence tier.
 - **Public methods + API docs** — document the FastAPI OpenAPI surface, link from `/methods`.
   Audience-gated: build when an external integrator actually asks.
+
+  > *Superseded 2026-07-25:* the 2014 `g37_electric_*` distribution-geometry idea this section used
+  > to list is done and then some — F11f mirrored PREPA's authoritative 486K-segment feeder network
+  > and swapped it into POWERS for barrio population (`ROADMAP.md` item F11f). What's left is the
+  > two items below, not the original ask.
+
+---
+
+## F11 follow-ups, parked 2026-07-25 (full detail in `ROADMAP.md` item F11)
+
+Core F11 (mirror + matcher + drawer enrichment + OCPR footprint + measured feeders) is done, each
+Opus GO. These are the explicitly-not-done tails — real, recorded, not forgotten, just not worth
+building without a use case pulling on them yet.
+
+- **F11d — control-cluster merge.** Collapse shell LLCs into control clusters on shared officer
+  identity + `relatedentities`; a person→parcels reverse view is the natural fast-follow. The
+  prerequisite — an address entity with agent-office frequency-weighting
+  (`crim.rce_addresses`/`rce_address_entities`) — already shipped inside F11b, so this is scoped
+  and ready whenever it's picked up. Rides along: `address_key` fragmenting one street across two
+  zips (cosmetic until clustering depends on it).
+- **F11f residuals** — measured (not Voronoi-proxy) POWERS for point facilities; wiring the 22
+  FEEDS-isolated source substations into the transmission graph; a refresh cron for the AEE
+  shed-feed (blocked on a real decision, not a quick add — `data/raw` isn't bind-mounted into the
+  `worker` container, so it needs either a new bind mount + `arq` cron or a host-side loop like
+  the F11a mirror pull); a UI surface for the 486K-segment feeder network.
 
 ---
 

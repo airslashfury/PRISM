@@ -912,13 +912,21 @@ SABANA LLANA TC). Pre-swap POWERS snapshotted to `graph.relationships_powers_vor
 rollback; `swap_powers` is idempotent. confidence.yml `graph.relationships`/`downstream_summary`
 rewritten to state the split.
 
-- **Follow-ups (recorded):** extend the measured assignment to point facilities (facility →
-  containing barrio → that barrio's measured sub, never raw nearest-conductor) and wire the 22
-  FEEDS-isolated source substations into the transmission graph — together these move the rest of
-  POWERS off the proxy. The 43 unassigned circuits (conductors reaching no substation within 50 m)
-  remain unassigned by design.
-- **Not yet wired:** no worker cron for the shed feed (gaps in the series mean "not observed",
-  never "no shedding"), no UI surface for the feeder network.
+- ⏸️ **Follow-ups — PARKED to `BACKLOG.md` 2026-07-25:** extend the measured assignment to point
+  facilities (facility → containing barrio → that barrio's measured sub, never raw
+  nearest-conductor) and wire the 22 FEEDS-isolated source substations into the transmission
+  graph — together these move the rest of POWERS off the proxy. The 43 unassigned circuits
+  (conductors reaching no substation within 50 m) remain unassigned by design.
+- ⏸️ **Not yet wired — PARKED:** no worker cron for the shed feed (gaps in the series mean "not
+  observed", never "no shedding" — a safe interpretation, not an active bug), no UI surface for the
+  feeder network. **Checked 2026-07-25:** wiring a cron isn't a drop-in — `snapshot_load_shedding()`
+  writes to `data/raw/`, which the `worker` container does not bind-mount (only `api` mounts
+  `data/raw/usgs_3dep`, read-only), so a naive `arq` cron job would silently violate the
+  data-sovereignty mirror-before-reliance rule (the same class of trap as F10a's ephemeral NOAA
+  mirror). Needs either a `data/raw/aee_load_shedding` bind mount on `worker` + an arq cron, or
+  keep it a host-side loop like the F11a mirror pull (`snapshot_loop()` already exists for this) —
+  a real architecture decision, not a quick wire-up, hence parked rather than done under time
+  pressure.
 
 ---
 
@@ -1070,6 +1078,33 @@ Sub-chunks, each Opus-gated:
   presets — add `react-grid-layout` only if free-form dragging proves necessary in use.
   **Done when:** a 6-tile board loads within a stated budget and every tile shows its tier chip.
 
+**Effort sizing + spike-first (assessed 2026-07-25).** Measured against this repo's own unit for a
+feature slice — ~50-line router + ~200-line `prism/` module + ~400-line page (weather, sitefinder,
+validate all land there):
+
+| Option | What it proves | Effort | Survives into F13a |
+|---|---|---|---|
+| Static mock (fake data) | Layout only | ~2 hours | Little — **skip it** |
+| **Real-data spike** — `/lab`, 4 hardcoded queries on live PostGIS, table + one chart, no persistence/tests/gate | Whether the curated-query surface is *interesting*, and whether a generic Recharts renderer reads as PRISM or as generic BI | **~1 session** | **~75%** — page shell + both renderers carry over unchanged |
+| Full F13a (L1) | — | **3–4× the spike** (F6/F10a scope) | — |
+
+Skip the static mock: PRISM's proposition is real numbers, and a Lab mocked with fake ones can't
+answer the only question a plan can't settle on paper — *are the queries I'd curate interesting
+enough that I'd reach for this?*
+
+**A spike is cheap without being reckless.** Inside a transaction, `SET LOCAL statement_timeout`
+and `SET TRANSACTION READ ONLY` both work as the existing `prism` user — no `GRANT`, no DDL, no
+role. Three lines buy most of the protection. What the dedicated `prism_ro` role adds on top is
+defense-in-depth against a bug in our own guard code, plus a separate connection pool so a runaway
+cell can't starve the API. F13a still owns the role; the spike doesn't need it.
+
+**Therefore:** when F13 starts, do the real-data spike **as F13a's first commit**, not a throwaway
+branch. If the seed queries come out boring, that's one session spent instead of an arc.
+
+**Zero-cost probe available before then:** `/ask`'s `parcel_query` already does text-to-SQL over
+CRIM. Ten real questions through it is evidence about whether ad-hoc querying is something we
+actually reach for — narrower than the Lab, but free today.
+
 **Out of scope:** CSV/GeoPackage exports (stay parked pending external demand); per-user
 notebooks (M6 auth); a DQL-like language of our own; migrating existing pages onto boards.
 
@@ -1088,7 +1123,7 @@ and raise its confidence tier; public methods/API docs (still audience-gated).
 
 ---
 
-### Item F11 — Corporate owner intelligence: link CRIM owners → PR corporations registry  *(ACTIVE — scheduled 2026-07-17)*
+### Item F11 — Corporate owner intelligence: link CRIM owners → PR corporations registry  *(CORE COMPLETE 2026-07-25 — F11a mirror left running unattended; F11d + F11f follow-ups parked to `BACKLOG.md`)*
 
 Source: user ask 2026-07-16 — "link parcel owners that match this public registry
 (rcp.estado.pr.gov) with all attributes." Assessed + spiked live 2026-07-16/17 (Fable session).
@@ -1189,10 +1224,11 @@ Sub-chunks, each Opus-gated:
   4. ✅ **Address sentinel.** 51K address rows literally read `UNKNOWN`, collapsing into one
      `address_key` "shared" by 25K unrelated entities — the address-side twin of the name
      sentinel. Filtered before F11d can ever cluster on it.
-  5. ⏳ New files still untracked on the branch — the standing rule is to commit only when asked.
+  5. ✅ New files were untracked on the branch — committed 2026-07-25 once the user asked to
+     close up F11 (the standing rule was to commit only when asked, not to leave it forever).
   6. ⏳ **`address_key` includes the zip**, so one street line under two zips splits into two keys
      and fragments an agent office (`1654 CALLE TULIPAN STE 100` appears twice, 1,029 + 863
-     entities). Recorded for F11d, which is where it starts to matter.
+     entities). Only matters for F11d clustering, which is parked (below) — rides along with it.
 - ✅ **F11c — Enrichment surface.** *(built 2026-07-25, gate pending)* `prism/crim/registry.py`
   + `GET /crim/owner/{key}/registry` (declared before the greedy `/owner/{key:path}` route — the
   F11e lesson) → a "Corporate registry" section on the **existing F1 owner drawer** (status,
@@ -1245,16 +1281,21 @@ Sub-chunks, each Opus-gated:
   synthetic-transition test now exercises the transition query **inside** the open transaction
   rather than after the rollback, where it was asserting nothing.
 
-  **Carried forward (non-blocking):** the standing headline stays in the feed today because its
-  `MAX(pulled_at)` keeps advancing while the mirror walks — when the pull completes that timestamp
-  freezes and newer events will eventually push a permanent standing signal below the 12-item cut.
-  Needs a pinned slot rather than a date, which changes `whatsnew()`'s contract.
+  **Fixed 2026-07-25 (F11 close-up):** the standing headline's `MAX(pulled_at)` timestamp was
+  going to freeze once the mirror pull completes, and newer events would have eventually pushed a
+  permanent-but-true signal below the 12-item cut. `_registry_changes()` now marks that item
+  `"pinned": True` and `whatsnew()`'s truncation exempts pinned items from being the ones dropped
+  (they still count against `change_limit` and sort by their real timestamp — only the "which
+  items survive the cut" rule changed). Regression test:
+  `test_pinned_item_survives_truncation_even_with_a_stale_timestamp` in `tests/test_whatsnew.py`.
 
   Deferred: a per-entity deep link to the DoS page. The registry's Nuxt app has no documented
   stable permalink, and probing for one while the F11a mirror is mid-flight against the same
   operator risks a WAF cooldown that costs days of pulling — the UI links to the public search
   page instead. Revisit when the pull completes.
-- **F11d — Control-cluster merge (stretch).** Collapse shell LLCs into control clusters on
+- ⏸️ **F11d — Control-cluster merge (stretch, PARKED to `BACKLOG.md` 2026-07-25 — no user demand
+  yet, and the prerequisite address layer it would build on already shipped inside F11b).** Collapse
+  shell LLCs into control clusters on
   **shared officer identity** (person-name, own accent/case normalization) + `relatedentities`
   (authoritative). Person→parcels reverse view = deliberate fast-follow, out of v1. Docs/PDFs
   (agent/members sometimes in filings, mostly boilerplate): lazy-fetch on drill-in only, never
@@ -1289,6 +1330,12 @@ Sub-chunks, each Opus-gated:
 Sequencing: **F11a → F11b → F11c** (F11d optional). Storage all under the `crim` schema. Branch
 `feat/f11-owner-registry` off `main` when F10 merges. Fable plans / Sonnet implements; `/ui-ux` for
 every copy-bearing chunk.
+
+**Close-up (2026-07-25):** F11b + F11c are Opus GO and committed. **F11a is intentionally left
+running unattended** — a host nohup process (self-healing per the watchdog + DB-resilience work),
+at 315K/~560K entities and climbing at close, respecting the registry's own rate limit by design;
+nothing to fix, `rce_match.run()` is idempotent so re-running it later picks up more matches as
+the mirror grows. F11d is parked (above). See `BACKLOG.md` for the condensed pointer list.
 
 #### F11e — OCPR government-contracts supplement  *(✅ COMPLETE — Opus GO 2026-07-19)*
 

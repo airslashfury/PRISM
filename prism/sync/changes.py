@@ -302,11 +302,14 @@ def _registry_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
             "detail": ("CRIM lists them as current owners; the Departamento de Estado "
                        "register lists the company as no longer active. Companies are "
                        "matched to owners by name, not by an official identifier"),
-            # The registry pull time is the real "as of" for this claim. It also
-            # keeps the headline in the feed: the stream sorts newest-first and
-            # truncates, so a null timestamp would sink this below the cut.
+            # The registry pull time is the real "as of" for this claim.
             "at": row["as_of"].isoformat() if row["as_of"] else None,
             "href": "/parcels",
+            # A standing fact, not news — once the mirror pull finishes, this
+            # timestamp stops advancing and would otherwise sink out of the
+            # newest-first cut as other events accumulate. `whatsnew()` exempts
+            # pinned items from truncation instead of dropping them.
+            "pinned": True,
         })
     return out
 
@@ -380,11 +383,19 @@ def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
     )
     # Newest first; None timestamps sink to the bottom.
     changes.sort(key=lambda c: c["at"] or "", reverse=True)
+    # Pinned items (standing facts, not news) are exempt from the newest-first
+    # cut — otherwise an unchanging timestamp eventually sinks a still-true
+    # signal below the fold as other events accumulate around it. They keep
+    # their sorted position; only the truncation count excludes them.
+    pinned = [c for c in changes if c.get("pinned")]
+    unpinned = [c for c in changes if not c.get("pinned")]
+    kept = (pinned + unpinned[:max(0, change_limit - len(pinned))])
+    kept.sort(key=lambda c: c["at"] or "", reverse=True)
     # Live operational feeds first (most time-sensitive), then the WFS registry.
     feeds = _live_feeds(engine) + _feeds(engine)
     return {
         "feeds": feeds,
         "stale_count": sum(1 for f in feeds if f["stale"]),
-        "changes": changes[:change_limit],
+        "changes": kept,
         "crim_baseline": _crim_baseline(engine),
     }
