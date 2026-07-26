@@ -491,7 +491,25 @@ so the `except` had gone silently unreachable and a Census outage would 500 the 
 instead of degrading to Tier B as designed. Fixed and verified live before the closing GO. Full
 detail and residuals in `ROADMAP.md` → Item F14.
 
+**F12a batch (2026-07-26, `feat/f12` off `feat/f14`) — es-PR language toggle infrastructure, Opus
+GO after two NO-GO rounds.** Scope set with the user at intake: F12a (this batch) + F12b (translate
+all chrome) ship; F12c (AI narratives, `/methods`/`/corridor` long-form, OG cards — the only chunk
+touching the Python side) parked to `BACKLOG.md`. Hand-rolled dictionary + context
+(`frontend/lib/i18n/`), not `next-intl` — the roadmap's cookie+URL permalink pattern doesn't need
+next-intl's path-prefix `[locale]/` routing, which would have restructured all ~18 existing routes.
+`/citizen` is the "one page fully bilingual" proof. `frontend/middleware.ts` promotes a valid
+`?lang=` into the request cookie before any Server Component renders, so a shared link SSRs in the
+right language on first paint — better than the "Done when" strictly required. Toggle lives in
+both the desktop sidebar footer (no theme control exists in this codebase for it to sit "next to,"
+contrary to the item's original wording) and the mobile drawer. Round 1 NO-GO caught three dropped
+bold `<span>`s (JSX styling flattened by an over-simplified template-string dictionary function),
+an RAE grammar error hitting ~53% of barrios, a `municipio` word-order bug, and a Spanish honesty
+sentence contradicting the still-English confidence chip; round 2 NO-GO caught that the toggle
+only existed on desktop, leaving phones with no way to change language. Full e2e green on both
+projects except two pre-existing Windows-only `next/og` failures (F10a/F10c, unrelated). Full
+detail in `ROADMAP.md` → Item F12.
+
 Gate protocol unchanged: at each item's "Done when", hand off to the Opus
 `phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
-`memory/project_state.md` in the same session. **Next up: F12 — Spanish (es-PR) language toggle**
-(ROADMAP.md, queued 2026-07-19, sequenced after F11 and now F14).
+`memory/project_state.md` in the same session. **Next up: F12b — translate the chrome** (all
+remaining pages, nav, shared components, confidence-tier labels — ROADMAP.md item F12).

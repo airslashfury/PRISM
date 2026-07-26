@@ -930,7 +930,7 @@ rewritten to state the split.
 
 ---
 
-### Item F12 — Spanish (es-PR) language toggle  *(ACTIVE — requested 2026-07-19, scope set 2026-07-26, branch `feat/f12`)*
+### Item F12 — Spanish (es-PR) language toggle  *(ACTIVE — F12a DONE 2026-07-26, F12b next, branch `feat/f12`)*
 
 PRISM models Puerto Rico for Puerto Rico, and its chrome is English while its **data is already
 Spanish** — municipio and barrio names, CRIM owner names, OCPR service classes (`VIVIENDAS`,
@@ -981,13 +981,36 @@ languages — they are the real toponymic units, not translatable labels.
 
 Sub-chunks, each Opus-gated:
 
-- **F12a — Infrastructure + the toggle.** Pick the i18n approach (recommend `next-intl` or a
+- **F12a — Infrastructure + the toggle.** — ✅ DONE (2026-07-26, Opus GO after two NO-GO rounds)
+  Pick the i18n approach (recommend `next-intl` or a
   hand-rolled dictionary + context — the app is a client-heavy Next 14 App Router build with
   server `generateMetadata` wrappers from F8, so the choice must cover both). Locale in a cookie +
   the URL (permalink discipline from F4: a shared link must reproduce the language), toggle in the
   sidebar next to the theme control, `<html lang>` set correctly, and `frontend/lib/utils.ts`
   formatters taking the active locale. **Done when:** one page is fully bilingual, a permalink
   round-trips its language, and numbers render PR-style under both locales.
+
+  **Built:** hand-rolled dictionary + context (`frontend/lib/i18n/`), not `next-intl` — the
+  cookie+URL permalink pattern above doesn't need next-intl's path-prefix `[locale]/` routing,
+  which would have restructured all ~18 existing routes, and the typed dictionary functions give
+  compile-time-checked interpolation a stringly-keyed `t()` call can't. `/citizen` is the proof
+  page (PRISM's most resident-facing). `frontend/middleware.ts` promotes a valid `?lang=` into the
+  request cookie before any Server Component renders, so a shared link SSRs in the right language
+  on first paint rather than flashing English then correcting after hydration — better than the
+  "Done when" strictly asked for. The toggle lives in both the desktop sidebar footer (there is no
+  theme control in this codebase for it to sit "next to," contrary to this item's original
+  wording) and the mobile drawer, since a phone has no other way to reach it. `frontend/e2e/
+  i18n.spec.ts` covers the permalink contract on both desktop and mobile projects.
+
+  **Gate history:** round 1 NO-GO — three dropped bold `<span>`s (a template-string function had
+  flattened JSX styling into plain text), an RAE grammar error (comma before "y") affecting ~53%
+  of barrios by sampling, a `municipio` word-order bug (Spanish puts it before the name, English
+  after), and a Spanish honesty sentence that quoted a translated confidence-tier label the
+  on-screen chip doesn't actually show (chip translation is F12b's job) — all fixed. Round 2 NO-GO
+  — the toggle only existed in the desktop sidebar, so a phone had no way to change language at
+  all; fixed by adding it to the mobile drawer too. Full e2e green on both projects except two
+  pre-existing Windows-only `next/og` font-loading failures (documented since F10a/F10c,
+  unrelated).
 - **F12b — Translate the chrome.** All 17 pages, nav, `EntityDrawer`'s 7-section grammar,
   `MapWorkspace`, `ScoreExplainer`, `InfoPanel`, confidence-tier labels (`authoritative` →
   *autoritativo*, `modeled` → *modelado*, `proxy` → *aproximado*), `EmptyState`/`ErrorBlock`, the
