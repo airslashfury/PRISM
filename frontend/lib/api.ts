@@ -127,7 +127,8 @@ export interface Anomaly {
   magnitude: { measured: string; probe: string | null };
   severity: "high" | "medium" | "low";
   remediation: string | null;
-  remediation_owner: string | null;
+  remediation_owner: string[];
+  remediation_owner_names: string[];
   status: "active" | "resolved";
 }
 

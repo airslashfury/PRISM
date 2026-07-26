@@ -44,9 +44,10 @@ def anomalies() -> dict:
     for row in rows:
         sev = row.get("severity", "unknown")
         by_severity[sev] = by_severity.get(sev, 0) + 1
-        owner = row.get("remediation_owner")
-        if owner and owner not in institutions:
-            institutions.append(owner)
+        # An entry can name more than one body; each is listed once.
+        for owner in row.get("remediation_owner_names") or []:
+            if owner not in institutions:
+                institutions.append(owner)
     return {
         "measured_on": provenance.measured_on(),
         "total": len(rows),

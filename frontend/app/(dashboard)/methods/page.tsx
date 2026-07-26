@@ -323,7 +323,11 @@ function ExcludedData() {
                   </div>
                   <p className="text-muted-foreground">
                     <span className="text-foreground/90">
-                      What would fix it{a.remediation_owner ? ` (${a.remediation_owner})` : ""}.{" "}
+                      What would fix it
+                      {a.remediation_owner_names?.length
+                        ? ` (${a.remediation_owner_names.join(", ")})`
+                        : ""}
+                      .{" "}
                     </span>
                     {a.remediation ?? (
                       <>

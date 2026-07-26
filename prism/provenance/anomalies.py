@@ -5,9 +5,14 @@ to the API (`GET /provenance/anomalies` → the Trust Center's "Excluded data"
 section), and renders `ANOMALIES.md` from it.
 
 The doc is generated, never hand-written: `render_markdown()` produces it and
-`tests/test_anomalies.py` fails if the checked-in file has drifted. That is what
-gives the going-forward rule teeth — a new exclusion that skips the registry
-breaks the build rather than quietly not existing.
+`tests/test_anomalies.py` fails if the checked-in file has drifted, or if an
+entry's `where:` no longer resolves to a real file and symbol.
+
+What that does **not** do — and the docstring used to claim it did — is notice a
+new exclusion written in code that was never registered here. Nothing can: there
+is no way to recognise "this filter is load-bearing" automatically. The registry
+is honour-system, enforced by the CLAUDE.md protocol and by review; the tests
+keep it from rotting once an entry exists, which is a different job.
 
 Read-only; no DB access. The `magnitude.probe` SQL in each entry is
 documentation, not something this module executes: it records how a count was
@@ -61,13 +66,29 @@ def measured_on() -> str | None:
     return value.isoformat() if isinstance(value, date) else value
 
 
-def remediation_owner(row: dict[str, Any]) -> str | None:
-    """Who could fix this — the explicit `remediation_owner` when the fixer isn't
-    the dataset's own source (a PRISM-derived table whose root cause is a missing
-    LUMA dataset), else `source`. None when there is nothing upstream to fix."""
+@lru_cache(maxsize=1)
+def institutions() -> dict[str, dict[str, Any]]:
+    """The controlled vocabulary of bodies a remediation can be addressed to.
+
+    Deliberately not free text: "LUMA" and "LUMA / AEE" as separate strings made
+    the by-institution report undeliverable, because a compound label can't be
+    handed to one agency.
+    """
+    return _registry().get("institutions", {}) or {}
+
+
+def remediation_owners(row: dict[str, Any]) -> list[str]:
+    """Institution keys that could fix this. Empty when nothing upstream can."""
     if not row.get("remediation"):
-        return None
-    return row.get("remediation_owner") or row.get("source")
+        return []
+    owners = row.get("remediation_owner")
+    if isinstance(owners, str):          # tolerate a single key
+        owners = [owners]
+    return list(owners or [])
+
+
+def institution_name(key: str) -> str:
+    return institutions().get(key, {}).get("name", key)
 
 
 def list_anomalies(*, status: str | None = "active") -> list[dict[str, Any]]:
@@ -80,8 +101,10 @@ def list_anomalies(*, status: str | None = "active") -> list[dict[str, Any]]:
     if status is not None:
         rows = [r for r in rows if r.get("status") == status]
     for row in rows:
-        # Resolve it once here so the API, the doc, and the page can't disagree.
-        row["remediation_owner"] = remediation_owner(row)
+        # Resolve once here so the API, the doc, and the page can't disagree.
+        keys = remediation_owners(row)
+        row["remediation_owner"] = keys
+        row["remediation_owner_names"] = [institution_name(k) for k in keys]
     order = {s: i for i, s in enumerate(SEVERITIES)}
     return sorted(rows, key=lambda r: (order.get(r.get("severity", ""), 99), r.get("id", "")))
 
@@ -118,6 +141,19 @@ def validate() -> list[str]:
         scope = row.get("scope")
         if not isinstance(scope, list) or not scope:
             problems.append(f"{rid}: `scope` must be a non-empty list of affected views/calculations")
+
+        # A remediation nobody is named for cannot be delivered to anyone.
+        if row.get("remediation"):
+            owners = remediation_owners(row)
+            if not owners:
+                problems.append(f"{rid}: has a `remediation` but no `remediation_owner`")
+            for key in owners:
+                if key not in institutions():
+                    problems.append(
+                        f"{rid}: remediation_owner {key!r} is not in the `institutions:` vocabulary"
+                    )
+        elif row.get("remediation_owner"):
+            problems.append(f"{rid}: has a `remediation_owner` but no `remediation`")
 
         mag = row.get("magnitude")
         if not isinstance(mag, dict) or "measured" not in mag:
@@ -179,9 +215,10 @@ def render_markdown() -> str:
         "published government data rather than a modelling choice, and each of those names",
         "the institution that could close it.",
         "",
-        "**PRISM's rule:** when data is set aside, it is said out loud. Nothing here is a",
-        "reason to distrust a figure PRISM prints — it is the accounting behind why that",
-        "figure is what it is.",
+        "**PRISM's rule:** when data is set aside, it is said out loud. Some of what",
+        "follows genuinely does bound what PRISM can claim — the entries marked *high*",
+        "say so in as many words. This is the accounting that lets a reader tell which",
+        "figures those are, instead of having to take all of them on faith.",
         "",
         f"Counts measured {measured_on()}. This file is generated from",
         "[`config/anomalies.yml`](config/anomalies.yml) by `make anomalies` — edit the",
@@ -230,7 +267,9 @@ def render_markdown() -> str:
     ]
     by_source: dict[str, list[dict[str, Any]]] = {}
     for row in with_remediation:
-        by_source.setdefault(str(row["remediation_owner"]), []).append(row)
+        # An entry naming two bodies appears under both — either could act.
+        for key in row["remediation_owner"]:
+            by_source.setdefault(institution_name(key), []).append(row)
     for source in sorted(by_source):
         out += [f"### {source}", ""]
         for row in by_source[source]:
@@ -267,8 +306,8 @@ def _render_entry(row: dict[str, Any]) -> list[str]:
     if mag.get("probe"):
         lines += ["", "```sql", _para(mag["probe"]), "```"]
     if row.get("remediation"):
-        owner = row.get("remediation_owner") or row["source"]
-        lines += ["", f"**What would fix it** ({owner}). {_para(row['remediation'])}"]
+        owners = ", ".join(row.get("remediation_owner_names") or []) or row["source"]
+        lines += ["", f"**What would fix it** ({owners}). {_para(row['remediation'])}"]
     else:
         lines += [
             "",

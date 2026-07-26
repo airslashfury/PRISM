@@ -30,15 +30,32 @@
 #   magnitude     measured counts + the SQL that measures them, so it is re-checkable
 #   severity      low | medium | high — effect on conclusions PRISM draws
 #   remediation   what an institution would have to fix; null if nothing upstream to fix
-#   remediation_owner  who could fix it, when that is NOT the `source` above — e.g. an
-#                 exclusion in a PRISM-derived table whose root cause is LUMA's missing
-#                 service-point mapping. Optional; defaults to `source`.
+#   remediation_owner  LIST of keys from `institutions:` below — who could actually fix
+#                 it. Required whenever `remediation` is set, and deliberately not the
+#                 same field as `source`: several exclusions sit in PRISM-derived tables
+#                 whose root cause is a dataset another agency has never published. A
+#                 controlled vocabulary (not free text) is what makes the by-institution
+#                 report deliverable to one named body at a time.
 #   status        active | resolved
 #
 # `measured_on` is the date the counts in this file were taken. It is not
 # auto-refreshed — re-run the probes before publishing the report externally.
 
 measured_on: 2026-07-26
+
+institutions:
+  crim:    {name: "CRIM — Centro de Recaudación de Ingresos Municipales"}
+  aee:     {name: "AEE / PREPA — Autoridad de Energía Eléctrica"}
+  luma:    {name: "LUMA Energy"}
+  aaa:     {name: "AAA — Autoridad de Acueductos y Alcantarillados"}
+  ocpr:    {name: "Oficina del Contralor de Puerto Rico"}
+  estado:  {name: "Departamento de Estado — corporations registry"}
+  salud:   {name: "Departamento de Salud"}
+  dtop:    {name: "DTOP — Departamento de Transportación y Obras Públicas"}
+  jp:      {name: "Junta de Planificación"}
+  census:  {name: "US Census Bureau"}
+  hifld:   {name: "HIFLD — Homeland Infrastructure Foundation-Level Data"}
+  fhwa:    {name: "FHWA — Federal Highway Administration (NBI)"}
 
 anomalies:
 
@@ -64,6 +81,7 @@ anomalies:
       measured: 78 of 887,708 owner entities (0.009%)
       probe: "SELECT count(*) FROM crim.owner_entities WHERE display_name ILIKE '%JOHN DOE%'"
     severity: low
+    remediation_owner: [crim]
     remediation: >-
       CRIM: the parcels behind these entries have no owner of record. They are the
       cleanest possible worklist for a title-research pass — a small, bounded set
@@ -91,6 +109,7 @@ anomalies:
       measured: 38,229 of 1,536,079 raw parcel rows (2.5%)
       probe: "SELECT count(*) FROM crim.parcelas WHERE num_catastro IS NULL"
     severity: medium
+    remediation_owner: [crim]
     remediation: >-
       CRIM: 38K parcel geometries in the published fabric carry no catastro
       number, so they cannot be joined to the valuation or ownership record.
@@ -124,37 +143,80 @@ anomalies:
     status: active
 
   - id: crim_sales_amount_outliers
-    title: Implausible sale amounts and dates are excluded from every price figure
+    title: Implausible sale amounts and dates are excluded from every sale figure
     dataset: crim.parcelas_history.salesamt / .salesdttm
     source: CRIM
     what: >-
-      Price statistics only count sales with `salesamt` between $1,000 and
-      $50,000,000 and `salesdttm` between 1980-01-01 and today. Everything outside
-      those bounds is excluded from medians, momentum, and the market context on
-      the parcel card.
+      `/trends` counts a recorded sale only when `salesamt` is between $1,000 and
+      $50,000,000 AND `salesdttm` falls between 1980-01-01 and today. The bound
+      applies to the sale COUNTS as well as to the medians — sales outside it are
+      absent from "N sales in the last 12 months", from municipio momentum, and
+      from the market context on the parcel card, not merely from the price.
     why: >-
       The raw column carries corrupt values — single "sales" of $10^13 — so sums
-      and averages on it are meaningless. Only 287 sales island-wide exceed $50M
-      and all inspected ones are data errors. Sale *counts* are clean and are not
-      filtered.
+      and averages on it are meaningless, and a row whose amount is impossible is
+      not evidence that a transaction occurred either. 288 sales island-wide
+      exceed $50M and every one inspected is a data error.
     where: prism/crim/trends.py:_SANE
     scope:
+      - "/trends sale COUNTS (sales_12mo, sales_total) — not only the medians"
       - "/trends median sale price, momentum, hot-spot municipios"
       - municipio market context on the parcel card and /economy
       - the monthly report's sales figures
     magnitude:
       measured: >-
-        257,559 of 836,108 rows with a sale amount fall outside the amount bounds
-        (30.8%); 18,596 rows fall outside the date bounds
+        570,923 of the 836,108 rows carrying a sale amount survive both bounds, so
+        265,185 recorded sales (31.7%) are excluded from every sale figure PRISM
+        prints. 257,559 fail the amount bound; 18,596 fail the date bound.
       probe: >-
-        SELECT count(*) FROM crim.parcelas_history WHERE salesamt IS NOT NULL
-        AND NOT (salesamt BETWEEN 1000 AND 50000000)
+        SELECT count(*) FILTER (WHERE salesamt BETWEEN 1000 AND 50000000 AND
+        salesdttm BETWEEN DATE '1980-01-01' AND CURRENT_DATE) AS counted,
+        count(*) AS with_amount FROM crim.parcelas_history WHERE salesamt IS NOT NULL
     severity: high
+    remediation_owner: [crim]
     remediation: >-
       CRIM: roughly a third of recorded sale amounts are outside any plausible
       range — a mix of $0/$1 nominal transfers and corrupt magnitudes. A validation
       rule at entry, and a flag distinguishing nominal transfers from arm's-length
       sales, would make the price series usable as published.
+    status: active
+
+  - id: crim_owner_change_formatting_churn
+    title: Two thirds of recorded "ownership changes" are the same owner written differently
+    dataset: crim.parcel_deltas (change_type='owner_change')
+    source: CRIM
+    what: >-
+      The monthly delta records an ownership change whenever the raw `contact`
+      string differs at all, so a removed trailing space counts as a transfer.
+      The monthly change report classifies every one with `normalize_owner()` —
+      PRISM's canonical owner key — and reports only genuinely different names as
+      ownership changes; the rest are broken out as spacing/punctuation-only or
+      the same name reordered.
+    why: >-
+      Reporting the raw count would overstate transfers by roughly a factor of
+      three. Deleting the cosmetic rows would be worse — they are evidence of how
+      the register is maintained — so they are classified and shown, not dropped.
+    where: prism/report/monthly.py:classify_owner_change
+    scope:
+      - the monthly change report's ownership section (headline + per-municipio)
+      - "WhatsNew crim_delta headlines, which still quote the raw delta count"
+    magnitude:
+      measured: >-
+        2026-07 delta: 2,420 substantive of 7,722 owner-field changes (31%) —
+        2,598 spacing/punctuation-only, 2,704 the same name reordered, 242 a
+        first recorded owner
+      probe: >-
+        SELECT count(*) FROM crim.parcel_deltas WHERE change_type = 'owner_change'
+        AND regexp_replace(upper(btrim(old_value)), '\s+', ' ', 'g')
+          = regexp_replace(upper(btrim(new_value)), '\s+', ' ', 'g')
+    severity: high
+    remediation_owner: [crim]
+    remediation: >-
+      CRIM: the owner field is not normalized at entry, so the same person is
+      stored with varying spacing and with surname and given name in either
+      order. Anyone differencing successive published snapshots — which is the
+      only way to observe transfers, since the register publishes current state
+      only — will read roughly three times as many transfers as occurred.
     status: active
 
   - id: crim_reassessment_noise_floor
@@ -194,6 +256,7 @@ anomalies:
       measured: applies per-field across the fabric; not counted as a row exclusion
       probe: null
     severity: medium
+    remediation_owner: [crim]
     remediation: >-
       CRIM: the physical-address field is populated with a placeholder template
       rather than left empty, which makes "has an address" indistinguishable from
@@ -221,6 +284,7 @@ anomalies:
       measured: 7,616 of 324,281 mirrored registry entities (2.3%)
       probe: "SELECT count(*) FROM crim.rce_entities WHERE corp_name ILIKE 'UNKNOWN ENTITY%'"
     severity: low
+    remediation_owner: [estado]
     remediation: >-
       PR Department of State: 7,616 register entries carry no entity name. They are
       real registration indices with an unusable name field.
@@ -249,6 +313,7 @@ anomalies:
         at ~51K rows when the filter was written
       probe: "SELECT count(*) FROM crim.rce_addresses"
     severity: medium
+    remediation_owner: [estado]
     remediation: >-
       PR Department of State: a registered agent address is a statutory
       requirement, yet tens of thousands of active registrations carry a literal
@@ -278,6 +343,42 @@ anomalies:
     remediation: null
     status: active
 
+  - id: rce_ambiguous_match_withdrawn
+    title: A plausible-but-unconfirmed registry match is recorded as no match
+    dataset: crim.owner_rce_match
+    source: PR Department of State — corporations registry
+    what: >-
+      A CRIM owner is linked to a registry entity only on an exact key, a
+      token-sorted key, or a fuzzy match at similarity ≥ 0.85 that a shared
+      address corroborates. A fuzzy match nothing corroborates
+      (`fuzzy_unconfirmed`) or one whose runner-up is within 0.05
+      (`ambiguous`) is stored with its candidates but reported as no match.
+    why: >-
+      The same never-guess policy as the address geocoder: naming the wrong
+      company as the owner of a parcel is a worse error than saying nothing, and
+      it is invisible to the reader. The candidates are kept so the decision is
+      auditable rather than discarded.
+    where: prism/crim/rce_match.py:_MIN_SIMILARITY
+    scope:
+      - the corporate-registry section on the owner drawer and parcel card
+      - the dissolved-companies-still-holding-parcels standing signal
+      - "the monthly change report's corporate-status section"
+    magnitude:
+      measured: >-
+        645 owners with a plausible registry hit are withheld — 525
+        `fuzzy_unconfirmed` and 120 `ambiguous`, against 10,405 accepted matches
+        (exact 9,945, fuzzy 321, token_sorted 139)
+      probe: "SELECT method, count(*) FROM crim.owner_rce_match GROUP BY 1 ORDER BY 2 DESC"
+    severity: medium
+    remediation_owner: [estado, crim]
+    remediation: >-
+      Departamento de Estado / CRIM: neither register carries the other's
+      identifier, so a corporation must be matched to its property by name. A
+      shared entity identifier — the registration index recorded on the deed, or
+      an EIN on both sides — would make the join exact and retire the fuzzy tier
+      entirely.
+    status: active
+
   - id: rce_registry_mirror_incomplete
     title: The registry mirror is a partial walk, so a missing match is not proof of no registration
     dataset: crim.rce_entities
@@ -300,6 +401,7 @@ anomalies:
       measured: 324,281 entities mirrored of an estimated ~560,000
       probe: "SELECT count(*) FROM crim.rce_entities"
     severity: high
+    remediation_owner: [estado]
     remediation: >-
       PR Department of State: publishing a bulk export (or a documented paged API)
       would replace a multi-day rate-limited walk with a complete, verifiable
@@ -353,6 +455,7 @@ anomalies:
         SELECT count(*) FROM (SELECT contract_id FROM ocpr.contract_contractors
         GROUP BY contract_id HAVING count(DISTINCT contractor_key) > 1) t
     severity: medium
+    remediation_owner: [ocpr]
     remediation: >-
       Oficina del Contralor: the register does not record each co-contractor's
       share of a joint contract, so joint-award totals cannot be attributed. A
@@ -380,9 +483,81 @@ anomalies:
       measured: 14 of 961 substations
       probe: "SELECT count(*) FROM graph.entities WHERE kind='substation' AND name ~ '^[0-9]+$'"
     severity: low
+    remediation_owner: [hifld, luma]
     remediation: >-
       HIFLD / LUMA: fourteen transmission substations in the published dataset have
       no facility name, only an identifier.
+    status: active
+
+  - id: substations_without_distribution_capability
+    title: 559 of 961 substations are excluded from powering anything
+    dataset: graph.relationships (POWERS) / resilience.cascade_scores
+    source: HIFLD
+    what: >-
+      A substation only gets POWERS edges if its `cd_type` is Substation,
+      Transmission Center or Generator AND its published `low_kv` is greater than
+      zero. 559 of 961 fail one of those, so they power no barrio and no facility.
+      542 end up with zero POWERS edges and only 422 are scored for cascade at
+      all. The same filter is repeated in three modules.
+    why: >-
+      A transmission-only or switching facility does not serve customers, and a
+      substation with no published low-side voltage cannot be shown to. Attaching
+      barrios to them would invent service that isn't there.
+    where: prism/graph/relationships.py:build_powers
+    scope:
+      - "/resilience — 539 substations never appear in the cascade ranking"
+      - every population-affected and hospitals-served figure
+      - the ILP portfolio (an unscored substation cannot be selected)
+      - "/water and /telecom power-dependency scoring"
+    magnitude:
+      measured: >-
+        402 of 961 substations are distribution-capable; 542 have zero POWERS
+        edges and 422 carry a cascade score. Of the excluded, **69 pass the
+        cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap,
+        not a real absence of distribution capability.
+      probe: >-
+        SELECT count(*) FROM graph.entities WHERE kind='substation'
+        AND attrs->>'cd_type' IN ('Substation','Transmission Center','Generator')
+        AND coalesce((attrs->>'low_kv')::float, 0) <= 0
+    severity: high
+    remediation_owner: [hifld, luma]
+    remediation: >-
+      HIFLD / LUMA: 69 substations are typed as distribution-capable yet publish
+      a low-side voltage of zero or nothing at all. Each is a facility PRISM
+      cannot connect to the customers it serves, and the gap is materially larger
+      than the 14 unnamed substations already listed here. A populated `low_kv`
+      would restore them to the cascade.
+    status: active
+
+  - id: feeds_voltage_hierarchy_dropout
+    title: Transmission links with equal or missing voltage produce no FEEDS edge
+    dataset: graph.relationships (FEEDS)
+    source: HIFLD
+    what: >-
+      FEEDS edges are inferred by voltage hierarchy: a CONNECTS_TO pair whose two
+      ends carry the same `high_kv`, or where either is missing, yields no
+      directed edge — the code cannot tell which end feeds which.
+    why: >-
+      Direction is what makes a cascade traversable. Guessing it would send
+      consequence flowing the wrong way through the grid, which is worse than a
+      missing edge.
+    where: prism/graph/relationships.py:build_feeds
+    scope:
+      - upstream cascade traversal from any affected substation
+      - "the 22 FEEDS-isolated substations (this is their proximate cause —
+        `feeds_isolated_substations_keep_voronoi` describes the consequence)"
+    magnitude:
+      measured: 22 source substations end up with no FEEDS edges at all
+      probe: >-
+        SELECT count(*) FROM graph.entities e WHERE e.kind='substation'
+        AND NOT EXISTS (SELECT 1 FROM graph.relationships r
+                        WHERE r.rel_type='FEEDS' AND r.dst_entity = e.entity_id)
+    severity: medium
+    remediation_owner: [hifld, luma]
+    remediation: >-
+      HIFLD / LUMA: transmission line records do not state direction of flow, and
+      voltage is missing on enough endpoints that it cannot always be inferred. A
+      published from/to or a complete voltage field would remove the ambiguity.
     status: active
 
   - id: feeder_secondary_sliver_edges_dropped
@@ -430,12 +605,18 @@ anomalies:
       - their barrios' civic-card power section
       - any population-affected figure downstream of them
     magnitude:
-      measured: 464 of 4,419 POWERS edges remain Voronoi-derived (voronoi/voronoi_centroid/voronoi_overlap)
+      measured: >-
+        132 substation-to-barrio edges over 102 barrios remain Voronoi-derived
+        (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332
+        `voronoi`-method POWERS edges are point facilities and belong to
+        `point_facilities_keep_voronoi_powers`, not here.
       probe: >-
-        SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS'
-        AND method LIKE 'voronoi%'
+        SELECT count(*) FROM graph.relationships r
+        JOIN graph.entities e2 ON e2.entity_id = r.dst_entity
+        WHERE r.rel_type = 'POWERS' AND e2.kind = 'barrio'
+        AND r.method IN ('voronoi_centroid','voronoi_overlap')
     severity: medium
-    remediation_owner: LUMA / AEE
+    remediation_owner: [luma, aee]
     remediation: >-
       LUMA / AEE: 22 substations appear in the facility inventory but not in the
       published transmission topology, so their upstream connectivity cannot be
@@ -444,7 +625,7 @@ anomalies:
 
   - id: point_facilities_keep_voronoi_powers
     title: Point facilities are still attached to substations by proximity, not by conductor
-    dataset: graph.relationships (POWERS, method='nearest_dist_sub')
+    dataset: graph.relationships (POWERS, method IN ('nearest_dist_sub','voronoi'))
     source: PRISM-derived (proxy)
     what: >-
       Hospitals, water plants, telecom towers and other point facilities are linked
@@ -460,16 +641,51 @@ anomalies:
       - "/water and /telecom power-dependency scoring"
       - the citizen card's "same feed serves" line
     magnitude:
-      measured: 2,919 of 4,419 POWERS edges (66%) are nearest-distance proxy
+      measured: >-
+        3,251 of 4,419 POWERS edges (73.6%) attach a point facility by distance,
+        written by two code paths: `nearest_dist_sub` (2,919 — 1,487 water pump
+        stations, 798 telecom towers, 527 wells, 107 cell sites) and `voronoi`
+        (332 — 139 water plants, 124 health centers, 69 hospitals). The hospitals
+        and water plants named above are in the second group.
       probe: >-
-        SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS'
-        AND method = 'nearest_dist_sub'
+        SELECT r.method, e2.kind, count(*) FROM graph.relationships r
+        JOIN graph.entities e2 ON e2.entity_id = r.dst_entity
+        WHERE r.rel_type = 'POWERS' AND r.method IN ('nearest_dist_sub','voronoi')
+        GROUP BY 1, 2 ORDER BY 3 DESC
     severity: high
-    remediation_owner: LUMA
+    remediation_owner: [luma]
     remediation: >-
       LUMA: a service-point-to-feeder mapping (which customer account sits on which
       circuit) is the single dataset that would convert most of PRISM's remaining
       proxy edges into measured ones.
+    status: active
+
+  - id: bridge_missing_span_defaulted
+    title: A third of bridges have no measured span and are costed at a flat 20 m
+    dataset: transport.bridge_inventory.span_m
+    source: OpenStreetMap (FHWA NBI covers the rest)
+    what: >-
+      1,040 of 3,168 bridges carry no span. The asset cost model substitutes a
+      flat 20 m rather than skipping the bridge, so those rows are priced on an
+      assumption instead of a measurement.
+    why: >-
+      Dropping an unmeasured bridge from a corridor's cost would understate that
+      corridor, which is the more dangerous error. FHWA's NBI supplies a real
+      span for the ~67% it covers; the rest are OSM geometries with no span tag.
+    where: prism/assets/bridge.py
+    scope:
+      - "/corridor construction-cost estimates crossing an unmeasured bridge"
+      - the ILP portfolio's cost side for road interventions
+    magnitude:
+      measured: 1,040 of 3,168 bridges (33%) have a NULL span
+      probe: "SELECT count(*) FROM transport.bridge_inventory WHERE span_m IS NULL"
+    severity: medium
+    remediation_owner: [fhwa, dtop]
+    remediation: >-
+      FHWA / DTOP: a third of Puerto Rico's mapped bridges are absent from the
+      National Bridge Inventory, so no published span exists for them. Extending
+      NBI coverage — or publishing DTOP's own structure inventory — would replace
+      the flat assumption with measurements.
     status: active
 
   - id: prepa_capacity_excludes_ppoa
@@ -492,13 +708,14 @@ anomalies:
   # ── Water + telecom ────────────────────────────────────────────────────────
 
   - id: water_wells_zero_criticality
-    title: Wells serve no barrios in the graph, so they score zero consequence
+    title: Most water sources serve no barrios in the graph, so they score zero consequence
     dataset: resilience.water_scores
     source: PRASA/AAA network (PRISM-derived graph)
     what: >-
-      The WATER_SERVES proxy graph has no well-to-barrio edges, so wells carry
-      criticality 0 and sink to the bottom of the water-risk ranking regardless of
-      how much population actually depends on them.
+      The WATER_SERVES proxy graph has no service-area edges for wells or pump
+      stations, so they carry criticality 0 and sink to the bottom of the
+      water-risk ranking regardless of how much population actually depends on
+      them. Wells are 43% of the affected set; pump stations are 57%.
     why: >-
       The mirrored network gives plant and source geometry but no service-area
       assignment for wells. PRISM scores consequence from measured service links
@@ -508,10 +725,14 @@ anomalies:
       - "/water source ranking and the water cascade"
       - water context on the parcel card and citizen card
     magnitude:
-      measured: 1,234 of 2,153 scored water sources serve zero barrios in the graph
-      probe: "SELECT count(*) FROM resilience.water_scores WHERE barrios_served = 0"
+      measured: >-
+        1,234 of 2,153 scored water sources (57%) serve zero barrios: 706 pump
+        stations, 527 wells, 1 plant
+      probe: >-
+        SELECT kind, count(*) FROM resilience.water_scores
+        WHERE barrios_served = 0 GROUP BY 1 ORDER BY 2 DESC
     severity: high
-    remediation_owner: AAA (Autoridad de Acueductos y Alcantarillados)
+    remediation_owner: [aaa]
     remediation: >-
       AAA: a source-to-service-area mapping (which communities each well and intake
       supplies) is missing from the published network. Without it, more than half
@@ -588,6 +809,7 @@ anomalies:
         SELECT count(*) FROM graph.entities WHERE kind='hospital'
         AND attrs->>'clasif' = 'HOSP'
     severity: medium
+    remediation_owner: [salud]
     remediation: >-
       PR Department of Health: three facilities are classified as hospitals in the
       inventory while carrying a primary-care classification, and the facility
@@ -611,11 +833,14 @@ anomalies:
     scope:
       - "citizen card emergency-access section for those barrios (shown blank, not zero)"
       - island-wide access statistics
+      - "the ILP intervention catalog — a barrio with no travel time is skipped,
+        so no road-access intervention can ever be proposed for it"
+
     magnitude:
       measured: 15 of 901 barrios with no hospital route; 9 with neither hospital nor clinic
       probe: "SELECT count(*) FROM transport.road_access_cost WHERE nearest_hosp_vid IS NULL"
     severity: medium
-    remediation_owner: DTOP
+    remediation_owner: [dtop]
     remediation: >-
       DTOP: several mainland barrios sit on road-network components that are
       disconnected in the published centerline data — almost certainly a topology
@@ -644,7 +869,7 @@ anomalies:
       measured: 53 of 74 cached queries returned no confident match (72%)
       probe: "SELECT count(*) FROM crim.geocode_cache WHERE match_tier <> 'match'"
     severity: medium
-    remediation_owner: US Census Bureau / Junta de Planificación
+    remediation_owner: [census, jp]
     remediation: >-
       Census Bureau / PR Planning Board: the PR geocoder resolves clean urban
       street addresses but misses urbanizacion- and barrio-style addressing, which
@@ -670,7 +895,7 @@ anomalies:
       measured: 40 of 44 computed proposed addresses fell to Tier B (approximate)
       probe: "SELECT count(*) FROM crim.parcel_proposed_address WHERE tier <> 'census_matched'"
     severity: medium
-    remediation_owner: Junta de Planificación / municipalities
+    remediation_owner: [jp]
     remediation: >-
       PR Planning Board / municipalities: no named local-street layer is published
       for Puerto Rico. It is the single missing dataset behind PRISM's inability to

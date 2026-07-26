@@ -806,8 +806,10 @@ class Anomaly(BaseModel):
     magnitude: AnomalyMagnitude
     severity: str
     remediation: str | None = None
-    # Who could fix it — `source` unless the root cause sits elsewhere.
-    remediation_owner: str | None = None
+    # Institution keys (config/anomalies.yml `institutions:`) that could fix it,
+    # plus their display names. Empty when nothing upstream can.
+    remediation_owner: list[str] = Field(default_factory=list)
+    remediation_owner_names: list[str] = Field(default_factory=list)
     status: str
 
 
@@ -819,6 +821,29 @@ class AnomalyReport(BaseModel):
     # Source institutions at least one remediation is addressed to.
     institutions: list[str] = Field(default_factory=list)
     anomalies: list[Anomaly] = Field(default_factory=list)
+
+
+class MonthlyReportSection(BaseModel):
+    key: str
+    title: str
+    available: bool
+    reason: str | None = None
+    source_tables: list[str] = Field(default_factory=list)
+
+
+class MonthlyReport(BaseModel):
+    """Monthly change report summary (F14c). The full detail lives in the CSVs
+    and the HTML artifact — this is the index over them."""
+    month: str
+    month_label: str
+    generated_at: str
+    empty: bool
+    sections: list[MonthlyReportSection] = Field(default_factory=list)
+    parcel_totals: dict[str, int] = Field(default_factory=dict)
+    transfer_classes: dict[str, int] = Field(default_factory=dict)
+    registry_standing: dict[str, Any] = Field(default_factory=dict)
+    contract_totals: dict[str, Any] = Field(default_factory=dict)
+    files: list[str] = Field(default_factory=list)
 
 
 class CostReference(BaseModel):

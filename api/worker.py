@@ -245,6 +245,45 @@ async def check_stalled_pulls(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def build_monthly_change_report(ctx: dict) -> dict:
+    """Monthly: build the change report and announce it (F14c).
+
+    Runs after `crim/snapshots.py::run_monthly()` has had time to land the
+    month's deltas. Writes to a host bind mount so the artifact survives the
+    container; the API serves the same content from the same builder on demand,
+    so a missing mount degrades the artifact, not the product.
+    """
+    from prism.alerts import send_alert
+    from prism.report.monthly import build_monthly_report, write_report
+
+    engine = get_engine()
+    try:
+        report = build_monthly_report(engine)
+        manifest = write_report(report)
+        totals = report["sections"]["parcel_ownership"]["totals"]
+        contracts = report["sections"]["contracts_added"]["totals"]
+        headline = (
+            f"Monthly change report ready for {report['month_label']}: "
+            f"{totals.get('owner_change_substantive', 0):,} ownership changes, "
+            f"{contracts.get('contracts', 0):,} contracts granted"
+            if not report["empty"]
+            else f"Monthly change report for {report['month_label']}: nothing changed"
+        )
+        send_alert(
+            engine,
+            kind="monthly_report",
+            dedup_key=report["month"],
+            headline=headline,
+            detail=f"{len(manifest['files']) + 1} files in {manifest['dir']}",
+            href=f"/reports/monthly/{report['month']}/html",
+        )
+        log.info("Monthly change report: %s", headline)
+        return {"status": "ok", "month": report["month"], "files": manifest["files"]}
+    except Exception as exc:  # don't let one bad pass kill the cron
+        log.warning("Monthly change report failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 async def sync_prepa_generation(ctx: dict) -> dict:
     """Scheduled pull of the PREPA/Genera live generation feed.
 
@@ -307,6 +346,7 @@ class WorkerSettings:
         sync_climate_normals,
         check_stale_feeds,
         check_stalled_pulls,
+        build_monthly_change_report,
     ]
     cron_jobs = [
         # Track the live PREPA (supply) + LUMA (delivery) feeds every
@@ -337,6 +377,11 @@ class WorkerSettings:
         # lag is at most one interval past the pull's own staleness threshold —
         # ample for a walk measured in days, and it costs two SELECTs.
         cron(check_stalled_pulls, minute={10, 40}),
+        # The monthly change report (F14c). Fires on the 2nd rather than the 1st
+        # so the CRIM snapshot/delta cycle for the new month has landed first —
+        # a report built the instant the month rolls over would have nothing to
+        # diff and would correctly, but uselessly, say so.
+        cron(build_monthly_change_report, day={2}, hour={6}, minute={0}),
     ]
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     max_jobs = 2

@@ -9,13 +9,14 @@ of the exclusion, and — where there is one — what the source institution wou
 have to fix.
 
 The exclusions are individually defensible. Together they are a data-quality
-report: 16 of the 27 entries below describe a defect in
+report: 21 of the 32 entries below describe a defect in
 published government data rather than a modelling choice, and each of those names
 the institution that could close it.
 
-**PRISM's rule:** when data is set aside, it is said out loud. Nothing here is a
-reason to distrust a figure PRISM prints — it is the accounting behind why that
-figure is what it is.
+**PRISM's rule:** when data is set aside, it is said out loud. Some of what
+follows genuinely does bound what PRISM can claim — the entries marked *high*
+say so in as many words. This is the accounting that lets a reader tell which
+figures those are, instead of having to take all of them on faith.
 
 Counts measured 2026-07-26. This file is generated from
 [`config/anomalies.yml`](config/anomalies.yml) by `make anomalies` — edit the
@@ -25,44 +26,76 @@ registry, not this file.
 
 | Severity | Entries |
 |---|---|
-| High — materially affects conclusions PRISM draws | 4 |
-| Medium — narrows or biases a figure | 12 |
+| High — materially affects conclusions PRISM draws | 6 |
+| Medium — narrows or biases a figure | 15 |
 | Low — cosmetic or well-bounded | 11 |
-| **Total active** | **27** |
+| **Total active** | **32** |
 
 | # | Exclusion | Dataset | Severity |
 |---|---|---|---|
-| 1 | [Implausible sale amounts and dates are excluded from every price figure](#crim-sales-amount-outliers) | `crim.parcelas_history.salesamt / .salesdttm` | high |
-| 2 | [Point facilities are still attached to substations by proximity, not by conductor](#point-facilities-keep-voronoi-powers) | `graph.relationships (POWERS, method='nearest_dist_sub')` | high |
-| 3 | [The registry mirror is a partial walk, so a missing match is not proof of no registration](#rce-registry-mirror-incomplete) | `crim.rce_entities` | high |
-| 4 | [Wells serve no barrios in the graph, so they score zero consequence](#water-wells-zero-criticality) | `resilience.water_scores` | high |
-| 5 | [Fifteen barrios have no reachable hospital in the road graph](#barrios-without-routable-hospital) | `transport.road_access_cost` | medium |
-| 6 | [Layer checksums detect added or removed features, not edited ones](#checksum-is-count-based) | `catalog/metadata.json` | medium |
-| 7 | [Placeholder address segments are stripped before an address is displayed](#crim-address-placeholder-junk) | `crim.parcelas.direccion_fisica` | medium |
-| 8 | [Parcel rows with no catastro number are dropped from every derived view](#crim-null-catastro-rows) | `crim.parcelas -> crim.parcelas_dedup / crim.parcelas_history` | medium |
-| 9 | [Only the five most recent records per parcel enter the sale history](#crim-sale-history-top5) | `crim.parcelas_history` | medium |
-| 10 | [Substation-to-barrio links below a real service share are dropped](#feeder-secondary-sliver-edges-dropped) | `graph.relationships (POWERS, method='feeder_topology')` | medium |
-| 11 | [Twenty-two substations missing from the transmission graph keep the Voronoi proxy](#feeds-isolated-substations-keep-voronoi) | `graph.relationships (POWERS, method LIKE 'voronoi%')` | medium |
-| 12 | [Anything short of a single exact geocoder match is treated as no match](#geocode-ambiguous-match-rejected) | `crim.geocode_cache` | medium |
-| 13 | [Hospital access routes only to true hospitals, excluding clinics that carry a hospital kind](#hospital-access-clasif-filter) | `transport.road_access_cost` | medium |
-| 14 | [Shared contracts are flagged, never divided between co-contractors](#ocpr-shared-contracts-not-divided) | `ocpr.contract_contractors` | medium |
-| 15 | [Approximate addresses can only cite numbered state highways](#proposed-address-no-local-street-layer) | `crim.parcel_proposed_address (Tier B)` | medium |
-| 16 | [Placeholder registry addresses are excluded from the address layer](#rce-address-sentinels) | `crim.rce_addresses` | medium |
-| 17 | [Ask PRISM only excludes government owners when explicitly asked to](#ask-government-owner-filter-opt-in) | `crim.parcelas_dedup (via the Ask SQL tool)` | low |
-| 18 | [The ACS mirror is skipped without an API key](#census-acs-requires-api-key) | `Census ACS 5-year estimates` | low |
-| 19 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
-| 20 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
-| 21 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
-| 22 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
-| 23 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
-| 24 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
-| 25 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
-| 26 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
-| 27 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
+| 1 | [Two thirds of recorded "ownership changes" are the same owner written differently](#crim-owner-change-formatting-churn) | `crim.parcel_deltas (change_type='owner_change')` | high |
+| 2 | [Implausible sale amounts and dates are excluded from every sale figure](#crim-sales-amount-outliers) | `crim.parcelas_history.salesamt / .salesdttm` | high |
+| 3 | [Point facilities are still attached to substations by proximity, not by conductor](#point-facilities-keep-voronoi-powers) | `graph.relationships (POWERS, method IN ('nearest_dist_sub','voronoi'))` | high |
+| 4 | [The registry mirror is a partial walk, so a missing match is not proof of no registration](#rce-registry-mirror-incomplete) | `crim.rce_entities` | high |
+| 5 | [559 of 961 substations are excluded from powering anything](#substations-without-distribution-capability) | `graph.relationships (POWERS) / resilience.cascade_scores` | high |
+| 6 | [Most water sources serve no barrios in the graph, so they score zero consequence](#water-wells-zero-criticality) | `resilience.water_scores` | high |
+| 7 | [Fifteen barrios have no reachable hospital in the road graph](#barrios-without-routable-hospital) | `transport.road_access_cost` | medium |
+| 8 | [A third of bridges have no measured span and are costed at a flat 20 m](#bridge-missing-span-defaulted) | `transport.bridge_inventory.span_m` | medium |
+| 9 | [Layer checksums detect added or removed features, not edited ones](#checksum-is-count-based) | `catalog/metadata.json` | medium |
+| 10 | [Placeholder address segments are stripped before an address is displayed](#crim-address-placeholder-junk) | `crim.parcelas.direccion_fisica` | medium |
+| 11 | [Parcel rows with no catastro number are dropped from every derived view](#crim-null-catastro-rows) | `crim.parcelas -> crim.parcelas_dedup / crim.parcelas_history` | medium |
+| 12 | [Only the five most recent records per parcel enter the sale history](#crim-sale-history-top5) | `crim.parcelas_history` | medium |
+| 13 | [Substation-to-barrio links below a real service share are dropped](#feeder-secondary-sliver-edges-dropped) | `graph.relationships (POWERS, method='feeder_topology')` | medium |
+| 14 | [Twenty-two substations missing from the transmission graph keep the Voronoi proxy](#feeds-isolated-substations-keep-voronoi) | `graph.relationships (POWERS, method LIKE 'voronoi%')` | medium |
+| 15 | [Transmission links with equal or missing voltage produce no FEEDS edge](#feeds-voltage-hierarchy-dropout) | `graph.relationships (FEEDS)` | medium |
+| 16 | [Anything short of a single exact geocoder match is treated as no match](#geocode-ambiguous-match-rejected) | `crim.geocode_cache` | medium |
+| 17 | [Hospital access routes only to true hospitals, excluding clinics that carry a hospital kind](#hospital-access-clasif-filter) | `transport.road_access_cost` | medium |
+| 18 | [Shared contracts are flagged, never divided between co-contractors](#ocpr-shared-contracts-not-divided) | `ocpr.contract_contractors` | medium |
+| 19 | [Approximate addresses can only cite numbered state highways](#proposed-address-no-local-street-layer) | `crim.parcel_proposed_address (Tier B)` | medium |
+| 20 | [Placeholder registry addresses are excluded from the address layer](#rce-address-sentinels) | `crim.rce_addresses` | medium |
+| 21 | [A plausible-but-unconfirmed registry match is recorded as no match](#rce-ambiguous-match-withdrawn) | `crim.owner_rce_match` | medium |
+| 22 | [Ask PRISM only excludes government owners when explicitly asked to](#ask-government-owner-filter-opt-in) | `crim.parcelas_dedup (via the Ask SQL tool)` | low |
+| 23 | [The ACS mirror is skipped without an API key](#census-acs-requires-api-key) | `Census ACS 5-year estimates` | low |
+| 24 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
+| 25 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
+| 26 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
+| 27 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
+| 28 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
+| 29 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
+| 30 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
+| 31 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
+| 32 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
 
 ## High — materially affects conclusions PRISM draws
 
-### Implausible sale amounts and dates are excluded from every price figure
+### Two thirds of recorded "ownership changes" are the same owner written differently
+
+<a id="crim-owner-change-formatting-churn"></a>
+
+- **id** `crim_owner_change_formatting_churn`
+- **Dataset** `crim.parcel_deltas (change_type='owner_change')`
+- **Source** CRIM
+- **Enforced at** `prism/report/monthly.py:classify_owner_change`
+
+**What is excluded.** The monthly delta records an ownership change whenever the raw `contact` string differs at all, so a removed trailing space counts as a transfer. The monthly change report classifies every one with `normalize_owner()` — PRISM's canonical owner key — and reports only genuinely different names as ownership changes; the rest are broken out as spacing/punctuation-only or the same name reordered.
+
+**Why.** Reporting the raw count would overstate transfers by roughly a factor of three. Deleting the cosmetic rows would be worse — they are evidence of how the register is maintained — so they are classified and shown, not dropped.
+
+**Affects.**
+- the monthly change report's ownership section (headline + per-municipio)
+- WhatsNew crim_delta headlines, which still quote the raw delta count
+
+**How much.** 2026-07 delta: 2,420 substantive of 7,722 owner-field changes (31%) — 2,598 spacing/punctuation-only, 2,704 the same name reordered, 242 a first recorded owner
+
+```sql
+SELECT count(*) FROM crim.parcel_deltas WHERE change_type = 'owner_change' AND regexp_replace(upper(btrim(old_value)), '\s+', ' ', 'g') = regexp_replace(upper(btrim(new_value)), '\s+', ' ', 'g')
+```
+
+**What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: the owner field is not normalized at entry, so the same person is stored with varying spacing and with surname and given name in either order. Anyone differencing successive published snapshots — which is the only way to observe transfers, since the register publishes current state only — will read roughly three times as many transfers as occurred.
+
+---
+
+### Implausible sale amounts and dates are excluded from every sale figure
 
 <a id="crim-sales-amount-outliers"></a>
 
@@ -71,22 +104,23 @@ registry, not this file.
 - **Source** CRIM
 - **Enforced at** `prism/crim/trends.py:_SANE`
 
-**What is excluded.** Price statistics only count sales with `salesamt` between $1,000 and $50,000,000 and `salesdttm` between 1980-01-01 and today. Everything outside those bounds is excluded from medians, momentum, and the market context on the parcel card.
+**What is excluded.** `/trends` counts a recorded sale only when `salesamt` is between $1,000 and $50,000,000 AND `salesdttm` falls between 1980-01-01 and today. The bound applies to the sale COUNTS as well as to the medians — sales outside it are absent from "N sales in the last 12 months", from municipio momentum, and from the market context on the parcel card, not merely from the price.
 
-**Why.** The raw column carries corrupt values — single "sales" of $10^13 — so sums and averages on it are meaningless. Only 287 sales island-wide exceed $50M and all inspected ones are data errors. Sale *counts* are clean and are not filtered.
+**Why.** The raw column carries corrupt values — single "sales" of $10^13 — so sums and averages on it are meaningless, and a row whose amount is impossible is not evidence that a transaction occurred either. 288 sales island-wide exceed $50M and every one inspected is a data error.
 
 **Affects.**
+- /trends sale COUNTS (sales_12mo, sales_total) — not only the medians
 - /trends median sale price, momentum, hot-spot municipios
 - municipio market context on the parcel card and /economy
 - the monthly report's sales figures
 
-**How much.** 257,559 of 836,108 rows with a sale amount fall outside the amount bounds (30.8%); 18,596 rows fall outside the date bounds
+**How much.** 570,923 of the 836,108 rows carrying a sale amount survive both bounds, so 265,185 recorded sales (31.7%) are excluded from every sale figure PRISM prints. 257,559 fail the amount bound; 18,596 fail the date bound.
 
 ```sql
-SELECT count(*) FROM crim.parcelas_history WHERE salesamt IS NOT NULL AND NOT (salesamt BETWEEN 1000 AND 50000000)
+SELECT count(*) FILTER (WHERE salesamt BETWEEN 1000 AND 50000000 AND salesdttm BETWEEN DATE '1980-01-01' AND CURRENT_DATE) AS counted, count(*) AS with_amount FROM crim.parcelas_history WHERE salesamt IS NOT NULL
 ```
 
-**What would fix it** (CRIM). CRIM: roughly a third of recorded sale amounts are outside any plausible range — a mix of $0/$1 nominal transfers and corrupt magnitudes. A validation rule at entry, and a flag distinguishing nominal transfers from arm's-length sales, would make the price series usable as published.
+**What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: roughly a third of recorded sale amounts are outside any plausible range — a mix of $0/$1 nominal transfers and corrupt magnitudes. A validation rule at entry, and a flag distinguishing nominal transfers from arm's-length sales, would make the price series usable as published.
 
 ---
 
@@ -95,7 +129,7 @@ SELECT count(*) FROM crim.parcelas_history WHERE salesamt IS NOT NULL AND NOT (s
 <a id="point-facilities-keep-voronoi-powers"></a>
 
 - **id** `point_facilities_keep_voronoi_powers`
-- **Dataset** `graph.relationships (POWERS, method='nearest_dist_sub')`
+- **Dataset** `graph.relationships (POWERS, method IN ('nearest_dist_sub','voronoi'))`
 - **Source** PRISM-derived (proxy)
 - **Enforced at** `prism/graph/relationships.py`
 
@@ -108,13 +142,13 @@ SELECT count(*) FROM crim.parcelas_history WHERE salesamt IS NOT NULL AND NOT (s
 - /water and /telecom power-dependency scoring
 - the citizen card's "same feed serves" line
 
-**How much.** 2,919 of 4,419 POWERS edges (66%) are nearest-distance proxy
+**How much.** 3,251 of 4,419 POWERS edges (73.6%) attach a point facility by distance, written by two code paths: `nearest_dist_sub` (2,919 — 1,487 water pump stations, 798 telecom towers, 527 wells, 107 cell sites) and `voronoi` (332 — 139 water plants, 124 health centers, 69 hospitals). The hospitals and water plants named above are in the second group.
 
 ```sql
-SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS' AND method = 'nearest_dist_sub'
+SELECT r.method, e2.kind, count(*) FROM graph.relationships r JOIN graph.entities e2 ON e2.entity_id = r.dst_entity WHERE r.rel_type = 'POWERS' AND r.method IN ('nearest_dist_sub','voronoi') GROUP BY 1, 2 ORDER BY 3 DESC
 ```
 
-**What would fix it** (LUMA). LUMA: a service-point-to-feeder mapping (which customer account sits on which circuit) is the single dataset that would convert most of PRISM's remaining proxy edges into measured ones.
+**What would fix it** (LUMA Energy). LUMA: a service-point-to-feeder mapping (which customer account sits on which circuit) is the single dataset that would convert most of PRISM's remaining proxy edges into measured ones.
 
 ---
 
@@ -141,11 +175,40 @@ SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS' AND method = 'n
 SELECT count(*) FROM crim.rce_entities
 ```
 
-**What would fix it** (PR Department of State — corporations registry). PR Department of State: publishing a bulk export (or a documented paged API) would replace a multi-day rate-limited walk with a complete, verifiable snapshot — and would let anyone reproduce this analysis.
+**What would fix it** (Departamento de Estado — corporations registry). PR Department of State: publishing a bulk export (or a documented paged API) would replace a multi-day rate-limited walk with a complete, verifiable snapshot — and would let anyone reproduce this analysis.
 
 ---
 
-### Wells serve no barrios in the graph, so they score zero consequence
+### 559 of 961 substations are excluded from powering anything
+
+<a id="substations-without-distribution-capability"></a>
+
+- **id** `substations_without_distribution_capability`
+- **Dataset** `graph.relationships (POWERS) / resilience.cascade_scores`
+- **Source** HIFLD
+- **Enforced at** `prism/graph/relationships.py:build_powers`
+
+**What is excluded.** A substation only gets POWERS edges if its `cd_type` is Substation, Transmission Center or Generator AND its published `low_kv` is greater than zero. 559 of 961 fail one of those, so they power no barrio and no facility. 542 end up with zero POWERS edges and only 422 are scored for cascade at all. The same filter is repeated in three modules.
+
+**Why.** A transmission-only or switching facility does not serve customers, and a substation with no published low-side voltage cannot be shown to. Attaching barrios to them would invent service that isn't there.
+
+**Affects.**
+- /resilience — 539 substations never appear in the cascade ranking
+- every population-affected and hospitals-served figure
+- the ILP portfolio (an unscored substation cannot be selected)
+- /water and /telecom power-dependency scoring
+
+**How much.** 402 of 961 substations are distribution-capable; 542 have zero POWERS edges and 422 carry a cascade score. Of the excluded, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability.
+
+```sql
+SELECT count(*) FROM graph.entities WHERE kind='substation' AND attrs->>'cd_type' IN ('Substation','Transmission Center','Generator') AND coalesce((attrs->>'low_kv')::float, 0) <= 0
+```
+
+**What would fix it** (HIFLD — Homeland Infrastructure Foundation-Level Data, LUMA Energy). HIFLD / LUMA: 69 substations are typed as distribution-capable yet publish a low-side voltage of zero or nothing at all. Each is a facility PRISM cannot connect to the customers it serves, and the gap is materially larger than the 14 unnamed substations already listed here. A populated `low_kv` would restore them to the cascade.
+
+---
+
+### Most water sources serve no barrios in the graph, so they score zero consequence
 
 <a id="water-wells-zero-criticality"></a>
 
@@ -154,7 +217,7 @@ SELECT count(*) FROM crim.rce_entities
 - **Source** PRASA/AAA network (PRISM-derived graph)
 - **Enforced at** `prism/resilience/water.py`
 
-**What is excluded.** The WATER_SERVES proxy graph has no well-to-barrio edges, so wells carry criticality 0 and sink to the bottom of the water-risk ranking regardless of how much population actually depends on them.
+**What is excluded.** The WATER_SERVES proxy graph has no service-area edges for wells or pump stations, so they carry criticality 0 and sink to the bottom of the water-risk ranking regardless of how much population actually depends on them. Wells are 43% of the affected set; pump stations are 57%.
 
 **Why.** The mirrored network gives plant and source geometry but no service-area assignment for wells. PRISM scores consequence from measured service links and will not invent them.
 
@@ -162,13 +225,13 @@ SELECT count(*) FROM crim.rce_entities
 - /water source ranking and the water cascade
 - water context on the parcel card and citizen card
 
-**How much.** 1,234 of 2,153 scored water sources serve zero barrios in the graph
+**How much.** 1,234 of 2,153 scored water sources (57%) serve zero barrios: 706 pump stations, 527 wells, 1 plant
 
 ```sql
-SELECT count(*) FROM resilience.water_scores WHERE barrios_served = 0
+SELECT kind, count(*) FROM resilience.water_scores WHERE barrios_served = 0 GROUP BY 1 ORDER BY 2 DESC
 ```
 
-**What would fix it** (AAA (Autoridad de Acueductos y Alcantarillados)). AAA: a source-to-service-area mapping (which communities each well and intake supplies) is missing from the published network. Without it, more than half of the island's water sources cannot be ranked by who depends on them.
+**What would fix it** (AAA — Autoridad de Acueductos y Alcantarillados). AAA: a source-to-service-area mapping (which communities each well and intake supplies) is missing from the published network. Without it, more than half of the island's water sources cannot be ranked by who depends on them.
 
 ---
 
@@ -190,6 +253,7 @@ SELECT count(*) FROM resilience.water_scores WHERE barrios_served = 0
 **Affects.**
 - citizen card emergency-access section for those barrios (shown blank, not zero)
 - island-wide access statistics
+- the ILP intervention catalog — a barrio with no travel time is skipped, so no road-access intervention can ever be proposed for it
 
 **How much.** 15 of 901 barrios with no hospital route; 9 with neither hospital nor clinic
 
@@ -197,7 +261,34 @@ SELECT count(*) FROM resilience.water_scores WHERE barrios_served = 0
 SELECT count(*) FROM transport.road_access_cost WHERE nearest_hosp_vid IS NULL
 ```
 
-**What would fix it** (DTOP). DTOP: several mainland barrios sit on road-network components that are disconnected in the published centerline data — almost certainly a topology gap in the source rather than genuinely unreachable communities.
+**What would fix it** (DTOP — Departamento de Transportación y Obras Públicas). DTOP: several mainland barrios sit on road-network components that are disconnected in the published centerline data — almost certainly a topology gap in the source rather than genuinely unreachable communities.
+
+---
+
+### A third of bridges have no measured span and are costed at a flat 20 m
+
+<a id="bridge-missing-span-defaulted"></a>
+
+- **id** `bridge_missing_span_defaulted`
+- **Dataset** `transport.bridge_inventory.span_m`
+- **Source** OpenStreetMap (FHWA NBI covers the rest)
+- **Enforced at** `prism/assets/bridge.py`
+
+**What is excluded.** 1,040 of 3,168 bridges carry no span. The asset cost model substitutes a flat 20 m rather than skipping the bridge, so those rows are priced on an assumption instead of a measurement.
+
+**Why.** Dropping an unmeasured bridge from a corridor's cost would understate that corridor, which is the more dangerous error. FHWA's NBI supplies a real span for the ~67% it covers; the rest are OSM geometries with no span tag.
+
+**Affects.**
+- /corridor construction-cost estimates crossing an unmeasured bridge
+- the ILP portfolio's cost side for road interventions
+
+**How much.** 1,040 of 3,168 bridges (33%) have a NULL span
+
+```sql
+SELECT count(*) FROM transport.bridge_inventory WHERE span_m IS NULL
+```
+
+**What would fix it** (FHWA — Federal Highway Administration (NBI), DTOP — Departamento de Transportación y Obras Públicas). FHWA / DTOP: a third of Puerto Rico's mapped bridges are absent from the National Bridge Inventory, so no published span exists for them. Extending NBI coverage — or publishing DTOP's own structure inventory — would replace the flat assumption with measurements.
 
 ---
 
@@ -243,7 +334,7 @@ SELECT count(*) FROM transport.road_access_cost WHERE nearest_hosp_vid IS NULL
 
 **How much.** applies per-field across the fabric; not counted as a row exclusion
 
-**What would fix it** (CRIM). CRIM: the physical-address field is populated with a placeholder template rather than left empty, which makes "has an address" indistinguishable from "has a blank address" without string inspection. Emitting NULL for unset fields would remove the ambiguity.
+**What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: the physical-address field is populated with a placeholder template rather than left empty, which makes "has an address" indistinguishable from "has a blank address" without string inspection. Emitting NULL for unset fields would remove the ambiguity.
 
 ---
 
@@ -272,7 +363,7 @@ SELECT count(*) FROM transport.road_access_cost WHERE nearest_hosp_vid IS NULL
 SELECT count(*) FROM crim.parcelas WHERE num_catastro IS NULL
 ```
 
-**What would fix it** (CRIM). CRIM: 38K parcel geometries in the published fabric carry no catastro number, so they cannot be joined to the valuation or ownership record. Assigning (or exposing) the catastro for these rows would recover them.
+**What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: 38K parcel geometries in the published fabric carry no catastro number, so they cannot be joined to the valuation or ownership record. Assigning (or exposing) the catastro for these rows would recover them.
 
 ---
 
@@ -350,13 +441,40 @@ SELECT method, count(*) FROM graph.relationships WHERE rel_type='POWERS' GROUP B
 - their barrios' civic-card power section
 - any population-affected figure downstream of them
 
-**How much.** 464 of 4,419 POWERS edges remain Voronoi-derived (voronoi/voronoi_centroid/voronoi_overlap)
+**How much.** 132 substation-to-barrio edges over 102 barrios remain Voronoi-derived (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332 `voronoi`-method POWERS edges are point facilities and belong to `point_facilities_keep_voronoi_powers`, not here.
 
 ```sql
-SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS' AND method LIKE 'voronoi%'
+SELECT count(*) FROM graph.relationships r JOIN graph.entities e2 ON e2.entity_id = r.dst_entity WHERE r.rel_type = 'POWERS' AND e2.kind = 'barrio' AND r.method IN ('voronoi_centroid','voronoi_overlap')
 ```
 
-**What would fix it** (LUMA / AEE). LUMA / AEE: 22 substations appear in the facility inventory but not in the published transmission topology, so their upstream connectivity cannot be established from public data.
+**What would fix it** (LUMA Energy, AEE / PREPA — Autoridad de Energía Eléctrica). LUMA / AEE: 22 substations appear in the facility inventory but not in the published transmission topology, so their upstream connectivity cannot be established from public data.
+
+---
+
+### Transmission links with equal or missing voltage produce no FEEDS edge
+
+<a id="feeds-voltage-hierarchy-dropout"></a>
+
+- **id** `feeds_voltage_hierarchy_dropout`
+- **Dataset** `graph.relationships (FEEDS)`
+- **Source** HIFLD
+- **Enforced at** `prism/graph/relationships.py:build_feeds`
+
+**What is excluded.** FEEDS edges are inferred by voltage hierarchy: a CONNECTS_TO pair whose two ends carry the same `high_kv`, or where either is missing, yields no directed edge — the code cannot tell which end feeds which.
+
+**Why.** Direction is what makes a cascade traversable. Guessing it would send consequence flowing the wrong way through the grid, which is worse than a missing edge.
+
+**Affects.**
+- upstream cascade traversal from any affected substation
+- the 22 FEEDS-isolated substations (this is their proximate cause — `feeds_isolated_substations_keep_voronoi` describes the consequence)
+
+**How much.** 22 source substations end up with no FEEDS edges at all
+
+```sql
+SELECT count(*) FROM graph.entities e WHERE e.kind='substation' AND NOT EXISTS (SELECT 1 FROM graph.relationships r WHERE r.rel_type='FEEDS' AND r.dst_entity = e.entity_id)
+```
+
+**What would fix it** (HIFLD — Homeland Infrastructure Foundation-Level Data, LUMA Energy). HIFLD / LUMA: transmission line records do not state direction of flow, and voltage is missing on enough endpoints that it cannot always be inferred. A published from/to or a complete voltage field would remove the ambiguity.
 
 ---
 
@@ -383,7 +501,7 @@ SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS' AND method LIKE
 SELECT count(*) FROM crim.geocode_cache WHERE match_tier <> 'match'
 ```
 
-**What would fix it** (US Census Bureau / Junta de Planificación). Census Bureau / PR Planning Board: the PR geocoder resolves clean urban street addresses but misses urbanizacion- and barrio-style addressing, which is how a large share of the island is actually addressed.
+**What would fix it** (US Census Bureau, Junta de Planificación). Census Bureau / PR Planning Board: the PR geocoder resolves clean urban street addresses but misses urbanizacion- and barrio-style addressing, which is how a large share of the island is actually addressed.
 
 ---
 
@@ -411,7 +529,7 @@ SELECT count(*) FROM crim.geocode_cache WHERE match_tier <> 'match'
 SELECT count(*) FROM graph.entities WHERE kind='hospital' AND attrs->>'clasif' = 'HOSP'
 ```
 
-**What would fix it** (PR Department of Health facility inventory). PR Department of Health: three facilities are classified as hospitals in the inventory while carrying a primary-care classification, and the facility taxonomy does not distinguish emergency capacity from primary care in a single field.
+**What would fix it** (Departamento de Salud). PR Department of Health: three facilities are classified as hospitals in the inventory while carrying a primary-care classification, and the facility taxonomy does not distinguish emergency capacity from primary care in a single field.
 
 ---
 
@@ -464,7 +582,7 @@ SELECT count(*) FROM (SELECT contract_id FROM ocpr.contract_contractors GROUP BY
 SELECT count(*) FROM crim.parcel_proposed_address WHERE tier <> 'census_matched'
 ```
 
-**What would fix it** (Junta de Planificación / municipalities). PR Planning Board / municipalities: no named local-street layer is published for Puerto Rico. It is the single missing dataset behind PRISM's inability to give most parcels a street address.
+**What would fix it** (Junta de Planificación). PR Planning Board / municipalities: no named local-street layer is published for Puerto Rico. It is the single missing dataset behind PRISM's inability to give most parcels a street address.
 
 ---
 
@@ -492,7 +610,35 @@ SELECT count(*) FROM crim.parcel_proposed_address WHERE tier <> 'census_matched'
 SELECT count(*) FROM crim.rce_addresses
 ```
 
-**What would fix it** (PR Department of State — corporations registry). PR Department of State: a registered agent address is a statutory requirement, yet tens of thousands of active registrations carry a literal "UNKNOWN" in that field.
+**What would fix it** (Departamento de Estado — corporations registry). PR Department of State: a registered agent address is a statutory requirement, yet tens of thousands of active registrations carry a literal "UNKNOWN" in that field.
+
+---
+
+### A plausible-but-unconfirmed registry match is recorded as no match
+
+<a id="rce-ambiguous-match-withdrawn"></a>
+
+- **id** `rce_ambiguous_match_withdrawn`
+- **Dataset** `crim.owner_rce_match`
+- **Source** PR Department of State — corporations registry
+- **Enforced at** `prism/crim/rce_match.py:_MIN_SIMILARITY`
+
+**What is excluded.** A CRIM owner is linked to a registry entity only on an exact key, a token-sorted key, or a fuzzy match at similarity ≥ 0.85 that a shared address corroborates. A fuzzy match nothing corroborates (`fuzzy_unconfirmed`) or one whose runner-up is within 0.05 (`ambiguous`) is stored with its candidates but reported as no match.
+
+**Why.** The same never-guess policy as the address geocoder: naming the wrong company as the owner of a parcel is a worse error than saying nothing, and it is invisible to the reader. The candidates are kept so the decision is auditable rather than discarded.
+
+**Affects.**
+- the corporate-registry section on the owner drawer and parcel card
+- the dissolved-companies-still-holding-parcels standing signal
+- the monthly change report's corporate-status section
+
+**How much.** 645 owners with a plausible registry hit are withheld — 525 `fuzzy_unconfirmed` and 120 `ambiguous`, against 10,405 accepted matches (exact 9,945, fuzzy 321, token_sorted 139)
+
+```sql
+SELECT method, count(*) FROM crim.owner_rce_match GROUP BY 1 ORDER BY 2 DESC
+```
+
+**What would fix it** (Departamento de Estado — corporations registry, CRIM — Centro de Recaudación de Ingresos Municipales). Departamento de Estado / CRIM: neither register carries the other's identifier, so a corporation must be matched to its property by name. A shared entity identifier — the registration index recorded on the deed, or an EIN on both sides — would make the join exact and retire the fuzzy tier entirely.
 
 ---
 
@@ -590,7 +736,7 @@ SELECT count(*) FROM crim.rce_addresses
 SELECT count(*) FROM crim.owner_entities WHERE display_name ILIKE '%JOHN DOE%'
 ```
 
-**What would fix it** (CRIM). CRIM: the parcels behind these entries have no owner of record. They are the cleanest possible worklist for a title-research pass — a small, bounded set whose ownership is formally unknown rather than merely misspelled.
+**What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: the parcels behind these entries have no owner of record. They are the cleanest possible worklist for a title-research pass — a small, bounded set whose ownership is formally unknown rather than merely misspelled.
 
 ---
 
@@ -617,7 +763,7 @@ SELECT count(*) FROM crim.owner_entities WHERE display_name ILIKE '%JOHN DOE%'
 SELECT count(*) FROM graph.entities WHERE kind='substation' AND name ~ '^[0-9]+$'
 ```
 
-**What would fix it** (HIFLD). HIFLD / LUMA: fourteen transmission substations in the published dataset have no facility name, only an identifier.
+**What would fix it** (HIFLD — Homeland Infrastructure Foundation-Level Data, LUMA Energy). HIFLD / LUMA: fourteen transmission substations in the published dataset have no facility name, only an identifier.
 
 ---
 
@@ -721,7 +867,7 @@ SELECT count(*) FROM crim.rce_address_entities WHERE is_agent_office
 SELECT count(*) FROM crim.rce_entities WHERE corp_name ILIKE 'UNKNOWN ENTITY%'
 ```
 
-**What would fix it** (PR Department of State — corporations registry). PR Department of State: 7,616 register entries carry no entity name. They are real registration indices with an unusable name field.
+**What would fix it** (Departamento de Estado — corporations registry). PR Department of State: 7,616 register entries carry no entity name. They are real registration indices with an unusable name field.
 
 ---
 
@@ -780,67 +926,94 @@ Grouped by who could close the gap — which is not always the same body as the
 one that publishes the affected dataset: several of these sit in PRISM-derived
 tables whose root cause is a dataset another agency has never published.
 
-### AAA (Autoridad de Acueductos y Alcantarillados)
+### AAA — Autoridad de Acueductos y Alcantarillados
 
-- **Wells serve no barrios in the graph, so they score zero consequence** — 1,234 of 2,153 scored water sources serve zero barrios in the graph.
+- **Most water sources serve no barrios in the graph, so they score zero consequence** — 1,234 of 2,153 scored water sources (57%) serve zero barrios: 706 pump stations, 527 wells, 1 plant.
   AAA: a source-to-service-area mapping (which communities each well and intake supplies) is missing from the published network. Without it, more than half of the island's water sources cannot be ranked by who depends on them.
 
-### CRIM
+### AEE / PREPA — Autoridad de Energía Eléctrica
 
-- **Implausible sale amounts and dates are excluded from every price figure** — 257,559 of 836,108 rows with a sale amount fall outside the amount bounds (30.8%); 18,596 rows fall outside the date bounds.
+- **Twenty-two substations missing from the transmission graph keep the Voronoi proxy** — 132 substation-to-barrio edges over 102 barrios remain Voronoi-derived (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332 `voronoi`-method POWERS edges are point facilities and belong to `point_facilities_keep_voronoi_powers`, not here..
+  LUMA / AEE: 22 substations appear in the facility inventory but not in the published transmission topology, so their upstream connectivity cannot be established from public data.
+
+### CRIM — Centro de Recaudación de Ingresos Municipales
+
+- **Two thirds of recorded "ownership changes" are the same owner written differently** — 2026-07 delta: 2,420 substantive of 7,722 owner-field changes (31%) — 2,598 spacing/punctuation-only, 2,704 the same name reordered, 242 a first recorded owner.
+  CRIM: the owner field is not normalized at entry, so the same person is stored with varying spacing and with surname and given name in either order. Anyone differencing successive published snapshots — which is the only way to observe transfers, since the register publishes current state only — will read roughly three times as many transfers as occurred.
+- **Implausible sale amounts and dates are excluded from every sale figure** — 570,923 of the 836,108 rows carrying a sale amount survive both bounds, so 265,185 recorded sales (31.7%) are excluded from every sale figure PRISM prints. 257,559 fail the amount bound; 18,596 fail the date bound..
   CRIM: roughly a third of recorded sale amounts are outside any plausible range — a mix of $0/$1 nominal transfers and corrupt magnitudes. A validation rule at entry, and a flag distinguishing nominal transfers from arm's-length sales, would make the price series usable as published.
 - **Placeholder address segments are stripped before an address is displayed** — applies per-field across the fabric; not counted as a row exclusion.
   CRIM: the physical-address field is populated with a placeholder template rather than left empty, which makes "has an address" indistinguishable from "has a blank address" without string inspection. Emitting NULL for unset fields would remove the ambiguity.
 - **Parcel rows with no catastro number are dropped from every derived view** — 38,229 of 1,536,079 raw parcel rows (2.5%).
   CRIM: 38K parcel geometries in the published fabric carry no catastro number, so they cannot be joined to the valuation or ownership record. Assigning (or exposing) the catastro for these rows would recover them.
+- **A plausible-but-unconfirmed registry match is recorded as no match** — 645 owners with a plausible registry hit are withheld — 525 `fuzzy_unconfirmed` and 120 `ambiguous`, against 10,405 accepted matches (exact 9,945, fuzzy 321, token_sorted 139).
+  Departamento de Estado / CRIM: neither register carries the other's identifier, so a corporation must be matched to its property by name. A shared entity identifier — the registration index recorded on the deed, or an EIN on both sides — would make the join exact and retire the fuzzy tier entirely.
 - **CRIM's unknown-owner placeholder is filtered out of owner intelligence** — 78 of 887,708 owner entities (0.009%).
   CRIM: the parcels behind these entries have no owner of record. They are the cleanest possible worklist for a title-research pass — a small, bounded set whose ownership is formally unknown rather than merely misspelled.
 
-### DTOP
+### DTOP — Departamento de Transportación y Obras Públicas
 
 - **Fifteen barrios have no reachable hospital in the road graph** — 15 of 901 barrios with no hospital route; 9 with neither hospital nor clinic.
   DTOP: several mainland barrios sit on road-network components that are disconnected in the published centerline data — almost certainly a topology gap in the source rather than genuinely unreachable communities.
+- **A third of bridges have no measured span and are costed at a flat 20 m** — 1,040 of 3,168 bridges (33%) have a NULL span.
+  FHWA / DTOP: a third of Puerto Rico's mapped bridges are absent from the National Bridge Inventory, so no published span exists for them. Extending NBI coverage — or publishing DTOP's own structure inventory — would replace the flat assumption with measurements.
 
-### HIFLD
+### Departamento de Estado — corporations registry
 
+- **The registry mirror is a partial walk, so a missing match is not proof of no registration** — 324,281 entities mirrored of an estimated ~560,000.
+  PR Department of State: publishing a bulk export (or a documented paged API) would replace a multi-day rate-limited walk with a complete, verifiable snapshot — and would let anyone reproduce this analysis.
+- **Placeholder registry addresses are excluded from the address layer** — 1,259,212 address rows survive the filter; the sentinel block was measured at ~51K rows when the filter was written.
+  PR Department of State: a registered agent address is a statutory requirement, yet tens of thousands of active registrations carry a literal "UNKNOWN" in that field.
+- **A plausible-but-unconfirmed registry match is recorded as no match** — 645 owners with a plausible registry hit are withheld — 525 `fuzzy_unconfirmed` and 120 `ambiguous`, against 10,405 accepted matches (exact 9,945, fuzzy 321, token_sorted 139).
+  Departamento de Estado / CRIM: neither register carries the other's identifier, so a corporation must be matched to its property by name. A shared entity identifier — the registration index recorded on the deed, or an EIN on both sides — would make the join exact and retire the fuzzy tier entirely.
+- **Registry rows named "UNKNOWN ENTITY" are excluded from owner matching** — 7,616 of 324,281 mirrored registry entities (2.3%).
+  PR Department of State: 7,616 register entries carry no entity name. They are real registration indices with an unusable name field.
+
+### Departamento de Salud
+
+- **Hospital access routes only to true hospitals, excluding clinics that carry a hospital kind** — 66 of 69 hospital-kind entities qualify; 124 health centers excluded from hospital routing.
+  PR Department of Health: three facilities are classified as hospitals in the inventory while carrying a primary-care classification, and the facility taxonomy does not distinguish emergency capacity from primary care in a single field.
+
+### FHWA — Federal Highway Administration (NBI)
+
+- **A third of bridges have no measured span and are costed at a flat 20 m** — 1,040 of 3,168 bridges (33%) have a NULL span.
+  FHWA / DTOP: a third of Puerto Rico's mapped bridges are absent from the National Bridge Inventory, so no published span exists for them. Extending NBI coverage — or publishing DTOP's own structure inventory — would replace the flat assumption with measurements.
+
+### HIFLD — Homeland Infrastructure Foundation-Level Data
+
+- **559 of 961 substations are excluded from powering anything** — 402 of 961 substations are distribution-capable; 542 have zero POWERS edges and 422 carry a cascade score. Of the excluded, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability..
+  HIFLD / LUMA: 69 substations are typed as distribution-capable yet publish a low-side voltage of zero or nothing at all. Each is a facility PRISM cannot connect to the customers it serves, and the gap is materially larger than the 14 unnamed substations already listed here. A populated `low_kv` would restore them to the cascade.
+- **Transmission links with equal or missing voltage produce no FEEDS edge** — 22 source substations end up with no FEEDS edges at all.
+  HIFLD / LUMA: transmission line records do not state direction of flow, and voltage is missing on enough endpoints that it cannot always be inferred. A published from/to or a complete voltage field would remove the ambiguity.
 - **Fourteen substations have a bare number where a name should be** — 14 of 961 substations.
   HIFLD / LUMA: fourteen transmission substations in the published dataset have no facility name, only an identifier.
 
-### Junta de Planificación / municipalities
+### Junta de Planificación
 
+- **Anything short of a single exact geocoder match is treated as no match** — 53 of 74 cached queries returned no confident match (72%).
+  Census Bureau / PR Planning Board: the PR geocoder resolves clean urban street addresses but misses urbanizacion- and barrio-style addressing, which is how a large share of the island is actually addressed.
 - **Approximate addresses can only cite numbered state highways** — 40 of 44 computed proposed addresses fell to Tier B (approximate).
   PR Planning Board / municipalities: no named local-street layer is published for Puerto Rico. It is the single missing dataset behind PRISM's inability to give most parcels a street address.
 
-### LUMA
+### LUMA Energy
 
-- **Point facilities are still attached to substations by proximity, not by conductor** — 2,919 of 4,419 POWERS edges (66%) are nearest-distance proxy.
+- **Point facilities are still attached to substations by proximity, not by conductor** — 3,251 of 4,419 POWERS edges (73.6%) attach a point facility by distance, written by two code paths: `nearest_dist_sub` (2,919 — 1,487 water pump stations, 798 telecom towers, 527 wells, 107 cell sites) and `voronoi` (332 — 139 water plants, 124 health centers, 69 hospitals). The hospitals and water plants named above are in the second group..
   LUMA: a service-point-to-feeder mapping (which customer account sits on which circuit) is the single dataset that would convert most of PRISM's remaining proxy edges into measured ones.
-
-### LUMA / AEE
-
-- **Twenty-two substations missing from the transmission graph keep the Voronoi proxy** — 464 of 4,419 POWERS edges remain Voronoi-derived (voronoi/voronoi_centroid/voronoi_overlap).
+- **559 of 961 substations are excluded from powering anything** — 402 of 961 substations are distribution-capable; 542 have zero POWERS edges and 422 carry a cascade score. Of the excluded, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability..
+  HIFLD / LUMA: 69 substations are typed as distribution-capable yet publish a low-side voltage of zero or nothing at all. Each is a facility PRISM cannot connect to the customers it serves, and the gap is materially larger than the 14 unnamed substations already listed here. A populated `low_kv` would restore them to the cascade.
+- **Twenty-two substations missing from the transmission graph keep the Voronoi proxy** — 132 substation-to-barrio edges over 102 barrios remain Voronoi-derived (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332 `voronoi`-method POWERS edges are point facilities and belong to `point_facilities_keep_voronoi_powers`, not here..
   LUMA / AEE: 22 substations appear in the facility inventory but not in the published transmission topology, so their upstream connectivity cannot be established from public data.
+- **Transmission links with equal or missing voltage produce no FEEDS edge** — 22 source substations end up with no FEEDS edges at all.
+  HIFLD / LUMA: transmission line records do not state direction of flow, and voltage is missing on enough endpoints that it cannot always be inferred. A published from/to or a complete voltage field would remove the ambiguity.
+- **Fourteen substations have a bare number where a name should be** — 14 of 961 substations.
+  HIFLD / LUMA: fourteen transmission substations in the published dataset have no facility name, only an identifier.
 
 ### Oficina del Contralor de Puerto Rico
 
 - **Shared contracts are flagged, never divided between co-contractors** — 12,395 of 1,141,257 contracts have more than one distinct contractor key (1.1%).
   Oficina del Contralor: the register does not record each co-contractor's share of a joint contract, so joint-award totals cannot be attributed. A share or role field would make them attributable.
 
-### PR Department of Health facility inventory
-
-- **Hospital access routes only to true hospitals, excluding clinics that carry a hospital kind** — 66 of 69 hospital-kind entities qualify; 124 health centers excluded from hospital routing.
-  PR Department of Health: three facilities are classified as hospitals in the inventory while carrying a primary-care classification, and the facility taxonomy does not distinguish emergency capacity from primary care in a single field.
-
-### PR Department of State — corporations registry
-
-- **The registry mirror is a partial walk, so a missing match is not proof of no registration** — 324,281 entities mirrored of an estimated ~560,000.
-  PR Department of State: publishing a bulk export (or a documented paged API) would replace a multi-day rate-limited walk with a complete, verifiable snapshot — and would let anyone reproduce this analysis.
-- **Placeholder registry addresses are excluded from the address layer** — 1,259,212 address rows survive the filter; the sentinel block was measured at ~51K rows when the filter was written.
-  PR Department of State: a registered agent address is a statutory requirement, yet tens of thousands of active registrations carry a literal "UNKNOWN" in that field.
-- **Registry rows named "UNKNOWN ENTITY" are excluded from owner matching** — 7,616 of 324,281 mirrored registry entities (2.3%).
-  PR Department of State: 7,616 register entries carry no entity name. They are real registration indices with an unusable name field.
-
-### US Census Bureau / Junta de Planificación
+### US Census Bureau
 
 - **Anything short of a single exact geocoder match is treated as no match** — 53 of 74 cached queries returned no confident match (72%).
   Census Bureau / PR Planning Board: the PR geocoder resolves clean urban street addresses but misses urbanizacion- and barrio-style addressing, which is how a large share of the island is actually addressed.
