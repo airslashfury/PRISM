@@ -17,6 +17,7 @@ import {
   useOwnerSearch,
   useOwnerDetail,
   useOwnerContracts,
+  useOwnerRegistry,
   useContractorOwners,
   useAddressSearch,
   type AddressSearchQuery,
@@ -30,8 +31,9 @@ import type {
   OwnerDetail,
   AddressSearchCandidate,
   ContractSummaryRow,
+  OwnerRegistry,
 } from "@/lib/api";
-import { fmtInt, fmtUsd, fmtNum, fmtPct, fmtDateTime } from "@/lib/utils";
+import { fmtInt, fmtUsd, fmtNum, fmtPct, fmtDate, fmtDateTime } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
 
 const PARCEL_MVT_MIN_ZOOM = 15; // 1.5M polygons — only fetch tiles when zoomed right in
@@ -679,6 +681,36 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
             </span>
           </div>
         )}
+        {d.registry && (
+          <div
+            className={`mt-1 flex items-start gap-1.5 text-[11px] ${
+              d.registry.is_terminal
+                ? "text-amber-600 dark:text-amber-500"
+                : "text-muted-foreground"
+            }`}
+          >
+            <Building2 className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>
+              {d.registry.is_terminal ? (
+                <>
+                  The owner company <strong>{d.registry.corp_name}</strong> is{" "}
+                  {d.registry.status_gloss ?? d.registry.status_es?.toLowerCase()}
+                  {d.registry.termination_date
+                    ? ` as of ${fmtDate(d.registry.termination_date)}`
+                    : ""}{" "}
+                  in the Departamento de Estado register, but still holds this parcel.
+                </>
+              ) : (
+                <>
+                  Owned by <strong>{d.registry.corp_name}</strong>, an active{" "}
+                  {d.registry.class_es ?? "registered company"}
+                  {d.registry.date_formed ? ` formed ${fmtDate(d.registry.date_formed)}` : ""}.
+                </>
+              )}{" "}
+              Linked to the register by name, not by an official identifier.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* CRIM record */}
@@ -849,6 +881,136 @@ function ParcelSections({ d }: { d: ParcelDetail }) {
  *  Silent when the owner holds no contracts: most owners don't, and an empty
  *  "no government contracts" block on 99% of drawers is noise, not an answer.
  */
+/**
+ * F11c — what the Departamento de Estado register says about a corporate owner.
+ * Silent for the ~98% of owners who are individuals: there is no registry record
+ * to find, so an empty state would imply a failed lookup that never happened.
+ */
+function RegistrySection({ ownerKey }: { ownerKey: string }) {
+  const { data, isLoading } = useOwnerRegistry(ownerKey);
+  if (isLoading || !data?.available) return null;
+  // Near-misses are worth showing even with no match: an owner whose name almost
+  // reached a registry entry is exactly where a human should look next.
+  if (!data.matched) return data.unresolved.length > 0 ? <RegistryNearMisses d={data} /> : null;
+  if (data.entities.length === 0) return null;
+
+  // A live registration leads even when a dead one shares the name: companies get
+  // re-registered, and we cannot tell which of them holds the deed — so asserting
+  // the dead one owns the land would be the wrong way to be wrong. The parcel
+  // card applies the same rule; `entity_count` discloses the rest.
+  const lead = data.entities.find((e) => !e.is_terminal) ?? data.entities[0];
+
+  return (
+    <Section title="Corporate registry" tier={data.confidence_tier}>
+      {lead.is_terminal ? (
+        <p className="pb-1 text-[12px] leading-snug text-amber-600 dark:text-amber-500">
+          <strong>{lead.corp_name}</strong> is {lead.status_es?.toLowerCase()}
+          {lead.status_gloss ? ` (${lead.status_gloss})` : ""}
+          {lead.termination_date ? ` as of ${fmtDate(lead.termination_date)}` : ""} — yet it is
+          still the owner of record on the parcels above. CRIM tracks the deed, not the company,
+          so an inactive owner keeps showing as current until someone transfers the title.
+        </p>
+      ) : (
+        <p className="pb-1 text-[12px] leading-snug text-muted-foreground">
+          Registered with the Departamento de Estado as <strong>{lead.corp_name}</strong>
+          {lead.class_es ? ` (${lead.class_es})` : ""}
+          {lead.date_formed ? `, formed ${fmtDate(lead.date_formed)}` : ""} — an active company,
+          so there is a legal person to contact about this land.
+        </p>
+      )}
+
+      <Row
+        label="Status"
+        value={
+          lead.status_gloss ? `${lead.status_es} — ${lead.status_gloss}` : (lead.status_es ?? "—")
+        }
+      />
+      {lead.class_es && <Row label="Class" value={lead.class_es} />}
+      {lead.date_formed && <Row label="Formed" value={fmtDate(lead.date_formed)} />}
+      {lead.resident_agent && <Row label="Resident agent" value={lead.resident_agent} />}
+      {lead.registered_address && (
+        <Row label="Registered address" value={lead.registered_address} />
+      )}
+      <div className="flex items-baseline justify-between gap-2 border-b border-border/40 py-1 last:border-0">
+        <span className="text-[11px] text-muted-foreground">Registry no.</span>
+        <a
+          href={data.registry_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[12px] font-medium underline decoration-dotted underline-offset-2 hover:text-foreground"
+          title="Look this number up in the Departamento de Estado register"
+        >
+          {lead.registration_index} ↗
+        </a>
+      </div>
+
+      {data.entities.length > 1 && (
+        <p className="pt-1 text-[11px] leading-snug text-muted-foreground">
+          This owner name links to {fmtInt(data.entities.length)} separate registrations (
+          {data.entities.map((e) => e.status_gloss ?? e.status_es?.toLowerCase()).join(", ")}).
+          Companies are often re-registered under the same name, so PRISM shows the active one
+          here and does not guess which registration holds the deed.
+        </p>
+      )}
+
+      <p className="pt-1.5 text-[11px] leading-snug text-muted-foreground">
+        The registry record itself is the government&apos;s own. PRISM links it to this owner by{" "}
+        <strong>matching the name</strong>
+        {lead.match_method === "fuzzy" ? " approximately" : ""}, not by an official identifier —
+        so a shared or near-identical company name can point at the wrong entity.
+        {lead.municipio_corroborated
+          ? " Here the registered address sits where this owner's parcels are, which supports the link."
+          : ""}
+        {lead.as_of ? ` Registry data as of ${fmtDate(lead.as_of)}.` : ""}
+      </p>
+
+      {data.unresolved.length > 0 && (
+        <p className="pt-1 text-[11px] leading-snug text-muted-foreground">
+          {fmtInt(data.unresolved.length)} further name
+          {data.unresolved.length === 1 ? "" : "s"} for this owner came close to a registry entry
+          but were not confident enough to link — left unmatched rather than guessed.
+        </p>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * An owner that looked corporate but resolved to nothing, with near-misses on
+ * record. Shown rather than hidden: this is where the match layer is weakest,
+ * so it is where a human refining it should start.
+ */
+function RegistryNearMisses({ d }: { d: OwnerRegistry }) {
+  const names = d.unresolved
+    .flatMap((u) => u.candidates.map((c) => String(c.corp_name ?? "")))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  return (
+    <Section title="Corporate registry" tier={d.confidence_tier}>
+      <p className="pb-1 text-[12px] leading-snug text-muted-foreground">
+        No confident match in the Departamento de Estado register. PRISM found{" "}
+        {fmtInt(d.unresolved.length)} near-miss{d.unresolved.length === 1 ? "" : "es"} on this
+        name but none was strong enough to link, so none was recorded — a wrong company is worse
+        than no company.
+      </p>
+      {names.length > 0 && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Closest: {names.join(", ")}.{" "}
+          <a
+            href={d.registry_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+          >
+            Search the register ↗
+          </a>
+        </p>
+      )}
+    </Section>
+  );
+}
+
 function ContractsSection({ ownerKey }: { ownerKey: string }) {
   const { data, isLoading } = useOwnerContracts(ownerKey);
   if (isLoading || !data?.available || !data.matched) return null;
@@ -1131,6 +1293,7 @@ function OwnerSections({ d, onSelectParcel }: { d: OwnerDetail; onSelectParcel: 
         </Section>
       )}
 
+      <RegistrySection ownerKey={d.owner_key} />
       <ContractsSection ownerKey={d.owner_key} />
 
       {d.top_parcels.length > 0 && (

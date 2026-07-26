@@ -14,7 +14,7 @@ from sqlalchemy.engine import Engine
 from api import schemas
 from api.cache import cached_response
 from api.deps import engine_dep
-from prism.crim import owners, query, trends
+from prism.crim import owners, query, registry, trends
 from prism.ocpr import footprint
 
 router = APIRouter(prefix="/crim", tags=["crim"])
@@ -80,6 +80,17 @@ def owner_contracts(owner_key: str, engine: Engine = Depends(engine_dep)) -> dic
     """One owner's OCPR government-contract footprint (F11e). Never 404s — an
     owner with no contracts is a real result (`matched: false`)."""
     return footprint.owner_contract_footprint(engine, owner_key)
+
+
+@router.get("/owner/{owner_key:path}/registry", response_model=schemas.OwnerRegistry)
+def owner_registry(owner_key: str, engine: Engine = Depends(engine_dep)) -> dict:
+    """One owner's PR corporations-registry record (F11c). Never 404s — most
+    owners are individuals with no registry record, which is `matched: false`.
+
+    Declared before the greedy `/owner/{owner_key:path}` route below, or that
+    route would swallow this path.
+    """
+    return registry.owner_registry(engine, owner_key)
 
 
 @router.get("/owner/{owner_key:path}", response_model=schemas.OwnerDetail)

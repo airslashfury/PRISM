@@ -749,6 +749,20 @@ export interface ParcelProposedAddress {
   confidence_tier: ConfidenceTierKey;
 }
 
+/** F11c — the corporate-registry status of a parcel's owner. */
+export interface ParcelRegistry {
+  registration_index: string;
+  corp_name: string | null;
+  status_es: string | null;
+  status_gloss: string | null;
+  is_terminal: boolean;
+  class_es: string | null;
+  date_formed: string | null;
+  termination_date: string | null;
+  entity_count: number;
+  confidence_tier: ConfidenceTierKey;
+}
+
 export interface ParcelDetail {
   num_catastro: string;
   catastro: string | null;
@@ -760,6 +774,8 @@ export interface ParcelDetail {
   lon: number | null;
   lat: number | null;
   crim: ParcelCrimRecord;
+  /** F11c — absent entirely when the owner is a person, which is most parcels. */
+  registry: ParcelRegistry | null;
   sale_history: ParcelSale[];
   power: ParcelPower | null;
   flood: ParcelFlood;
@@ -870,6 +886,47 @@ export interface OwnerContractFootprint {
   agencies: ContractAgency[];
   top_contracts: ContractSummaryRow[];
   confidence_tier: ConfidenceTierKey;
+}
+
+/** F11c — one corporations-registry record linked to a CRIM owner. */
+export interface RegistryEntity {
+  registration_index: string;
+  corp_name: string | null;
+  status_es: string | null;
+  /** Plain-English gloss of the Spanish status. */
+  status_gloss: string | null;
+  /** No longer active — NOT necessarily dissolved (see status_gloss). */
+  is_terminal: boolean;
+  class_es: string | null;
+  date_formed: string | null;
+  termination_date: string | null;
+  jurisdiction_es: string | null;
+  resident_agent: string | null;
+  registered_address: string | null;
+  match_method: string;
+  match_confidence: number | null;
+  /** The registered address sits in a municipio where this owner holds parcels. */
+  municipio_corroborated: boolean;
+  as_of: string | null;
+}
+
+export interface RegistryNearMiss {
+  match_key: string;
+  method: string;
+  candidates: Array<Record<string, unknown>>;
+}
+
+export interface OwnerRegistry {
+  owner_key: string;
+  available: boolean;
+  /** False = no registry record (an answer, not an error). */
+  matched: boolean;
+  /** True only when the owner name looked corporate — i.e. a lookup was warranted. */
+  looked: boolean;
+  entities: RegistryEntity[];
+  unresolved: RegistryNearMiss[];
+  confidence_tier: ConfidenceTierKey;
+  registry_url: string;
 }
 
 export interface ContractorOwner {
@@ -1135,7 +1192,14 @@ export interface FeedFreshness {
   stale: boolean;
 }
 
-export type ChangeKind = "sync" | "rescore" | "rank" | "quake" | "crim" | "storm";
+export type ChangeKind =
+  | "sync"
+  | "rescore"
+  | "rank"
+  | "quake"
+  | "crim"
+  | "storm"
+  | "registry";
 
 export interface ChangeEvent {
   kind: ChangeKind;
@@ -1536,6 +1600,8 @@ export const api = {
     apiGet<OwnerDetail>(`/crim/owner/${encodeURIComponent(ownerKey)}`),
   ownerContracts: (ownerKey: string) =>
     apiGet<OwnerContractFootprint>(`/crim/owner/${encodeURIComponent(ownerKey)}/contracts`),
+  ownerRegistry: (ownerKey: string) =>
+    apiGet<OwnerRegistry>(`/crim/owner/${encodeURIComponent(ownerKey)}/registry`),
   contractorOwners: (includeGovernment: boolean, limit = 25) =>
     apiGet<ContractorOwnerRanking>("/crim/owners/contractors", {
       include_government: includeGovernment,

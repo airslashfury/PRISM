@@ -3,6 +3,8 @@
         python -m prism.crim --snapshot          # monthly: refresh views + freeze state + compute deltas
         python -m prism.crim --snapshot-month 2026-07-01
         python -m prism.crim --normalize         # (re)build owner_key + normalized address tables
+        python -m prism.crim --rce-match         # (re)run the offline CRIM <-> corporations-registry match
+        python -m prism.crim --rce-stats         # print the measured match rate without rebuilding
 """
 from __future__ import annotations
 
@@ -32,6 +34,17 @@ def main() -> None:
                     help="(Re)build crim.parcel_owner + crim.owner_entities (owner key + address)")
     ap.add_argument("--backfill-municipio", action="store_true",
                     help="Spatially backfill crim.parcelas.municipio where NULL (one-shot, idempotent)")
+    ap.add_argument("--rce-match", action="store_true",
+                    help="(Re)run the offline CRIM owner <-> corporations-registry match (F11b). "
+                         "Idempotent — re-run as the registry mirror grows.")
+    ap.add_argument("--no-fuzzy", action="store_true",
+                    help="With --rce-match: exact-key pass only, skip the trigram tail")
+    ap.add_argument("--rce-stats", action="store_true",
+                    help="Print the measured registry match rate without rebuilding anything")
+    ap.add_argument("--rce-snapshot", action="store_true",
+                    help="Bank the current registry status of every matched entity (F11c SCD). "
+                         "Runs automatically at the end of --rce-match; expose it separately so a "
+                         "monthly re-poll of the matched set can bank statuses without a full rebuild.")
     ap.add_argument("--refresh-views", action="store_true",
                     help="Refresh crim.parcelas_dedup + crim.parcelas_history against current crim.parcelas "
                          "(also runs automatically as the first step of --snapshot)")
@@ -44,6 +57,37 @@ def main() -> None:
         from prism.crim.schema import refresh_views
         refresh_views(engine)
         print("crim.parcelas_dedup + crim.parcelas_history refreshed")
+        return
+
+    if args.rce_snapshot:
+        from prism.crim.registry import record_status_snapshot
+        res = record_status_snapshot(engine)
+        print(f"registry status snapshot: {res['opened']:,} opened, "
+              f"{res['closed']:,} closed (a status change), {res['extended']:,} unchanged")
+        return
+
+    if args.rce_stats:
+        from prism.crim.rce_match import stats
+        for k, v in stats(engine).items():
+            print(f"{k:>28}: {v}")
+        return
+
+    if args.rce_match:
+        from prism.crim.rce_match import run
+        res = run(engine, fuzzy=not args.no_fuzzy)
+        print(f"registry entities keyed : {res['registry_entities']:,}")
+        print(f"CRIM owner keys         : {res['owner_keys']:,} "
+              f"({res['corporate_owner_keys']:,} corporate-suffixed)")
+        print(f"matched owner keys      : {res['matched_owner_keys']:,} "
+              f"(exact {res['exact']:,} / word-order {res['token_sorted']:,} / "
+              f"fuzzy {res['fuzzy']:,}) across {res['matched_parcels']:,} parcels")
+        print(f"  of which corporate    : {res['matched_corporate_keys']:,} "
+              f"(+{res['matched_without_suffix']:,} on names carrying no legal-form token)")
+        print(f"ambiguous (not guessed) : {res['ambiguous']:,}")
+        print(f"withdrawn, no support   : {res['fuzzy_unconfirmed']:,}")
+        print(f"municipio-corroborated  : {res['corroborated']:,}")
+        print(f"match rate              : {res['match_rate_corporate']:.2%} of corporate owners "
+              f"(like-for-like), {res['match_rate_all_owners']:.2%} of all owners")
         return
 
     if args.backfill_municipio:

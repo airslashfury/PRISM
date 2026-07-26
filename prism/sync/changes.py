@@ -245,6 +245,72 @@ def _storm_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
     ]
 
 
+def _registry_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
+    """Corporate-registry signals about property owners (F11c).
+
+    CRIM cannot emit either of these: its owner record stays perfectly current
+    while the legal person behind it dissolves. Two headlines — the transitions
+    banked since the last registry poll, and the standing count of already-dead
+    companies that still hold property, which is real from the first run rather
+    than only after a change is observed.
+    """
+    from prism.crim.registry import TERMINAL_STATUSES, available, status_transitions
+
+    # The standing-count query joins rce_match_key and rce_entities as well, so
+    # guarding on owner_rce_match alone would 500 /whatsnew on a half-built layer.
+    if not available(engine) or not _exists(engine, "crim.rce_entities"):
+        return []
+
+    out: list[dict[str, Any]] = []
+    for t in status_transitions(engine, limit=limit):
+        if not t["became_terminal"]:
+            continue
+        holds = (f"still holds {t['parcels']:,} parcel{'s' if t['parcels'] != 1 else ''}"
+                 if t["parcels"] else "is still listed as a CRIM owner")
+        out.append({
+            "kind": "registry",
+            "headline": f"{t['corp_name']} is now {t['to_status'].lower()} — it {holds}",
+            "detail": f"registry status changed from {t['from_status'].lower()}",
+            "at": t["at"],
+            "href": "/parcels",
+        })
+
+    with engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT COUNT(DISTINCT m.owner_key) AS owners,
+                   COALESCE(SUM(o.parcel_count), 0) AS parcels,
+                   MAX(e.pulled_at) AS as_of
+            FROM crim.owner_rce_match m
+            JOIN crim.rce_match_key r ON r.registration_index = m.registration_index
+            JOIN crim.rce_entities  e ON e.registration_index = m.registration_index
+            LEFT JOIN crim.owner_match_key o
+                   ON o.owner_key = m.owner_key AND o.match_key = m.match_key
+            WHERE r.status_es = ANY(:terminal)
+        """), {"terminal": sorted(TERMINAL_STATUSES)}).mappings().fetchone()
+
+    if row and row["owners"]:
+        out.append({
+            "kind": "registry",
+            # "No longer exists" was wrong for most of these: CANCELADA is an
+            # administrative cancellation the company can be revived from, and a
+            # FUSIONADA company does exist — inside the survivor. The register
+            # says "not active", which is all we can say. This headline is also
+            # the only render path with no tier chip beside it, so the
+            # name-inference caveat has to travel in the text itself.
+            "headline": (f"{int(row['owners']):,} dissolved, cancelled or merged companies "
+                         f"still hold {int(row['parcels']):,} parcels"),
+            "detail": ("CRIM lists them as current owners; the Departamento de Estado "
+                       "register lists the company as no longer active. Companies are "
+                       "matched to owners by name, not by an official identifier"),
+            # The registry pull time is the real "as of" for this claim. It also
+            # keeps the headline in the feed: the stream sorts newest-first and
+            # truncates, so a null timestamp would sink this below the cut.
+            "at": row["as_of"].isoformat() if row["as_of"] else None,
+            "href": "/parcels",
+        })
+    return out
+
+
 def _crim_changes(engine: Engine) -> list[dict[str, Any]]:
     """One headline per change type in the most recent CRIM delta month."""
     if not _exists(engine, "crim.parcel_deltas"):
@@ -310,6 +376,7 @@ def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
         + _rank_changes(engine)
         + _storm_changes(engine, change_limit)
         + _crim_changes(engine)
+        + _registry_changes(engine, change_limit)
     )
     # Newest first; None timestamps sink to the bottom.
     changes.sort(key=lambda c: c["at"] or "", reverse=True)

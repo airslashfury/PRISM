@@ -571,6 +571,7 @@ def get_parcel_detail(engine: Engine, num_catastro: str) -> dict[str, Any] | Non
         "lon": float(rep["lon"]) if rep["lon"] is not None else None,
         "lat": float(rep["lat"]) if rep["lat"] is not None else None,
         "crim": crim,
+        "registry": _registry(engine, rep["contact"]),
         "sale_history": _sale_history(engine, num_catastro),
         "power": _power(engine, barrio_id) if barrio_id is not None else None,
         "flood": _flood(engine, num_catastro),
@@ -587,6 +588,44 @@ def _proposed_address(engine: Engine, num_catastro: str) -> dict[str, Any] | Non
     """Tiered Census Proposed Address (F9d D2) — lazy, cache-first."""
     from prism.crim.proposed_address import get_or_compute
     return get_or_compute(engine, num_catastro)
+
+
+def _registry(engine: Engine, owner_raw: Any) -> dict[str, Any] | None:
+    """Corporate-registry status of this parcel's owner (F11c), or None.
+
+    Returns None — so the card renders nothing at all — whenever the owner is a
+    person or the registry layer is not built. The one-liner only earns space on
+    the card when there is something to say, and the thing most worth saying is
+    that the owner company has been dissolved while the deed has not moved.
+    """
+    from prism.crim.normalize import normalize_owner
+    from prism.crim.registry import available, owner_registry
+
+    owner_key = normalize_owner(owner_raw)
+    if not owner_key or not available(engine):
+        return None
+    reg = owner_registry(engine, owner_key)
+    if not reg["matched"]:
+        return None
+    # An owner name can link to both a live and a dead registration (companies
+    # get re-registered). Lead with the live one: we cannot tell which of them
+    # holds the deed, so asserting the parcel belongs to a dissolved company
+    # while a same-named live one exists would be the wrong way to be wrong.
+    # `entity_count` tells the card there is more than one. The owner drawer
+    # applies the same rule.
+    ent = next((e for e in reg["entities"] if not e["is_terminal"]), reg["entities"][0])
+    return {
+        "registration_index": ent["registration_index"],
+        "corp_name": ent["corp_name"],
+        "status_es": ent["status_es"],
+        "status_gloss": ent["status_gloss"],
+        "is_terminal": ent["is_terminal"],
+        "class_es": ent["class_es"],
+        "date_formed": ent["date_formed"],
+        "termination_date": ent["termination_date"],
+        "entity_count": len(reg["entities"]),
+        "confidence_tier": reg["confidence_tier"],
+    }
 
 
 def _f(v: Any) -> float | None:

@@ -63,7 +63,7 @@ def test_generate_persists_markdown_narrative(engine, run_ids, monkeypatch):
         captured["task"] = kwargs.get("task") or (args[0] if args else None)
         captured["prompt"] = kwargs.get("prompt", "")
         return Completion(
-            text=_FAKE_NARRATIVE, tier="sonnet", model="claude-sonnet-4-6", backend="anthropic",
+            text=_FAKE_NARRATIVE, tier="sonnet", model="claude-sonnet-5", backend="anthropic",
         )
 
     monkeypatch.setattr("prism.llm.complete", fake_complete)

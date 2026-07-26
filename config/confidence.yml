@@ -462,6 +462,70 @@ tables:
       Census-matched case toward authoritative for the address label itself
       (the point), while the parcel-assignment step stays proxy.
 
+  crim.owner_rce_match:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11b link between a normalized CRIM owner and a PR corporations-registry
+      entity. The registry record itself is authoritative; binding it to a CRIM
+      owner **by name** is inference, and that is what this tier describes — a
+      name collision, a company that merged or re-registered, or an entity the
+      mirror has not reached yet all produce a wrong or missing link. The key is
+      suffix-preserving on purpose (F1's owner_key strips LLC/INC/CORP, which is
+      the token that separates two registry entities), so DANCO BUILDERS CORP and
+      INC stay distinct. Three passes, in descending strength: exact key
+      equality; token-sorted, for the rotated owner strings CRIM's export
+      produces ("REY LLC 119 MATIENZO HATO"); and a trigram tail accepted **only**
+      when independently corroborated, because similarity alone does not separate
+      a real typo from a different company at the same score. More than one
+      candidate is recorded as ambiguous and never resolved by guessing. Reaches
+      only the corporate slice — individuals and SUCESION estates have no
+      registry record at all, so this can never describe most CRIM owners.
+    upgrade_path: >-
+      Re-run once prism.sync.rcp finishes the full ~560K walk (the rate is only
+      as complete as the mirror). Beyond that, the ceiling is name-based joining
+      itself: a registry-published catastro or a shared official identifier
+      would make the link authoritative rather than inferred.
+
+  crim.rce_status_history:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11c slowly-changing dimension over registry status. The status values are
+      the Departamento de Estado's own, but which CRIM owner they attach to is
+      F11b's name-based inference, so the row is only as sound as that link. The
+      sharper limit is the observation window: the registry publishes current
+      state and overwrites it, so PRISM only sees a change if it polled on both
+      sides of it. An absence of transitions therefore means "not observed
+      between polls", never "nothing changed" — and a company that dissolved and
+      was revived between two polls leaves no trace at all. Terminal statuses are
+      a deliberate strict subset of the registry's own isStatusTerminal flag
+      (CONVERSIÓN and ENMENDADA are excluded — an amended or converted company is
+      still alive).
+    upgrade_path: >-
+      Shorten the polling interval on the matched set, or ingest the registry's
+      filing-transaction history if it ever becomes reachable without owner/admin
+      auth, which would give real effective dates instead of observation dates.
+
+  crim.rce_addresses:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11b normalization of the address blocks the corporations registry
+      publishes per entity. The addresses are transcribed faithfully, but their
+      *meaning* is what makes this proxy: a shared address is evidence, never an
+      identity claim. Resident-agent and law-firm offices host hundreds of
+      unrelated entities, so co-occupancy only carries signal at low frequency —
+      hence the entity_count and is_agent_office flag on
+      crim.rce_address_entities (>10 entities). The registry's free-text city is
+      resolved to a canonical municipio only on an exact folded name match
+      (~92% of address rows); barrios, urbanizaciones, and mainland cities are
+      left unresolved rather than guessed at.
+    upgrade_path: >-
+      Geocode the unresolved ~8% to place them spatially instead of by name, which
+      would also let a registered address be tied to a barrio rather than only a
+      municipio.
+
   sync.aee_circuit:
     method: aggregate of sync.aee_feeders (one row per circuit)
     confidence_tier: authoritative

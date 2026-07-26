@@ -79,6 +79,21 @@ export function fmtDateTime(v: string | null | undefined): string {
   });
 }
 
+/**
+ * Date only, no time. A bare "YYYY-MM-DD" is parsed as *local* midnight rather
+ * than being handed to `new Date()`, which reads it as UTC — in Puerto Rico
+ * (UTC-4) that renders every such date one day early.
+ */
+export function fmtDate(v: string | null | undefined): string {
+  if (!v) return "—";
+  const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  const d = bare
+    ? new Date(Number(bare[1]), Number(bare[2]) - 1, Number(bare[3]))
+    : new Date(v);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
 export function fmtRelative(v: string | null | undefined): string {
   if (!v) return "never";
   const d = new Date(v).getTime();

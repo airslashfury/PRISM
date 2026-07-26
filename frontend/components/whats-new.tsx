@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCw, Waves, Building2, TriangleAlert, TrendingUp, Wind, Dot, type LucideIcon } from "lucide-react";
+import { RefreshCw, Waves, Building2, TriangleAlert, TrendingUp, Wind, Landmark, Dot, type LucideIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { SkeletonRows, EmptyState } from "@/components/query-state";
@@ -16,6 +16,7 @@ const KIND_ICON: Record<ChangeKind, LucideIcon> = {
   quake: Waves,
   crim: Building2,
   storm: Wind,
+  registry: Landmark,
 };
 
 const KIND_COLOR: Record<ChangeKind, string> = {
@@ -25,6 +26,8 @@ const KIND_COLOR: Record<ChangeKind, string> = {
   quake: "text-amber-400",
   crim: "text-emerald-400",
   storm: "text-cyan-400",
+  // amber: a dead company still on a deed is a discrepancy, not routine news
+  registry: "text-amber-400",
 };
 
 function FeedChip({ f }: { f: FeedFreshness }) {
