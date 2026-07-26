@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { NAV } from "@/components/layout/nav";
+import { useNav } from "@/components/layout/nav";
 import { useParcelSearch, useOwnerSearch, useScores } from "@/lib/hooks";
 import { fmtNum, fmtUsd, fmtInt, cn } from "@/lib/utils";
 
@@ -60,6 +60,7 @@ function substr(haystack: string | null | undefined, needle: string): boolean {
 
 export function CommandPalette() {
   const router = useRouter();
+  const NAV = useNav();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");

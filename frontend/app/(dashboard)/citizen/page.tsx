@@ -10,19 +10,16 @@ import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { useCitizenBarrios, useCivicCard } from "@/lib/hooks";
 import { fmtInt, fmtIntTiered, fmtPct, fmtRelative, fmtUsdTiered } from "@/lib/utils";
 import { humanizeIntervention, interventionCopy } from "@/lib/interventions";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 import type { BarrioOption, CivicConsequence, CivicToday, ServingSubstation } from "@/lib/api";
-
-const FLOOD_COPY: Record<string, string> = {
-  minimal: "This area has minimal mapped flood risk — little to none of it falls inside the FEMA 1%-annual-chance (100-year) flood zone.",
-  low: "A small part of this area falls inside the FEMA 1%-annual-chance (100-year) flood zone.",
-  moderate: "A moderate part of this area falls inside the FEMA 1%-annual-chance (100-year) flood zone.",
-  high: "A large part of this area falls inside the FEMA 1%-annual-chance (100-year) flood zone — flooding is a serious risk here in major storms.",
-};
 
 export default function CitizenPage() {
   const { data: barrios, isLoading, error } = useCitizenBarrios();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<BarrioOption | null>(null);
+  const t = useMessages().citizen;
 
   const matches = useMemo(() => {
     if (!barrios || query.trim().length < 2) return [];
@@ -35,31 +32,16 @@ export default function CitizenPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">What about my area?</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Pick your barrio to see what PRISM&apos;s models say about power, flood risk, and emergency
-          access where you live — in plain language, with a confidence label on every figure.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t.title}</h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
       <InfoPanel
-        title="About this card"
+        title={t.infoPanel.title}
         sections={[
-          {
-            title: "What this is",
-            body:
-              "A plain-language summary of PRISM's existing models for one barrio: which substation is estimated to serve it and what rides on it, what the island grid is doing right now, what a hurricane or earthquake could mean here, how this area's overall resilience compares to the rest of Puerto Rico, road access to the nearest hospital, flood exposure, and any investments already planned nearby.",
-          },
-          {
-            title: "Honest by construction",
-            body:
-              "This is informational, not a prediction you should act on. The colored chip on each figure tells you how solid it is — \"Proxy\" means PRISM approximated something (like which substation serves this area) because the real data isn't public. Click a chip for details.",
-          },
-          {
-            title: "Not an emergency notice",
-            body:
-              "This card does not come from your utility and is not a real-time outage report. For active outages or emergencies, contact LUMA / PREPA and your municipio's emergency management office directly.",
-          },
+          { title: t.infoPanel.whatThisIs.title, body: t.infoPanel.whatThisIs.body },
+          { title: t.infoPanel.honest.title, body: t.infoPanel.honest.body },
+          { title: t.infoPanel.notEmergency.title, body: t.infoPanel.notEmergency.body },
         ]}
       />
 
@@ -72,11 +54,11 @@ export default function CitizenPage() {
               setQuery(e.target.value);
               setSelected(null);
             }}
-            placeholder="Search for your barrio (e.g. &quot;Playa&quot;, &quot;Bayamón&quot;)"
+            placeholder={t.searchPlaceholder}
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        {isLoading && <LoadingBlock label="Loading barrios" className="py-2" />}
+        {isLoading && <LoadingBlock label={t.loadingBarrios} className="py-2" />}
         {error && <ErrorBlock error={error} className="mt-2" />}
         {!selected && matches.length > 0 && (
           <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-lg">
@@ -104,8 +86,10 @@ export default function CitizenPage() {
 
 function CivicCardView({ barrio }: { barrio: BarrioOption }) {
   const { data: card, isLoading, error } = useCivicCard(barrio.entity_id);
+  const { locale } = useLocale();
+  const t = useMessages().citizen;
 
-  if (isLoading) return <LoadingBlock label="Loading your civic card" className="py-10" />;
+  if (isLoading) return <LoadingBlock label={t.loadingCard} className="py-10" />;
   if (error) return <ErrorBlock error={error} />;
   if (!card) return null;
 
@@ -115,7 +99,9 @@ function CivicCardView({ barrio }: { barrio: BarrioOption }) {
         <CardHeader>
           <CardTitle className="text-lg">
             {card.barrio_name}
-            {card.municipio_name && <span className="text-muted-foreground">, {card.municipio_name} Municipio</span>}
+            {card.municipio_name && (
+              <span className="text-muted-foreground">, {t.municipioLabel(card.municipio_name)}</span>
+            )}
           </CardTitle>
         </CardHeader>
       </Card>
@@ -127,16 +113,18 @@ function CivicCardView({ barrio }: { barrio: BarrioOption }) {
       {card.community_resilience && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Community resilience</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t.cards.communityResilience}</CardTitle>
             <ConfidenceChip tier={card.community_resilience.confidence_tier} />
           </CardHeader>
           <CardContent className="text-sm">
             <p>
-              PRISM scores every barrio on a mix of social vulnerability, nearby infrastructure, and planned
-              investment. This area ranks <span className="font-semibold text-foreground">higher than {fmtPct(card.community_resilience.percentile, 0)}</span>{" "}
-              of Puerto Rico&apos;s barrios on overall resilience
-              {card.community_resilience.percentile < 0.34 && " — among the more vulnerable areas in PRISM's model"}
-              {card.community_resilience.percentile > 0.66 && " — among the more resilient areas in PRISM's model"}
+              {t.resilienceSentence.lead}{" "}
+              <span className="font-semibold text-foreground">
+                {t.resilienceSentence.higherThan(fmtPct(card.community_resilience.percentile, 0))}
+              </span>{" "}
+              {t.resilienceSentence.ofBarrios}
+              {card.community_resilience.percentile < 0.34 && t.resilienceSentence.moreVulnerable}
+              {card.community_resilience.percentile > 0.66 && t.resilienceSentence.moreResilient}
               .
             </p>
           </CardContent>
@@ -146,31 +134,38 @@ function CivicCardView({ barrio }: { barrio: BarrioOption }) {
       {card.road_access && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Emergency access</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t.cards.emergencyAccess}</CardTitle>
             <ConfidenceChip tier={card.road_access.confidence_tier} />
           </CardHeader>
           <CardContent className="text-sm">
             {card.road_access.nearest_hospital && card.road_access.travel_time_min != null ? (
               <p>
-                The nearest hospital, <span className="font-semibold text-foreground">{card.road_access.nearest_hospital}</span>,
-                is roughly <span className="font-semibold text-foreground">{card.road_access.travel_time_min.toFixed(0)} minutes</span> away
-                by road under normal conditions (assuming a flat 40 km/h average — real travel time varies with traffic
-                and road damage).
+                {t.access.hospitalLead}
+                <span className="font-semibold text-foreground">{card.road_access.nearest_hospital}</span>
+                {t.access.hospitalMid}
+                <span className="font-semibold text-foreground">
+                  {card.road_access.travel_time_min.toFixed(0)}{t.access.minutesUnit}
+                </span>
+                {t.access.hospitalAfter}
               </p>
             ) : (
               // F10c-7: no true hospital is reachable by road from here (a disconnected
               // road-graph component) — fall back to the nearest community clinic rather
               // than silently omitting this card. A clinic is primary care, not an ER.
               <p>
-                No hospital is reachable by road from here in PRISM&apos;s model.{" "}
+                {t.access.noHospital}{" "}
                 {card.road_access.nearest_clinic && card.road_access.clinic_travel_time_min != null ? (
                   <>
-                    The nearest community clinic, <span className="font-semibold text-foreground">{card.road_access.nearest_clinic}</span>,
-                    is roughly <span className="font-semibold text-foreground">{card.road_access.clinic_travel_time_min.toFixed(0)} minutes</span> away
-                    by road — primary care, not emergency capacity.
+                    {t.access.clinicLead}
+                    <span className="font-semibold text-foreground">{card.road_access.nearest_clinic}</span>
+                    {t.access.clinicMid}
+                    <span className="font-semibold text-foreground">
+                      {card.road_access.clinic_travel_time_min.toFixed(0)}{t.access.minutesUnit}
+                    </span>
+                    {t.access.clinicAfter}
                   </>
                 ) : (
-                  "No nearby community clinic was found either."
+                  t.access.noClinicEither
                 )}
               </p>
             )}
@@ -180,32 +175,30 @@ function CivicCardView({ barrio }: { barrio: BarrioOption }) {
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Flood risk</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">{t.cards.floodRisk}</CardTitle>
           <ConfidenceChip tier={card.flood_exposure.confidence_tier} />
         </CardHeader>
         <CardContent className="text-sm">
-          <p>{FLOOD_COPY[card.flood_exposure.level] ?? FLOOD_COPY.minimal}</p>
+          <p>{t.floodCopy[card.flood_exposure.level as keyof typeof t.floodCopy] ?? t.floodCopy.minimal}</p>
         </CardContent>
       </Card>
 
       {card.planned_nearby.length > 0 && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">What&apos;s planned nearby</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t.cards.plannedNearby}</CardTitle>
             <ConfidenceChip tier={card.planned_nearby[0].confidence_tier} />
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p className="text-muted-foreground">
-              From PRISM&apos;s current resilience investment plan, items affecting this area or its substation:
-            </p>
+            <p className="text-muted-foreground">{t.plannedNearbyIntro}</p>
             <ul className="space-y-1.5">
               {card.planned_nearby.map((item, i) => {
-                const copy = interventionCopy(item.intervention_type);
+                const copy = interventionCopy(item.intervention_type, locale);
                 return (
                   <li key={i} className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground">
-                        {humanizeIntervention(item.intervention_type)}
+                        {humanizeIntervention(item.intervention_type, locale)}
                         {item.entity_name && (
                           <span className="font-normal text-muted-foreground"> — {item.entity_name}</span>
                         )}
@@ -223,19 +216,16 @@ function CivicCardView({ barrio }: { barrio: BarrioOption }) {
         </Card>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        This card is generated from PRISM&apos;s models for informational purposes only. It is not an official
-        notice from LUMA, PREPA, PRASA, or your municipio.
-      </p>
+      <p className="text-xs text-muted-foreground">{t.disclaimer}</p>
     </div>
   );
 }
 
-/** "a", "a and b", "a, b and c" — clause list for the power lead sentence. */
-function listJoin(nodes: ReactNode[]): ReactNode {
+/** Locale-aware clause list: "a, b and c" (en) / "a, b y c" (es-PR). */
+function listJoin(nodes: ReactNode[], t: Messages["citizen"]["power"]): ReactNode {
   return nodes.map((n, i) => (
     <Fragment key={i}>
-      {i > 0 && (i === nodes.length - 1 ? " and " : ", ")}
+      {i > 0 && (i === nodes.length - 1 ? t.and : t.listSep)}
       {n}
     </Fragment>
   ));
@@ -243,7 +233,13 @@ function listJoin(nodes: ReactNode[]): ReactNode {
 
 /** Power section: lead with what the substation does, then the live island
  * picture, then the hazard scenarios (Cat-3 + quake) — one short honesty
- * clause at the end instead of a negative lead. */
+ * clause at the end instead of a negative lead.
+ *
+ * The dictionary carries lead/after string *pairs* around each bolded value
+ * (substation name, MW figure, population count) rather than a single
+ * template function — Spanish reorders some of these relative to English
+ * ("la subestación {name}" vs "the {name} substation"), so the split point
+ * around the bold span has to move with the locale, not just the words. */
 function PowerCard({
   sub,
   consequence,
@@ -253,32 +249,29 @@ function PowerCard({
   consequence: CivicConsequence | null;
   today: CivicToday | null;
 }) {
+  const { locale } = useLocale();
+  const t = useMessages().citizen;
+  const p = t.power;
+  const intl = intlTag(locale);
+
   const clauses: ReactNode[] = [];
   if (consequence) {
     if (consequence.population_affected > 0) {
       clauses.push(
         <Fragment key="pop">
-          about{" "}
+          {p.about}{" "}
           <span className="font-medium text-foreground">
-            {fmtIntTiered(consequence.population_affected, consequence.confidence_tier)}
+            {fmtIntTiered(consequence.population_affected, consequence.confidence_tier, intl)}
           </span>{" "}
-          people
+          {p.people(consequence.population_affected)}
         </Fragment>,
       );
     }
     if (consequence.hospitals > 0) {
-      clauses.push(
-        <Fragment key="hosp">
-          {consequence.hospitals} hospital{consequence.hospitals > 1 ? "s" : ""}
-        </Fragment>,
-      );
+      clauses.push(<Fragment key="hosp">{consequence.hospitals} {p.hospital(consequence.hospitals)}</Fragment>);
     }
     if (consequence.water_plants > 0) {
-      clauses.push(
-        <Fragment key="water">
-          {consequence.water_plants} water treatment plant{consequence.water_plants > 1 ? "s" : ""}
-        </Fragment>,
-      );
+      clauses.push(<Fragment key="water">{consequence.water_plants} {p.waterPlant(consequence.water_plants)}</Fragment>);
     }
   }
 
@@ -287,48 +280,47 @@ function PowerCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Power</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{t.cards.power}</CardTitle>
         <ConfidenceChip tier={sub.confidence_tier} />
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <p>
-          Your area draws power from the{" "}
-          <span className="font-semibold text-foreground">{sub.name}</span> substation
+          {p.drawsFromLead}
+          <span className="font-semibold text-foreground">{sub.name}</span>
+          {p.drawsFromAfter}
           {clauses.length > 0 ? (
-            <> — the same grid section that keeps {listJoin(clauses)} running.</>
+            <>
+              {p.keepsRunningLead}
+              {listJoin(clauses, p)}
+              {p.keepsRunningAfter}
+            </>
           ) : (
-            "."
+            p.period
           )}
         </p>
 
         {hasToday && (
           <p className="text-muted-foreground">
-            <span className="font-medium text-foreground">Right now</span>,{" "}
+            <span className="font-medium text-foreground">{p.rightNow}</span>,{" "}
             {today.generation_mw != null && (
               <>
-                the island grid is generating{" "}
-                <span className="font-medium text-foreground">{fmtInt(today.generation_mw)} MW</span>
-                {today.plants_offline != null && today.plants_total != null && (
-                  <>
-                    {" "}with {today.plants_offline} of {today.plants_total} plants offline
-                  </>
-                )}{" "}
-                <span className="text-xs">(live, PREPA · {fmtRelative(today.generation_as_of)})</span>
+                {p.generatingLead}
+                <span className="font-medium text-foreground">{fmtInt(today.generation_mw, intl)}{p.mwUnit}</span>
+                {today.plants_offline != null && today.plants_total != null &&
+                  p.plantsOffline(today.plants_offline, today.plants_total)}{" "}
+                <span className="text-xs">{p.live(fmtRelative(today.generation_as_of, intl))}</span>
                 {today.outage_pct_island != null ? "; " : "."}
               </>
             )}
             {today.outage_pct_island != null && (
               <>
-                LUMA reports{" "}
-                {today.outage_pct_island === 0 ? (
-                  "no customers without service island-wide"
-                ) : (
-                  <>
-                    {today.outage_pct_island < 0.1 ? "under 0.1" : today.outage_pct_island.toFixed(1)}% of
-                    customers island-wide without service
-                  </>
-                )}{" "}
-                <span className="text-xs">(live · {fmtRelative(today.outage_as_of)})</span>.
+                {p.lumaReports}{" "}
+                {today.outage_pct_island === 0
+                  ? p.noOutages
+                  : p.pctWithoutService(
+                      today.outage_pct_island < 0.1 ? p.underPointOne : today.outage_pct_island.toFixed(1),
+                    )}{" "}
+                <span className="text-xs">{p.liveDot(fmtRelative(today.outage_as_of, intl))}</span>
               </>
             )}
           </p>
@@ -336,20 +328,18 @@ function PowerCard({
 
         {consequence && consequence.population_affected > 0 && (
           <p className="text-muted-foreground">
-            <span className="font-medium text-foreground">In a Category 3 hurricane</span>, if that
-            substation goes down, PRISM estimates it would cut power to about{" "}
+            <span className="font-medium text-foreground">{p.cat3Lead}</span>
+            {p.cat3Mid}{" "}
+            {p.about}{" "}
             <span className="font-medium text-foreground">
-              {fmtIntTiered(consequence.population_affected, consequence.confidence_tier)}
+              {fmtIntTiered(consequence.population_affected, consequence.confidence_tier, intl)}
             </span>{" "}
-            people
+            {p.people(consequence.population_affected)}
             {consequence.hospitals > 0 && (
-              <>, {consequence.hospitals} hospital{consequence.hospitals > 1 ? "s" : ""}</>
+              <>{p.listSep}{consequence.hospitals} {p.hospital(consequence.hospitals)}</>
             )}
             {consequence.water_plants > 0 && (
-              <>
-                , and {consequence.water_plants} water treatment plant
-                {consequence.water_plants > 1 ? "s" : ""}
-              </>
+              <>{p.andComma}{consequence.water_plants} {p.waterPlant(consequence.water_plants)}</>
             )}
             .
           </p>
@@ -357,19 +347,16 @@ function PowerCard({
 
         {consequence?.quake_rank != null && consequence.quake_total != null && (
           <p className="text-muted-foreground">
-            <span className="font-medium text-foreground">In a major earthquake</span>, this substation
-            ranks{" "}
+            <span className="font-medium text-foreground">{p.quakeLead}</span>
+            {p.quakeMid}{" "}
             <span className="font-medium text-foreground">
-              #{consequence.quake_rank} of {consequence.quake_total}
+              {p.quakeRankOf(consequence.quake_rank, consequence.quake_total)}
             </span>{" "}
-            island-wide on PRISM&apos;s risk list — a mix of how close it sits to mapped faults and how
-            much depends on it.
+            {p.quakeAfter}
           </p>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          Estimated from the local grid layout — the chip above says how solid this is.
-        </p>
+        <p className="text-xs text-muted-foreground">{p.estimatedNote}</p>
       </CardContent>
     </Card>
   );

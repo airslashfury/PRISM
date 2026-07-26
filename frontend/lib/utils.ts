@@ -5,7 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Compact USD: 4_500_000_000 -> "$4.5B", 200_000_000 -> "$200M". */
+/** Compact USD: 4_500_000_000 -> "$4.5B", 200_000_000 -> "$200M". Deliberately
+ * no `locale` param — hand-built from `toFixed`, not `Intl`, so es-PR output
+ * is already identical to en-US (F12a). Don't "fix" this into an `Intl` call;
+ * there's nothing broken to fix, and es-ES's grouping would need one anyway. */
 export function fmtUsd(v: number | null | undefined, digits = 1): string {
   if (v == null || Number.isNaN(v)) return "—";
   const abs = Math.abs(v);
@@ -16,26 +19,32 @@ export function fmtUsd(v: number | null | undefined, digits = 1): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-export function fmtInt(v: number | null | undefined): string {
+/** `es-PR` (not `es-ES`) formats numbers the US way — 1,234,567.89, same as
+ * `en-US` — so passing it through `Intl`/`toLocaleString` is correct as-is;
+ * see ROADMAP.md item F12. Defaults to `en-US` so the ~450 existing call
+ * sites that don't pass a locale keep behaving exactly as before. */
+export function fmtInt(v: number | null | undefined, locale = "en-US"): string {
   if (v == null || Number.isNaN(v)) return "—";
-  return Math.round(v).toLocaleString("en-US");
+  return Math.round(v).toLocaleString(locale);
 }
 
-export function fmtNum(v: number | null | undefined, digits = 1): string {
+export function fmtNum(v: number | null | undefined, digits = 1, locale = "en-US"): string {
   if (v == null || Number.isNaN(v)) return "—";
-  return v.toLocaleString("en-US", {
+  return v.toLocaleString(locale, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
 }
 
-/** value already a fraction 0..1 -> "42.0%" */
+/** value already a fraction 0..1 -> "42.0%". No `locale` param — same reason
+ * as `fmtUsd` above: `toFixed`-based, already correct for es-PR as-is. */
 export function fmtPct(v: number | null | undefined, digits = 1): string {
   if (v == null || Number.isNaN(v)) return "—";
   return `${(v * 100).toFixed(digits)}%`;
 }
 
-/** Compact magnitude: 87412 -> "87K", 1_250_000 -> "1.3M". Used for Proxy/Estimated figures. */
+/** Compact magnitude: 87412 -> "87K", 1_250_000 -> "1.3M". Used for Proxy/Estimated
+ * figures. No `locale` param — same reason as `fmtUsd` above. */
 export function fmtCompact(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return "—";
   const abs = Math.abs(v);
@@ -48,10 +57,10 @@ export function fmtCompact(v: number | null | undefined): string {
 /** Confidence-aware integer formatting: Authoritative/Modeled -> exact ("87,412"),
  * Proxy/Estimated -> rounded with a leading "≈" ("≈87K") so a proxy-derived figure
  * never reads with false precision. */
-export function fmtIntTiered(v: number | null | undefined, tier?: string | null): string {
+export function fmtIntTiered(v: number | null | undefined, tier?: string | null, locale = "en-US"): string {
   if (v == null || Number.isNaN(v)) return "—";
   if (tier === "proxy" || tier === "estimated") return `≈${fmtCompact(v)}`;
-  return fmtInt(v);
+  return fmtInt(v, locale);
 }
 
 /** Confidence-aware USD formatting: Proxy/Estimated figures get a leading "≈". */
@@ -67,11 +76,11 @@ export function fmtKm(v: number | null | undefined): string {
   return `${v.toFixed(1)} km`;
 }
 
-export function fmtDateTime(v: string | null | undefined): string {
+export function fmtDateTime(v: string | null | undefined, locale = "en-US"): string {
   if (!v) return "—";
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("en-US", {
+  return d.toLocaleString(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -84,21 +93,32 @@ export function fmtDateTime(v: string | null | undefined): string {
  * than being handed to `new Date()`, which reads it as UTC — in Puerto Rico
  * (UTC-4) that renders every such date one day early.
  */
-export function fmtDate(v: string | null | undefined): string {
+export function fmtDate(v: string | null | undefined, locale = "en-US"): string {
   if (!v) return "—";
   const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
   const d = bare
     ? new Date(Number(bare[1]), Number(bare[2]) - 1, Number(bare[3]))
     : new Date(v);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return d.toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function fmtRelative(v: string | null | undefined): string {
-  if (!v) return "never";
+/** No `Intl` call here (deliberately terse — "5m ago", not
+ * `Intl.RelativeTimeFormat`'s "5 minutes ago"), so es-PR needs its own words
+ * and word order rather than just a locale tag: Spanish puts "hace" before
+ * the quantity ("hace 5 min"), not after. */
+export function fmtRelative(v: string | null | undefined, locale: "en-US" | "es-PR" = "en-US"): string {
+  const es = locale === "es-PR";
+  if (!v) return es ? "nunca" : "never";
   const d = new Date(v).getTime();
-  if (Number.isNaN(d)) return "never";
+  if (Number.isNaN(d)) return es ? "nunca" : "never";
   const s = Math.round((Date.now() - d) / 1000);
+  if (es) {
+    if (s < 60) return `hace ${s}s`;
+    if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+    if (s < 86400) return `hace ${Math.round(s / 3600)} h`;
+    return `hace ${Math.round(s / 86400)} d`;
+  }
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.round(s / 60)}m ago`;
   if (s < 86400) return `${Math.round(s / 3600)}h ago`;

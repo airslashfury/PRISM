@@ -7,13 +7,17 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
 import { BrandWordmark } from "@/components/brand";
-import { NAV } from "./nav";
+import { useNav } from "./nav";
+import { LanguageToggle } from "./language-toggle";
+import { useMessages } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const NAV = useNav();
+  const t = useMessages().sidebar;
 
   useEffect(() => {
     setMounted(true);
@@ -69,7 +73,7 @@ export function MobileNav() {
 
               <nav className="flex-1 space-y-1 overflow-y-auto p-3">
                 <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                  Modules
+                  {t.modules}
                 </div>
                 {NAV.map((item) => {
                   const active =
@@ -99,6 +103,10 @@ export function MobileNav() {
                   );
                 })}
               </nav>
+
+              <div className="border-t border-border/70 p-3">
+                <LanguageToggle collapsed={false} />
+              </div>
             </div>
           </div>,
           document.body,

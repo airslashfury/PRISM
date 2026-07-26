@@ -7,7 +7,9 @@ import { usePathname } from "next/navigation";
 import { BrandWordmark } from "@/components/brand";
 import { PaneResizer, PaneToggle } from "@/components/ui/resizable-pane";
 import { notifyMapResize, usePaneShortcut, usePaneState } from "@/lib/pane-state";
-import { NAV, type NavGroup } from "./nav";
+import { useNav, type NavGroup } from "./nav";
+import { LanguageToggle } from "./language-toggle";
+import { useMessages } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 
 const GROUPS: NavGroup[] = ["Live", "Explore", "Decide", "Reference"];
@@ -20,6 +22,8 @@ const NAV_RAIL_WIDTH = 56;
 
 export function Sidebar() {
   const pathname = usePathname();
+  const NAV = useNav();
+  const t = useMessages().sidebar;
   const pane = usePaneState("nav", {
     defaultWidth: NAV_DEFAULT_WIDTH,
     minWidth: NAV_MIN_WIDTH,
@@ -59,7 +63,7 @@ export function Sidebar() {
             collapsed={collapsed}
             side="left"
             onToggle={toggle}
-            label={collapsed ? "Expand navigation" : "Collapse navigation"}
+            label={collapsed ? t.expandNav : t.collapseNav}
             shortcut="["
           />
         </div>
@@ -73,7 +77,7 @@ export function Sidebar() {
                 <div className="mx-auto mb-2 h-px w-6 bg-border/60" aria-hidden />
               ) : (
                 <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                  {group}
+                  {t.groups[group]}
                 </div>
               )}
               <div className="space-y-1">
@@ -115,20 +119,22 @@ export function Sidebar() {
           ))}
         </nav>
 
-        <div className={cn("border-t border-border/70", collapsed ? "p-2" : "p-4")}>
+        <div className={cn("border-t border-border/70 space-y-2", collapsed ? "p-2" : "p-4")}>
+          <LanguageToggle collapsed={collapsed} />
+
           <div
             className={cn(
               "rounded-lg border border-border/60 bg-background/60",
               collapsed ? "flex justify-center p-2" : "p-3",
             )}
-            title={collapsed ? "Model online — PostGIS · EPSG:32161" : undefined}
+            title={collapsed ? `${t.modelOnline} — PostGIS · EPSG:32161` : undefined}
           >
             <div className={cn("flex items-center text-xs", collapsed ? "" : "gap-2")}>
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
               </span>
-              {!collapsed && <span className="text-muted-foreground">Model online</span>}
+              {!collapsed && <span className="text-muted-foreground">{t.modelOnline}</span>}
             </div>
             {!collapsed && (
               <div className="mt-1 text-[10px] text-muted-foreground/70">PostGIS · EPSG:32161</div>

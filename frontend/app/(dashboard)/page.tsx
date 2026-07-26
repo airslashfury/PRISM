@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorBlock } from "@/components/query-state";
-import { NAV } from "@/components/layout/nav";
+import { useNav } from "@/components/layout/nav";
 import { MapCanvas, PR_VIEW } from "@/components/map/map-canvas";
 import { GenerationPanel } from "@/components/generation-panel";
 import { OutagesPanel } from "@/components/outages-panel";
@@ -46,6 +46,7 @@ const HERO_VIEW = { ...PR_VIEW, longitude: -66.113, latitude: 18.267, zoom: 8.5 
 const OFFLINE_PULSE_MS = 2200;
 
 export default function OverviewPage() {
+  const NAV = useNav();
   const { data, error } = useOverview();
   const { data: current } = useCurrentState();
   const { data: seismic } = useSeismic(30);

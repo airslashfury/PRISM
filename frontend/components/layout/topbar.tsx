@@ -8,13 +8,13 @@ import { Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtRelative } from "@/lib/utils";
 import { useOverview } from "@/lib/hooks";
-import { activeNav } from "./nav";
+import { activeNav, useNav } from "./nav";
 import { MobileNav } from "./mobile-nav";
 import { openCommandPalette } from "@/components/command-palette";
 
 export function Topbar() {
   const pathname = usePathname();
-  const nav = activeNav(pathname);
+  const nav = activeNav(useNav(), pathname);
   const { data: overview } = useOverview();
   const health = useQuery({
     queryKey: ["health"],
