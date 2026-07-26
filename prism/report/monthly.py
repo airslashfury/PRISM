@@ -169,7 +169,11 @@ def _classify_all_transfers(
         for municipio, previous, new in result:
             klass = classify_owner_change(previous, new)
             counts[klass] += 1
-            if klass != "substantive" and _is_unknown_owner(previous, new):
+            # Counted only within the cosmetic classes, which is the
+            # denominator the report prints it against. The handful of sentinel
+            # rows that land in `first_recorded` are real first recordings and
+            # belong in the headline, not in the churn figure.
+            if klass in ("reordered", "formatting_only") and _is_unknown_owner(previous, new):
                 counts["sentinel_churn"] += 1
             if klass in ("substantive", "first_recorded"):
                 per_municipio[municipio] = per_municipio.get(municipio, 0) + 1
@@ -424,6 +428,12 @@ def _contracts_section(engine: Engine, month: date) -> dict[str, Any]:
         section["reason"] = "The OCPR contract register has not been mirrored."
         return section
 
+    # Set before the availability check: a month with no contracts still has a
+    # known register vintage, and "none were granted" must be distinguishable
+    # from "the register was never pulled back that far".
+    section["vintage"] = _vintage(engine, "SELECT max(loaded_at) FROM ocpr.contracts")
+    section["period"] = f"contracts with a date of grant in {month:%B %Y}"
+
     totals = _rows(engine, """
         SELECT count(*)                                            AS contracts,
                coalesce(sum(amount_to_pay), 0)                     AS amount_to_pay,
@@ -438,8 +448,6 @@ def _contracts_section(engine: Engine, month: date) -> dict[str, Any]:
         return section
 
     section["available"] = True
-    section["vintage"] = _vintage(engine, "SELECT max(loaded_at) FROM ocpr.contracts")
-    section["period"] = f"contracts with a date of grant in {month:%B %Y}"
     section["totals"]["shared"] = int(_scalar(engine, """
         SELECT count(*) FROM (
             SELECT cc.contract_id
@@ -850,6 +858,14 @@ def _html_registry(sec: dict[str, Any], label: str) -> list[str]:
     out.append(
         f'<h3>Standing position as of {escape(str(sec.get("vintage") or "the registry mirror"))}'
         "</h3>"
+    )
+    out.append(
+        '<div class="note">These are <strong>floor</strong> figures. The corporations '
+        "register publishes no bulk export, so PRISM mirrors it by walking it entity by "
+        "entity under a self-imposed rate limit — the walk is not finished, and a company "
+        "not yet mirrored cannot appear here. The date above is when the mirror last "
+        "advanced, not a date on which the register was completely read. See "
+        "<code>ANOMALIES.md</code> → <code>rce_registry_mirror_incomplete</code>.</div>"
     )
     if standing.get("by_status"):
         out.append(

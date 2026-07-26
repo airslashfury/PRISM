@@ -72,6 +72,10 @@ def narratives_stream(
 # disk. The CLI (`python -m prism.report --monthly`) and the worker cron write
 # the durable artifacts; these serve the same content from the same builder, so
 # the two can't drift.
+#
+# All three responses carry the same TTL. Caching only the JSON — as this router
+# first did — let it disagree with the HTML built from the same builder within
+# the window, which is the one thing the paragraph above promises cannot happen.
 
 @router.get("/monthly/{month}", response_model=schemas.MonthlyReport)
 @cached_response("monthly_report", ttl=3600)
@@ -108,15 +112,19 @@ def monthly(month: str, engine: Engine = Depends(engine_dep)) -> dict:
 @router.get("/monthly/{month}/html", response_class=HTMLResponse)
 def monthly_html(month: str, engine: Engine = Depends(engine_dep)) -> HTMLResponse:
     """The self-contained HTML report — the print-to-PDF artifact."""
-    report = monthly_report.build_monthly_report(engine, _validated_month(month))
-    return HTMLResponse(monthly_report.render_html(report))
+    return HTMLResponse(_monthly_html_cached(month=_validated_month(month), engine=engine))
+
+
+@cached_response("monthly_report_html", ttl=3600)
+def _monthly_html_cached(*, month: str, engine: Engine) -> str:
+    return monthly_report.render_html(monthly_report.build_monthly_report(engine, month))
 
 
 @router.get("/monthly/{month}/csv/{name}", response_class=PlainTextResponse)
 def monthly_csv(month: str, name: str, engine: Engine = Depends(engine_dep)) -> PlainTextResponse:
     """One section CSV. `name` must be one of the filenames listed by the JSON endpoint."""
-    report = monthly_report.build_monthly_report(engine, _validated_month(month))
-    csvs = monthly_report.render_csvs(report)
+    month = _validated_month(month)
+    csvs = _monthly_csvs_cached(month=month, engine=engine)
     # Exact membership against the generated set — never a path join, so a
     # traversal attempt can't reach the filesystem at all.
     if name not in csvs:
@@ -127,5 +135,10 @@ def monthly_csv(month: str, name: str, engine: Engine = Depends(engine_dep)) -> 
     return PlainTextResponse(
         csvs[name],
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{report["month"]}-{name}"'},
+        headers={"Content-Disposition": f'attachment; filename="{month}-{name}"'},
     )
+
+
+@cached_response("monthly_report_csv", ttl=3600)
+def _monthly_csvs_cached(*, month: str, engine: Engine) -> dict[str, str]:
+    return monthly_report.render_csvs(monthly_report.build_monthly_report(engine, month))

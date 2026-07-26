@@ -262,6 +262,67 @@ anomalies:
       only — will read roughly three times as many transfers as occurred.
     status: active
 
+  - id: crim_delta_no_removal_branch
+    title: A parcel that disappears between snapshots produces no delta row
+    dataset: crim.parcel_deltas
+    source: PRISM-derived (delta computation)
+    what: >-
+      `compute_deltas` emits new_parcel, sale, value_change and owner_change
+      rows. There is no branch for a catastro present in the earlier snapshot
+      and absent from the later one, so retirements and re-numberings are
+      invisible in the change record.
+    why: >-
+      Not a decision so much as an omission the monthly report surfaced.
+      Recorded rather than quietly fixed because adding the branch changes what
+      historical deltas mean, and a segregation currently shows its child
+      parcels arriving while the retired parent simply vanishes.
+    where: prism/crim/snapshots.py:compute_deltas
+    scope:
+      - the monthly change report's parcel section
+      - "WhatsNew crim_delta counts"
+      - any longitudinal analysis over crim.parcel_deltas
+    magnitude:
+      measured: >-
+        50 catastros present in the 2026-06 snapshot are absent from 2026-07 and
+        generate no delta, against 221 arrivals that do
+      probe: >-
+        SELECT count(*) FROM crim.parcela_snapshots f
+        WHERE f.snapshot_month = DATE '2026-06-01'
+          AND NOT EXISTS (SELECT 1 FROM crim.parcela_snapshots t
+                          WHERE t.snapshot_month = DATE '2026-07-01'
+                            AND t.num_catastro = f.num_catastro)
+    severity: low
+    remediation: null
+    status: active
+
+  - id: crim_delta_blanked_owner_dropped
+    title: An owner blanked between snapshots is not recorded as a change
+    dataset: crim.parcel_deltas (change_type='owner_change')
+    source: PRISM-derived (delta computation)
+    what: >-
+      The owner_change branch requires the NEW value to be non-null, so a parcel
+      whose owner goes from a name to blank is dropped. The mirror case — blank
+      to a name — is counted, and the monthly report classifies it as
+      `first_recorded`.
+    why: >-
+      The guard exists to avoid reporting a transfer to nobody. The effect is
+      asymmetric: PRISM sees owners appear and never sees them removed.
+    where: prism/crim/snapshots.py:compute_deltas
+    scope:
+      - the monthly change report's ownership counts
+      - "WhatsNew crim_delta counts"
+    magnitude:
+      measured: 20 parcels had their owner blanked between the 2026-06 and 2026-07 snapshots
+      probe: >-
+        SELECT count(*) FROM crim.parcela_snapshots t
+        JOIN crim.parcela_snapshots f ON f.snapshot_month = DATE '2026-06-01'
+             AND f.num_catastro = t.num_catastro
+        WHERE t.snapshot_month = DATE '2026-07-01'
+          AND t.contact IS NULL AND f.contact IS NOT NULL
+    severity: low
+    remediation: null
+    status: active
+
   - id: crim_reassessment_noise_floor
     title: Assessed-value changes under $1 are not recorded as deltas
     dataset: crim.parcel_deltas
@@ -440,6 +501,9 @@ anomalies:
       - the corporate-registry section on the owner drawer and parcel card
         (silent when there is no record, never asserting absence)
       - the corporate-suffix match rate quoted for owner matching
+      - "the monthly change report's corporate-status section — its
+        \"N dissolved companies still hold M parcels\" standing figure is a
+        FLOOR computed off however much of the register has been mirrored"
     magnitude:
       measured: 324,281 entities mirrored of an estimated ~560,000
       probe: "SELECT count(*) FROM crim.rce_entities"
@@ -689,15 +753,18 @@ anomalies:
       have no FEEDS edge in the transmission graph. `swap_powers` skips those
       barrios, so their POWERS links stay on the Voronoi proxy — attached by
       nearest distance rather than by conductor. 101 barrios are affected,
-      carrying 132 proxy edges from 39 distinct substations (the primaries plus
-      the secondaries Voronoi also assigned).
+      carrying 131 proxy edges from 38 distinct substations (the primaries plus
+      the secondaries Voronoi also assigned). One further barrio keeps the proxy
+      for an unrelated reason and is counted in the 132/102 totals below:
+      Isla de Mona e Islote Monito has no measured feeder coverage at all — see
+      `barrios_without_measured_feeder_coverage`.
     why: >-
       Swapping them would have dropped them out of upstream cascades entirely,
       trading a known proxy for a silent hole. Keeping the proxy is the lesser
       error, and it is labelled per-edge.
     where: prism/graph/feeders.py:swap_powers
     scope:
-      - "/resilience cascades through those 22 substations"
+      - "/resilience cascades through those 19 substations"
       - their barrios' civic-card power section
       - any population-affected figure downstream of them
     magnitude:
@@ -718,6 +785,36 @@ anomalies:
       barrios do not appear in the published transmission topology, so their
       upstream connectivity cannot be established from public data — PRISM can
       see what they serve but not what serves them.
+    status: active
+
+  - id: barrios_without_measured_feeder_coverage
+    title: One barrio has no measured feeder conductors at all and keeps the Voronoi proxy
+    dataset: graph.feeder_service
+    source: AEE/PREPA distribution feeder network
+    what: >-
+      Isla de Mona e Islote Monito appears in the barrio layer but has zero rows
+      in the measured feeder-service table, so `swap_powers` has nothing to swap
+      its POWERS edge onto and it stays on the Voronoi proxy — for a different
+      reason than the 101 barrios whose primary substation is a FEEDS orphan.
+    why: >-
+      Mona is an uninhabited nature reserve with no distribution network, so the
+      absence is almost certainly correct rather than a gap. Recorded because a
+      reader reconciling the 132-edge Voronoi total against the 131 attributable
+      to FEEDS orphans would otherwise be off by one with no explanation.
+    where: prism/graph/feeders.py:swap_powers
+    scope:
+      - "the Voronoi-proxy edge count (132 across 102 barrios, of which 131/101
+        are FEEDS-orphan cases)"
+    magnitude:
+      measured: 1 barrio of 901 has no rows in graph.feeder_service
+      probe: >-
+        SELECT count(DISTINCT rel.dst_entity) FROM graph.relationships rel
+        WHERE rel.rel_type = 'POWERS'
+          AND rel.method IN ('voronoi_centroid','voronoi_overlap')
+          AND NOT EXISTS (SELECT 1 FROM graph.feeder_service fs
+                          WHERE fs.barrio_id = rel.dst_entity)
+    severity: low
+    remediation: null
     status: active
 
   - id: point_facilities_keep_voronoi_powers
@@ -891,6 +988,42 @@ anomalies:
       probe: "SELECT count(*) FROM resilience.telecom_scores"
     severity: low
     remediation: null
+    status: active
+
+  - id: telecom_coverage_radius_leaves_gaps
+    title: Telecom coverage is a 4 km circle, so 71 sites cover nothing and 94 barrios show none
+    dataset: graph.relationships (COVERS)
+    source: PRITS / FCC (2010-2012 telecom layers)
+    what: >-
+      A tower or cell site COVERS a barrio only if the barrio falls within 4 km
+      of it. 71 of 905 sites reach no barrio at all, so they score zero
+      coverage-loss consequence regardless of what they actually serve; 94 of
+      901 barrios have no covering site, and the parcel and barrio cards render
+      that as "no telecom coverage".
+    why: >-
+      No real RF service areas are published for these sites. A flat radius is
+      the honest available proxy and is tiered as one, but a circle around a
+      point is not a coverage map: it invents reach where terrain blocks it and
+      denies reach where a tall mast carries it.
+    where: prism/graph/telecom.py:COVERAGE_RADIUS_M
+    scope:
+      - "/telecom coverage-loss scoring (71 sites sink to zero consequence)"
+      - "the parcel-360 and barrio cards, which show 94 barrios as uncovered"
+      - the power->telecom cascade fan
+    magnitude:
+      measured: 71 of 905 sites have no COVERS edge; 94 of 901 barrios have no covering site
+      probe: >-
+        SELECT count(*) FROM graph.entities e
+        WHERE e.kind IN ('telecom_tower','cell_site')
+          AND NOT EXISTS (SELECT 1 FROM graph.relationships r
+                          WHERE r.rel_type = 'COVERS' AND r.src_entity = e.entity_id)
+    severity: medium
+    remediation_owner: [jp]
+    remediation: >-
+      The published telecom layers are 2010-2012 and carry no service-area
+      geometry, so coverage can only be inferred from distance. The
+      callsign service-area polygons that exist in the same WFS collection, or
+      any current carrier coverage filing, would replace the circle with a map.
     status: active
 
   - id: telecom_no_fiber_layer

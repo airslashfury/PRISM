@@ -9,7 +9,7 @@ of the exclusion, and — where there is one — what the source institution wou
 have to fix.
 
 The exclusions are individually defensible. Together they are a data-quality
-report: 23 of the 35 entries below describe a defect in
+report: 24 of the 39 entries below describe a defect in
 published government data rather than a modelling choice, and each of those names
 the institution that could close it.
 
@@ -27,9 +27,9 @@ registry, not this file.
 | Severity | Entries |
 |---|---|
 | High — materially affects conclusions PRISM draws | 7 |
-| Medium — narrows or biases a figure | 16 |
-| Low — cosmetic or well-bounded | 12 |
-| **Total active** | **35** |
+| Medium — narrows or biases a figure | 17 |
+| Low — cosmetic or well-bounded | 15 |
+| **Total active** | **39** |
 
 | # | Exclusion | Dataset | Severity |
 |---|---|---|---|
@@ -56,18 +56,22 @@ registry, not this file.
 | 21 | [Placeholder registry addresses are excluded from the address layer](#rce-address-sentinels) | `crim.rce_addresses` | medium |
 | 22 | [A plausible-but-unconfirmed registry match is recorded as no match](#rce-ambiguous-match-withdrawn) | `crim.owner_rce_match` | medium |
 | 23 | [Twenty substations sit too far from any transmission line to join the graph](#substations-beyond-transmission-attach-radius) | `graph.relationships (CONNECTS_TO)` | medium |
-| 24 | [Ask PRISM only excludes government owners when explicitly asked to](#ask-government-owner-filter-opt-in) | `crim.parcelas_dedup (via the Ask SQL tool)` | low |
-| 25 | [The ACS mirror is skipped without an API key](#census-acs-requires-api-key) | `Census ACS 5-year estimates` | low |
-| 26 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
-| 27 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
-| 28 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
-| 29 | [The investment plan can only choose from the worst 200 substations and 100 barrios](#ilp-catalog-top-n-cap) | `optimize.portfolio_runs (via the intervention catalog)` | low |
-| 30 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
-| 31 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
-| 32 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
-| 33 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
-| 34 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
-| 35 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
+| 24 | [Telecom coverage is a 4 km circle, so 71 sites cover nothing and 94 barrios show none](#telecom-coverage-radius-leaves-gaps) | `graph.relationships (COVERS)` | medium |
+| 25 | [Ask PRISM only excludes government owners when explicitly asked to](#ask-government-owner-filter-opt-in) | `crim.parcelas_dedup (via the Ask SQL tool)` | low |
+| 26 | [One barrio has no measured feeder conductors at all and keeps the Voronoi proxy](#barrios-without-measured-feeder-coverage) | `graph.feeder_service` | low |
+| 27 | [The ACS mirror is skipped without an API key](#census-acs-requires-api-key) | `Census ACS 5-year estimates` | low |
+| 28 | [An owner blanked between snapshots is not recorded as a change](#crim-delta-blanked-owner-dropped) | `crim.parcel_deltas (change_type='owner_change')` | low |
+| 29 | [A parcel that disappears between snapshots produces no delta row](#crim-delta-no-removal-branch) | `crim.parcel_deltas` | low |
+| 30 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
+| 31 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
+| 32 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
+| 33 | [The investment plan can only choose from the worst 200 substations and 100 barrios](#ilp-catalog-top-n-cap) | `optimize.portfolio_runs (via the intervention catalog)` | low |
+| 34 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
+| 35 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
+| 36 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
+| 37 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
+| 38 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
+| 39 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
 
 ## High — materially affects conclusions PRISM draws
 
@@ -199,6 +203,7 @@ SELECT r.method, e2.kind, count(*) FROM graph.relationships r JOIN graph.entitie
 **Affects.**
 - the corporate-registry section on the owner drawer and parcel card (silent when there is no record, never asserting absence)
 - the corporate-suffix match rate quoted for owner matching
+- the monthly change report's corporate-status section — its "N dissolved companies still hold M parcels" standing figure is a FLOOR computed off however much of the register has been mirrored
 
 **How much.** 324,281 entities mirrored of an estimated ~560,000
 
@@ -463,12 +468,12 @@ SELECT method, count(*) FROM graph.relationships WHERE rel_type='POWERS' GROUP B
 - **Source** PRISM-derived (proxy)
 - **Enforced at** `prism/graph/feeders.py:swap_powers`
 
-**What is excluded.** 19 substations are the measured primary feeder for at least one barrio yet have no FEEDS edge in the transmission graph. `swap_powers` skips those barrios, so their POWERS links stay on the Voronoi proxy — attached by nearest distance rather than by conductor. 101 barrios are affected, carrying 132 proxy edges from 39 distinct substations (the primaries plus the secondaries Voronoi also assigned).
+**What is excluded.** 19 substations are the measured primary feeder for at least one barrio yet have no FEEDS edge in the transmission graph. `swap_powers` skips those barrios, so their POWERS links stay on the Voronoi proxy — attached by nearest distance rather than by conductor. 101 barrios are affected, carrying 131 proxy edges from 38 distinct substations (the primaries plus the secondaries Voronoi also assigned). One further barrio keeps the proxy for an unrelated reason and is counted in the 132/102 totals below: Isla de Mona e Islote Monito has no measured feeder coverage at all — see `barrios_without_measured_feeder_coverage`.
 
 **Why.** Swapping them would have dropped them out of upstream cascades entirely, trading a known proxy for a silent hole. Keeping the proxy is the lesser error, and it is labelled per-edge.
 
 **Affects.**
-- /resilience cascades through those 22 substations
+- /resilience cascades through those 19 substations
 - their barrios' civic-card power section
 - any population-affected figure downstream of them
 
@@ -701,6 +706,34 @@ SELECT count(*) FROM graph.entities e WHERE e.kind='substation' AND NOT EXISTS (
 
 ---
 
+### Telecom coverage is a 4 km circle, so 71 sites cover nothing and 94 barrios show none
+
+<a id="telecom-coverage-radius-leaves-gaps"></a>
+
+- **id** `telecom_coverage_radius_leaves_gaps`
+- **Dataset** `graph.relationships (COVERS)`
+- **Source** PRITS / FCC (2010-2012 telecom layers)
+- **Enforced at** `prism/graph/telecom.py:COVERAGE_RADIUS_M`
+
+**What is excluded.** A tower or cell site COVERS a barrio only if the barrio falls within 4 km of it. 71 of 905 sites reach no barrio at all, so they score zero coverage-loss consequence regardless of what they actually serve; 94 of 901 barrios have no covering site, and the parcel and barrio cards render that as "no telecom coverage".
+
+**Why.** No real RF service areas are published for these sites. A flat radius is the honest available proxy and is tiered as one, but a circle around a point is not a coverage map: it invents reach where terrain blocks it and denies reach where a tall mast carries it.
+
+**Affects.**
+- /telecom coverage-loss scoring (71 sites sink to zero consequence)
+- the parcel-360 and barrio cards, which show 94 barrios as uncovered
+- the power->telecom cascade fan
+
+**How much.** 71 of 905 sites have no COVERS edge; 94 of 901 barrios have no covering site
+
+```sql
+SELECT count(*) FROM graph.entities e WHERE e.kind IN ('telecom_tower','cell_site') AND NOT EXISTS (SELECT 1 FROM graph.relationships r WHERE r.rel_type = 'COVERS' AND r.src_entity = e.entity_id)
+```
+
+**What would fix it** (Junta de Planificación). The published telecom layers are 2010-2012 and carry no service-area geometry, so coverage can only be inferred from distance. The callsign service-area polygons that exist in the same WFS collection, or any current carrier coverage filing, would replace the circle with a map.
+
+---
+
 ## Low — cosmetic or well-bounded
 
 ### Ask PRISM only excludes government owners when explicitly asked to
@@ -725,6 +758,32 @@ SELECT count(*) FROM graph.entities e WHERE e.kind='substation' AND NOT EXISTS (
 
 ---
 
+### One barrio has no measured feeder conductors at all and keeps the Voronoi proxy
+
+<a id="barrios-without-measured-feeder-coverage"></a>
+
+- **id** `barrios_without_measured_feeder_coverage`
+- **Dataset** `graph.feeder_service`
+- **Source** AEE/PREPA distribution feeder network
+- **Enforced at** `prism/graph/feeders.py:swap_powers`
+
+**What is excluded.** Isla de Mona e Islote Monito appears in the barrio layer but has zero rows in the measured feeder-service table, so `swap_powers` has nothing to swap its POWERS edge onto and it stays on the Voronoi proxy — for a different reason than the 101 barrios whose primary substation is a FEEDS orphan.
+
+**Why.** Mona is an uninhabited nature reserve with no distribution network, so the absence is almost certainly correct rather than a gap. Recorded because a reader reconciling the 132-edge Voronoi total against the 131 attributable to FEEDS orphans would otherwise be off by one with no explanation.
+
+**Affects.**
+- the Voronoi-proxy edge count (132 across 102 barrios, of which 131/101 are FEEDS-orphan cases)
+
+**How much.** 1 barrio of 901 has no rows in graph.feeder_service
+
+```sql
+SELECT count(DISTINCT rel.dst_entity) FROM graph.relationships rel WHERE rel.rel_type = 'POWERS' AND rel.method IN ('voronoi_centroid','voronoi_overlap') AND NOT EXISTS (SELECT 1 FROM graph.feeder_service fs WHERE fs.barrio_id = rel.dst_entity)
+```
+
+**What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.
+
+---
+
 ### The ACS mirror is skipped without an API key
 
 <a id="census-acs-requires-api-key"></a>
@@ -742,6 +801,61 @@ SELECT count(*) FROM graph.entities e WHERE e.kind='substation' AND NOT EXISTS (
 - SVI and per-tract demographics (already mirrored; this affects refreshes)
 
 **How much.** environment-dependent
+
+**What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.
+
+---
+
+### An owner blanked between snapshots is not recorded as a change
+
+<a id="crim-delta-blanked-owner-dropped"></a>
+
+- **id** `crim_delta_blanked_owner_dropped`
+- **Dataset** `crim.parcel_deltas (change_type='owner_change')`
+- **Source** PRISM-derived (delta computation)
+- **Enforced at** `prism/crim/snapshots.py:compute_deltas`
+
+**What is excluded.** The owner_change branch requires the NEW value to be non-null, so a parcel whose owner goes from a name to blank is dropped. The mirror case — blank to a name — is counted, and the monthly report classifies it as `first_recorded`.
+
+**Why.** The guard exists to avoid reporting a transfer to nobody. The effect is asymmetric: PRISM sees owners appear and never sees them removed.
+
+**Affects.**
+- the monthly change report's ownership counts
+- WhatsNew crim_delta counts
+
+**How much.** 20 parcels had their owner blanked between the 2026-06 and 2026-07 snapshots
+
+```sql
+SELECT count(*) FROM crim.parcela_snapshots t JOIN crim.parcela_snapshots f ON f.snapshot_month = DATE '2026-06-01' AND f.num_catastro = t.num_catastro WHERE t.snapshot_month = DATE '2026-07-01' AND t.contact IS NULL AND f.contact IS NOT NULL
+```
+
+**What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.
+
+---
+
+### A parcel that disappears between snapshots produces no delta row
+
+<a id="crim-delta-no-removal-branch"></a>
+
+- **id** `crim_delta_no_removal_branch`
+- **Dataset** `crim.parcel_deltas`
+- **Source** PRISM-derived (delta computation)
+- **Enforced at** `prism/crim/snapshots.py:compute_deltas`
+
+**What is excluded.** `compute_deltas` emits new_parcel, sale, value_change and owner_change rows. There is no branch for a catastro present in the earlier snapshot and absent from the later one, so retirements and re-numberings are invisible in the change record.
+
+**Why.** Not a decision so much as an omission the monthly report surfaced. Recorded rather than quietly fixed because adding the branch changes what historical deltas mean, and a segregation currently shows its child parcels arriving while the retired parent simply vanishes.
+
+**Affects.**
+- the monthly change report's parcel section
+- WhatsNew crim_delta counts
+- any longitudinal analysis over crim.parcel_deltas
+
+**How much.** 50 catastros present in the 2026-06 snapshot are absent from 2026-07 and generate no delta, against 221 arrivals that do
+
+```sql
+SELECT count(*) FROM crim.parcela_snapshots f WHERE f.snapshot_month = DATE '2026-06-01' AND NOT EXISTS (SELECT 1 FROM crim.parcela_snapshots t WHERE t.snapshot_month = DATE '2026-07-01' AND t.num_catastro = f.num_catastro)
+```
 
 **What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.
 
@@ -1084,6 +1198,8 @@ tables whose root cause is a dataset another agency has never published.
   Census Bureau / PR Planning Board: the PR geocoder resolves clean urban street addresses but misses urbanizacion- and barrio-style addressing, which is how a large share of the island is actually addressed.
 - **Approximate addresses can only cite numbered state highways** — 40 of 44 computed proposed addresses fell to Tier B (approximate).
   PR Planning Board / municipalities: no named local-street layer is published for Puerto Rico. It is the single missing dataset behind PRISM's inability to give most parcels a street address.
+- **Telecom coverage is a 4 km circle, so 71 sites cover nothing and 94 barrios show none** — 71 of 905 sites have no COVERS edge; 94 of 901 barrios have no covering site.
+  The published telecom layers are 2010-2012 and carry no service-area geometry, so coverage can only be inferred from distance. The callsign service-area polygons that exist in the same WFS collection, or any current carrier coverage filing, would replace the circle with a map.
 
 ### LUMA Energy
 
