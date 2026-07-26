@@ -1116,6 +1116,157 @@ stamp the new `lab.*` tables in `confidence.yml` + `catalog/metadata.json` and b
 
 ---
 
+### Item F14 — Workspace control, data-exclusion honesty, monthly change reporting, pull resilience  *(ACTIVE — requested 2026-07-25, branch `feat/f14` off `main`)*
+
+Source: user ask 2026-07-25, four items. Three of them (b/c/d) share one spine — **PRISM
+already knows things it does not say out loud**: what it silently drops, what changed month over
+month, and when a pull quietly failed. The fourth (a) is workspace ergonomics on a product whose
+every page is map-left / panel-right. Scope decisions taken with the user at intake:
+panes = both the global nav and the map sidebar; anomalies = a machine-readable registry that
+*generates* the doc; monthly report = CSV + self-contained HTML with inline SVG charts (no new
+Python deps, prints to PDF from the browser); pull hardening = one shared fetch layer retrofitted
+across **every** puller, not just the big ones.
+
+> **Note (intake):** the user's message listed item 4 twice, the second one empty — a possible
+> fifth item that didn't get typed. Flagged at intake; F14 ships as the four below unless it
+> arrives.
+
+Sequencing: **F14a → F14b → F14c → F14d**, each Opus-gated at its own "Done when" before the
+next begins. a first because it's self-contained and touches no data path; d last because its
+retrofit surface is the widest and b/c both benefit from its pull-health table existing.
+
+#### F14a — Hideable + resizable left and right panes
+
+PRISM's shell has been fixed-width since F8: the global `Sidebar` is `w-60`, and every map route's
+right panel is `md:w-[380px]` through `MapWorkspace`'s `sidebarWidth` prop. On a 1440 laptop that
+leaves the map ~55% of the viewport on `/resilience`, and there is no way to reclaim it short of
+`?present=1` (which hides *all* chrome and auto-cycles — a wall-display mode, not a work mode).
+
+- **One primitive, no new deps.** `frontend/components/ui/resizable-pane.tsx` — a drag handle
+  (pointer events, `setPointerCapture`), min/max clamp, double-click to reset, keyboard resize
+  (arrow keys on a focused `role="separator"` with `aria-valuenow`/`aria-orientation`), and a
+  collapse toggle. Sizes persist through a small `frontend/lib/pane-state.ts` (localStorage,
+  SSR-safe read after mount so hydration never mismatches — the `CommandPaletteTrigger` pattern
+  in `topbar.tsx` is the precedent).
+- **Left pane** — `Sidebar` collapses to a **56px icon rail** (labels become `title`/tooltip,
+  group headers hide, the "Model online" footer condenses to the pulse dot) and drag-resizes
+  between 180–360px. Toggle in the sidebar header + `[` shortcut, registered alongside the
+  existing ⌘K binding.
+- **Right pane** — a `WorkspaceAside` that drag-resizes between 300–720px, collapses to a rail
+  with a chevron, and takes `]`. Only five routes actually go through `MapWorkspace` (economy,
+  resilience, telecom, water, weather); the other six — corridor, parcels, playground, sitefinder,
+  storm, trends — each hand-rolled a byte-identical `<aside className="… md:w-[Npx] md:shrink-0
+  …">` that F6's extraction never reached. So `WorkspaceAside` is the shared piece and
+  `MapWorkspace` becomes one of its callers, which lands the behavior on all eleven at once
+  without a page refactor. Deck.gl and MapLibre size themselves from their container and listen
+  on `window.resize`; a pane drag changes the container without one, so the drag has to fire it or
+  the canvas stays letterboxed.
+- **Untouched by design:** mobile (`<md`) keeps the stacked 55vh-map / scroll-panel layout —
+  resizing a 375px viewport is not a feature; `?present=1` keeps hiding chrome outright; nothing
+  about the panes is per-user server state, so the M6 auth trigger stays untouched.
+
+**Done when:** both panes collapse and drag-resize on desktop, sizes survive a reload, the map
+canvas re-renders correctly at every width (not letterboxed or stale), mobile layout is unchanged,
+keyboard + `aria` work on both handles, and the e2e suite covers collapse/resize/persist on at
+least one map route at desktop while asserting mobile is unaffected.
+
+#### F14b — Anomalies registry: every exclusion documented
+
+PRISM excludes data in dozens of places and each exclusion is defensible in isolation — the
+`JOHN-DOE` owner sentinel filter (F1), 14 HIFLD substations whose name is a bare number, 15 barrios
+with no routable hospital, the 3 miscategorized `clasif` values behind the clinic fallback (F10c),
+22 FEEDS-isolated source substations kept on the Voronoi proxy (F11f), sliver barrio attachments
+dropped at ≥25% share / ≥1km, wells carrying criticality 0 (F6), government keys excluded from the
+contractor ranking by default (F11e), zero-barrio water sources sinking to the bottom, reassessment
+deltas below the noise floor (`snapshots.py`). What does not exist is **one place that says so** —
+and the exclusion list is, in aggregate, a data-quality report the source institutions (CRIM, AEE,
+the Contralor, JP) could actually act on. That is the eventual product here; the doc is step one.
+
+- **`config/anomalies.yml`** — the registry, following the `assumption_rationale.yml` shape that
+  `/methods` already reads. Per entry: `id`, `dataset` (source + table), `what` (what is excluded
+  or wrong), `where` (the code path that enforces it, `file:symbol`), `why`, `scope` (which views
+  and calculations are affected — the user's exact ask), `magnitude` (count/share as measured),
+  `severity`, `remediation` (what the *institution* would have to fix), and `status`.
+- **Audit pass** — sweep `prism/` + `api/` for exclusion sites (sentinel filters, `NOT ILIKE`,
+  noise floors, capped radii, dropped NULLs, default-off toggles, silent `continue`s) and register
+  every load-bearing one. Exclusions that are pure implementation detail (a `LIMIT` on a UI list)
+  are explicitly out; the test is *would a source institution want to know?*
+- **Generator + surface** — `prism/provenance/anomalies.py` (`list_anomalies()`, mirroring
+  `list_assumption_rationale()`) + `make anomalies` → regenerates `ANOMALIES.md` from the YAML,
+  with a check mode that fails if the doc is stale relative to the registry. `GET /provenance/
+  anomalies` + an "Excluded data" section on `/methods` so the app admits it in the same place it
+  admits its assumptions.
+- **Going forward** — a rule in `CLAUDE.md`'s doc-update protocol: any new exclusion registers in
+  `config/anomalies.yml` in the same session it is written. The stale-check gives it teeth.
+
+**Done when:** `ANOMALIES.md` exists and is generated (not hand-typed) from `config/anomalies.yml`;
+every load-bearing exclusion found in the audit is registered with its scope and remediation; the
+Trust Center surfaces them; a stale doc fails a test; and `CLAUDE.md` carries the going-forward rule.
+
+#### F14c — Monthly change report
+
+The deltas are already captured and none of them are *reported*: `crim.parcel_deltas` (ownership
+transfers, sales, reassessments — `snapshots.py::run_monthly`), `crim.rce_status_history`
+(corporate status as a slowly-changing dimension — `registry.py::status_transitions`), and
+`ocpr.contracts` (`date_of_grant` + `loaded_at`). WhatsNew shows the headline; nothing produces
+the artifact.
+
+- **`prism/report/monthly.py`** — one `build_monthly_report(engine, month)` producing three
+  sections: **parcel ownership** (transfers by municipio, new parcels, recorded sales, notable
+  value changes), **corporate status** (dissolved/cancelled/merged/reinstated transitions, and
+  the standing "still holds N CRIM parcels" join that F11 proved is the real signal), **contracts
+  added** (new contracts by agency, service group, amount — shared-contract asterisk preserved
+  from F11e, deduped on `(contract_id, contractor_key)`; government split out, not hidden).
+- **Outputs** — CSV per section (the durable, machine-readable artifact) **plus** a self-contained
+  HTML report with hand-rolled inline SVG charts, no new dependencies, print-to-PDF clean. Written
+  under `data/derived/reports/{YYYY-MM}/` with a provenance header naming source tables, vintages,
+  and confidence tiers — and a link to F14b's anomalies for anything excluded from the counts.
+- **Wiring** — `python -m prism.report --monthly [--month YYYY-MM]`, an API endpoint to fetch a
+  generated report, an `arq` monthly cron that runs it after `run_monthly()`, and an alert on
+  completion through the existing `prism/alerts.py`.
+
+**Done when:** running the report for a month with real deltas produces CSVs + an HTML report with
+charts that opens standalone; every figure names its source table and vintage; contracts are
+deduped and shared ones flagged; it runs on a schedule and announces itself; and a month with no
+deltas produces an honest empty report rather than a crash or a fabricated zero.
+
+#### F14d — Pull resilience across every source
+
+Today exactly **one** puller is hardened: `prism/sync/rcp.py`, which earned its retry loop, client
+recycling, and watchdog the hard way across the three 2026-07 outages (see memory
+`long-pulls-run-on-host.md`). Everything else is bare: `climate.py`, `luma_ops.py`, `nhc.py`,
+`nwis.py`, `prepa_ops.py`, `usgs_quakes.py`, and `resync.py` all call
+`urllib.request.urlopen(...)` with a timeout and **no retry at all**; `prism/mirror/http.py`,
+`arcgis.py`, `wfs.py`, and `crim/geocode.py` use `requests` with a single attempt; `aee.py` and
+`ocpr.py` use `httpx` with ad-hoc handling. A transient 503 or a dropped TCP connection loses that
+cycle silently.
+
+- **`prism/sync/http.py`** — one resilient fetch: connect/read timeouts, bounded retry with
+  exponential backoff + jitter, retry only on the right conditions (timeouts, connection errors,
+  429/5xx — never on a 4xx that will fail identically), `Retry-After` honored, per-host rate limit,
+  a stable PRISM User-Agent, and structured logging of every attempt. Generalized from what
+  `rcp.py` already proved in production, not invented fresh.
+- **Retrofit** — every module above onto it, preserving each source's quirks (the registry's WAF
+  behavior, OCPR's DataTables session token, WFS's OWSLib path where it can't be bypassed).
+- **Loud failure** — `sync.pull_health` (source, last attempt, last success, consecutive failures,
+  last error) written by the shared layer, an alert through `prism/alerts.py` after N consecutive
+  failures or a source exceeding its expected interval, and surfaced on the existing WhatsNew
+  freshness chips so a dead pull is visible in the product, not just in a log. Partial results
+  (page 41 of 120 failed) must report as partial — never persist as if complete.
+- **Resumability** where the pull is long: OCPR (`ocpr.pull_progress` already exists), the RCE
+  mirror, and CRIM. A restart resumes rather than restarting from zero.
+
+**Done when:** every HTTP pull path in `prism/` goes through the shared client; an injected
+transient failure (timeout, 503, dropped connection) is retried and succeeds where it previously
+lost the cycle; a permanent failure is recorded in `sync.pull_health`, alerted, and visible in
+WhatsNew; a partial multi-page pull reports partial rather than complete; and the long pulls
+resume from their last checkpoint after a kill.
+
+Gate protocol: one Opus `phase-gate-reviewer` gate per chunk at its "Done when"; `/ui-ux` loaded
+for F14a's toggle affordances, F14b's exclusion copy, and F14c's report wording.
+
+---
+
 **Other F11 candidates (recorded, not scheduled):** fiber layer + real callsign service-area
 polygons on `/telecom` (F7 deferral); multi-hazard overlays — landslide/liquefaction/seismic + a
 Guánica 2020 backtest; distribution geometry (2014 `g37_electric_*`) to tighten the feeder Voronoi

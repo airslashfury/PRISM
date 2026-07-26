@@ -15,6 +15,7 @@ import { useStorm } from "@/lib/hooks";
 import { fmtDateTime, fmtInt } from "@/lib/utils";
 import type { StormTrackPoint } from "@/lib/api";
 import { usePulse, usePrefersReducedMotion } from "@/lib/map-motion";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
 
 const CONE_RGB: [number, number, number] = [251, 191, 36];
 const TRACK_RGB: [number, number, number] = [255, 255, 255];
@@ -242,7 +243,11 @@ export default function StormPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[380px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="storm"
+        defaultWidth={380}
+        label="storm panel"
+      >
         <div className="border-b border-border/70 p-4">
           <div className="flex items-center gap-2">
             <Wind className="h-4 w-4 text-muted-foreground" />
@@ -332,7 +337,7 @@ export default function StormPage() {
             />
           </div>
         </div>
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import type { MunicipioTrend, MunicipioRollup } from "@/lib/api";
 import { sviColor } from "@/lib/colors";
 import { fmtInt, fmtUsd, fmtNum } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
 
 const HEAT_STOPS: [number, number, number][] = [
   [56, 78, 122],
@@ -293,7 +294,11 @@ export default function TrendsPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[440px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="trends"
+        defaultWidth={440}
+        label="trends panel"
+      >
         <div className="overflow-y-auto p-4">
           {isLoading && <LoadingBlock label="Loading market trends" />}
           {error && <ErrorBlock error={error} />}
@@ -414,7 +419,7 @@ export default function TrendsPage() {
           )}
           {selectedMuni != null && <MunicipioTrendPanel name={selectedMuni} onBack={() => setSelectedMuni(null)} />}
         </div>
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

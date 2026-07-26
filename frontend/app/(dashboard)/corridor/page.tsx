@@ -28,6 +28,7 @@ import { streamCorridorNarrative } from "@/lib/api";
 import { rankColor, type RGB } from "@/lib/colors";
 import { fmtInt, fmtKm, fmtNum, fmtPct, fmtUsd } from "@/lib/utils";
 import type { ProfilePoint } from "@/lib/api";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
 
 const TERRAIN: Record<string, RGB> = {
   standard: [56, 189, 248],
@@ -554,7 +555,11 @@ export default function CorridorPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[400px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="corridor"
+        defaultWidth={400}
+        label="corridor panel"
+      >
         <div className="border-b border-border/70 p-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             Route alternatives
@@ -708,7 +713,7 @@ export default function CorridorPage() {
             </div>
           )}
         </div>
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { suitColor, SUIT_LEGEND_STOPS, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
 import type { SiteResult, SiteScorecard, SiteAccessPoint, ConfidenceTierKey } from "@/lib/api";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
 
 const TOP_N = 200;
 const PORT_PRIMARY_RGB: RGB = [37, 99, 235];
@@ -262,7 +263,11 @@ export default function SiteFinderPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[400px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="sitefinder"
+        defaultWidth={400}
+        label="site finder panel"
+      >
         {meta.error && <div className="p-4"><ErrorBlock error={meta.error} /></div>}
         {selected != null ? (
           <Scorecard parcelId={selected} onBack={() => setSelected(null)} />
@@ -345,7 +350,7 @@ export default function SiteFinderPage() {
             </div>
           </>
         )}
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

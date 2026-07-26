@@ -290,7 +290,9 @@ export default function EconomyPage() {
       layers={layers}
       getTooltip={getTooltip}
       onClick={onClick}
-      sidebarWidth="md:w-[360px]"
+      sidebarWidth={360}
+      paneKey="economy"
+      paneLabel="economy panel"
       overlays={
         lens === "municipios" ? (
           <GradientLegend

@@ -733,6 +733,8 @@ export default function ResiliencePage() {
   return (
     <MapWorkspace
       layers={layers}
+      paneKey="resilience"
+      paneLabel="resilience panel"
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}

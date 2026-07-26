@@ -318,6 +318,8 @@ export default function TelecomPage() {
   return (
     <MapWorkspace
       layers={layers}
+      paneKey="telecom"
+      paneLabel="telecom panel"
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}

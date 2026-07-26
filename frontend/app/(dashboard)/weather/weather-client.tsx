@@ -213,7 +213,9 @@ function ClimateView({
       layers={layers}
       getTooltip={getTooltip}
       onClick={onClick}
-      sidebarWidth="md:w-[360px]"
+      sidebarWidth={360}
+      paneKey="weather"
+      paneLabel="weather panel"
       overlays={
         <GradientLegend
           className="absolute bottom-6 left-4"

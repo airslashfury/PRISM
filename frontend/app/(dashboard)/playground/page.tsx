@@ -43,6 +43,7 @@ import { api, ApiError, pollJob, type AssetTypeSchema, type SubstationSlim, type
 import { fmtInt, fmtNum, fmtUsd } from "@/lib/utils";
 import { nearestWithin } from "@/lib/geo";
 import { ESTIMATE_SCOPE } from "@/lib/estimate-scope";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
 
 /** Endpoints within this distance of a substation snap to it — a drawn line's
  * grid connection should read as real, not floating (F9c C2). */
@@ -597,7 +598,11 @@ export default function PlaygroundPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[420px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="playground"
+        defaultWidth={420}
+        label="playground panel"
+      >
         <div className="border-b border-border/70 p-4">
           <h2 className="text-sm font-semibold">Playground</h2>
           <p className="text-xs text-muted-foreground">
@@ -948,7 +953,7 @@ export default function PlaygroundPage() {
             </>
           )}
         </div>
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

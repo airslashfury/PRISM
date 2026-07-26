@@ -35,6 +35,7 @@ import type {
 } from "@/lib/api";
 import { fmtInt, fmtUsd, fmtNum, fmtPct, fmtDate, fmtDateTime } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
 
 const PARCEL_MVT_MIN_ZOOM = 15; // 1.5M polygons — only fetch tiles when zoomed right in
 const HL: [number, number, number, number] = [34, 211, 238, 230]; // cyan highlight
@@ -340,7 +341,11 @@ export default function ParcelsPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[420px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="parcels"
+        defaultWidth={420}
+        label="parcels panel"
+      >
         <div className="flex border-b border-border/70">
           {(["free", "address"] as const).map((tab) => (
             <button
@@ -501,7 +506,7 @@ export default function ParcelsPage() {
             </>
           )}
         </div>
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

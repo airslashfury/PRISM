@@ -3,7 +3,7 @@
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
 
 import { MapCanvas, type PrismMapApi } from "@/components/map/map-canvas";
-import { cn } from "@/lib/utils";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
 
 /**
  * Shared map-left / sidebar-right shell (extracted from resilience/page.tsx
@@ -22,8 +22,32 @@ export interface MapWorkspaceProps {
   /** Rendered as MapCanvas children — overlaid on top of the map (banner/legend/layer control). */
   overlays?: React.ReactNode;
   sidebar: React.ReactNode;
-  /** Tailwind width class for the sidebar on md+ screens. Defaults to the resilience/storm width. */
-  sidebarWidth?: string;
+  /**
+   * Starting width (px) of the sidebar on md+ screens. The user's dragged width
+   * (F14a) overrides it once set, so this is a default, not a fixed size.
+   * Accepts the pre-F14a Tailwind class form (`"md:w-[360px]"`) for callers that
+   * still pass one — the pixel value is parsed out of it.
+   */
+  sidebarWidth?: number | string;
+  /**
+   * localStorage key for this route's pane width. Defaults to a shared key, so
+   * pass a distinct one per route to have widths remembered independently.
+   */
+  paneKey?: string;
+  /** Pane name used in the resize/collapse aria labels. */
+  paneLabel?: string;
+}
+
+const DEFAULT_SIDEBAR_WIDTH = 380;
+
+/** Tolerates the legacy `"md:w-[360px]"` prop form alongside a plain number. */
+function toPx(value: number | string | undefined): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const m = value.match(/(\d+)px/);
+    if (m) return Number(m[1]);
+  }
+  return DEFAULT_SIDEBAR_WIDTH;
 }
 
 export function MapWorkspace({
@@ -36,7 +60,9 @@ export function MapWorkspace({
   onMapReady,
   overlays,
   sidebar,
-  sidebarWidth = "md:w-[380px]",
+  sidebarWidth,
+  paneKey = "workspace",
+  paneLabel = "panel",
 }: MapWorkspaceProps) {
   return (
     <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
@@ -54,14 +80,13 @@ export function MapWorkspace({
         </MapCanvas>
       </div>
 
-      <aside
-        className={cn(
-          "flex w-full flex-col border-t border-border/70 bg-card/30 md:shrink-0 md:border-l md:border-t-0",
-          sidebarWidth,
-        )}
+      <WorkspaceAside
+        storageKey={paneKey}
+        defaultWidth={toPx(sidebarWidth)}
+        label={paneLabel}
       >
         {sidebar}
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

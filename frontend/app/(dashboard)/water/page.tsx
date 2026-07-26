@@ -384,6 +384,8 @@ export default function WaterPage() {
   return (
     <MapWorkspace
       layers={layers}
+      paneKey="water"
+      paneLabel="water panel"
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}
