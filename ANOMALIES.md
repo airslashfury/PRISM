@@ -9,7 +9,7 @@ of the exclusion, and — where there is one — what the source institution wou
 have to fix.
 
 The exclusions are individually defensible. Together they are a data-quality
-report: 21 of the 32 entries below describe a defect in
+report: 23 of the 35 entries below describe a defect in
 published government data rather than a modelling choice, and each of those names
 the institution that could close it.
 
@@ -26,45 +26,48 @@ registry, not this file.
 
 | Severity | Entries |
 |---|---|
-| High — materially affects conclusions PRISM draws | 6 |
-| Medium — narrows or biases a figure | 15 |
-| Low — cosmetic or well-bounded | 11 |
-| **Total active** | **32** |
+| High — materially affects conclusions PRISM draws | 7 |
+| Medium — narrows or biases a figure | 16 |
+| Low — cosmetic or well-bounded | 12 |
+| **Total active** | **35** |
 
 | # | Exclusion | Dataset | Severity |
 |---|---|---|---|
 | 1 | [Two thirds of recorded "ownership changes" are the same owner written differently](#crim-owner-change-formatting-churn) | `crim.parcel_deltas (change_type='owner_change')` | high |
-| 2 | [Implausible sale amounts and dates are excluded from every sale figure](#crim-sales-amount-outliers) | `crim.parcelas_history.salesamt / .salesdttm` | high |
-| 3 | [Point facilities are still attached to substations by proximity, not by conductor](#point-facilities-keep-voronoi-powers) | `graph.relationships (POWERS, method IN ('nearest_dist_sub','voronoi'))` | high |
-| 4 | [The registry mirror is a partial walk, so a missing match is not proof of no registration](#rce-registry-mirror-incomplete) | `crim.rce_entities` | high |
-| 5 | [559 of 961 substations are excluded from powering anything](#substations-without-distribution-capability) | `graph.relationships (POWERS) / resilience.cascade_scores` | high |
-| 6 | [Most water sources serve no barrios in the graph, so they score zero consequence](#water-wells-zero-criticality) | `resilience.water_scores` | high |
-| 7 | [Fifteen barrios have no reachable hospital in the road graph](#barrios-without-routable-hospital) | `transport.road_access_cost` | medium |
-| 8 | [A third of bridges have no measured span and are costed at a flat 20 m](#bridge-missing-span-defaulted) | `transport.bridge_inventory.span_m` | medium |
-| 9 | [Layer checksums detect added or removed features, not edited ones](#checksum-is-count-based) | `catalog/metadata.json` | medium |
-| 10 | [Placeholder address segments are stripped before an address is displayed](#crim-address-placeholder-junk) | `crim.parcelas.direccion_fisica` | medium |
-| 11 | [Parcel rows with no catastro number are dropped from every derived view](#crim-null-catastro-rows) | `crim.parcelas -> crim.parcelas_dedup / crim.parcelas_history` | medium |
-| 12 | [Only the five most recent records per parcel enter the sale history](#crim-sale-history-top5) | `crim.parcelas_history` | medium |
-| 13 | [Substation-to-barrio links below a real service share are dropped](#feeder-secondary-sliver-edges-dropped) | `graph.relationships (POWERS, method='feeder_topology')` | medium |
-| 14 | [Twenty-two substations missing from the transmission graph keep the Voronoi proxy](#feeds-isolated-substations-keep-voronoi) | `graph.relationships (POWERS, method LIKE 'voronoi%')` | medium |
-| 15 | [Transmission links with equal or missing voltage produce no FEEDS edge](#feeds-voltage-hierarchy-dropout) | `graph.relationships (FEEDS)` | medium |
-| 16 | [Anything short of a single exact geocoder match is treated as no match](#geocode-ambiguous-match-rejected) | `crim.geocode_cache` | medium |
-| 17 | [Hospital access routes only to true hospitals, excluding clinics that carry a hospital kind](#hospital-access-clasif-filter) | `transport.road_access_cost` | medium |
-| 18 | [Shared contracts are flagged, never divided between co-contractors](#ocpr-shared-contracts-not-divided) | `ocpr.contract_contractors` | medium |
-| 19 | [Approximate addresses can only cite numbered state highways](#proposed-address-no-local-street-layer) | `crim.parcel_proposed_address (Tier B)` | medium |
-| 20 | [Placeholder registry addresses are excluded from the address layer](#rce-address-sentinels) | `crim.rce_addresses` | medium |
-| 21 | [A plausible-but-unconfirmed registry match is recorded as no match](#rce-ambiguous-match-withdrawn) | `crim.owner_rce_match` | medium |
-| 22 | [Ask PRISM only excludes government owners when explicitly asked to](#ask-government-owner-filter-opt-in) | `crim.parcelas_dedup (via the Ask SQL tool)` | low |
-| 23 | [The ACS mirror is skipped without an API key](#census-acs-requires-api-key) | `Census ACS 5-year estimates` | low |
-| 24 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
-| 25 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
-| 26 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
-| 27 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
-| 28 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
-| 29 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
-| 30 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
-| 31 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
-| 32 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
+| 2 | [196,132 duplicate parcel rows are collapsed by "highest objectid wins"](#crim-parcel-dedup-collapse) | `crim.parcelas -> crim.parcelas_dedup` | high |
+| 3 | [Implausible sale amounts and dates are excluded from every sale figure](#crim-sales-amount-outliers) | `crim.parcelas_history.salesamt / .salesdttm` | high |
+| 4 | [Point facilities are still attached to substations by proximity, not by conductor](#point-facilities-keep-voronoi-powers) | `graph.relationships (POWERS, method IN ('nearest_dist_sub','voronoi'))` | high |
+| 5 | [The registry mirror is a partial walk, so a missing match is not proof of no registration](#rce-registry-mirror-incomplete) | `crim.rce_entities` | high |
+| 6 | [542 of 961 substations power nothing in the graph](#substations-without-distribution-capability) | `graph.relationships (POWERS) / resilience.cascade_scores` | high |
+| 7 | [Most water sources serve no barrios in the graph, so they score zero consequence](#water-wells-zero-criticality) | `resilience.water_scores` | high |
+| 8 | [Fifteen barrios have no reachable hospital in the road graph](#barrios-without-routable-hospital) | `transport.road_access_cost` | medium |
+| 9 | [A third of bridges have no measured span, and nothing costs them](#bridge-missing-span-defaulted) | `transport.bridge_inventory.span_m` | medium |
+| 10 | [Layer checksums detect added or removed features, not edited ones](#checksum-is-count-based) | `catalog/metadata.json` | medium |
+| 11 | [Placeholder address segments are stripped before an address is displayed](#crim-address-placeholder-junk) | `crim.parcelas.direccion_fisica` | medium |
+| 12 | [Parcel rows with no catastro number are dropped from every derived view](#crim-null-catastro-rows) | `crim.parcelas -> crim.parcelas_dedup / crim.parcelas_history` | medium |
+| 13 | [Only the five most recent records per parcel enter the sale history](#crim-sale-history-top5) | `crim.parcelas_history` | medium |
+| 14 | [Substation-to-barrio links below a real service share are dropped](#feeder-secondary-sliver-edges-dropped) | `graph.relationships (POWERS, method='feeder_topology')` | medium |
+| 15 | [Barrios whose measured substation is missing from the transmission graph keep the Voronoi proxy](#feeds-isolated-substations-keep-voronoi) | `graph.relationships (POWERS, method LIKE 'voronoi%')` | medium |
+| 16 | [Transmission links with equal or missing voltage produce no FEEDS edge](#feeds-voltage-hierarchy-dropout) | `graph.relationships (FEEDS)` | medium |
+| 17 | [Anything short of a single exact geocoder match is treated as no match](#geocode-ambiguous-match-rejected) | `crim.geocode_cache` | medium |
+| 18 | [Hospital access routes only to true hospitals, excluding clinics that carry a hospital kind](#hospital-access-clasif-filter) | `transport.road_access_cost` | medium |
+| 19 | [Shared contracts are flagged, never divided between co-contractors](#ocpr-shared-contracts-not-divided) | `ocpr.contract_contractors` | medium |
+| 20 | [Approximate addresses can only cite numbered state highways](#proposed-address-no-local-street-layer) | `crim.parcel_proposed_address (Tier B)` | medium |
+| 21 | [Placeholder registry addresses are excluded from the address layer](#rce-address-sentinels) | `crim.rce_addresses` | medium |
+| 22 | [A plausible-but-unconfirmed registry match is recorded as no match](#rce-ambiguous-match-withdrawn) | `crim.owner_rce_match` | medium |
+| 23 | [Twenty substations sit too far from any transmission line to join the graph](#substations-beyond-transmission-attach-radius) | `graph.relationships (CONNECTS_TO)` | medium |
+| 24 | [Ask PRISM only excludes government owners when explicitly asked to](#ask-government-owner-filter-opt-in) | `crim.parcelas_dedup (via the Ask SQL tool)` | low |
+| 25 | [The ACS mirror is skipped without an API key](#census-acs-requires-api-key) | `Census ACS 5-year estimates` | low |
+| 26 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
+| 27 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
+| 28 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
+| 29 | [The investment plan can only choose from the worst 200 substations and 100 barrios](#ilp-catalog-top-n-cap) | `optimize.portfolio_runs (via the intervention catalog)` | low |
+| 30 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
+| 31 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
+| 32 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
+| 33 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
+| 34 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
+| 35 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
 
 ## High — materially affects conclusions PRISM draws
 
@@ -85,13 +88,41 @@ registry, not this file.
 - the monthly change report's ownership section (headline + per-municipio)
 - WhatsNew crim_delta headlines, which still quote the raw delta count
 
-**How much.** 2026-07 delta: 2,420 substantive of 7,722 owner-field changes (31%) — 2,598 spacing/punctuation-only, 2,704 the same name reordered, 242 a first recorded owner
+**How much.** 2026-07 delta, a true partition of 7,722 owner-field changes: 2,178 substantive + 242 first-recorded (the 2,420 headline) + 2,598 spacing/punctuation-only + 2,704 the same name reordered. Of the reordered, 1,005 are the JOHN DOE unknown-owner sentinel rewritten (`JOHN DOE` -> `DOE JOHN`), which is placeholder churn rather than any kind of transfer — see `crim_unknown_owner_sentinel`.
 
 ```sql
-SELECT count(*) FROM crim.parcel_deltas WHERE change_type = 'owner_change' AND regexp_replace(upper(btrim(old_value)), '\s+', ' ', 'g') = regexp_replace(upper(btrim(new_value)), '\s+', ' ', 'g')
+-- Whitespace/case equality alone finds 2,550; the registered 2,598 also -- folds punctuation and legal suffixes, matching normalize_owner(), so -- the authoritative count comes from -- prism/report/monthly.py:classify_owner_change rather than from SQL. SELECT count(*) FROM crim.parcel_deltas WHERE change_type = 'owner_change' AND regexp_replace(upper(btrim(old_value)), '\s+', ' ', 'g') = regexp_replace(upper(btrim(new_value)), '\s+', ' ', 'g')
 ```
 
 **What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: the owner field is not normalized at entry, so the same person is stored with varying spacing and with surname and given name in either order. Anyone differencing successive published snapshots — which is the only way to observe transfers, since the register publishes current state only — will read roughly three times as many transfers as occurred.
+
+---
+
+### 196,132 duplicate parcel rows are collapsed by "highest objectid wins"
+
+<a id="crim-parcel-dedup-collapse"></a>
+
+- **id** `crim_parcel_dedup_collapse`
+- **Dataset** `crim.parcelas -> crim.parcelas_dedup`
+- **Source** CRIM
+- **Enforced at** `prism/crim/schema.py:_MATVIEW_DDL`
+
+**What is excluded.** The published fabric carries several rows per catastro number. The dedup view keeps exactly one — `DISTINCT ON (num_catastro) ... ORDER BY num_catastro, objectid DESC` — so 1,497,850 keyed rows become 1,301,718. "Highest objectid" is PRISM's own definition of which row is current; CRIM publishes no explicit current-record flag.
+
+**Why.** Every owner, valuation and search surface needs one row per parcel. Without a published currency flag, the highest objectid is the only ordering available, and it matches the ordering the sale-history view already uses.
+
+**Affects.**
+- every /parcels surface, and the ~1.5M parcel figure (1.30M is what is served)
+- the monthly change report — snapshots and deltas are taken over the deduped view, so this convention decides what counts as a change
+- owner intelligence and the corporate-registry match
+
+**How much.** 196,132 of 1,497,850 keyed rows collapsed (13.1%)
+
+```sql
+SELECT (SELECT count(*) FROM crim.parcelas WHERE num_catastro IS NOT NULL) - (SELECT count(*) FROM crim.parcelas_dedup)
+```
+
+**What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: the published fabric contains ~196K duplicate catastro rows with no field marking which is current, so any consumer must invent a tie-break. A currency flag, or a de-duplicated publication, would make every downstream count reproducible instead of convention-dependent.
 
 ---
 
@@ -114,7 +145,7 @@ SELECT count(*) FROM crim.parcel_deltas WHERE change_type = 'owner_change' AND r
 - municipio market context on the parcel card and /economy
 - the monthly report's sales figures
 
-**How much.** 570,923 of the 836,108 rows carrying a sale amount survive both bounds, so 265,185 recorded sales (31.7%) are excluded from every sale figure PRISM prints. 257,559 fail the amount bound; 18,596 fail the date bound.
+**How much.** 570,923 of the 836,108 rows carrying a sale amount survive both bounds, so 265,185 recorded sales (31.7%) are excluded from every sale figure PRISM prints. The sub-counts overlap and do not partition it: 257,559 fail the amount bound, 18,596 carry a date outside the window, and a further tranche carry no sale date at all, which the BETWEEN also excludes.
 
 ```sql
 SELECT count(*) FILTER (WHERE salesamt BETWEEN 1000 AND 50000000 AND salesdttm BETWEEN DATE '1980-01-01' AND CURRENT_DATE) AS counted, count(*) AS with_amount FROM crim.parcelas_history WHERE salesamt IS NOT NULL
@@ -179,7 +210,7 @@ SELECT count(*) FROM crim.rce_entities
 
 ---
 
-### 559 of 961 substations are excluded from powering anything
+### 542 of 961 substations power nothing in the graph
 
 <a id="substations-without-distribution-capability"></a>
 
@@ -188,17 +219,17 @@ SELECT count(*) FROM crim.rce_entities
 - **Source** HIFLD
 - **Enforced at** `prism/graph/relationships.py:build_powers`
 
-**What is excluded.** A substation only gets POWERS edges if its `cd_type` is Substation, Transmission Center or Generator AND its published `low_kv` is greater than zero. 559 of 961 fail one of those, so they power no barrio and no facility. 542 end up with zero POWERS edges and only 422 are scored for cascade at all. The same filter is repeated in three modules.
+**What is excluded.** A substation only gets proximity-derived POWERS edges if its `cd_type` is Substation, Transmission Center or Generator AND its published `low_kv` is greater than zero. 559 of 961 fail one of those. 62 of the 559 still power barrios anyway, because F11f's measured feeder swap inserts `feeder_topology` edges without re-applying the capability filter — so the figure that matters is the 542 substations that end up with no POWERS edge at all. Only 422 are scored for cascade. The filter is repeated in three modules.
 
 **Why.** A transmission-only or switching facility does not serve customers, and a substation with no published low-side voltage cannot be shown to. Attaching barrios to them would invent service that isn't there.
 
 **Affects.**
-- /resilience — 539 substations never appear in the cascade ranking
+- /resilience — 539 of 961 substations never appear in the cascade ranking
 - every population-affected and hospitals-served figure
 - the ILP portfolio (an unscored substation cannot be selected)
 - /water and /telecom power-dependency scoring
 
-**How much.** 402 of 961 substations are distribution-capable; 542 have zero POWERS edges and 422 carry a cascade score. Of the excluded, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability.
+**How much.** 402 of 961 substations pass the capability filter; 559 fail it, of which 62 nonetheless carry measured feeder edges. 542 end up with zero POWERS edges and 422 carry a cascade score. Of those failing, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability.
 
 ```sql
 SELECT count(*) FROM graph.entities WHERE kind='substation' AND attrs->>'cd_type' IN ('Substation','Transmission Center','Generator') AND coalesce((attrs->>'low_kv')::float, 0) <= 0
@@ -265,22 +296,22 @@ SELECT count(*) FROM transport.road_access_cost WHERE nearest_hosp_vid IS NULL
 
 ---
 
-### A third of bridges have no measured span and are costed at a flat 20 m
+### A third of bridges have no measured span, and nothing costs them
 
 <a id="bridge-missing-span-defaulted"></a>
 
 - **id** `bridge_missing_span_defaulted`
 - **Dataset** `transport.bridge_inventory.span_m`
 - **Source** OpenStreetMap (FHWA NBI covers the rest)
-- **Enforced at** `prism/assets/bridge.py`
+- **Enforced at** `prism/assets/bridge.py:construction_cost`
 
-**What is excluded.** 1,040 of 3,168 bridges carry no span. The asset cost model substitutes a flat 20 m rather than skipping the bridge, so those rows are priced on an assumption instead of a measurement.
+**What is excluded.** 1,040 of 3,168 bridges carry no span. Two separate facts, and an earlier version of this entry conflated them: (a) the inventory's NULL spans have no consumer at all — nothing in `prism/` or `api/` joins `transport.bridge_inventory` to a cost model, so those bridges are absent from every cost estimate rather than priced badly; (b) the `Bridge` asset reachable through the Playground registry falls back to a 20 m span when a drawn bridge carries none (its form default is 30 m), which is an assumption on user input, not on this table.
 
-**Why.** Dropping an unmeasured bridge from a corridor's cost would understate that corridor, which is the more dangerous error. FHWA's NBI supplies a real span for the ~67% it covers; the rest are OSM geometries with no span tag.
+**Why.** FHWA's NBI supplies a real span for the ~67% it covers; the rest are OSM geometries with no span tag, and PRISM will not invent one. Recorded here because a third of the island's mapped bridges being unmeasurable is a standing constraint on any future corridor costing, even though no live figure depends on it today.
 
 **Affects.**
-- /corridor construction-cost estimates crossing an unmeasured bridge
-- the ILP portfolio's cost side for road interventions
+- the Playground's drawn-bridge cost estimate (a missing span reads as 20 m)
+- nothing else — no corridor or portfolio figure reads this table today
 
 **How much.** 1,040 of 3,168 bridges (33%) have a NULL span
 
@@ -423,7 +454,7 @@ SELECT method, count(*) FROM graph.relationships WHERE rel_type='POWERS' GROUP B
 
 ---
 
-### Twenty-two substations missing from the transmission graph keep the Voronoi proxy
+### Barrios whose measured substation is missing from the transmission graph keep the Voronoi proxy
 
 <a id="feeds-isolated-substations-keep-voronoi"></a>
 
@@ -432,7 +463,7 @@ SELECT method, count(*) FROM graph.relationships WHERE rel_type='POWERS' GROUP B
 - **Source** PRISM-derived (proxy)
 - **Enforced at** `prism/graph/feeders.py:swap_powers`
 
-**What is excluded.** Twenty-two source substations have no FEEDS edges in the transmission graph. Their barrio links were NOT swapped onto the measured feeder topology; they still use the Voronoi proxy, so their 102 barrios are attached by nearest- distance rather than by conductor.
+**What is excluded.** 19 substations are the measured primary feeder for at least one barrio yet have no FEEDS edge in the transmission graph. `swap_powers` skips those barrios, so their POWERS links stay on the Voronoi proxy — attached by nearest distance rather than by conductor. 101 barrios are affected, carrying 132 proxy edges from 39 distinct substations (the primaries plus the secondaries Voronoi also assigned).
 
 **Why.** Swapping them would have dropped them out of upstream cascades entirely, trading a known proxy for a silent hole. Keeping the proxy is the lesser error, and it is labelled per-edge.
 
@@ -447,7 +478,7 @@ SELECT method, count(*) FROM graph.relationships WHERE rel_type='POWERS' GROUP B
 SELECT count(*) FROM graph.relationships r JOIN graph.entities e2 ON e2.entity_id = r.dst_entity WHERE r.rel_type = 'POWERS' AND e2.kind = 'barrio' AND r.method IN ('voronoi_centroid','voronoi_overlap')
 ```
 
-**What would fix it** (LUMA Energy, AEE / PREPA — Autoridad de Energía Eléctrica). LUMA / AEE: 22 substations appear in the facility inventory but not in the published transmission topology, so their upstream connectivity cannot be established from public data.
+**What would fix it** (LUMA Energy, AEE / PREPA — Autoridad de Energía Eléctrica). LUMA / AEE: 19 substations that PREPA's own conductor data shows feeding barrios do not appear in the published transmission topology, so their upstream connectivity cannot be established from public data — PRISM can see what they serve but not what serves them.
 
 ---
 
@@ -466,12 +497,12 @@ SELECT count(*) FROM graph.relationships r JOIN graph.entities e2 ON e2.entity_i
 
 **Affects.**
 - upstream cascade traversal from any affected substation
-- the 22 FEEDS-isolated substations (this is their proximate cause — `feeds_isolated_substations_keep_voronoi` describes the consequence)
+- the FEEDS-isolated substations (one of two causes — the other is the 200 m attach radius; `feeds_isolated_substations_keep_voronoi` describes the barrio-side consequence)
 
-**How much.** 22 source substations end up with no FEEDS edges at all
+**How much.** 15 substations reach the transmission graph but never get a directed FEEDS edge, because the voltage on one or both ends of their CONNECTS_TO links is equal or missing. They are the minority of the 35 substations with no FEEDS edge at all — the other 20 never joined CONNECTS_TO (see `substations_beyond_transmission_attach_radius`).
 
 ```sql
-SELECT count(*) FROM graph.entities e WHERE e.kind='substation' AND NOT EXISTS (SELECT 1 FROM graph.relationships r WHERE r.rel_type='FEEDS' AND r.dst_entity = e.entity_id)
+SELECT count(*) FROM graph.entities e WHERE e.kind='substation' AND EXISTS (SELECT 1 FROM graph.relationships r WHERE r.rel_type='CONNECTS_TO' AND (r.src_entity = e.entity_id OR r.dst_entity = e.entity_id)) AND NOT EXISTS (SELECT 1 FROM graph.relationships r WHERE r.rel_type='FEEDS' AND (r.src_entity = e.entity_id OR r.dst_entity = e.entity_id))
 ```
 
 **What would fix it** (HIFLD — Homeland Infrastructure Foundation-Level Data, LUMA Energy). HIFLD / LUMA: transmission line records do not state direction of flow, and voltage is missing on enough endpoints that it cannot always be inferred. A published from/to or a complete voltage field would remove the ambiguity.
@@ -642,6 +673,34 @@ SELECT method, count(*) FROM crim.owner_rce_match GROUP BY 1 ORDER BY 2 DESC
 
 ---
 
+### Twenty substations sit too far from any transmission line to join the graph
+
+<a id="substations-beyond-transmission-attach-radius"></a>
+
+- **id** `substations_beyond_transmission_attach_radius`
+- **Dataset** `graph.relationships (CONNECTS_TO)`
+- **Source** HIFLD
+- **Enforced at** `prism/graph/relationships.py:SUBSTATION_ATTACH_M`
+
+**What is excluded.** A substation joins the transmission network only if it lies within 200 m of a transmission-line node. 20 of 961 do not, so they are structurally absent from `CONNECTS_TO` and can never receive a FEEDS edge — no cascade can reach them and none can start from them upstream.
+
+**Why.** The attach radius is a spatial join tolerance, not a claim about the world: HIFLD publishes substation points and line geometries from different surveys, and beyond a couple of hundred metres a "nearest line" is a guess. Widening it would attach substations to lines that do not serve them.
+
+**Affects.**
+- upstream cascade traversal (these substations have no upstream at all)
+- the FEEDS-orphan count — 20 of the 35 orphans originate here, not in the voltage-hierarchy inference
+- /resilience rankings for anything downstream of them
+
+**How much.** 941 of 961 substations are in CONNECTS_TO; 20 are not. Together with the 15 that attach but never resolve a direction, they make up the 35 substations with no FEEDS edge in either direction.
+
+```sql
+SELECT count(*) FROM graph.entities e WHERE e.kind='substation' AND NOT EXISTS (SELECT 1 FROM graph.relationships r WHERE r.rel_type='CONNECTS_TO' AND (r.src_entity = e.entity_id OR r.dst_entity = e.entity_id))
+```
+
+**What would fix it** (HIFLD — Homeland Infrastructure Foundation-Level Data, LUMA Energy). HIFLD / LUMA: substation points and transmission-line geometries are published from separate surveys and do not always coincide, so 20 substations cannot be spatially joined to the network they belong to. A published line-to-substation connectivity table would remove the need to infer the join from geometry at all.
+
+---
+
 ## Low — cosmetic or well-bounded
 
 ### Ask PRISM only excludes government owners when explicitly asked to
@@ -764,6 +823,33 @@ SELECT count(*) FROM graph.entities WHERE kind='substation' AND name ~ '^[0-9]+$
 ```
 
 **What would fix it** (HIFLD — Homeland Infrastructure Foundation-Level Data, LUMA Energy). HIFLD / LUMA: fourteen transmission substations in the published dataset have no facility name, only an identifier.
+
+---
+
+### The investment plan can only choose from the worst 200 substations and 100 barrios
+
+<a id="ilp-catalog-top-n-cap"></a>
+
+- **id** `ilp_catalog_top_n_cap`
+- **Dataset** `optimize.portfolio_runs (via the intervention catalog)`
+- **Source** PRISM-derived (deliberate model boundary)
+- **Enforced at** `prism/optimize/catalog.py:build_catalog`
+
+**What is excluded.** `build_catalog` offers interventions for the top 200 substations by scenario score, and `build_transport_catalog` for the 100 worst-access barrios. Everything below those cuts is absent from the ILP's decision space — it cannot be selected at any budget, however cheap or effective it would be.
+
+**Why.** The ILP is exact, not heuristic, so its cost scales with the catalog. The cut is far below the point where anything ranked lower would be selected at the budgets modelled ($50M–$2B). Recorded because it is a real bound on the answer, not a display limit.
+
+**Affects.**
+- /portfolio — 222 of the 422 cascade-scored substations can never be picked
+- the protection-per-dollar ranking (it ranks what was offered, not everything)
+
+**How much.** 200 of 422 scored substations and 100 of 901 barrios enter the catalog
+
+```sql
+SELECT count(*) FROM resilience.cascade_scores
+```
+
+**What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.
 
 ---
 
@@ -933,14 +1019,16 @@ tables whose root cause is a dataset another agency has never published.
 
 ### AEE / PREPA — Autoridad de Energía Eléctrica
 
-- **Twenty-two substations missing from the transmission graph keep the Voronoi proxy** — 132 substation-to-barrio edges over 102 barrios remain Voronoi-derived (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332 `voronoi`-method POWERS edges are point facilities and belong to `point_facilities_keep_voronoi_powers`, not here..
-  LUMA / AEE: 22 substations appear in the facility inventory but not in the published transmission topology, so their upstream connectivity cannot be established from public data.
+- **Barrios whose measured substation is missing from the transmission graph keep the Voronoi proxy** — 132 substation-to-barrio edges over 102 barrios remain Voronoi-derived (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332 `voronoi`-method POWERS edges are point facilities and belong to `point_facilities_keep_voronoi_powers`, not here..
+  LUMA / AEE: 19 substations that PREPA's own conductor data shows feeding barrios do not appear in the published transmission topology, so their upstream connectivity cannot be established from public data — PRISM can see what they serve but not what serves them.
 
 ### CRIM — Centro de Recaudación de Ingresos Municipales
 
-- **Two thirds of recorded "ownership changes" are the same owner written differently** — 2026-07 delta: 2,420 substantive of 7,722 owner-field changes (31%) — 2,598 spacing/punctuation-only, 2,704 the same name reordered, 242 a first recorded owner.
+- **Two thirds of recorded "ownership changes" are the same owner written differently** — 2026-07 delta, a true partition of 7,722 owner-field changes: 2,178 substantive + 242 first-recorded (the 2,420 headline) + 2,598 spacing/punctuation-only + 2,704 the same name reordered. Of the reordered, 1,005 are the JOHN DOE unknown-owner sentinel rewritten (`JOHN DOE` -> `DOE JOHN`), which is placeholder churn rather than any kind of transfer — see `crim_unknown_owner_sentinel`..
   CRIM: the owner field is not normalized at entry, so the same person is stored with varying spacing and with surname and given name in either order. Anyone differencing successive published snapshots — which is the only way to observe transfers, since the register publishes current state only — will read roughly three times as many transfers as occurred.
-- **Implausible sale amounts and dates are excluded from every sale figure** — 570,923 of the 836,108 rows carrying a sale amount survive both bounds, so 265,185 recorded sales (31.7%) are excluded from every sale figure PRISM prints. 257,559 fail the amount bound; 18,596 fail the date bound..
+- **196,132 duplicate parcel rows are collapsed by "highest objectid wins"** — 196,132 of 1,497,850 keyed rows collapsed (13.1%).
+  CRIM: the published fabric contains ~196K duplicate catastro rows with no field marking which is current, so any consumer must invent a tie-break. A currency flag, or a de-duplicated publication, would make every downstream count reproducible instead of convention-dependent.
+- **Implausible sale amounts and dates are excluded from every sale figure** — 570,923 of the 836,108 rows carrying a sale amount survive both bounds, so 265,185 recorded sales (31.7%) are excluded from every sale figure PRISM prints. The sub-counts overlap and do not partition it: 257,559 fail the amount bound, 18,596 carry a date outside the window, and a further tranche carry no sale date at all, which the BETWEEN also excludes..
   CRIM: roughly a third of recorded sale amounts are outside any plausible range — a mix of $0/$1 nominal transfers and corrupt magnitudes. A validation rule at entry, and a flag distinguishing nominal transfers from arm's-length sales, would make the price series usable as published.
 - **Placeholder address segments are stripped before an address is displayed** — applies per-field across the fabric; not counted as a row exclusion.
   CRIM: the physical-address field is populated with a placeholder template rather than left empty, which makes "has an address" indistinguishable from "has a blank address" without string inspection. Emitting NULL for unset fields would remove the ambiguity.
@@ -955,7 +1043,7 @@ tables whose root cause is a dataset another agency has never published.
 
 - **Fifteen barrios have no reachable hospital in the road graph** — 15 of 901 barrios with no hospital route; 9 with neither hospital nor clinic.
   DTOP: several mainland barrios sit on road-network components that are disconnected in the published centerline data — almost certainly a topology gap in the source rather than genuinely unreachable communities.
-- **A third of bridges have no measured span and are costed at a flat 20 m** — 1,040 of 3,168 bridges (33%) have a NULL span.
+- **A third of bridges have no measured span, and nothing costs them** — 1,040 of 3,168 bridges (33%) have a NULL span.
   FHWA / DTOP: a third of Puerto Rico's mapped bridges are absent from the National Bridge Inventory, so no published span exists for them. Extending NBI coverage — or publishing DTOP's own structure inventory — would replace the flat assumption with measurements.
 
 ### Departamento de Estado — corporations registry
@@ -976,15 +1064,17 @@ tables whose root cause is a dataset another agency has never published.
 
 ### FHWA — Federal Highway Administration (NBI)
 
-- **A third of bridges have no measured span and are costed at a flat 20 m** — 1,040 of 3,168 bridges (33%) have a NULL span.
+- **A third of bridges have no measured span, and nothing costs them** — 1,040 of 3,168 bridges (33%) have a NULL span.
   FHWA / DTOP: a third of Puerto Rico's mapped bridges are absent from the National Bridge Inventory, so no published span exists for them. Extending NBI coverage — or publishing DTOP's own structure inventory — would replace the flat assumption with measurements.
 
 ### HIFLD — Homeland Infrastructure Foundation-Level Data
 
-- **559 of 961 substations are excluded from powering anything** — 402 of 961 substations are distribution-capable; 542 have zero POWERS edges and 422 carry a cascade score. Of the excluded, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability..
+- **542 of 961 substations power nothing in the graph** — 402 of 961 substations pass the capability filter; 559 fail it, of which 62 nonetheless carry measured feeder edges. 542 end up with zero POWERS edges and 422 carry a cascade score. Of those failing, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability..
   HIFLD / LUMA: 69 substations are typed as distribution-capable yet publish a low-side voltage of zero or nothing at all. Each is a facility PRISM cannot connect to the customers it serves, and the gap is materially larger than the 14 unnamed substations already listed here. A populated `low_kv` would restore them to the cascade.
-- **Transmission links with equal or missing voltage produce no FEEDS edge** — 22 source substations end up with no FEEDS edges at all.
+- **Transmission links with equal or missing voltage produce no FEEDS edge** — 15 substations reach the transmission graph but never get a directed FEEDS edge, because the voltage on one or both ends of their CONNECTS_TO links is equal or missing. They are the minority of the 35 substations with no FEEDS edge at all — the other 20 never joined CONNECTS_TO (see `substations_beyond_transmission_attach_radius`)..
   HIFLD / LUMA: transmission line records do not state direction of flow, and voltage is missing on enough endpoints that it cannot always be inferred. A published from/to or a complete voltage field would remove the ambiguity.
+- **Twenty substations sit too far from any transmission line to join the graph** — 941 of 961 substations are in CONNECTS_TO; 20 are not. Together with the 15 that attach but never resolve a direction, they make up the 35 substations with no FEEDS edge in either direction..
+  HIFLD / LUMA: substation points and transmission-line geometries are published from separate surveys and do not always coincide, so 20 substations cannot be spatially joined to the network they belong to. A published line-to-substation connectivity table would remove the need to infer the join from geometry at all.
 - **Fourteen substations have a bare number where a name should be** — 14 of 961 substations.
   HIFLD / LUMA: fourteen transmission substations in the published dataset have no facility name, only an identifier.
 
@@ -999,12 +1089,14 @@ tables whose root cause is a dataset another agency has never published.
 
 - **Point facilities are still attached to substations by proximity, not by conductor** — 3,251 of 4,419 POWERS edges (73.6%) attach a point facility by distance, written by two code paths: `nearest_dist_sub` (2,919 — 1,487 water pump stations, 798 telecom towers, 527 wells, 107 cell sites) and `voronoi` (332 — 139 water plants, 124 health centers, 69 hospitals). The hospitals and water plants named above are in the second group..
   LUMA: a service-point-to-feeder mapping (which customer account sits on which circuit) is the single dataset that would convert most of PRISM's remaining proxy edges into measured ones.
-- **559 of 961 substations are excluded from powering anything** — 402 of 961 substations are distribution-capable; 542 have zero POWERS edges and 422 carry a cascade score. Of the excluded, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability..
+- **542 of 961 substations power nothing in the graph** — 402 of 961 substations pass the capability filter; 559 fail it, of which 62 nonetheless carry measured feeder edges. 542 end up with zero POWERS edges and 422 carry a cascade score. Of those failing, **69 pass the cd_type allowlist but carry low_kv 0 or NULL** — a published-field gap, not a real absence of distribution capability..
   HIFLD / LUMA: 69 substations are typed as distribution-capable yet publish a low-side voltage of zero or nothing at all. Each is a facility PRISM cannot connect to the customers it serves, and the gap is materially larger than the 14 unnamed substations already listed here. A populated `low_kv` would restore them to the cascade.
-- **Twenty-two substations missing from the transmission graph keep the Voronoi proxy** — 132 substation-to-barrio edges over 102 barrios remain Voronoi-derived (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332 `voronoi`-method POWERS edges are point facilities and belong to `point_facilities_keep_voronoi_powers`, not here..
-  LUMA / AEE: 22 substations appear in the facility inventory but not in the published transmission topology, so their upstream connectivity cannot be established from public data.
-- **Transmission links with equal or missing voltage produce no FEEDS edge** — 22 source substations end up with no FEEDS edges at all.
+- **Barrios whose measured substation is missing from the transmission graph keep the Voronoi proxy** — 132 substation-to-barrio edges over 102 barrios remain Voronoi-derived (`voronoi_centroid` 102 + `voronoi_overlap` 30). The other 332 `voronoi`-method POWERS edges are point facilities and belong to `point_facilities_keep_voronoi_powers`, not here..
+  LUMA / AEE: 19 substations that PREPA's own conductor data shows feeding barrios do not appear in the published transmission topology, so their upstream connectivity cannot be established from public data — PRISM can see what they serve but not what serves them.
+- **Transmission links with equal or missing voltage produce no FEEDS edge** — 15 substations reach the transmission graph but never get a directed FEEDS edge, because the voltage on one or both ends of their CONNECTS_TO links is equal or missing. They are the minority of the 35 substations with no FEEDS edge at all — the other 20 never joined CONNECTS_TO (see `substations_beyond_transmission_attach_radius`)..
   HIFLD / LUMA: transmission line records do not state direction of flow, and voltage is missing on enough endpoints that it cannot always be inferred. A published from/to or a complete voltage field would remove the ambiguity.
+- **Twenty substations sit too far from any transmission line to join the graph** — 941 of 961 substations are in CONNECTS_TO; 20 are not. Together with the 15 that attach but never resolve a direction, they make up the 35 substations with no FEEDS edge in either direction..
+  HIFLD / LUMA: substation points and transmission-line geometries are published from separate surveys and do not always coincide, so 20 substations cannot be spatially joined to the network they belong to. A published line-to-substation connectivity table would remove the need to infer the join from geometry at all.
 - **Fourteen substations have a bare number where a name should be** — 14 of 961 substations.
   HIFLD / LUMA: fourteen transmission substations in the published dataset have no facility name, only an identifier.
 

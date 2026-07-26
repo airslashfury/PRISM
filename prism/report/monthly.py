@@ -39,9 +39,12 @@ log = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_OUT_ROOT = REPO / "data" / "derived" / "reports"
 
-# Listing caps. These bound the CSV, not the counts: every headline figure is a
-# full COUNT over the month, and the CSV states what it is showing.
-DETAIL_LIMIT = 5_000
+# Detail rows are NOT capped at a size that can bite: at 5,000 the July CSVs
+# silently dropped 2,722 transfers and 1,990 contracts, which is precisely the
+# failure ANOMALIES.md exists to prevent. The remaining ceiling is a runaway
+# guard, and both the ceiling and the actual row count are stated in the
+# report's README.
+DETAIL_LIMIT = 250_000
 TOP_N = 15
 
 # Terminal registry statuses — a company in one of these is legally gone while
@@ -66,6 +69,16 @@ def _exists(engine: Engine, qualified: str) -> bool:
         return conn.execute(text("SELECT to_regclass(:r)"), {"r": qualified}).scalar() is not None
 
 
+def _vintage(engine: Engine, sql: str) -> str | None:
+    """As-of date for a source register. A figure without one invites the reader
+    to assume the register is current; several of PRISM's are not."""
+    try:
+        value = _scalar(engine, sql)
+    except Exception:  # noqa: BLE001 — a missing table is not a report failure
+        return None
+    return value.isoformat()[:10] if value else None
+
+
 def _rows(engine: Engine, sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     with engine.connect() as conn:
         return [dict(r) for r in conn.execute(text(sql), params or {}).mappings()]
@@ -80,10 +93,18 @@ def _scalar(engine: Engine, sql: str, params: dict[str, Any] | None = None) -> A
 #
 # `crim.parcel_deltas` records an `owner_change` whenever the raw `contact`
 # string differs at all, so a trailing space counts as a transfer. Measured on
-# the 2026-07 delta: 2,550 of 7,722 "transfers" (33%) were whitespace-only, and
-# more were the same name reordered or a typo corrected. Reporting the raw count
-# as "parcels changed hands" would be wrong by a third, so the report classifies
-# every transfer and leads with the substantive figure.
+# the 2026-07 delta, a true partition of 7,722 owner-field changes: 2,178
+# substantive + 242 first-recorded (the 2,420 headline) + 2,598
+# spacing/punctuation-only + 2,704 the same name reordered. Reporting the raw
+# count as "parcels changed hands" would overstate transfers threefold, so the
+# report classifies every one and leads with the substantive figure.
+#
+# Known limitation: `normalize_owner()` strips trailing legal-form suffixes, so
+# `ACME LLC` -> `ACME INC` — a change of legal entity — classifies as
+# `formatting_only`. 3 such rows in 2026-07. Widening the classifier to catch
+# them would mean not using PRISM's canonical owner key here, which would be a
+# worse trade: the report would then disagree with owner identity everywhere
+# else in the product. Pinned by a test.
 #
 # Registered as `crim_owner_change_formatting_churn` in config/anomalies.yml.
 
@@ -118,6 +139,16 @@ def classify_owner_change(previous: str | None, new: str | None) -> str:
     return "substantive"
 
 
+def _is_unknown_owner(previous: str | None, new: str | None) -> bool:
+    """CRIM's `<MUNICIPIO> JOHN DOE` placeholder on either side of the change.
+
+    A large share of non-substantive owner-field changes are this sentinel being
+    rewritten (`JOHN DOE` -> `DOE JOHN`). That is placeholder churn, not a
+    transfer in any sense — see ANOMALIES.md `crim_unknown_owner_sentinel`.
+    """
+    return any("JOHN DOE" in (v or "").upper() for v in (previous, new))
+
+
 def _classify_all_transfers(
     engine: Engine, month: date
 ) -> tuple[dict[str, int], dict[str, int]]:
@@ -127,6 +158,7 @@ def _classify_all_transfers(
     one pass, so the municipio table and the headline can't disagree.
     """
     counts = dict.fromkeys(CHANGE_CLASSES, 0)
+    counts["sentinel_churn"] = 0
     per_municipio: dict[str, int] = {}
     with engine.connect() as conn:
         result = conn.execute(text("""
@@ -137,6 +169,8 @@ def _classify_all_transfers(
         for municipio, previous, new in result:
             klass = classify_owner_change(previous, new)
             counts[klass] += 1
+            if klass != "substantive" and _is_unknown_owner(previous, new):
+                counts["sentinel_churn"] += 1
             if klass in ("substantive", "first_recorded"):
                 per_municipio[municipio] = per_municipio.get(municipio, 0) + 1
     return counts, per_municipio
@@ -157,6 +191,8 @@ def _parcel_section(engine: Engine, month: date) -> dict[str, Any]:
         "source_tables": ["crim.parcel_deltas", "crim.parcela_snapshots"],
         "available": False,
         "reason": None,
+        "vintage": None,
+        "period": None,
         "totals": {},
         "by_municipio": [],
         "transfers": [],
@@ -171,6 +207,15 @@ def _parcel_section(engine: Engine, month: date) -> dict[str, Any]:
         SELECT max(snapshot_month) FROM crim.parcela_snapshots WHERE snapshot_month < :m
     """, {"m": month})
     section["from_month"] = from_month.isoformat() if from_month else None
+    section["vintage"] = _vintage(engine, "SELECT max(snapshot_month) FROM crim.parcela_snapshots")
+    # This section is SNAPSHOT-scoped, not calendar-scoped: it reports what
+    # differs between two CRIM pulls, which is not the same window as the
+    # calendar month the other two sections use. Saying so is cheaper than
+    # letting a reader assume they align.
+    section["period"] = (
+        f"changes between the {from_month} and {month} CRIM snapshots"
+        if from_month else f"baseline snapshot {month}"
+    )
 
     by_type = {
         r["change_type"]: int(r["n"])
@@ -282,6 +327,8 @@ def _registry_section(engine: Engine, month: date) -> dict[str, Any]:
         "source_tables": ["crim.rce_status_history", "crim.owner_rce_match", "crim.rce_match_key"],
         "available": False,
         "reason": None,
+        "vintage": None,
+        "period": None,
         "transitions": [],
         "standing": {},
     }
@@ -289,7 +336,8 @@ def _registry_section(engine: Engine, month: date) -> dict[str, Any]:
         section["reason"] = "The corporate-registry match layer has not been built."
         return section
 
-    section["available"] = True
+    section["vintage"] = _vintage(engine, "SELECT max(pulled_at) FROM crim.rce_entities")
+    section["period"] = f"status transitions banked during {month:%B %Y}"
     section["transitions"] = _rows(engine, """
         WITH cur AS (
             SELECT registration_index, status_es, first_seen
@@ -335,10 +383,14 @@ def _registry_section(engine: Engine, month: date) -> dict[str, Any]:
         "companies": sum(int(r["companies"]) for r in standing),
         "parcels": sum(int(r["parcels"] or 0) for r in standing),
     }
-    if not section["transitions"]:
+    # `available` means "this month had something to report" — the standing
+    # block is always printed, but it is current state, not this month's news.
+    section["available"] = bool(section["transitions"])
+    if not section["available"]:
         section["reason"] = (
             "No status transitions were banked this month. A transition needs two registry "
-            "snapshots to sit either side of it; the standing figures below are still live."
+            "snapshots to sit either side of it. The standing figures below are current state "
+            "as of the registry mirror, not a change during this month."
         )
     return section
 
@@ -361,6 +413,8 @@ def _contracts_section(engine: Engine, month: date) -> dict[str, Any]:
         "source_tables": ["ocpr.contracts", "ocpr.contract_contractors", "ocpr.government_keys"],
         "available": False,
         "reason": None,
+        "vintage": None,
+        "period": None,
         "totals": {},
         "by_agency": [],
         "by_service_group": [],
@@ -384,6 +438,8 @@ def _contracts_section(engine: Engine, month: date) -> dict[str, Any]:
         return section
 
     section["available"] = True
+    section["vintage"] = _vintage(engine, "SELECT max(loaded_at) FROM ocpr.contracts")
+    section["period"] = f"contracts with a date of grant in {month:%B %Y}"
     section["totals"]["shared"] = int(_scalar(engine, """
         SELECT count(*) FROM (
             SELECT cc.contract_id
@@ -585,6 +641,7 @@ table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 12.5p
 th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
 th { color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
 td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.prov { color: #64748b; font-size: 11.5px; margin: 2px 0 10px; }
 .note { background: #f8fafc; border: 1px solid #e3e8ef; border-left: 3px solid #94a3b8;
   border-radius: 0 6px 6px 0; padding: 10px 14px; color: #475569; font-size: 12.5px; margin: 12px 0; }
 .flag { color: #b45309; font-weight: 600; }
@@ -600,6 +657,21 @@ code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 11.
   table, .chart { page-break-inside: avoid; }
 }
 """
+
+
+def _provenance_line(sec: dict[str, Any]) -> str:
+    """One line under each section heading: what it covers, from which tables, as
+    of when. A figure whose vintage is unstated invites the reader to assume the
+    register is current — and OCPR's, for one, usually isn't."""
+    bits = []
+    if sec.get("period"):
+        bits.append(f"Covers {escape(str(sec['period']))}")
+    bits.append("from " + ", ".join(f"<code>{escape(t)}</code>" for t in sec["source_tables"]))
+    if sec.get("vintage"):
+        bits.append(f"last synced {escape(str(sec['vintage']))}")
+    else:
+        bits.append("sync date unknown")
+    return f'<p class="prov">{" · ".join(bits)}.</p>'
 
 
 def _stat(value: str, label: str) -> str:
@@ -641,9 +713,14 @@ def render_html(report: dict[str, Any]) -> str:
         '<p class="sub">Puerto Rico Infrastructure Simulation Model · monthly change report</p>',
         '<p class="lede">Three registers that each publish only their current state, differenced '
         "month over month: who owns which parcel, which companies are still legally alive, and "
-        "which government contracts were granted. Every figure below names the table it came "
-        "from. Data set aside before it reached these counts is itemised in "
-        "<code>ANOMALIES.md</code>.</p>",
+        "which government contracts were granted. Every section names the tables it came from "
+        "and when they were last synced. Data set aside before it reached these counts is "
+        "itemised in <code>ANOMALIES.md</code>.</p>",
+        '<div class="note"><strong>The three sections do not cover identical windows.</strong> '
+        "Parcel ownership is snapshot-scoped — it reports what differs between two CRIM pulls, "
+        "which is the activity CRIM recorded between them, not the calendar month. Corporate "
+        "status and contracts are calendar-scoped. Each section states its own period below."
+        "</div>",
     ]
     out += _html_parcels(s["parcel_ownership"], label)
     out += _html_registry(s["corporate_status"], label)
@@ -662,7 +739,7 @@ def render_html(report: dict[str, Any]) -> str:
 
 
 def _html_parcels(sec: dict[str, Any], label: str) -> list[str]:
-    out = ["<h2>Parcel ownership</h2>"]
+    out = ["<h2>Parcel ownership</h2>", _provenance_line(sec)]
     if not sec["available"]:
         out.append(f'<div class="note">{escape(sec["reason"] or "No data.")}</div>')
         return out
@@ -689,20 +766,27 @@ def _html_parcels(sec: dict[str, Any], label: str) -> list[str]:
             _table(
                 [
                     {"kind": CHANGE_CLASS_LABEL[k], "n": cls.get(k, 0)}
-                    for k in CHANGE_CLASSES
-                    if cls.get(k)
+                    for k in CHANGE_CLASSES        # not sentinel_churn — that is a
+                    if cls.get(k)                  # cross-cutting count, not a class
                 ],
                 [("kind", "Change", "t"), ("n", "Parcels", "n")],
             )
         )
         cosmetic = cls.get("formatting_only", 0) + cls.get("reordered", 0)
         if cosmetic:
+            sentinel = cls.get("sentinel_churn", 0)
+            sentinel_note = (
+                f" {_fmt_int(sentinel)} of them are CRIM's unknown-owner placeholder being "
+                "rewritten (<em>JOHN DOE</em> → <em>DOE JOHN</em>), which is not a transfer in "
+                "any sense."
+                if sentinel else ""
+            )
             out.append(
                 f'<div class="note">{_fmt_int(cosmetic)} of the {_fmt_int(t["owner_change"])} '
                 "owner-field changes are the same owner written differently — a trailing space "
                 "removed, or a name reordered. CRIM's snapshot diff compares the raw string, so "
                 "they register as changes; PRISM classifies them with the same owner key it uses "
-                "everywhere else and leads with the substantive count. See "
+                f"everywhere else and leads with the substantive count.{sentinel_note} See "
                 "<code>ANOMALIES.md</code> → <code>crim_owner_change_formatting_churn</code>."
                 "</div>"
             )
@@ -750,11 +834,11 @@ def _html_parcels(sec: dict[str, Any], label: str) -> list[str]:
 
 
 def _html_registry(sec: dict[str, Any], label: str) -> list[str]:
-    out = ["<h2>Corporate status</h2>"]
-    if not sec["available"]:
+    out = ["<h2>Corporate status</h2>", _provenance_line(sec)]
+    standing = sec.get("standing") or {}
+    if not standing:
         out.append(f'<div class="note">{escape(sec["reason"] or "No data.")}</div>')
         return out
-    standing = sec.get("standing") or {}
     out.append(
         '<p class="lede">The property record and the corporate register disagree, and only one '
         "of them knows it. CRIM's deed record is current and correct; the company named on it "
@@ -762,6 +846,10 @@ def _html_registry(sec: dict[str, Any], label: str) -> list[str]:
         f"<strong>{_fmt_int(standing.get('companies'))}</strong> dissolved, cancelled, merged or "
         f"revoked companies still hold <strong>{_fmt_int(standing.get('parcels'))}</strong> "
         "parcels.</p>"
+    )
+    out.append(
+        f'<h3>Standing position as of {escape(str(sec.get("vintage") or "the registry mirror"))}'
+        "</h3>"
     )
     if standing.get("by_status"):
         out.append(
@@ -794,7 +882,7 @@ def _html_registry(sec: dict[str, Any], label: str) -> list[str]:
 
 
 def _html_contracts(sec: dict[str, Any], label: str) -> list[str]:
-    out = ["<h2>Government contracts added</h2>"]
+    out = ["<h2>Government contracts added</h2>", _provenance_line(sec)]
     if not sec["available"]:
         out.append(f'<div class="note">{escape(sec["reason"] or "No data.")}</div>')
         return out
@@ -882,17 +970,78 @@ def _html_contracts(sec: dict[str, Any], label: str) -> list[str]:
 
 # ── Filesystem ──────────────────────────────────────────────────────────────
 
+def render_readme(report: dict[str, Any], csvs: dict[str, str]) -> str:
+    """Provenance for the CSV half of the report.
+
+    The CSVs are the durable, machine-readable artifact and they travel without
+    the HTML. A reader holding only the CSVs still has to be able to answer
+    "which register, as of when, covering what period, and is this all of it".
+    """
+    sections = report["sections"]
+    out = [
+        f"# PRISM monthly change report - {report['month_label']}",
+        "",
+        f"Generated {report['generated_at']} - reporting month {report['month']}.",
+        "",
+        "The three sections do NOT cover identical windows. Parcel ownership is",
+        "snapshot-scoped (what differs between two CRIM pulls); corporate status and",
+        "contracts are calendar-scoped. Each section's period is stated below.",
+        "",
+        "## Sections",
+        "",
+    ]
+    for sec in sections.values():
+        reported = "yes" if sec["available"] else f"no - {sec['reason'] or 'no data'}"
+        out += [
+            f"### {sec['title']}",
+            "",
+            f"- Period: {sec.get('period') or 'n/a'}",
+            f"- Source tables: {', '.join(sec['source_tables'])}",
+            f"- Source last synced: {sec.get('vintage') or 'unknown'}",
+            f"- Reported: {reported}",
+            "",
+        ]
+    out += [
+        "## Files",
+        "",
+        f"Detail rows are capped at {DETAIL_LIMIT:,} per file. Actual row counts:",
+        "",
+    ]
+    for name, body in sorted(csvs.items()):
+        rows = max(0, body.count("\n") - 1)   # minus the header row
+        flag = "  **TRUNCATED - hit the cap**" if rows >= DETAIL_LIMIT else ""
+        out.append(f"- `{name}` - {rows:,} rows{flag}")
+    out += [
+        "",
+        "## Excluded data",
+        "",
+        "Every figure here is computed after the exclusions listed in `ANOMALIES.md`",
+        "at the repository root - notably that a third of CRIM sale amounts fall outside",
+        "any plausible range, and that most recorded owner-field changes are the same",
+        "owner written differently rather than a transfer.",
+        "",
+    ]
+    return "\n".join(out)
+
+
 def write_report(
     report: dict[str, Any], out_dir: Path | None = None
 ) -> dict[str, Any]:
-    """Write CSVs + HTML + a provenance manifest. Returns the manifest."""
+    """Write CSVs + HTML + a README + a provenance manifest. Returns the manifest."""
     target = Path(out_dir) if out_dir else DEFAULT_OUT_ROOT / report["month"]
     target.mkdir(parents=True, exist_ok=True)
 
+    csvs = render_csvs(report)
     written: list[str] = []
-    for name, body in render_csvs(report).items():
+    for name, body in csvs.items():
         (target / name).write_text(body, encoding="utf-8", newline="\n")
         written.append(name)
+
+    # The CSVs travel without the HTML, so they carry their own provenance.
+    (target / "README.md").write_text(
+        render_readme(report, csvs), encoding="utf-8", newline="\n"
+    )
+    written.append("README.md")
 
     html_name = f"prism-changes-{report['month']}.html"
     (target / html_name).write_text(render_html(report), encoding="utf-8", newline="\n")
@@ -908,6 +1057,8 @@ def write_report(
                 "available": v["available"],
                 "reason": v["reason"],
                 "source_tables": v["source_tables"],
+                "vintage": v.get("vintage"),
+                "period": v.get("period"),
             }
             for k, v in report["sections"].items()
         },

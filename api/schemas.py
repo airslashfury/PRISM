@@ -838,6 +838,11 @@ class MonthlyReportSection(BaseModel):
     available: bool
     reason: str | None = None
     source_tables: list[str] = Field(default_factory=list)
+    #: When the source register was last synced — several of PRISM's lag.
+    vintage: str | None = None
+    #: The window this section covers. The three sections do NOT align: parcel
+    #: ownership is snapshot-scoped, the other two are calendar-scoped.
+    period: str | None = None
 
 
 class MonthlyReport(BaseModel):

@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import os
 
+from datetime import date, timedelta
+
 from arq import cron
 from arq.connections import RedisSettings
 
@@ -260,20 +262,28 @@ async def check_stalled_pulls(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
-async def build_monthly_change_report(ctx: dict) -> dict:
-    """Monthly: build the change report and announce it (F14c).
+async def build_monthly_change_report(ctx: dict, month: str | None = None) -> dict:
+    """Monthly: build the change report for the month that just ENDED (F14c).
 
-    Runs after `crim/snapshots.py::run_monthly()` has had time to land the
-    month's deltas. Writes to a host bind mount so the artifact survives the
-    container; the API serves the same content from the same builder on demand,
-    so a missing mount degrades the artifact, not the product.
+    The month is explicit, and defaults to the previous one. Firing on the 2nd
+    with no argument would otherwise report the *current* month — one day of
+    contracts, and none of the 6,990 the month just finished with. The parcel
+    section is snapshot-scoped so it would have resolved either way, which is
+    exactly what made the bug survive a review.
+
+    Writes to a host bind mount so the artifact survives the container; the API
+    serves the same content from the same builder on demand, so a missing mount
+    degrades the artifact, not the product.
     """
     from prism.alerts import send_alert
     from prism.report.monthly import build_monthly_report, write_report
 
     engine = get_engine()
+    if month is None:
+        today = date.today().replace(day=1)
+        month = (today - timedelta(days=1)).strftime("%Y-%m")
     try:
-        report = build_monthly_report(engine)
+        report = build_monthly_report(engine, month)
         manifest = write_report(report)
         totals = report["sections"]["parcel_ownership"]["totals"]
         contracts = report["sections"]["contracts_added"]["totals"]

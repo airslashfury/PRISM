@@ -92,6 +92,8 @@ def monthly(month: str, engine: Engine = Depends(engine_dep)) -> dict:
                 "available": s["available"],
                 "reason": s["reason"],
                 "source_tables": s["source_tables"],
+                "vintage": s.get("vintage"),
+                "period": s.get("period"),
             }
             for s in sections.values()
         ],

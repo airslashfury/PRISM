@@ -27,6 +27,14 @@ from prism.report import monthly
         # Punctuation + legal-suffix folding comes from normalize_owner, so the
         # report agrees with owner identity everywhere else in PRISM.
         ("ACME, L.L.C.", "ACME LLC", "formatting_only"),
+        # KNOWN LIMITATION, pinned deliberately: normalize_owner strips the
+        # trailing legal-form suffix, so a change of legal ENTITY reads as
+        # cosmetic. 3 such rows in the 2026-07 delta. Widening the classifier
+        # would mean not using PRISM's canonical owner key here, and the report
+        # would then disagree with owner identity everywhere else — a worse
+        # trade than under-reporting three rows.
+        ("ACME LLC", "ACME INC", "formatting_only"),
+        ("RR PROPERTY", "RR PROPERTY LLC", "formatting_only"),
         # Same person, surname/given order swapped between snapshots.
         ("LOUIS  ATILANO GONZALEZ", "ATILANO GONZALEZ LOUIS", "reordered"),
         # A genuinely different owner — the only class the headline counts.
@@ -48,6 +56,21 @@ def test_classify_owner_change(previous, new, expected):
 def test_every_class_has_a_label():
     for key in monthly.CHANGE_CLASSES:
         assert key in monthly.CHANGE_CLASS_LABEL
+
+
+@pytest.mark.parametrize("previous,new", [
+    ("CAMUY JOHN DOE", "JOHN DOE CAMUY"),
+    ("JOHN DOE", "DOE JOHN"),
+    ("john doe ponce", "PONCE JOHN DOE"),
+])
+def test_unknown_owner_sentinel_is_detected(previous, new):
+    """Over a third of non-substantive owner changes are CRIM's placeholder
+    being rewritten. The report says so rather than counting it as churn."""
+    assert monthly._is_unknown_owner(previous, new)
+
+
+def test_real_owners_are_not_flagged_as_the_sentinel():
+    assert not monthly._is_unknown_owner("RAMOS PEREZ DAVID", "PEREZ RAMOS DAVID")
 
 
 # ── Month parsing ───────────────────────────────────────────────────────────
@@ -175,7 +198,14 @@ def test_build_against_live_db():
         # The headline must never exceed the raw count it is derived from.
         assert t["owner_change_substantive"] <= t["owner_change"]
         classes = parcels["transfer_classes"]
-        assert sum(classes.values()) == t["owner_change"]
+        # The four classes partition the raw count exactly. `sentinel_churn` is
+        # a cross-cutting count over the non-substantive ones, not a fifth class,
+        # so it is excluded from the partition check on purpose.
+        partition = {k: v for k, v in classes.items() if k in monthly.CHANGE_CLASSES}
+        assert sum(partition.values()) == t["owner_change"]
+        assert classes["sentinel_churn"] <= (
+            classes["reordered"] + classes["formatting_only"] + classes["first_recorded"]
+        )
         assert (
             classes["substantive"] + classes["first_recorded"]
             == t["owner_change_substantive"]
