@@ -8,11 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 from prism.sync import http as prism_http
-
-_SESSION = requests.Session()
-_SESSION.headers["User-Agent"] = "PRISM-mirror/0.1 (data sovereignty)"
 
 # Bounding box of Puerto Rico + US Virgin Islands in WGS84
 PR_BBOX = {"xmin": -67.35, "ymin": 17.85, "xmax": -65.15, "ymax": 18.65}

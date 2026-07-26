@@ -65,7 +65,16 @@ class PullError(Exception):
 
 
 class TransientError(PullError):
-    """Worth retrying: timeout, connection reset, 429, 5xx."""
+    """Worth retrying: timeout, connection reset, 429, 5xx.
+
+    Carries the offending response when there was one, so the retry loop can
+    read `Retry-After` off it — without that the header is unreachable, which is
+    exactly the bug this attribute exists to prevent.
+    """
+
+    def __init__(self, message: str, response: Any = None):
+        super().__init__(message)
+        self.response = response
 
 
 class PermanentError(PullError):
@@ -113,13 +122,16 @@ def _throttle(url: str, min_interval: float) -> None:
     if min_interval <= 0:
         return
     host = urlsplit(url).netloc
+    # Reserve this host's slot under the lock, then sleep OUTSIDE it — holding a
+    # global lock across a sleep would let one throttled host stall every other
+    # host's bookkeeping.
     with _host_lock:
         now = time.monotonic()
-        wait = _last_request_at.get(host, 0.0) + min_interval - now
-        if wait > 0:
-            time.sleep(wait)
-            now = time.monotonic() + wait
-        _last_request_at[host] = now
+        earliest = max(now, _last_request_at.get(host, 0.0) + min_interval)
+        _last_request_at[host] = earliest
+    wait = earliest - now
+    if wait > 0:
+        time.sleep(wait)
 
 
 def _backoff(attempt: int, policy: RetryPolicy, retry_after: float | None) -> float:
@@ -156,6 +168,15 @@ _TRANSIENT_NAMES = frozenset({
     # urllib / stdlib socket
     "URLError", "IncompleteRead", "timeout", "TimeoutError", "ConnectionResetError",
     "ConnectionAbortedError", "BrokenPipeError", "socket.timeout",
+    # DNS. `gaierror` is the failure mode after the WSL VM is recycled under a
+    # running pull — the single most common transient in PRISM's outage history.
+    "gaierror", "herror",
+    # TLS session teardown mid-request; not a certificate problem.
+    "SSLEOFError", "SSLZeroReturnError", "SSLSyscallError",
+    # Truncated/garbled body. Reachable on the live path: requests preloads
+    # `.content` for non-stream requests inside `_once`.
+    "ProtocolError", "BadStatusLine", "LineTooLong", "ContentDecodingError",
+    "DecodeError", "IncompleteReadError",
 })
 
 
@@ -205,6 +226,14 @@ def with_retries(
                 log.info("%s: recovered on attempt %d/%d", source, attempt, policy.attempts)
             return result
         except BaseException as exc:  # noqa: BLE001 — classified immediately below
+            if isinstance(exc, (KeyboardInterrupt, SystemExit, GeneratorExit)):
+                # A deliberate stop, not a pull failure — never retried,
+                # reclassified, or wrapped. Swallowing this here (the F14d
+                # gate finding) meant Ctrl-C during a retry surfaced as a
+                # misleading PermanentError instead of actually stopping the
+                # process, and defeated `track_pull`'s own interrupted-vs-
+                # failed distinction one layer up.
+                raise
             kind = classify(exc)
             last = exc
             if kind is PermanentError:
@@ -283,7 +312,7 @@ def fetch(
             timeout=policy.timeout, stream=stream,
         )
         if response.status_code in RETRY_STATUS:
-            raise TransientError(f"HTTP {response.status_code} from {url}")
+            raise TransientError(f"HTTP {response.status_code} from {url}", response)
         if response.status_code >= 400:
             raise PermanentError(f"HTTP {response.status_code} from {url}")
         return response
@@ -349,10 +378,18 @@ def record_attempt(
     partial: bool = False,
     error: str | None = None,
     detail: dict[str, Any] | None = None,
+    alert: bool = True,
 ) -> int:
     """Bank one pull outcome. Returns the resulting consecutive-failure count.
 
     Never raises — health accounting must not be the thing that breaks a sync.
+
+    Alerts live here, not only in `track_pull`, so a source that manages its
+    own long-running loop and calls this directly (`ocpr.py`, `rcp.py`,
+    `aee.py`) gets the same loud-failure behavior as one wrapped end-to-end in
+    `track_pull` — before this, only the latter alerted, and the three
+    longest, most unattended pulls in PRISM went silent past
+    `ALERT_AFTER_FAILURES` with nothing to say so (F14d gate).
     """
     import json
 
@@ -360,7 +397,7 @@ def record_attempt(
     try:
         create_schema(engine)
         with engine.begin() as conn:
-            return int(conn.execute(text("""
+            failures = int(conn.execute(text("""
                 INSERT INTO sync.pull_health (
                     source, last_attempt_at, last_success_at, consecutive_failures,
                     total_attempts, total_failures, last_error, last_status,
@@ -390,6 +427,48 @@ def record_attempt(
     except Exception as exc:  # noqa: BLE001
         log.warning("pull_health: could not record %s (%s)", source, exc)
         return 0
+
+    if alert:
+        if not ok and failures >= ALERT_AFTER_FAILURES:
+            _alert_failure(engine, source, failures, error)
+        elif ok and partial:
+            _alert_partial(engine, source, detail)
+
+    return failures
+
+
+def _alert_failure(engine: Engine, source: str, failures: int, error: str | None) -> None:
+    try:
+        from prism.alerts import send_alert
+
+        send_alert(
+            engine,
+            kind="pull_failure",
+            # Dedup on the run length so each additional failure re-alerts
+            # once rather than every cycle or never.
+            dedup_key=f"{source}:{failures}",
+            headline=f"{source} pull has failed {failures} times in a row",
+            detail=error,
+            href="/sync",
+        )
+    except Exception as exc:  # noqa: BLE001 — alerting must not break the sync
+        log.warning("pull_health: alert failed for %s (%s)", source, exc)
+
+
+def _alert_partial(engine: Engine, source: str, detail: dict[str, Any] | None) -> None:
+    try:
+        from prism.alerts import send_alert
+
+        send_alert(
+            engine,
+            kind="pull_partial",
+            dedup_key=source,
+            headline=f"{source} pull completed only partially",
+            detail=str(detail) if detail else None,
+            href="/sync",
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("pull_health: partial alert failed for %s (%s)", source, exc)
 
 
 def pull_health(engine: Engine) -> list[dict[str, Any]]:
@@ -446,50 +525,26 @@ class track_pull:  # noqa: N801 — used as a context manager, reads as a verb
         return self.result
 
     def __exit__(self, exc_type, exc, tb) -> bool:
+        if exc_type is not None and issubclass(exc_type, (KeyboardInterrupt, SystemExit, GeneratorExit)):
+            # A deliberate stop, not a failure — the same distinction
+            # prism/sync/rcp.py's own long-walk handler makes. Recording this
+            # as an ordinary failure would fire a "failed N times in a row"
+            # alert on every routine restart of a pull this wraps.
+            record_attempt(
+                self.engine, self.source,
+                ok=True, partial=True, error=f"interrupted: {exc_type.__name__}",
+                detail=self.result.detail or None, alert=False,
+            )
+            return False
+
         if exc is not None:
             self.result.ok = False
             self.result.error = f"{exc_type.__name__}: {exc}"[:500]
 
-        failures = record_attempt(
+        record_attempt(
             self.engine, self.source,
             ok=self.result.ok, partial=self.result.partial,
             error=self.result.error, detail=self.result.detail or None,
+            alert=self.alert,
         )
-
-        if self.alert and not self.result.ok and failures >= ALERT_AFTER_FAILURES:
-            self._alert(failures)
-        elif self.alert and self.result.ok and self.result.partial:
-            self._alert_partial()
         return False  # never suppress
-
-    def _alert(self, failures: int) -> None:
-        try:
-            from prism.alerts import send_alert
-
-            send_alert(
-                self.engine,
-                kind="pull_failure",
-                # Dedup on the run length so each additional failure re-alerts
-                # once rather than every cycle or never.
-                dedup_key=f"{self.source}:{failures}",
-                headline=f"{self.source} pull has failed {failures} times in a row",
-                detail=self.result.error,
-                href="/sync",
-            )
-        except Exception as exc:  # noqa: BLE001 — alerting must not break the sync
-            log.warning("pull_health: alert failed for %s (%s)", self.source, exc)
-
-    def _alert_partial(self) -> None:
-        try:
-            from prism.alerts import send_alert
-
-            send_alert(
-                self.engine,
-                kind="pull_partial",
-                dedup_key=self.source,
-                headline=f"{self.source} pull completed only partially",
-                detail=str(self.result.detail) if self.result.detail else None,
-                href="/sync",
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.warning("pull_health: partial alert failed for %s (%s)", self.source, exc)

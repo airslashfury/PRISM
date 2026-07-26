@@ -18,8 +18,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import threading
-import time
 from typing import Any, Literal
 
 import requests
@@ -36,19 +34,10 @@ LICENSE = "public domain (U.S. Census Bureau)"
 MatchTier = Literal["match", "tie", "no_match"]
 
 # Keyless public endpoint — self-throttle to be a polite caller regardless of
-# how many parcel searches route through this client concurrently.
+# how many parcel searches route through this client concurrently. Enforced by
+# the shared client's per-host rate limiter (`rate_limit_s` below), not a
+# module-local throttle.
 _MIN_INTERVAL_S = 0.5
-_last_call_lock = threading.Lock()
-_last_call_ts = 0.0
-
-
-def _throttle() -> None:
-    global _last_call_ts
-    with _last_call_lock:
-        wait = _MIN_INTERVAL_S - (time.monotonic() - _last_call_ts)
-        if wait > 0:
-            time.sleep(wait)
-        _last_call_ts = time.monotonic()
 
 
 def _cache_key(street: str, urb: str | None, municipio: str | None, zip_code: str | None) -> str:
@@ -74,27 +63,22 @@ def _query_census(street: str, urb: str | None, municipio: str | None,
     if zip_code:
         params["zip"] = zip_code
 
-    _throttle()
-    # A 400 is a real answer here (see below), so this goes through `fetch`'s
-    # raw response rather than its raise-on-4xx path — but it still gets the
-    # shared retry, backoff and rate limit (F14d).
+    # Throttling is the shared client's job now (rate_limit_s below); keeping
+    # this module's own `_throttle()` too would double the wait to ~1s a call.
     try:
         resp = prism_http.fetch(
             GEOCODE_URL, source="census_geocoder", params=params,
             policy=prism_http.RetryPolicy(attempts=3, read_timeout=float(timeout),
-                                          rate_limit_s=0.5),
+                                          rate_limit_s=_MIN_INTERVAL_S),
         )
     except prism_http.PermanentError as exc:
+        # A 400 is a real answer from addressPR, not a failure: the endpoint
+        # requires Urb+Municipio OR City/ZIP, so a query omitting all three is
+        # unmatchable. Degrade to "no confident match" rather than a 500.
+        # `fetch` raises on any 4xx, so this is the only place a 400 surfaces.
         if "HTTP 400" not in str(exc):
             raise
         return {"result": {"addressMatches": []}}
-    if resp.status_code == 400:
-        # The addressPR endpoint requires Urb+Municipio OR City/ZIP; a caller
-        # that omits all three gets a 400 — treat that as an unmatchable query
-        # rather than raising, so a malformed/underspecified address degrades
-        # to "no confident match" instead of a 500.
-        return {"result": {"addressMatches": []}}
-    resp.raise_for_status()
     return resp.json()
 
 
@@ -139,7 +123,14 @@ def geocode_address(
     else:
         try:
             payload = _query_census(street, urb, municipio, zip_code, timeout)
-        except requests.RequestException as exc:
+        except (requests.RequestException, prism_http.PullError) as exc:
+            # `_query_census` goes through the shared client (F14d), which
+            # never lets a `requests.RequestException` escape — transients and
+            # permanents both come out as `prism_http.PullError` subclasses.
+            # Catching only the old exception type left this unreachable: a
+            # Census outage stopped degrading to an honest "no confident
+            # match" and instead raised straight through to the caller,
+            # 500-ing the parcel-360 card (F14d gate finding).
             log.warning("geocode_address: Census geocoder call failed for %r: %s", street, exc)
             return {"status": "no_confident_match", "standardized_address": None, "lon": None, "lat": None}
         tier, match = _classify(payload)

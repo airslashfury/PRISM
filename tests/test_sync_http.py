@@ -110,6 +110,24 @@ def test_permanent_failure_is_not_retried():
     assert calls["n"] == 1, "a 404 must cost exactly one request"
 
 
+@pytest.mark.parametrize("exc_cls", [KeyboardInterrupt, SystemExit])
+def test_interrupt_propagates_untouched_not_retried_or_reclassified(exc_cls):
+    """F14d gate finding: `with_retries` caught `BaseException`, so a Ctrl-C or
+    a SIGTERM-raised SystemExit mid-retry got classified like any other
+    exception — permanent, since neither carries an HTTP status — and
+    surfaced as a misleading PermanentError instead of actually stopping the
+    process. It must pass straight through, on the first attempt, no retry."""
+    calls = {"n": 0}
+
+    def interrupted():
+        calls["n"] += 1
+        raise exc_cls("stop")
+
+    with pytest.raises(exc_cls):
+        with_retries(interrupted, source="test", policy=FAST)
+    assert calls["n"] == 1, "an interrupt must not be retried"
+
+
 def test_gives_up_after_the_attempt_budget():
     calls = {"n": 0}
 
@@ -280,6 +298,46 @@ def test_track_pull_records_a_raised_exception_and_reraises():
 
 
 @pytest.mark.integration
+def test_track_pull_records_an_interrupt_as_interrupted_not_a_failure():
+    """A Ctrl-C or SIGTERM inside a `track_pull` block is a deliberate stop of
+    a resumable pull, not a failure — the same distinction `rcp.py` makes for
+    its own multi-day walk. Recording it as an ordinary failure would fire a
+    "failed N times in a row" alert on every routine restart."""
+    from sqlalchemy import text
+
+    from prism.load.db import get_engine
+
+    engine = get_engine()
+    source = "_test_track_pull_interrupt"
+    prism_http.create_schema(engine)
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM sync.pull_health WHERE source = :s"), {"s": source})
+        conn.execute(text("DELETE FROM sync.alert_log WHERE dedup_key LIKE :p"),
+                     {"p": f"{source}:%"})
+
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            with prism_http.track_pull(engine, source):  # alert=True default — must still not fire
+                raise KeyboardInterrupt()
+
+        row = next(r for r in prism_http.pull_health(engine) if r["source"] == source)
+        assert row["consecutive_failures"] == 0, "an interrupt must not count as a failure"
+        assert row["last_status"] == "partial"
+        assert "interrupted" in row["last_error"]
+
+        with engine.connect() as conn:
+            alerted = conn.execute(text(
+                "SELECT count(*) FROM sync.alert_log WHERE dedup_key LIKE :p"
+            ), {"p": f"{source}:%"}).scalar()
+        assert alerted == 0, "a deliberate stop must never alert"
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM sync.pull_health WHERE source = :s"), {"s": source})
+            conn.execute(text("DELETE FROM sync.alert_log WHERE dedup_key LIKE :p"),
+                         {"p": f"{source}:%"})
+
+
+@pytest.mark.integration
 def test_partial_pull_is_recorded_as_partial_not_complete():
     """41 of 120 pages must never persist as a finished pull."""
     from sqlalchemy import text
@@ -318,7 +376,10 @@ def test_failing_pull_surfaces_in_whatsnew():
     prism_http.create_schema(engine)
     try:
         for _ in range(3):
-            prism_http.record_attempt(engine, source, ok=False, error="endpoint gone")
+            # alert=False: this test is about WhatsNew visibility, not alert
+            # delivery (covered separately below) — no reason to write a real
+            # row to sync.alert_log for a throwaway test source.
+            prism_http.record_attempt(engine, source, ok=False, error="endpoint gone", alert=False)
         news = whatsnew(engine)
         assert news["pull_health"]["failing"] >= 1
         assert any(c["kind"] == "pull" and source in c["headline"] for c in news["changes"]), (
@@ -327,3 +388,100 @@ def test_failing_pull_surfaces_in_whatsnew():
     finally:
         with engine.begin() as conn:
             conn.execute(text("DELETE FROM sync.pull_health WHERE source = :s"), {"s": source})
+
+
+@pytest.mark.integration
+def test_direct_record_attempt_callers_alert_after_a_run_of_failures():
+    """F14d gate finding: alerting used to live only in `track_pull.__exit__`,
+    so the three sources that manage their own long-running loop and call
+    `record_attempt` directly — `ocpr.py`, `rcp.py`, `aee.py` — recorded
+    failures but never alerted on a run of them. `record_attempt` now alerts
+    itself; this proves it end-to-end for a bare caller, with no `track_pull`
+    in the picture at all."""
+    from sqlalchemy import text
+
+    from prism.load.db import get_engine
+
+    engine = get_engine()
+    source = "_test_direct_alert_pull"
+    prism_http.create_schema(engine)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM sync.alert_log WHERE dedup_key LIKE :p"),
+                         {"p": f"{source}:%"})
+
+        # Two failures: below ALERT_AFTER_FAILURES, must stay silent.
+        prism_http.record_attempt(engine, source, ok=False, error="timeout")
+        prism_http.record_attempt(engine, source, ok=False, error="timeout")
+        with engine.connect() as conn:
+            early = conn.execute(text(
+                "SELECT count(*) FROM sync.alert_log WHERE dedup_key LIKE :p"
+            ), {"p": f"{source}:%"}).scalar()
+        assert early == 0, "must not alert before ALERT_AFTER_FAILURES is reached"
+
+        # Third failure crosses the threshold — a direct record_attempt caller
+        # with no track_pull wrapper must alert exactly like one that has it.
+        prism_http.record_attempt(engine, source, ok=False, error="timeout")
+        with engine.connect() as conn:
+            row = conn.execute(text(
+                "SELECT kind, headline FROM sync.alert_log WHERE dedup_key = :k"
+            ), {"k": f"{source}:3"}).mappings().fetchone()
+        assert row is not None, "a direct record_attempt caller failed to alert at 3-in-a-row"
+        assert row["kind"] == "pull_failure"
+        assert source in row["headline"]
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM sync.pull_health WHERE source = :s"), {"s": source})
+            conn.execute(text("DELETE FROM sync.alert_log WHERE dedup_key LIKE :p"),
+                         {"p": f"{source}:%"})
+
+
+# ── Regressions for the two bugs the F14d gate found ────────────────────────
+
+def test_retry_after_is_honored_through_fetch():
+    """The bug: `_once` raised a bare TransientError with no response attached,
+    so `_retry_after` always read None and a 429 saying "wait 45s" got the 1s
+    default backoff. The unit tests exercised `_backoff` directly and missed it
+    entirely — this one asserts the sleep the retry loop actually takes."""
+    slept: list[float] = []
+    responses = [
+        _Resp(status=429, headers={"Retry-After": "45"}),
+        _Resp(status=200, body=b'{"ok":true}'),
+    ]
+    policy = RetryPolicy(attempts=3, base_delay=1.0, jitter=0.0)
+
+    with patch.object(prism_http, "_session") as session, \
+         patch.object(prism_http.time, "sleep", slept.append):
+        session.return_value.request.side_effect = responses
+        prism_http.fetch_json("https://example.test/f", source="t", policy=policy)
+
+    assert slept == [45.0], f"expected the server's Retry-After, slept {slept}"
+
+
+def test_retry_after_is_capped_through_fetch():
+    """A source asking for an hour is telling us to come back next cycle."""
+    slept: list[float] = []
+    policy = RetryPolicy(attempts=2, base_delay=1.0, jitter=0.0)
+    with patch.object(prism_http, "_session") as session, \
+         patch.object(prism_http.time, "sleep", slept.append):
+        session.return_value.request.side_effect = [
+            _Resp(status=503, headers={"Retry-After": "99999"}),
+            _Resp(status=200),
+        ]
+        prism_http.fetch("https://example.test/f", source="t", policy=policy)
+    assert slept == [prism_http.MAX_RETRY_AFTER_S]
+
+
+@pytest.mark.parametrize("exc", [
+    __import__("socket").gaierror("Name or service not known"),
+    __import__("ssl").SSLEOFError("EOF occurred in violation of protocol"),
+    __import__("ssl").SSLZeroReturnError("TLS/SSL connection has been closed"),
+    __import__("http.client", fromlist=["BadStatusLine"]).BadStatusLine("''"),
+    requests.exceptions.ContentDecodingError("truncated gzip"),
+])
+def test_generic_path_transients_are_not_misfiled_as_permanent(exc):
+    """These reach `with_retries` on the httpx pullers' path and used to
+    classify permanent. `gaierror` in particular is the DNS blip after the WSL
+    VM is recycled under a running pull — the most common transient in PRISM's
+    own outage history, and the one it would have refused to retry."""
+    assert classify(exc) is TransientError

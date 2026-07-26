@@ -8,11 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 from prism.sync import http as prism_http
-
-_SESSION = requests.Session()
-_SESSION.headers["Accept-Encoding"] = "gzip"
 
 
 class DownloadError(RuntimeError):

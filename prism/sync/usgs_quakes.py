@@ -18,7 +18,6 @@ import hashlib
 import json
 import logging
 import urllib.parse
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any

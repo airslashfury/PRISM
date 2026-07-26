@@ -62,12 +62,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
+from prism.sync import http as prism_http
 
 PROXY = "https://catastro.crimpr.net/proxy/proxy.ashx"
 BASE = "https://catastro.crimpr.net/server/rest/services"
@@ -101,9 +103,6 @@ OPT_IN = {"planimetria_estructuras"}
 
 OUT_DIR = Path("data/raw/crim_catastro")
 
-SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "PRISM/1.0 (research)"})
-
 
 def _proxy(url: str) -> str:
     """Wrap a service URL in the proxy."""
@@ -111,15 +110,22 @@ def _proxy(url: str) -> str:
 
 
 def _get(url: str, params: dict, use_proxy: bool = True) -> dict:
+    """One page of the CRIM ArcGIS walk, with retry (F14d).
+
+    This is the longest pull PRISM makes — ~1.5M parcels over hours — and it ran
+    on a single bare attempt per page, so one 503 anywhere in the walk lost the
+    whole thing.
+    """
+    policy = prism_http.RetryPolicy(attempts=5, read_timeout=120.0, max_delay=60.0)
     if use_proxy:
-        # Encode params into URL for proxy passthrough
+        # Encode params into the URL for proxy passthrough.
         qs = "&".join(f"{k}={requests.utils.quote(str(v), safe='=')}" for k, v in params.items())
-        full = f"{url}?{qs}"
-        r = SESSION.get(_proxy(full), headers=HEADERS, timeout=120)
-    else:
-        r = SESSION.get(url, params=params, timeout=120)
-    r.raise_for_status()
-    return r.json()
+        return prism_http.fetch_json(
+            _proxy(f"{url}?{qs}"), source="crim_catastro", headers=HEADERS, policy=policy,
+        )
+    return prism_http.fetch_json(
+        url, source="crim_catastro", params=params, headers=HEADERS, policy=policy,
+    )
 
 
 def layer_count(url: str, use_proxy: bool = True) -> int:
@@ -134,6 +140,41 @@ def layer_meta(url: str, use_proxy: bool = True) -> dict:
     if "error" in d:
         raise RuntimeError(d["error"])
     return d
+
+
+def _resume_state(part_path: Path) -> tuple[int, int]:
+    """(offset, banked feature count) from the checkpoint marker, or (0, 0)
+    when there is no usable checkpoint.
+
+    The marker carries both numbers together, not just the offset — a resume
+    that only knew the offset had nothing to check the `.jsonl` sidecar
+    against, so a kill mid-flush (a truncated trailing line) or mid-marker-write
+    (a torn/empty marker) both looked like a clean, resumable state and
+    weren't. Reading fewer than `count` well-formed lines back out is the
+    caller's signal that this checkpoint can't be trusted.
+    """
+    marker = part_path.with_suffix(".offset")
+    try:
+        offset_s, count_s = marker.read_text(encoding="utf-8").strip().split(",")
+        return int(offset_s), int(count_s)
+    except (OSError, ValueError):
+        return 0, 0
+
+
+def _write_offset(part_path: Path, offset: int, count: int) -> None:
+    """Atomic replace: a temp file + `os.replace`, so a kill mid-write leaves
+    the previous marker (or none) intact rather than a torn, half-written one
+    that `_resume_state` would then have to fail on."""
+    marker = part_path.with_suffix(".offset")
+    tmp = marker.with_suffix(".offset.tmp")
+    tmp.write_text(f"{offset},{count}", encoding="utf-8")
+    os.replace(tmp, marker)
+
+
+def _discard_checkpoint(part_path: Path) -> None:
+    part_path.unlink(missing_ok=True)
+    part_path.with_suffix(".offset").unlink(missing_ok=True)
+    part_path.with_suffix(".offset.tmp").unlink(missing_ok=True)
 
 
 def download_layer(
@@ -155,46 +196,93 @@ def download_layer(
     total = layer_count(url, use_proxy)
     print(f"  {name}: {total:,} features  geom={geom_type}  fields={len(all_fields)}")
 
-    features = []
+    # Page checkpoint: completed pages are written to a sidecar as they land, so
+    # a kill or a failed page resumes from the last whole page instead of
+    # restarting a multi-hour walk (F14d).
+    part_path = out_dir / f"{name}.features.jsonl"
+    features: list[dict] = []
     offset = 0
+    if part_path.exists():
+        offset, banked = _resume_state(part_path)
+        if offset:
+            with part_path.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        break
+                    try:
+                        features.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        break
+                    if len(features) == banked:
+                        break
+            if len(features) != banked:
+                # The marker promised `banked` complete lines and the sidecar
+                # has fewer — a kill mid-flush (truncated trailing line) or
+                # mid-marker-write (torn/empty marker). Neither half of this
+                # checkpoint can be trusted on its own, so start the layer over
+                # rather than resume from a page boundary that never actually
+                # landed.
+                print(f"  {name}: checkpoint inconsistent "
+                      f"({len(features):,} lines readable, {banked:,} expected) — restarting layer")
+                features = []
+                offset = 0
+                _discard_checkpoint(part_path)
+            else:
+                print(f"  {name}: resuming at offset {offset:,} ({len(features):,} features banked)")
+        else:
+            _discard_checkpoint(part_path)
+
+    part_fh = part_path.open("a" if offset else "w", encoding="utf-8")
     t0 = time.time()
-    while offset < total:
-        d = _get(
-            url + "/query",
-            {
-                "where": "1=1",
-                "outFields": ",".join(all_fields),
-                "returnGeometry": "true",
-                "outSR": "4326",
-                "resultOffset": offset,
-                "resultRecordCount": page_size,
-                "f": "json",
-            },
-            use_proxy,
-        )
-        if "error" in d:
-            raise RuntimeError(f"Query error at offset {offset}: {d['error']}")
+    try:
+        while offset < total:
+            d = _get(
+                url + "/query",
+                {
+                    "where": "1=1",
+                    "outFields": ",".join(all_fields),
+                    "returnGeometry": "true",
+                    "outSR": "4326",
+                    "resultOffset": offset,
+                    "resultRecordCount": page_size,
+                    "f": "json",
+                },
+                use_proxy,
+            )
+            if "error" in d:
+                raise RuntimeError(f"Query error at offset {offset}: {d['error']}")
 
-        batch = d.get("features", [])
-        if not batch:
-            break
+            batch = d.get("features", [])
+            if not batch:
+                break
 
-        for feat in batch:
-            gj = _to_geojson(feat, geom_type)
-            if gj:
-                features.append(gj)
+            for feat in batch:
+                gj = _to_geojson(feat, geom_type)
+                if gj:
+                    features.append(gj)
+                    part_fh.write(json.dumps(gj, ensure_ascii=False) + "\n")
 
-        offset += len(batch)
-        elapsed = time.time() - t0
-        rate = offset / elapsed if elapsed > 0 else 0
-        eta = (total - offset) / rate if rate > 0 else 0
-        print(
-            f"    {offset:>8,}/{total:,}  {rate:5.0f}/s  ETA {eta/60:.1f}m",
-            end="\r",
-            flush=True,
-        )
-        time.sleep(0.05)
-
+            offset += len(batch)
+            # Flush per page, not per feature: the checkpoint has to survive a
+            # kill, and a whole page is the unit the walk can resume from. The
+            # marker is written only after the flush lands, so a kill between
+            # the two leaves the marker one page behind — safe, since
+            # `_resume_state` then re-reads the (smaller) banked count the
+            # marker actually names.
+            part_fh.flush()
+            _write_offset(part_path, offset, len(features))
+            elapsed = time.time() - t0
+            rate = offset / elapsed if elapsed > 0 else 0
+            eta = (total - offset) / rate if rate > 0 else 0
+            print(
+                f"    {offset:>8,}/{total:,}  {rate:5.0f}/s  ETA {eta/60:.1f}m",
+                end="\r",
+                flush=True,
+            )
+            time.sleep(0.05)
+    finally:
+        part_fh.close()
     print(f"\n    {len(features):,} features  ({time.time()-t0:.0f}s)")
 
     fc = {
@@ -212,6 +300,9 @@ def download_layer(
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(fc, f, ensure_ascii=False)
+
+    # The GeoJSON is complete, so the resume sidecar has served its purpose.
+    _discard_checkpoint(part_path)
 
     mb = out_path.stat().st_size / 1e6
     print(f"    -> {out_path}  ({mb:.1f} MB)")

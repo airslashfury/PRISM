@@ -23,6 +23,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from prism.economy.schema import create_schema
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +103,6 @@ def _fetch_tract_income_if_key_available(raw_dir: Path | None) -> dict[str, dict
         return {}
 
     import json
-    import requests
 
     if raw_dir is None:
         raw_dir = Path("data/raw")
@@ -118,9 +118,10 @@ def _fetch_tract_income_if_key_available(raw_dir: Path | None) -> dict[str, dict
             f"&key={key}"
         )
         try:
-            resp = requests.get(url, timeout=60)
-            resp.raise_for_status()
-            acs_rows = resp.json()
+            acs_rows = prism_http.fetch_json(
+                url, source="census_acs",
+                policy=prism_http.RetryPolicy(attempts=3, read_timeout=60.0),
+            )
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(json.dumps(acs_rows, indent=2), encoding="utf-8")
         except Exception as exc:

@@ -31,6 +31,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +117,6 @@ def _fetch_poverty_if_key_available(raw_dir: Path | None) -> dict[str, float]:
         return {}
 
     import json
-    import requests
 
     if raw_dir is None:
         raw_dir = Path("data/raw")
@@ -133,9 +133,10 @@ def _fetch_poverty_if_key_available(raw_dir: Path | None) -> dict[str, float]:
             f"&key={key}"
         )
         try:
-            resp = requests.get(url, timeout=60)
-            resp.raise_for_status()
-            acs_rows = resp.json()
+            acs_rows = prism_http.fetch_json(
+                url, source="census_acs",
+                policy=prism_http.RetryPolicy(attempts=3, read_timeout=60.0),
+            )
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(json.dumps(acs_rows, indent=2), encoding="utf-8")
         except Exception as exc:
@@ -164,7 +165,6 @@ def _fetch_elderly_disabled_if_key_available(raw_dir: Path | None) -> dict[str, 
         return {}
 
     import json
-    import requests
 
     if raw_dir is None:
         raw_dir = Path("data/raw")
@@ -187,9 +187,10 @@ def _fetch_elderly_disabled_if_key_available(raw_dir: Path | None) -> dict[str, 
             f"?get={elderly_vars}&for=tract:*&in=state:72&key={key}"
         )
         try:
-            resp = requests.get(url, timeout=60)
-            resp.raise_for_status()
-            elderly_rows = resp.json()
+            elderly_rows = prism_http.fetch_json(
+                url, source="census_acs",
+                policy=prism_http.RetryPolicy(attempts=3, read_timeout=60.0),
+            )
             elderly_cache.parent.mkdir(parents=True, exist_ok=True)
             elderly_cache.write_text(json.dumps(elderly_rows, indent=2), encoding="utf-8")
         except Exception as exc:
@@ -232,9 +233,10 @@ def _fetch_elderly_disabled_if_key_available(raw_dir: Path | None) -> dict[str, 
             f"?get={dis_vars}&for=tract:*&in=state:72&key={key}"
         )
         try:
-            resp = requests.get(url, timeout=60)
-            resp.raise_for_status()
-            disability_rows = resp.json()
+            disability_rows = prism_http.fetch_json(
+                url, source="census_acs",
+                policy=prism_http.RetryPolicy(attempts=3, read_timeout=60.0),
+            )
             disability_cache.parent.mkdir(parents=True, exist_ok=True)
             disability_cache.write_text(json.dumps(disability_rows, indent=2), encoding="utf-8")
         except Exception as exc:

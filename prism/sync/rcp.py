@@ -288,10 +288,25 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                 if n % CHECKPOINT_EVERY == 0:
                     _checkpoint(engine, n, entities)   # cursor = next number to attempt
                     log.info("RCP progress: at number=%d entities=%d", n, entities)
+    except (KeyboardInterrupt, SystemExit) as exc:
+        # A deliberate stop of a resumable multi-day walk is not a failure. This
+        # walk is restarted routinely (host reboots, WSL recycles), and recording
+        # each restart as a failure would alert "failed 3 times in a row" after
+        # three normal stops — the boy-who-cried-wolf failure that makes a health
+        # signal worthless (F14d gate).
+        record_attempt(
+            engine, "rce_registry", ok=True, partial=True,
+            error=f"interrupted: {type(exc).__name__}",
+            detail={"cursor": n, "entities": entities, "interrupted": True},
+            # Silent, matching track_pull's own interrupted-vs-failed policy
+            # (F14d gate finding) — a deliberate stop must never be the thing
+            # that fires "pull completed only partially" on a routine restart.
+            alert=False,
+        )
+        raise
     except BaseException as exc:
-        # Interrupted mid-walk (host restart, Ctrl-C, WSL recycle). Resumable, so
-        # this is partial rather than failed — but it is emphatically not
-        # complete, and pull_health now says which (F14d).
+        # A genuine failure mid-walk. Resumable, so the cursor still holds — but
+        # this one counts, because nobody asked for it.
         record_attempt(
             engine, "rce_registry", ok=False, partial=True,
             error=f"{type(exc).__name__}: {exc}"[:400],
@@ -310,8 +325,9 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                       CHECKPOINT_EVERY)
         client.close()
 
-    # Only "complete" once the cursor has walked past the floor — a run that
-    # stopped early on its own max_number is a segment, not the register (F14d).
+    # The `while n >= MIN_NUMBER` loop has only one normal exit, so reaching here
+    # means the cursor did pass the floor. Kept explicit rather than hardcoding
+    # True: if the loop ever grows a `break`, this stays correct.
     complete = n < MIN_NUMBER
     record_attempt(
         engine, "rce_registry", ok=True, partial=not complete,

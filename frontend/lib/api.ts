@@ -1228,7 +1228,8 @@ export type ChangeKind =
   | "quake"
   | "crim"
   | "storm"
-  | "registry";
+  | "registry"
+  | "pull";
 
 export interface ChangeEvent {
   kind: ChangeKind;
@@ -1245,11 +1246,21 @@ export interface CrimBaseline {
   latest_delta_month: string | null;
 }
 
+/** F14d — how many tracked pulls are currently broken. Distinct from feed
+ *  staleness: a source whose last success was recent still looks fresh while
+ *  every attempt since has failed. */
+export interface PullHealthSummary {
+  tracked: number;
+  failing: number;
+  partial: number;
+}
+
 export interface WhatsNewResponse {
   feeds: FeedFreshness[];
   stale_count: number;
   changes: ChangeEvent[];
   crim_baseline: CrimBaseline;
+  pull_health: PullHealthSummary;
 }
 
 // ── CRIM sales trends ───────────────────────────────────────────────────────

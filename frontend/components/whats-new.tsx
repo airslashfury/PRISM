@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCw, Waves, Building2, TriangleAlert, TrendingUp, Wind, Landmark, Dot, type LucideIcon } from "lucide-react";
+import { RefreshCw, Waves, Building2, TriangleAlert, TrendingUp, Wind, Landmark, CloudOff, Dot, type LucideIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { SkeletonRows, EmptyState } from "@/components/query-state";
@@ -17,6 +17,7 @@ const KIND_ICON: Record<ChangeKind, LucideIcon> = {
   crim: Building2,
   storm: Wind,
   registry: Landmark,
+  pull: CloudOff,
 };
 
 const KIND_COLOR: Record<ChangeKind, string> = {
@@ -28,6 +29,8 @@ const KIND_COLOR: Record<ChangeKind, string> = {
   storm: "text-cyan-400",
   // amber: a dead company still on a deed is a discrepancy, not routine news
   registry: "text-amber-400",
+  // red: a broken pull means the data behind every other row is going stale
+  pull: "text-red-400",
 };
 
 function FeedChip({ f }: { f: FeedFreshness }) {
@@ -95,7 +98,8 @@ export function WhatsNew() {
     );
   }
 
-  const { feeds, changes, stale_count, crim_baseline } = data;
+  const { feeds, changes, stale_count, crim_baseline, pull_health } = data;
+  const failingPulls = pull_health?.failing ?? 0;
   const baseline = crim_baseline.snapshot_month?.slice(0, 7);
 
   return (
@@ -106,6 +110,15 @@ export function WhatsNew() {
             What changed
           </h2>
           <div className="flex items-center gap-2">
+            {failingPulls > 0 && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/5 px-2 py-0.5 text-[11px] text-red-300/90"
+                title="A feed chip tells you how old the data is. This tells you the pull that refreshes it is broken."
+              >
+                <CloudOff className="h-3 w-3" />
+                {failingPulls} pull{failingPulls === 1 ? "" : "s"} failing
+              </span>
+            )}
             {stale_count > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[11px] text-amber-300/90">
                 <TriangleAlert className="h-3 w-3" />

@@ -18,7 +18,6 @@ import hashlib
 import logging
 import time
 import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
