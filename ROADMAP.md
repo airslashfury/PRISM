@@ -930,7 +930,7 @@ rewritten to state the split.
 
 ---
 
-### Item F12 — Spanish (es-PR) language toggle  *(QUEUED — requested 2026-07-19, sequence after F11)*
+### Item F12 — Spanish (es-PR) language toggle  *(ACTIVE — requested 2026-07-19, scope set 2026-07-26, branch `feat/f12`)*
 
 PRISM models Puerto Rico for Puerto Rico, and its chrome is English while its **data is already
 Spanish** — municipio and barrio names, CRIM owner names, OCPR service classes (`VIVIENDAS`,
@@ -1003,9 +1003,11 @@ Sub-chunks, each Opus-gated:
   `generateMetadata` titles/descriptions. **Done when:** an Ask PRISM question in Spanish is
   answered in Spanish, and a shared card renders in the sharer's language.
 
-**Open scope decision:** whether F12c's AI-narrative half ships with the arc or is parked. It is
-the only chunk that touches the Python side and re-opens the M1 text-quality contract; the
-chrome (F12a+b) stands alone and delivers most of the value.
+**Scope decision (2026-07-26, with the user):** F12c is parked to `BACKLOG.md`. It is the only
+chunk that touches the Python side and re-opens the M1 text-quality contract, and shouldn't block
+shipping the chrome translation. **This arc is F12a + F12b only** — the toggle plus every page and
+shared component of chrome. AI narratives (Ask PRISM, `/portfolio` diffs, corridor narratives) and
+OG cards stay English-only until F12c is picked up separately.
 
 ---
 

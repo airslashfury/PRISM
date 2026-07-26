@@ -53,6 +53,26 @@ building without a use case pulling on them yet.
 
 ---
 
+## F12c — Spanish for generated + long-form text, parked 2026-07-26 (full spec in `ROADMAP.md` item F12)
+
+Scoped out of the F12 arc with the user at intake: F12a (toggle) + F12b (chrome translation) stand
+alone and deliver most of the value; F12c is the only chunk that touches the Python side and
+re-opens the M1 text-quality output contract, so it shouldn't block shipping the chrome. Pick up
+once the toggle + translated chrome are live and there's a reason to extend past static UI copy.
+
+- **AI narratives in Spanish.** `prism/llm.py` needs a language parameter and the M1 output
+  contract needs an es-PR variant, so `/portfolio` diffs, corridor narratives, and Ask PRISM
+  answer in the language asked. Needs its own quality pass (RAE orthography, `usted`, PR
+  institutional lexicon — see F12's term table) since generated text can't be reviewed once like
+  static chrome strings.
+- **`/methods` + `/corridor` long-form text.** Assumption rationale and cost-basis citations are
+  long-form and carry the project's credibility; translating them is a content job, not a
+  dictionary lookup.
+- **OG share cards + `generateMetadata`.** `/og/[view]` titles/descriptions should render in the
+  sharer's language once the toggle exists to know what that language is.
+
+---
+
 ## Parked — wait for external demand (2026-07-01)
 
 All three package existing PRISM answers for external stakeholders. Revisit each when a real
