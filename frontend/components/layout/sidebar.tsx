@@ -37,6 +37,7 @@ export function Sidebar() {
   return (
     <>
       <aside
+        id="prism-nav-pane"
         data-chrome
         data-pane="nav"
         data-collapsed={collapsed ? "true" : "false"}
@@ -145,6 +146,8 @@ export function Sidebar() {
           onWidth={pane.setWidth}
           onReset={pane.reset}
           label="Resize navigation"
+          controls="prism-nav-pane"
+          chrome
         />
       )}
     </>

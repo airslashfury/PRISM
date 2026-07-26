@@ -8,8 +8,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * SSR discipline: the first render always uses the caller's defaults so the
  * server-rendered markup matches the client's first paint; the stored value is
  * read in an effect and applied after mount (same pattern as
- * `CommandPaletteTrigger`'s platform sniff in `topbar.tsx`). `mounted` is
- * returned so callers can suppress width transitions on that first swap.
+ * `CommandPaletteTrigger`'s platform sniff in `topbar.tsx`). The visible cost is
+ * a one-frame jump from the default to the stored width on load — the accepted
+ * price of not risking a hydration mismatch on every page.
  *
  * This is browser-local UI chrome only — deliberately not server state, so the
  * M6 auth trigger stays untouched (see BACKLOG "Preferences panel").
@@ -55,9 +56,9 @@ export function usePaneState(key: string, opts: PaneStateOptions) {
   const { defaultWidth, minWidth, maxWidth } = opts;
   const [width, setWidthState] = useState(defaultWidth);
   const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
   // Kept in a ref so persistence never re-subscribes the pointer handlers.
   const latest = useRef<PaneState>({ width: defaultWidth, collapsed: false });
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const stored = read(key);
@@ -68,16 +69,37 @@ export function usePaneState(key: string, opts: PaneStateOptions) {
       setCollapsed(c);
       latest.current = { width: w, collapsed: c };
     }
-    setMounted(true);
     // Defaults are stable per call site; re-reading storage on a width-prop
     // change would fight the user's stored preference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // Flush a pending write on unmount so a drag that ends in a navigation still
+  // persists (the debounce below would otherwise drop it).
+  useEffect(
+    () => () => {
+      if (flushTimer.current) {
+        clearTimeout(flushTimer.current);
+        write(key, latest.current);
+      }
+    },
+    [key],
+  );
+
+  /**
+   * State updates immediately; the storage write is debounced. A drag fires a
+   * pointermove per frame and `localStorage.setItem` is synchronous — writing
+   * on every frame puts a main-thread write in the middle of a 60fps
+   * interaction for no benefit, since only the final width matters.
+   */
   const persist = useCallback(
     (next: PaneState) => {
       latest.current = next;
-      write(key, next);
+      if (flushTimer.current) clearTimeout(flushTimer.current);
+      flushTimer.current = setTimeout(() => {
+        flushTimer.current = null;
+        write(key, latest.current);
+      }, 150);
     },
     [key],
   );
@@ -109,7 +131,7 @@ export function usePaneState(key: string, opts: PaneStateOptions) {
     persist({ width: defaultWidth, collapsed: false });
   }, [defaultWidth, persist, setCollapsedState]);
 
-  return { width, collapsed, mounted, setWidth, setCollapsed: setCollapsedState, toggle, reset };
+  return { width, collapsed, setWidth, setCollapsed: setCollapsedState, toggle, reset };
 }
 
 /**

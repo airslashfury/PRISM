@@ -20,7 +20,7 @@ const widthOf = (page: Page, sel: string) =>
 async function dragResizer(page: Page, sel: string, dx: number) {
   const box = await page.locator(sel).boundingBox();
   expect(box, `expected ${sel} to be visible`).not.toBeNull();
-  const y = box!.y + box!.height / 2;
+  const y = box!.y + box!.height / 4;   // clear of the mid-height collapse chevron
   const x = box!.x + box!.width / 2;
   await page.mouse.move(x, y);
   await page.mouse.down();
@@ -69,8 +69,12 @@ test.describe("desktop panes", () => {
 
     await page.getByRole("button", { name: /^Show .* panel$/ }).click();
     await expect(page.locator(WORKSPACE)).toHaveAttribute("data-collapsed", "false");
-    // The panel's own content came back with it.
-    await expect(page.getByText("Transmission grid").first()).toBeVisible();
+    // The panel's own content came back with it. Scoped to the pane on purpose:
+    // "Transmission grid" also exists as a map-overlay layer toggle that stays
+    // visible while the pane is collapsed, so an unscoped match proves nothing.
+    await expect(
+      page.locator(WORKSPACE).getByText(/Highest (consequence|predicted)|Highest-consequence/),
+    ).toBeVisible();
   });
 
   test("both panes resize by drag and the width survives a reload", async ({ page }) => {
@@ -101,7 +105,7 @@ test.describe("desktop panes", () => {
     await dragResizer(page, WS_RESIZER, 2000); // far past the min
     expect(await widthOf(page, WORKSPACE)).toBeGreaterThanOrEqual(300);
 
-    await page.locator(WS_RESIZER).dblclick();
+    await page.locator(WS_RESIZER).dblclick({ position: { x: 2, y: 40 } });
     expect(await widthOf(page, WORKSPACE)).toBe(wsDefault);
   });
 
@@ -112,6 +116,10 @@ test.describe("desktop panes", () => {
     const handle = page.locator(WS_RESIZER);
     await expect(handle).toHaveAttribute("aria-orientation", "vertical");
     await expect(handle).toHaveAttribute("aria-valuenow", String(before));
+    await expect(handle).toHaveAttribute("aria-valuetext", `${before} pixels`);
+    // APG window-splitter: the handle must name the pane it sizes.
+    await expect(handle).toHaveAttribute("aria-controls", "prism-workspace-pane");
+    await expect(page.locator(NAV_RESIZER)).toHaveAttribute("aria-controls", "prism-nav-pane");
 
     await handle.focus();
     await page.keyboard.press("ArrowLeft"); // right-docked handle: left = wider
@@ -182,6 +190,8 @@ test.describe("mobile layout is unchanged", () => {
     const panel = await widthOf(page, WORKSPACE);
     const viewport = page.viewportSize()!.width;
     expect(panel).toBe(viewport);
-    await expect(page.getByText("Transmission grid").first()).toBeVisible();
+    await expect(
+      page.locator(WORKSPACE).getByText(/Highest (consequence|predicted)|Highest-consequence/),
+    ).toBeVisible();
   });
 });

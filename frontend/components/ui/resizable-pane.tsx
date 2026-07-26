@@ -18,6 +18,16 @@ export interface PaneResizerProps {
   /** Double-click / Home restores the pane's default width. */
   onReset: () => void;
   label: string;
+  /** id of the pane this handle sizes — `aria-controls` (APG window-splitter). */
+  controls: string;
+  /**
+   * Hidden by presentation mode (`?present=1` hides `[data-chrome]`). True only
+   * for the nav handle, which lives *outside* the sidebar's own `data-chrome`
+   * element and would otherwise survive a chrome-hide on its own. The workspace
+   * handle must not carry it — the aside it sizes isn't chrome, so hiding the
+   * handle without the pane would strand it.
+   */
+  chrome?: boolean;
 }
 
 /**
@@ -34,6 +44,8 @@ export function PaneResizer({
   onWidth,
   onReset,
   label,
+  controls,
+  chrome = false,
 }: PaneResizerProps) {
   const dragging = useRef(false);
   const startX = useRef(0);
@@ -110,12 +122,14 @@ export function PaneResizer({
       role="separator"
       aria-orientation="vertical"
       aria-label={label}
+      aria-controls={controls}
       aria-valuenow={width}
       aria-valuemin={minWidth}
       aria-valuemax={maxWidth}
+      aria-valuetext={`${width} pixels`}
       tabIndex={0}
       data-pane-resizer={side}
-      data-chrome
+      {...(chrome ? { "data-chrome": "" } : {})}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -248,8 +262,10 @@ export function WorkspaceAside({
         onWidth={pane.setWidth}
         onReset={pane.reset}
         label={`Resize ${label}`}
+        controls="prism-workspace-pane"
       />
       <aside
+        id="prism-workspace-pane"
         data-pane="workspace"
         data-collapsed="false"
         style={{ ["--pane-w" as string]: `${pane.width}px` }}
@@ -259,18 +275,19 @@ export function WorkspaceAside({
           className,
         )}
       >
-        {/* Floats on the pane's own border near the top — it only intrudes
-            ~12px, less than every panel's own padding, so it can't collide with
-            page content. Deliberately *not* vertically centred: that is where
-            the hand goes to grab the divider, and a button there would eat the
-            drag. */}
+        {/* Floats on the pane's own border, vertically centred. It intrudes
+            ~12px into the panel, which sits inside every panel's own px-4
+            padding at mid-height — near the top it would land on /parcels' tab
+            row, which starts at y=0 with no left padding. The cost is a 24px
+            dead zone in the ~650px drag track, which is the same trade every
+            editor makes for an on-divider collapse chevron. */}
         <PaneToggle
           collapsed={false}
           side="right"
           onToggle={toggle}
           label={`Hide ${label}`}
           shortcut="]"
-          className="absolute left-0 top-3 z-20 hidden -translate-x-1/2 shadow-sm md:inline-flex"
+          className="absolute left-0 top-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 shadow-sm md:inline-flex"
         />
         {children}
       </aside>
