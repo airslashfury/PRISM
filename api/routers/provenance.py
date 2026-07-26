@@ -34,6 +34,28 @@ def assumption_rationale() -> list[dict]:
     return provenance.list_assumption_rationale()
 
 
+@router.get("/anomalies", response_model=schemas.AnomalyReport)
+def anomalies() -> dict:
+    """Every exclusion PRISM applies to source data (F14b) — the Trust Center's
+    "Excluded data" section, and the same registry that generates ANOMALIES.md."""
+    rows = provenance.list_anomalies()
+    by_severity: dict[str, int] = {}
+    institutions: list[str] = []
+    for row in rows:
+        sev = row.get("severity", "unknown")
+        by_severity[sev] = by_severity.get(sev, 0) + 1
+        owner = row.get("remediation_owner")
+        if owner and owner not in institutions:
+            institutions.append(owner)
+    return {
+        "measured_on": provenance.measured_on(),
+        "total": len(rows),
+        "by_severity": by_severity,
+        "institutions": sorted(institutions),
+        "anomalies": rows,
+    }
+
+
 @router.get("/inventory", response_model=list[schemas.InventoryEntry])
 def inventory() -> list[dict]:
     """Every catalog entry (mirrored source layers + derived tables), tiered. Powers the Trust Center."""

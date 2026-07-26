@@ -11,6 +11,7 @@ import { Segmented } from "@/components/ui/segmented";
 import {
   useAssumptionRationale,
   useConfidenceTiers,
+  useProvenanceAnomalies,
   useProvenanceAssumptions,
   useProvenanceInventory,
 } from "@/lib/hooks";
@@ -220,8 +221,140 @@ export default function MethodsPage() {
         </div>
       </section>
 
+      <ExcludedData />
+
       <DataInventory sources={sources} />
     </div>
+  );
+}
+
+const SEVERITY_STYLE: Record<string, string> = {
+  high: "bg-red-500/10 text-red-400 border-red-500/30",
+  medium: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  low: "bg-muted/40 text-muted-foreground border-border/60",
+};
+
+/** F14b — every exclusion PRISM applies to source data, from config/anomalies.yml. */
+function ExcludedData() {
+  const { data } = useProvenanceAnomalies();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [institutionsOnly, setInstitutionsOnly] = useState(false);
+
+  const rows = useMemo(() => {
+    const all = data?.anomalies ?? [];
+    return institutionsOnly ? all.filter((a) => a.remediation) : all;
+  }, [data, institutionsOnly]);
+
+  if (!data) return null;
+
+  const fixable = (data.anomalies ?? []).filter((a) => a.remediation).length;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-foreground">Excluded data ({data.total})</h2>
+        <Segmented
+          options={[
+            { value: "all", label: `All ${data.total}` },
+            { value: "institutions", label: `Upstream defects ${fixable}` },
+          ]}
+          value={institutionsOnly ? "institutions" : "all"}
+          onChange={(v) => setInstitutionsOnly(v === "institutions")}
+        />
+      </div>
+      <p className="max-w-3xl text-xs text-muted-foreground">
+        PRISM sets some source data aside before it reaches a view or a calculation — a placeholder
+        owner name, a sale price of $10<sup>13</sup>, a parcel with no catastro number. Each one is
+        listed here with what it affects and how big it is, because a number you can&apos;t audit is
+        a number you have to take on faith. {fixable} of the {data.total} are defects in published
+        government data rather than choices PRISM made, and each names the body that could close
+        it — {(data.institutions ?? []).length} agencies in all. The full register is in{" "}
+        <code className="rounded bg-muted/40 px-1 py-0.5">ANOMALIES.md</code>.
+      </p>
+
+      <div className="space-y-1.5">
+        {rows.map((a) => {
+          const open = openId === a.id;
+          return (
+            <div key={a.id} className="rounded-lg border border-border/70">
+              <button
+                type="button"
+                onClick={() => setOpenId(open ? null : a.id)}
+                aria-expanded={open}
+                className="flex w-full items-start gap-3 p-3 text-left"
+              >
+                <span
+                  className={`mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                    SEVERITY_STYLE[a.severity] ?? SEVERITY_STYLE.low
+                  }`}
+                >
+                  {a.severity}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium text-foreground">{a.title}</span>
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    {a.magnitude.measured}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[10px] text-muted-foreground/70">
+                  {open ? "Hide" : "Details"}
+                </span>
+              </button>
+
+              {open && (
+                <div className="space-y-2.5 border-t border-border/60 px-3 py-3 text-xs">
+                  <p className="text-muted-foreground">
+                    <span className="text-foreground/90">What&apos;s excluded. </span>
+                    {a.what}
+                  </p>
+                  <p className="text-muted-foreground">
+                    <span className="text-foreground/90">Why. </span>
+                    {a.why}
+                  </p>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Affects
+                    </div>
+                    <ul className="mt-1 list-inside list-disc text-muted-foreground">
+                      {a.scope.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <p className="text-muted-foreground">
+                    <span className="text-foreground/90">
+                      What would fix it{a.remediation_owner ? ` (${a.remediation_owner})` : ""}.{" "}
+                    </span>
+                    {a.remediation ?? (
+                      <>
+                        Nothing upstream — this is a PRISM modelling choice, listed because it is a
+                        real exclusion from a calculation.
+                      </>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[10px] text-muted-foreground/70">
+                    <span>
+                      Source: <span className="text-muted-foreground">{a.source}</span>
+                    </span>
+                    <span>
+                      Dataset: <code className="text-muted-foreground">{a.dataset}</code>
+                    </span>
+                    <span>
+                      Enforced at: <code className="text-muted-foreground">{a.where}</code>
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {data.measured_on && (
+        <p className="text-[10px] text-muted-foreground/70">
+          Counts measured {data.measured_on}. Registry: config/anomalies.yml
+        </p>
+      )}
+    </section>
   );
 }
 

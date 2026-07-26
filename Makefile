@@ -41,6 +41,12 @@ optimize: ## Phase 4/5 - corridor optimization
 report: ## Phase 7 - AI tradeoff narrative
 	python -m prism.report
 
+anomalies: ## regenerate ANOMALIES.md from config/anomalies.yml
+	python -m prism.provenance --anomalies
+
+anomalies-check: ## fail if ANOMALIES.md is stale or the registry is invalid
+	python -m prism.provenance --anomalies --check
+
 test: ## run tests
 	pytest -q
 

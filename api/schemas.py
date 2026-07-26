@@ -786,6 +786,41 @@ class AssumptionRationale(BaseModel):
     what_would_change_it: str
 
 
+class AnomalyMagnitude(BaseModel):
+    """How big the exclusion is, and the SQL that measured it (documentation —
+    the API does not execute it)."""
+    measured: str
+    probe: str | None = None
+
+
+class Anomaly(BaseModel):
+    """One registered data exclusion (F14b) — see config/anomalies.yml."""
+    id: str
+    title: str
+    dataset: str
+    source: str
+    what: str
+    why: str
+    where: str
+    scope: list[str] = Field(default_factory=list)
+    magnitude: AnomalyMagnitude
+    severity: str
+    remediation: str | None = None
+    # Who could fix it — `source` unless the root cause sits elsewhere.
+    remediation_owner: str | None = None
+    status: str
+
+
+class AnomalyReport(BaseModel):
+    """The Trust Center's "Excluded data" payload."""
+    measured_on: str | None = None
+    total: int
+    by_severity: dict[str, int]
+    # Source institutions at least one remediation is addressed to.
+    institutions: list[str] = Field(default_factory=list)
+    anomalies: list[Anomaly] = Field(default_factory=list)
+
+
 class CostReference(BaseModel):
     key: str
     label: str

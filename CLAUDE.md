@@ -105,6 +105,25 @@ After every phase "Done when" gate that receives a GO verdict, you **must** upda
 
 Do this in the same session as the gate review, before the user asks. If a session ends without a gate, no update needed.
 
+## Exclusion protocol (F14b — follow whenever code sets data aside)
+
+**If you write code that excludes, filters, caps, or drops source data before it reaches a view
+or a calculation, you register it in `config/anomalies.yml` in the same session.** Sentinel-value
+filters, noise floors, plausibility bounds, capped radii, dropped NULLs, default-off toggles,
+silent `continue`s — all of it. The test is *would the source institution want to know?*
+
+- The registry is the source of truth; **`ANOMALIES.md` is generated** — run `make anomalies`
+  (or `python -m prism.provenance --anomalies`) and commit the regenerated doc.
+  `tests/test_anomalies.py` fails if it drifts, and a second test fails if an entry's `where:`
+  points at a file or symbol that no longer exists.
+- Each entry names its blast radius (`scope`), its measured size (`magnitude`, with the SQL that
+  measured it), and — the point of the whole exercise — what the **source institution** would
+  have to fix (`remediation: null` when it's PRISM's own modelling choice).
+- Pure presentation limits (a `LIMIT` on a UI list, a map zoom threshold) are out of scope.
+
+The registry is surfaced at `GET /provenance/anomalies` and on `/methods` ("Excluded data"), and
+is the basis for the eventual printed data-quality report to CRIM / AEE / the Contralor / JP.
+
 ## Phase log
 | Phase | Status | Gate date | Notes |
 |---|---|---|---|

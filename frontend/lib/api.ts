@@ -111,6 +111,34 @@ export type AssumptionRationale = Schemas["AssumptionRationale"];
 /** F9c C3 — /corridor's "Cost basis" popover citation source. */
 export type CostReference = Schemas["CostReference"];
 
+/** F14b — the anomalies registry (config/anomalies.yml). Hand-written rather than
+ *  re-exported from `Schemas[...]`: regenerating api-types.ts renders Pydantic-
+ *  defaulted fields as TS-optional instead of required-nullable, which is the
+ *  trap F10c item 4 hit. */
+export interface Anomaly {
+  id: string;
+  title: string;
+  dataset: string;
+  source: string;
+  what: string;
+  why: string;
+  where: string;
+  scope: string[];
+  magnitude: { measured: string; probe: string | null };
+  severity: "high" | "medium" | "low";
+  remediation: string | null;
+  remediation_owner: string | null;
+  status: "active" | "resolved";
+}
+
+export interface AnomalyReport {
+  measured_on: string | null;
+  total: number;
+  by_severity: Record<string, number>;
+  institutions: string[];
+  anomalies: Anomaly[];
+}
+
 /** MVP3 Pillar 2 — not yet in the generated OpenAPI types (api/routers/validate.py),
  * typed by hand to match `api.schemas.BacktestResult`/`SensitivityResult`/`ModelCard`. */
 export interface BacktestHit {
@@ -1557,6 +1585,7 @@ export const api = {
   confidenceTiers: () => apiGet<ConfidenceTier[]>("/provenance/tiers"),
   provenanceAssumptions: () => apiGet<Assumption[]>("/provenance/assumptions"),
   assumptionRationale: () => apiGet<AssumptionRationale[]>("/provenance/assumption-rationale"),
+  provenanceAnomalies: () => apiGet<AnomalyReport>("/provenance/anomalies"),
   provenanceInventory: () => apiGet<InventoryEntry[]>("/provenance/inventory"),
   provenanceTable: (table: string) => apiGet<ProvenanceRecord>(`/provenance/${table}`),
   provenanceLayer: (layerId: string) =>

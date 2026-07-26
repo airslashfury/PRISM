@@ -1,0 +1,740 @@
+# ANOMALIES REGISTRY — F14b
+#
+# Every place PRISM excludes, filters, caps, or otherwise sets aside source data
+# before it reaches a view or a calculation. One entry per exclusion, machine
+# readable, with the code path that enforces it and the counts as measured.
+#
+# This file is the source of truth. `ANOMALIES.md` is GENERATED from it
+# (`make anomalies`); do not hand-edit that file — a test fails if it drifts.
+# The same entries are served at `GET /provenance/anomalies` and rendered on the
+# Trust Center's "Excluded data" section, so the app admits what it drops in the
+# same place it admits its assumptions (config/assumption_rationale.yml).
+#
+# THE RULE (CLAUDE.md doc-update protocol): any new exclusion registers here in
+# the same session it is written. If code drops rows, it registers.
+#
+# WHAT BELONGS HERE — the test is *would a source institution want to know?*
+# An exclusion driven by a data defect (a sentinel value, a corrupt figure, a
+# missing layer, a miscategorised row) belongs here. Pure presentation limits
+# (a LIMIT on a UI list, a map zoom threshold) do not.
+#
+# FIELDS
+#   id            stable slug, referenced from code comments and the report
+#   title         one line, plain language
+#   dataset       the table or layer the exclusion acts on
+#   source        the institution that owns the upstream data
+#   what          what is excluded, factually
+#   why           why PRISM excludes it
+#   where         file:symbol that enforces it — verified to exist
+#   scope         which PRISM views/calculations are affected (the user-facing blast radius)
+#   magnitude     measured counts + the SQL that measures them, so it is re-checkable
+#   severity      low | medium | high — effect on conclusions PRISM draws
+#   remediation   what an institution would have to fix; null if nothing upstream to fix
+#   remediation_owner  who could fix it, when that is NOT the `source` above — e.g. an
+#                 exclusion in a PRISM-derived table whose root cause is LUMA's missing
+#                 service-point mapping. Optional; defaults to `source`.
+#   status        active | resolved
+#
+# `measured_on` is the date the counts in this file were taken. It is not
+# auto-refreshed — re-run the probes before publishing the report externally.
+
+measured_on: 2026-07-26
+
+anomalies:
+
+  # ── CRIM — parcel fabric, owners, sales ────────────────────────────────────
+
+  - id: crim_unknown_owner_sentinel
+    title: CRIM's unknown-owner placeholder is filtered out of owner intelligence
+    dataset: crim.owner_entities
+    source: CRIM
+    what: >-
+      Owner entities whose name matches "%JOHN DOE%" — CRIM's placeholder for a
+      parcel whose owner of record is unknown, written as "<MUNICIPIO> JOHN DOE".
+    why: >-
+      It is a placeholder, not a person or a company. Left in, it ranks as one of
+      the island's largest "owners" and corrupts every top-owner rollup.
+    where: prism/crim/owners.py:_JOHN_DOE
+    scope:
+      - "/parcels owner-mode search and the owner drawer"
+      - top-owners-by-municipio and by-barrio rollups
+      - "Ask PRISM owner_lookup answers"
+      - corporate-registry matching (filtered again on the CRIM side)
+    magnitude:
+      measured: 78 of 887,708 owner entities (0.009%)
+      probe: "SELECT count(*) FROM crim.owner_entities WHERE display_name ILIKE '%JOHN DOE%'"
+    severity: low
+    remediation: >-
+      CRIM: the parcels behind these entries have no owner of record. They are the
+      cleanest possible worklist for a title-research pass — a small, bounded set
+      whose ownership is formally unknown rather than merely misspelled.
+    status: active
+
+  - id: crim_null_catastro_rows
+    title: Parcel rows with no catastro number are dropped from every derived view
+    dataset: crim.parcelas -> crim.parcelas_dedup / crim.parcelas_history
+    source: CRIM
+    what: >-
+      Rows in the raw parcel fabric where `num_catastro` is NULL. Both derived
+      materialized views filter them (`WHERE num_catastro IS NOT NULL`), so they
+      exist in the mirror but reach no view, no search, and no calculation.
+    why: >-
+      The catastro number is the join key for owners, valuation, sale history and
+      every downstream table. A row without one cannot be attached to anything.
+    where: prism/crim/schema.py:_MATVIEW_DDL
+    scope:
+      - "/parcels search, detail, and owner intelligence (everything reads the dedup view)"
+      - "/trends sales analytics"
+      - monthly snapshots and parcel deltas
+      - the ~1.5M parcel count quoted on the landing page
+    magnitude:
+      measured: 38,229 of 1,536,079 raw parcel rows (2.5%)
+      probe: "SELECT count(*) FROM crim.parcelas WHERE num_catastro IS NULL"
+    severity: medium
+    remediation: >-
+      CRIM: 38K parcel geometries in the published fabric carry no catastro
+      number, so they cannot be joined to the valuation or ownership record.
+      Assigning (or exposing) the catastro for these rows would recover them.
+    status: active
+
+  - id: crim_sale_history_top5
+    title: Only the five most recent records per parcel enter the sale history
+    dataset: crim.parcelas_history
+    source: CRIM
+    what: >-
+      The history view keeps `sale_rank <= 5` — the five most recent records per
+      catastro, ordered by objectid. Older records stay in `crim.parcelas` but
+      reach no view.
+    why: >-
+      A bounded per-parcel history keeps the view small enough to index and serve;
+      the parcel card shows recent transactions, not a full chain of title.
+    where: prism/crim/schema.py:_MATVIEW_DDL
+    scope:
+      - parcel-detail sale history
+      - "/trends sales counts, medians, and municipio momentum"
+      - the monthly report's recorded-sales section
+    magnitude:
+      measured: 138,216 records beyond rank 5 excluded (of 1,497,850 keyed rows)
+      probe: >-
+        SELECT count(*) FROM (SELECT row_number() OVER (PARTITION BY num_catastro
+        ORDER BY objectid DESC) rk FROM crim.parcelas WHERE num_catastro IS NOT NULL) t
+        WHERE rk > 5
+    severity: medium
+    remediation: null
+    status: active
+
+  - id: crim_sales_amount_outliers
+    title: Implausible sale amounts and dates are excluded from every price figure
+    dataset: crim.parcelas_history.salesamt / .salesdttm
+    source: CRIM
+    what: >-
+      Price statistics only count sales with `salesamt` between $1,000 and
+      $50,000,000 and `salesdttm` between 1980-01-01 and today. Everything outside
+      those bounds is excluded from medians, momentum, and the market context on
+      the parcel card.
+    why: >-
+      The raw column carries corrupt values — single "sales" of $10^13 — so sums
+      and averages on it are meaningless. Only 287 sales island-wide exceed $50M
+      and all inspected ones are data errors. Sale *counts* are clean and are not
+      filtered.
+    where: prism/crim/trends.py:_SANE
+    scope:
+      - "/trends median sale price, momentum, hot-spot municipios"
+      - municipio market context on the parcel card and /economy
+      - the monthly report's sales figures
+    magnitude:
+      measured: >-
+        257,559 of 836,108 rows with a sale amount fall outside the amount bounds
+        (30.8%); 18,596 rows fall outside the date bounds
+      probe: >-
+        SELECT count(*) FROM crim.parcelas_history WHERE salesamt IS NOT NULL
+        AND NOT (salesamt BETWEEN 1000 AND 50000000)
+    severity: high
+    remediation: >-
+      CRIM: roughly a third of recorded sale amounts are outside any plausible
+      range — a mix of $0/$1 nominal transfers and corrupt magnitudes. A validation
+      rule at entry, and a flag distinguishing nominal transfers from arm's-length
+      sales, would make the price series usable as published.
+    status: active
+
+  - id: crim_reassessment_noise_floor
+    title: Assessed-value changes under $1 are not recorded as deltas
+    dataset: crim.parcel_deltas
+    source: CRIM
+    what: Month-over-month assessed-value changes below $1.00 in absolute terms.
+    why: Sub-dollar movement is rounding, not reassessment; recording it would bury real changes.
+    where: prism/crim/snapshots.py:_VALUE_CHANGE_MIN
+    scope:
+      - monthly parcel deltas and the monthly change report
+      - "WhatsNew crim_delta events"
+    magnitude:
+      measured: not separately counted — the floor is applied at delta computation
+      probe: null
+    severity: low
+    remediation: null
+    status: active
+
+  - id: crim_address_placeholder_junk
+    title: Placeholder address segments are stripped before an address is displayed
+    dataset: crim.parcelas.direccion_fisica
+    source: CRIM
+    what: >-
+      Empty segments and the literal tokens ".", "PR", "PUERTO RICO", and the fake
+      zip "00000" are removed from the comma-joined address template before
+      display. A real 5-digit zip is always kept.
+    why: >-
+      CRIM writes the same placeholder template when a field is unset, producing
+      strings like "BO CRUCES , ,., PR, Puerto Rico, 00000". Shown raw, they read
+      as a corrupt product rather than a missing field.
+    where: prism/crim/normalize.py:_ADDR_JUNK_TOKENS
+    scope:
+      - every rendered parcel address (search rows, parcel card, owner drawer)
+      - the address string fed to the Census geocoder for the proposed-address label
+    magnitude:
+      measured: applies per-field across the fabric; not counted as a row exclusion
+      probe: null
+    severity: medium
+    remediation: >-
+      CRIM: the physical-address field is populated with a placeholder template
+      rather than left empty, which makes "has an address" indistinguishable from
+      "has a blank address" without string inspection. Emitting NULL for unset
+      fields would remove the ambiguity.
+    status: active
+
+  # ── PR corporations registry (RCE) ─────────────────────────────────────────
+
+  - id: rce_unknown_entity_sentinel
+    title: Registry rows named "UNKNOWN ENTITY" are excluded from owner matching
+    dataset: crim.rce_entities -> crim.owner_rce_match
+    source: PR Department of State — corporations registry
+    what: Registry entities whose corporate name begins with the literal "UNKNOWN ENTITY".
+    why: >-
+      The registry's own placeholder. Thousands of rows share the exact same
+      string, so without an explicit filter they collapse into one match key that
+      would "match" a large share of CRIM owners at once.
+    where: prism/crim/rce_match.py:_REGISTRY_SENTINEL
+    scope:
+      - the corporate-registry section on the owner drawer and parcel card
+      - the dissolved-companies-still-holding-parcels standing signal
+      - "WhatsNew registry status events"
+    magnitude:
+      measured: 7,616 of 324,281 mirrored registry entities (2.3%)
+      probe: "SELECT count(*) FROM crim.rce_entities WHERE corp_name ILIKE 'UNKNOWN ENTITY%'"
+    severity: low
+    remediation: >-
+      PR Department of State: 7,616 register entries carry no entity name. They are
+      real registration indices with an unusable name field.
+    status: active
+
+  - id: rce_address_sentinels
+    title: Placeholder registry addresses are excluded from the address layer
+    dataset: crim.rce_addresses
+    source: PR Department of State — corporations registry
+    what: >-
+      Address blocks whose whole line reads UNKNOWN, N A, NA, NONE, NO DISPONIBLE,
+      or DESCONOCIDO.
+    why: >-
+      Tens of thousands of rows literally read "UNKNOWN". Without the filter they
+      collapse into a single address_key apparently "shared" by tens of thousands
+      of unrelated entities — harmless while nothing clusters on address, a serious
+      false signal the moment control-cluster analysis (F11d) does.
+    where: prism/crim/rce_match.py:_ADDRESS_SENTINELS
+    scope:
+      - the registry address layer (1.26M rows)
+      - address-corroborated fuzzy owner matching
+      - "any future control-cluster / shared-officer analysis"
+    magnitude:
+      measured: >-
+        1,259,212 address rows survive the filter; the sentinel block was measured
+        at ~51K rows when the filter was written
+      probe: "SELECT count(*) FROM crim.rce_addresses"
+    severity: medium
+    remediation: >-
+      PR Department of State: a registered agent address is a statutory
+      requirement, yet tens of thousands of active registrations carry a literal
+      "UNKNOWN" in that field.
+    status: active
+
+  - id: rce_agent_office_addresses
+    title: High-density addresses are flagged as agent offices, not treated as shared control
+    dataset: crim.rce_address_entities
+    source: PR Department of State — corporations registry
+    what: >-
+      Addresses hosting 10 or more distinct registered entities are flagged
+      `is_agent_office` and are excluded from being read as evidence that those
+      entities are related. They are kept and shown, not deleted.
+    why: >-
+      A law firm or registered-agent service is the address of record for hundreds
+      of unrelated companies. Two or three entities at one address suggests a real
+      shared principal; two hundred suggests a mailbox.
+    where: prism/crim/rce_match.py:AGENT_OFFICE_THRESHOLD
+    scope:
+      - address-corroborated fuzzy owner matching
+      - "any future control-cluster analysis (F11d, parked)"
+    magnitude:
+      measured: 929 of 445,988 distinct addresses flagged, covering 25,447 entity registrations
+      probe: "SELECT count(*) FROM crim.rce_address_entities WHERE is_agent_office"
+    severity: low
+    remediation: null
+    status: active
+
+  - id: rce_registry_mirror_incomplete
+    title: The registry mirror is a partial walk, so a missing match is not proof of no registration
+    dataset: crim.rce_entities
+    source: PR Department of State — corporations registry
+    what: >-
+      The registry has no bulk export; PRISM walks it entity by entity under a
+      self-imposed rate limit that respects the registry's own WAF. The mirror is
+      therefore a snapshot of however far the walk has advanced, not the whole
+      register.
+    why: >-
+      Rate-limited enumeration is the only access path available. The alternative —
+      claiming completeness — would make "no registry record" read as "not
+      incorporated" when it may only mean "not yet pulled".
+    where: prism/sync/rcp.py
+    scope:
+      - the corporate-registry section on the owner drawer and parcel card
+        (silent when there is no record, never asserting absence)
+      - the corporate-suffix match rate quoted for owner matching
+    magnitude:
+      measured: 324,281 entities mirrored of an estimated ~560,000
+      probe: "SELECT count(*) FROM crim.rce_entities"
+    severity: high
+    remediation: >-
+      PR Department of State: publishing a bulk export (or a documented paged API)
+      would replace a multi-day rate-limited walk with a complete, verifiable
+      snapshot — and would let anyone reproduce this analysis.
+    status: active
+
+  # ── OCPR — Office of the Comptroller contract register ─────────────────────
+
+  - id: ocpr_government_excluded_by_default
+    title: Public bodies are excluded from the contractor-owner ranking unless toggled on
+    dataset: ocpr.government_keys
+    source: Oficina del Contralor de Puerto Rico
+    what: >-
+      Owner keys identified as public bodies are filtered out of the
+      contractor-owner ranking by default. A toggle in the UI includes them.
+    why: >-
+      Government agencies are simultaneously the island's largest landowners and
+      its largest contract counterparties, so they occupy every top slot and hide
+      the private signal the ranking exists to show. Excluded by default, never
+      hidden: the toggle is on the page.
+    where: prism/ocpr/footprint.py:top_contractor_owners
+    scope:
+      - the contractor-owner ranking panel on /parcels
+    magnitude:
+      measured: 1,172 government owner keys
+      probe: "SELECT count(*) FROM ocpr.government_keys"
+    severity: low
+    remediation: null
+    status: active
+
+  - id: ocpr_shared_contracts_not_divided
+    title: Shared contracts are flagged, never divided between co-contractors
+    dataset: ocpr.contract_contractors
+    source: Oficina del Contralor de Puerto Rico
+    what: >-
+      When a contract lists several contractors, the register bills the full amount
+      to each one. PRISM does not split the value; it flags the row and names the
+      co-contractors instead.
+    why: >-
+      The register does not publish per-contractor shares, so any split would be
+      invented. A flagged full amount is honest; an invented share is not. All
+      aggregates are deduplicated on (contract_id, contractor_key) so one firm
+      spelled two ways cannot double-bill a single key.
+    where: prism/ocpr/footprint.py
+    scope:
+      - the government-contracts section on the owner drawer
+      - the contractor-owner ranking totals
+    magnitude:
+      measured: 12,395 of 1,141,257 contracts have more than one distinct contractor key (1.1%)
+      probe: >-
+        SELECT count(*) FROM (SELECT contract_id FROM ocpr.contract_contractors
+        GROUP BY contract_id HAVING count(DISTINCT contractor_key) > 1) t
+    severity: medium
+    remediation: >-
+      Oficina del Contralor: the register does not record each co-contractor's
+      share of a joint contract, so joint-award totals cannot be attributed. A
+      share or role field would make them attributable.
+    status: active
+
+  # ── Power grid ─────────────────────────────────────────────────────────────
+
+  - id: hifld_unnamed_substations
+    title: Fourteen substations have a bare number where a name should be
+    dataset: graph.entities (kind='substation')
+    source: HIFLD
+    what: >-
+      Fourteen substations carry a name that is only digits (e.g. "6774"). They are
+      NOT excluded from any calculation — they score, rank, and cascade normally —
+      but they are unidentifiable to a reader.
+    why: >-
+      Upstream data gap. PRISM does not invent a name, so the display falls back to
+      the number.
+    where: upstream — no filter in PRISM
+    scope:
+      - "/resilience rankings and drawer titles"
+      - the ⌘K palette and any substation-by-name search
+    magnitude:
+      measured: 14 of 961 substations
+      probe: "SELECT count(*) FROM graph.entities WHERE kind='substation' AND name ~ '^[0-9]+$'"
+    severity: low
+    remediation: >-
+      HIFLD / LUMA: fourteen transmission substations in the published dataset have
+      no facility name, only an identifier.
+    status: active
+
+  - id: feeder_secondary_sliver_edges_dropped
+    title: Substation-to-barrio links below a real service share are dropped
+    dataset: graph.relationships (POWERS, method='feeder_topology')
+    source: AEE/PREPA distribution feeder network
+    what: >-
+      When the measured feeder network attaches a barrio to several substations, a
+      secondary substation is kept only if its conductors carry at least 25% of the
+      barrio's measured conductor length AND at least 1 km in absolute terms.
+      Attachments below both thresholds are dropped.
+    why: >-
+      A barrio touches an average of 3.18 substations in the raw conductor data,
+      much of it corner-clipping slivers. Without the floor, a peripheral
+      substation is credited a barrio's entire population and its consequence score
+      inflates.
+    where: prism/graph/feeders.py:SECONDARY_MIN_SHARE
+    scope:
+      - substation consequence scores and /resilience rankings
+      - "population-affected figures in every cascade view"
+      - the ILP portfolio's protection-per-dollar ranking
+    magnitude:
+      measured: 1,036 of 4,419 POWERS edges are measured feeder topology
+      probe: "SELECT method, count(*) FROM graph.relationships WHERE rel_type='POWERS' GROUP BY 1"
+    severity: medium
+    remediation: null
+    status: active
+
+  - id: feeds_isolated_substations_keep_voronoi
+    title: Twenty-two substations missing from the transmission graph keep the Voronoi proxy
+    dataset: graph.relationships (POWERS, method LIKE 'voronoi%')
+    source: PRISM-derived (proxy)
+    what: >-
+      Twenty-two source substations have no FEEDS edges in the transmission graph.
+      Their barrio links were NOT swapped onto the measured feeder topology; they
+      still use the Voronoi proxy, so their 102 barrios are attached by nearest-
+      distance rather than by conductor.
+    why: >-
+      Swapping them would have dropped them out of upstream cascades entirely,
+      trading a known proxy for a silent hole. Keeping the proxy is the lesser
+      error, and it is labelled per-edge.
+    where: prism/graph/feeders.py:swap_powers
+    scope:
+      - "/resilience cascades through those 22 substations"
+      - their barrios' civic-card power section
+      - any population-affected figure downstream of them
+    magnitude:
+      measured: 464 of 4,419 POWERS edges remain Voronoi-derived (voronoi/voronoi_centroid/voronoi_overlap)
+      probe: >-
+        SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS'
+        AND method LIKE 'voronoi%'
+    severity: medium
+    remediation_owner: LUMA / AEE
+    remediation: >-
+      LUMA / AEE: 22 substations appear in the facility inventory but not in the
+      published transmission topology, so their upstream connectivity cannot be
+      established from public data.
+    status: active
+
+  - id: point_facilities_keep_voronoi_powers
+    title: Point facilities are still attached to substations by proximity, not by conductor
+    dataset: graph.relationships (POWERS, method='nearest_dist_sub')
+    source: PRISM-derived (proxy)
+    what: >-
+      Hospitals, water plants, telecom towers and other point facilities are linked
+      to the nearest distribution substation by distance. Only barrio population
+      was switched to the measured feeder network (F11f).
+    why: >-
+      The feeder network gives conductor geometry, not service-point assignments,
+      so which substation actually feeds a given building cannot be read off it.
+      Distance is the honest available proxy and is tiered as one.
+    where: prism/graph/relationships.py
+    scope:
+      - "\"serves N hospitals\" figures throughout the cascade views"
+      - "/water and /telecom power-dependency scoring"
+      - the citizen card's "same feed serves" line
+    magnitude:
+      measured: 2,919 of 4,419 POWERS edges (66%) are nearest-distance proxy
+      probe: >-
+        SELECT count(*) FROM graph.relationships WHERE rel_type='POWERS'
+        AND method = 'nearest_dist_sub'
+    severity: high
+    remediation_owner: LUMA
+    remediation: >-
+      LUMA: a service-point-to-feeder mapping (which customer account sits on which
+      circuit) is the single dataset that would convert most of PRISM's remaining
+      proxy edges into measured ones.
+    status: active
+
+  - id: prepa_capacity_excludes_ppoa
+    title: Reported generation capacity excludes PPOA renewables
+    dataset: sync.generation_status
+    source: PREPA
+    what: PPOA (power purchase and operating agreement) renewable capacity is not counted in the capacity figure.
+    why: The upstream feed reports it separately from dispatchable capacity.
+    where: prism/sync/prepa_ops.py
+    scope:
+      - the generation panel on the overview
+      - island generation context on the citizen card
+    magnitude:
+      measured: per-snapshot; not a row exclusion
+      probe: null
+    severity: low
+    remediation: null
+    status: active
+
+  # ── Water + telecom ────────────────────────────────────────────────────────
+
+  - id: water_wells_zero_criticality
+    title: Wells serve no barrios in the graph, so they score zero consequence
+    dataset: resilience.water_scores
+    source: PRASA/AAA network (PRISM-derived graph)
+    what: >-
+      The WATER_SERVES proxy graph has no well-to-barrio edges, so wells carry
+      criticality 0 and sink to the bottom of the water-risk ranking regardless of
+      how much population actually depends on them.
+    why: >-
+      The mirrored network gives plant and source geometry but no service-area
+      assignment for wells. PRISM scores consequence from measured service links
+      and will not invent them.
+    where: prism/resilience/water.py
+    scope:
+      - "/water source ranking and the water cascade"
+      - water context on the parcel card and citizen card
+    magnitude:
+      measured: 1,234 of 2,153 scored water sources serve zero barrios in the graph
+      probe: "SELECT count(*) FROM resilience.water_scores WHERE barrios_served = 0"
+    severity: high
+    remediation_owner: AAA (Autoridad de Acueductos y Alcantarillados)
+    remediation: >-
+      AAA: a source-to-service-area mapping (which communities each well and intake
+      supplies) is missing from the published network. Without it, more than half
+      of the island's water sources cannot be ranked by who depends on them.
+    status: active
+
+  - id: telecom_zero_cascade_criticality
+    title: Telecom assets carry zero cascade weight by design
+    dataset: graph.entities (telecom kinds)
+    source: PRISM-derived (deliberate model boundary)
+    what: >-
+      Telecom towers and cell sites carry cascade CRITICALITY = 0, and downstream
+      traversal follows FEEDS edges plus at most one POWERS hop.
+    why: >-
+      Telecom shares the POWERS relation with the power graph. Without the
+      firewall, telecom assets would inflate substation and water consequence
+      scores by being counted as downstream dependents of the grid. This is a
+      modelling decision, not a data defect — recorded here because it is a real
+      exclusion from a calculation.
+    where: prism/graph/telecom.py
+    scope:
+      - substation consequence scores (/resilience)
+      - water-source power-dependency scoring
+    magnitude:
+      measured: 905 telecom entities scored on their own axis, excluded from power/water cascade weight
+      probe: "SELECT count(*) FROM resilience.telecom_scores"
+    severity: low
+    remediation: null
+    status: active
+
+  - id: telecom_no_fiber_layer
+    title: Fiber conduits are mirrored but excluded from every telecom view
+    dataset: g37_telecom_conductos_fibra_optica_act_2012
+    source: PRITS / OGP WFS
+    what: The mirrored fiber-conduit layer is not surfaced on /telecom or used in any score.
+    why: >-
+      Fiber conduits have no power dependency in PRISM's cascade model, so drawing
+      them would be decoration presented as analysis. Deferred deliberately rather
+      than silently dropped from "towers/fiber".
+    where: not surfaced — BACKLOG "Fiber layer + real callsign coverage"
+    scope:
+      - "/telecom (the layer is absent from the map and from coverage-loss scoring)"
+    magnitude:
+      measured: 50 conduit MultiLineStrings mirrored, 0 surfaced
+      probe: null
+    severity: low
+    remediation: null
+    status: active
+
+  # ── Health + transport access ──────────────────────────────────────────────
+
+  - id: hospital_access_clasif_filter
+    title: Hospital access routes only to true hospitals, excluding clinics that carry a hospital kind
+    dataset: transport.road_access_cost
+    source: PR Department of Health facility inventory
+    what: >-
+      The destination set for hospital routing is `kind='hospital' AND
+      clasif='HOSP'`. That excludes three rows carrying kind='hospital' with a
+      primary-care clasif, and excludes kind='health_center' entirely (124
+      entities), which includes university and CDT campus clinics with no
+      emergency capacity.
+    why: >-
+      Before the filter, a university campus clinic was "the nearest hospital" for
+      12 barrios. A resident told to drive there in an emergency would arrive
+      somewhere that cannot admit them.
+    where: prism/transport/access.py
+    scope:
+      - "citizen card \"nearest hospital\" and drive time"
+      - "/resilience hospital-count consequence figures"
+      - emergency-access inputs to the objective function
+    magnitude:
+      measured: 66 of 69 hospital-kind entities qualify; 124 health centers excluded from hospital routing
+      probe: >-
+        SELECT count(*) FROM graph.entities WHERE kind='hospital'
+        AND attrs->>'clasif' = 'HOSP'
+    severity: medium
+    remediation: >-
+      PR Department of Health: three facilities are classified as hospitals in the
+      inventory while carrying a primary-care classification, and the facility
+      taxonomy does not distinguish emergency capacity from primary care in a
+      single field.
+    status: active
+
+  - id: barrios_without_routable_hospital
+    title: Fifteen barrios have no reachable hospital in the road graph
+    dataset: transport.road_access_cost
+    source: PRISM-derived (road graph)
+    what: >-
+      Fifteen of 901 barrios return no nearest hospital: the islands (Vieques,
+      Culebra) plus a handful of mainland barrios sitting on disconnected road-graph
+      components. Nine of the fifteen have no reachable clinic either.
+    why: >-
+      Genuine graph disconnection, not a filter. The islands have no road link to
+      the mainland; the mainland cases are gaps in the mirrored road network. PRISM
+      shows a blank rather than routing to a hospital the resident cannot drive to.
+    where: prism/transport/access.py
+    scope:
+      - "citizen card emergency-access section for those barrios (shown blank, not zero)"
+      - island-wide access statistics
+    magnitude:
+      measured: 15 of 901 barrios with no hospital route; 9 with neither hospital nor clinic
+      probe: "SELECT count(*) FROM transport.road_access_cost WHERE nearest_hosp_vid IS NULL"
+    severity: medium
+    remediation_owner: DTOP
+    remediation: >-
+      DTOP: several mainland barrios sit on road-network components that are
+      disconnected in the published centerline data — almost certainly a topology
+      gap in the source rather than genuinely unreachable communities.
+    status: active
+
+  # ── Addressing + geocoding ─────────────────────────────────────────────────
+
+  - id: geocode_ambiguous_match_rejected
+    title: Anything short of a single exact geocoder match is treated as no match
+    dataset: crim.geocode_cache
+    source: US Census Bureau PR geocoder
+    what: >-
+      Only the geocoder's single-exact-match tier is accepted. Zero matches and
+      multiple/tie matches both collapse to an honest "no confident match" — PRISM
+      never picks between candidates.
+    why: >-
+      Choosing among ties would silently put a resident on the wrong parcel. The
+      cost of the strict policy is a lower hit rate, which is visible and
+      recoverable; the cost of guessing is invisible and is not.
+    where: prism/crim/geocode.py
+    scope:
+      - "/parcels \"search by address\""
+      - the Tier A Census-matched proposed-address label
+    magnitude:
+      measured: 53 of 74 cached queries returned no confident match (72%)
+      probe: "SELECT count(*) FROM crim.geocode_cache WHERE match_tier <> 'match'"
+    severity: medium
+    remediation_owner: US Census Bureau / Junta de Planificación
+    remediation: >-
+      Census Bureau / PR Planning Board: the PR geocoder resolves clean urban
+      street addresses but misses urbanizacion- and barrio-style addressing, which
+      is how a large share of the island is actually addressed.
+    status: active
+
+  - id: proposed_address_no_local_street_layer
+    title: Approximate addresses can only cite numbered state highways
+    dataset: crim.parcel_proposed_address (Tier B)
+    source: OGP WFS — state highway segments
+    what: >-
+      When the Census geocoder does not match, the composed address can only name a
+      numbered state route (PR-xx) within 3 km. Municipal and local streets are in
+      the mirrored roads table with no usable name field, so a parcel off a numbered
+      route falls back to barrio + municipio with no street at all.
+    why: >-
+      PRISM will not fabricate a street name. An approximate label that says
+      "Bo. Bejucos, Isabela" is honest; one that guesses a street is not.
+    where: prism/crim/proposed_address.py
+    scope:
+      - the "Census Proposed Address" label on the parcel card
+    magnitude:
+      measured: 40 of 44 computed proposed addresses fell to Tier B (approximate)
+      probe: "SELECT count(*) FROM crim.parcel_proposed_address WHERE tier <> 'census_matched'"
+    severity: medium
+    remediation_owner: Junta de Planificación / municipalities
+    remediation: >-
+      PR Planning Board / municipalities: no named local-street layer is published
+      for Puerto Rico. It is the single missing dataset behind PRISM's inability to
+      give most parcels a street address.
+    status: active
+
+  # ── Model + query surfaces ─────────────────────────────────────────────────
+
+  - id: ask_government_owner_filter_opt_in
+    title: Ask PRISM only excludes government owners when explicitly asked to
+    dataset: crim.parcelas_dedup (via the Ask SQL tool)
+    source: PRISM-derived (query behaviour)
+    what: >-
+      The natural-language query tool injects NOT ILIKE filters for municipio /
+      autoridad / gobierno / departamento / administracion / john doe only when the
+      user's question explicitly asks to exclude government owners.
+    why: >-
+      Silently excluding public bodies would answer a different question than the
+      one asked. The filter is opt-in so "largest owners" means what it says.
+    where: prism/ask/tools.py:parcel_query
+    scope:
+      - "/ask answers over the parcel fabric"
+    magnitude:
+      measured: applied per-query; not a standing exclusion
+      probe: null
+    severity: low
+    remediation: null
+    status: active
+
+  - id: census_acs_requires_api_key
+    title: The ACS mirror is skipped without an API key
+    dataset: Census ACS 5-year estimates
+    source: US Census Bureau
+    what: The ACS complement pull is skipped entirely when CENSUS_API_KEY is unset.
+    why: The endpoint requires a key; the pull fails loudly rather than mirroring a partial file.
+    where: prism/mirror/complements/census_acs.py
+    scope:
+      - "SVI and per-tract demographics (already mirrored; this affects refreshes)"
+    magnitude:
+      measured: environment-dependent
+      probe: null
+    severity: low
+    remediation: null
+    status: active
+
+  - id: checksum_is_count_based
+    title: Layer checksums detect added or removed features, not edited ones
+    dataset: catalog/metadata.json
+    source: PRISM-derived (provenance)
+    what: >-
+      A mirrored layer's checksum is sha256("{layer}:{count}"), so a change that
+      edits geometry or attributes without changing the feature count is not
+      detected as a change.
+    why: >-
+      Full-content hashing across ~460 layers at every re-sync cost more than the
+      cadence justified. Recorded here because it means "unchanged" is a weaker
+      claim than it appears.
+    where: prism/sync/resync.py
+    scope:
+      - "WhatsNew change detection and feed-freshness chips"
+      - the auto-rescore trigger on hazard-layer change
+    magnitude:
+      measured: applies to all ~460 mirrored WFS layers
+      probe: null
+    severity: medium
+    remediation: null
+    status: active

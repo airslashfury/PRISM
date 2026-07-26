@@ -235,6 +235,10 @@ export const useAssumptionRationale = () =>
 export const useCorridorCostReferences = () =>
   useQuery({ queryKey: ["corridorCostReferences"], queryFn: api.corridorCostReferences, staleTime: 60 * MIN });
 
+/** F14b — the Trust Center's "Excluded data" section. */
+export const useProvenanceAnomalies = () =>
+  useQuery({ queryKey: ["provenanceAnomalies"], queryFn: api.provenanceAnomalies, staleTime: 60 * MIN });
+
 export const useProvenanceInventory = () =>
   useQuery({ queryKey: ["provenanceInventory"], queryFn: api.provenanceInventory, staleTime: 60 * MIN });
 
