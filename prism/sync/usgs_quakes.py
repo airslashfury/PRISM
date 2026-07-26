@@ -27,6 +27,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from prism.sync.schema import create_schema
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +36,6 @@ USGS_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
 BBOX = {"minlatitude": 17.0, "maxlatitude": 19.2, "minlongitude": -68.4, "maxlongitude": -64.4}
 SIGNIFICANT_MAG = 4.5            # ≥ this (new) → trigger a quake-scenario rescore
 _RAW_DIR = Path("data/raw/usgs_quakes")
-_UA = "Mozilla/5.0 (PRISM infrastructure simulation; data-sovereignty mirror)"
 
 
 def fetch_quakes(*, days: int = 30, min_mag: float = 2.0, timeout: float = 30.0) -> str:
@@ -49,9 +49,11 @@ def fetch_quakes(*, days: int = 30, min_mag: float = 2.0, timeout: float = 30.0)
         **BBOX,
     }
     url = f"{USGS_URL}?{urllib.parse.urlencode(params)}"
-    req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read().decode("utf-8", "replace")
+    return prism_http.fetch_text(
+        url, source="usgs_quakes",
+        headers={"Accept": "application/json"},
+        policy=prism_http.RetryPolicy(read_timeout=timeout),
+    )
 
 
 def _epoch_ms_to_dt(ms: Any) -> datetime | None:

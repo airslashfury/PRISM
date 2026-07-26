@@ -78,7 +78,7 @@ class FeedFreshness(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    kind: str                           # sync | rescore | rank | quake | crim | storm | registry
+    kind: str                           # sync | rescore | rank | quake | crim | storm | registry | pull
     headline: str
     detail: str | None = None
     at: str | None = None               # ISO timestamp (or month for CRIM deltas)
@@ -92,11 +92,20 @@ class CrimBaseline(BaseModel):
     latest_delta_month: str | None = None
 
 
+class PullHealthSummary(BaseModel):
+    """How many tracked pulls are currently broken (F14d) — distinct from feed
+    staleness, which only says how old the data is."""
+    tracked: int = 0
+    failing: int = 0
+    partial: int = 0
+
+
 class WhatsNewResponse(BaseModel):
     feeds: list[FeedFreshness] = Field(default_factory=list)
     stale_count: int
     changes: list[ChangeEvent] = Field(default_factory=list)
     crim_baseline: CrimBaseline
+    pull_health: PullHealthSummary = Field(default_factory=PullHealthSummary)
 
 
 # --------------------------------------------------------------------------- #

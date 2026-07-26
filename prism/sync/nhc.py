@@ -29,7 +29,6 @@ import hashlib
 import json
 import logging
 import tempfile
-import urllib.request
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,13 +38,13 @@ from shapely.geometry import MultiPolygon, Polygon, box
 from shapely import wkt as shapely_wkt
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
 CURRENT_STORMS_URL = "https://www.nhc.noaa.gov/CurrentStorms.json"
 ARCHIVE_URL_TMPL = "https://www.nhc.noaa.gov/gis/forecast/archive/{storm_id}_5day_{adv}.zip"
 _RAW_DIR = Path("data/raw/nhc")
-_UA = "Mozilla/5.0 (PRISM infrastructure simulation; data-sovereignty mirror)"
 
 # Puerto Rico + surrounding waters bounding box (lon/lat, EPSG:4326).
 _PR_BBOX = box(-68.5, 16.8, -64.0, 19.5)
@@ -53,11 +52,11 @@ _PR_BBOX = box(-68.5, 16.8, -64.0, 19.5)
 
 def fetch_current_storms(*, timeout: float = 30.0) -> list[dict[str, Any]]:
     """Fetch the live NHC storm index. Returns [] if there are no active storms."""
-    req = urllib.request.Request(
-        CURRENT_STORMS_URL, headers={"User-Agent": _UA, "Accept": "application/json"}
+    raw = prism_http.fetch_text(
+        CURRENT_STORMS_URL, source="nhc_advisories",
+        headers={"Accept": "application/json"},
+        policy=prism_http.RetryPolicy(read_timeout=timeout),
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        raw = resp.read().decode("utf-8", "replace")
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
@@ -68,9 +67,12 @@ def fetch_current_storms(*, timeout: float = 30.0) -> list[dict[str, Any]]:
 
 def fetch_zip(url: str, *, timeout: float = 60.0) -> bytes:
     """Download a shapefile archive zip (forecast cone/track/points bundle)."""
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read()
+    # Advisory bundles are small but the NHC CDN stalls under load; BULK-ish
+    # timeouts with retry (F14d).
+    return prism_http.fetch_bytes(
+        url, source="nhc_advisories",
+        policy=prism_http.RetryPolicy(attempts=3, read_timeout=max(timeout, 60.0)),
+    )
 
 
 def mirror_raw(storm_id: str, filename: str, data: bytes) -> Path:

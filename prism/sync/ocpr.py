@@ -33,6 +33,7 @@ from sqlalchemy.engine import Engine
 
 from prism.crim.normalize import normalize_owner
 from prism.load.db import get_engine
+from prism.sync.http import record_attempt
 
 log = logging.getLogger(__name__)
 
@@ -276,6 +277,8 @@ def pull(engine: Engine | None = None, *, start_year: int = 2012, resume: bool =
     windows = _month_windows(start_year)
     done_through = _resume_start(engine) if resume else 0   # YYYYMM already completed
     grand_total = 0
+    windows_done = 0
+    windows_todo = sum(1 for wkey, _, _ in windows if wkey > done_through)
     try:
         for wkey, df, dt in windows:
             if wkey <= done_through:
@@ -306,12 +309,26 @@ def pull(engine: Engine | None = None, *, start_year: int = 2012, resume: bool =
                     break
                 time.sleep(REQUEST_DELAY)
             _checkpoint(engine, wkey, grand_total)
+            windows_done += 1
             log.info("OCPR window %d complete (%d contracts this month; %d stored total)",
                      wkey, start, grand_total)
+    except BaseException:
+        # A walk that stopped 8 windows into 170 must not be reported, logged or
+        # resumed as if it finished. The checkpoint means the next run picks up
+        # where this one died; pull_health records that it died (F14d).
+        record_attempt(
+            engine, "ocpr_contracts", ok=False, partial=windows_done > 0,
+            error=f"stopped after {windows_done}/{windows_todo} windows",
+            detail={"windows_done": windows_done, "windows_todo": windows_todo,
+                    "stored": grand_total},
+        )
+        raise
     finally:
         client.close()
+    record_attempt(engine, "ocpr_contracts", ok=True,
+                   detail={"stored": grand_total, "windows": windows_done})
     log.info("OCPR pull complete: %d contracts stored across %d months", grand_total, len(windows))
-    return {"stored": grand_total, "windows": len(windows)}
+    return {"stored": grand_total, "windows": len(windows), "windows_walked": windows_done}
 
 
 # ── Lazy document download ──────────────────────────────────────────────────

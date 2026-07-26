@@ -31,7 +31,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -40,6 +39,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from prism.sync.schema import create_schema
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ _DATA_TYPES = (
     "MLY-PRCP-NORMAL,MLY-PRCP-AVGNDS-GE010HI"
 )
 _RAW_DIR = Path("data/raw/climate")
-_UA = "Mozilla/5.0 (PRISM infrastructure simulation; data-sovereignty mirror)"
 
 # station_id -> (name, lon, lat). Verified live against normals-monthly-1991-2020
 # (2026-07-10); see module docstring. Spans coastal north/south/east/west + the
@@ -86,9 +85,13 @@ def fetch_climate_normals(*, timeout: float = 30.0) -> str:
         f"{_BASE_URL}?dataset={_DATASET}&stations={stations}"
         f"&format=json&dataTypes={_DATA_TYPES}"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read().decode("utf-8", "replace")
+    # NCEI answers a 19-station query slowly; BULK's longer read timeout with a
+    # bounded retry beats the previous single bare attempt (F14d).
+    return prism_http.fetch_text(
+        url, source="climate_normals",
+        headers={"Accept": "application/json"},
+        policy=prism_http.RetryPolicy(attempts=3, read_timeout=max(timeout, 60.0)),
+    )
 
 
 def _to_float(raw: Any) -> float | None:

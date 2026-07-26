@@ -32,6 +32,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 
 from prism.load.db import get_engine
+from prism.sync.http import record_attempt
 
 log = logging.getLogger(__name__)
 
@@ -287,6 +288,16 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                 if n % CHECKPOINT_EVERY == 0:
                     _checkpoint(engine, n, entities)   # cursor = next number to attempt
                     log.info("RCP progress: at number=%d entities=%d", n, entities)
+    except BaseException as exc:
+        # Interrupted mid-walk (host restart, Ctrl-C, WSL recycle). Resumable, so
+        # this is partial rather than failed — but it is emphatically not
+        # complete, and pull_health now says which (F14d).
+        record_attempt(
+            engine, "rce_registry", ok=False, partial=True,
+            error=f"{type(exc).__name__}: {exc}"[:400],
+            detail={"cursor": n, "entities": entities},
+        )
+        raise
     finally:
         # Bounded here: on shutdown (Ctrl-C, or the DB genuinely gone) hanging on
         # an indefinite retry is worse than losing the last few numbers — the
@@ -299,8 +310,16 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                       CHECKPOINT_EVERY)
         client.close()
 
-    log.info("RCP enumeration complete: %d entities mirrored, cursor at %d", entities, n)
-    return {"entities": entities, "last_number": n}
+    # Only "complete" once the cursor has walked past the floor — a run that
+    # stopped early on its own max_number is a segment, not the register (F14d).
+    complete = n < MIN_NUMBER
+    record_attempt(
+        engine, "rce_registry", ok=True, partial=not complete,
+        detail={"entities": entities, "cursor": n, "floor": MIN_NUMBER},
+    )
+    log.info("RCP enumeration %s: %d entities mirrored, cursor at %d",
+             "complete" if complete else "paused", entities, n)
+    return {"entities": entities, "last_number": n, "complete": complete}
 
 
 if __name__ == "__main__":

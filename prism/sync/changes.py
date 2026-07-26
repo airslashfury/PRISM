@@ -371,6 +371,49 @@ def _crim_baseline(engine: Engine) -> dict[str, Any]:
     return out
 
 
+def _pull_failures(engine: Engine) -> list[dict[str, Any]]:
+    """Pulls that are currently failing (F14d).
+
+    Freshness chips answer "how old is this data"; they cannot answer "is the
+    pull that refreshes it broken". A source whose last success was recent still
+    looks healthy while every attempt since has failed — which is exactly the
+    silent-death mode `sync.pull_health` exists to end.
+    """
+    if not _exists(engine, "sync.pull_health"):
+        return []
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT source, consecutive_failures, last_error, last_attempt_at,
+                   last_success_at, last_status
+            FROM sync.pull_health
+            WHERE consecutive_failures > 0 OR last_status = 'partial'
+            ORDER BY consecutive_failures DESC, last_attempt_at DESC
+            LIMIT 6
+        """)).mappings().fetchall()
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        n = int(r["consecutive_failures"] or 0)
+        if r["last_status"] == "partial" and n == 0:
+            headline = f"{r['source']} pull completed only partially"
+            detail = "Some of the source was retrieved; the rest was not persisted."
+        else:
+            times = "once" if n == 1 else f"{n} times in a row"
+            headline = f"{r['source']} pull is failing — {times}"
+            last_ok = r["last_success_at"]
+            detail = (r["last_error"] or "no error recorded")
+            if last_ok:
+                detail = f"{detail} · last succeeded {last_ok:%Y-%m-%d %H:%M} UTC"
+        out.append({
+            "kind": "pull",
+            "headline": headline,
+            "detail": detail,
+            "at": r["last_attempt_at"].isoformat() if r["last_attempt_at"] else None,
+            "href": "/sync",
+        })
+    return out
+
+
 def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
     """Feed freshness + a newest-first typed change stream for the overview."""
     changes = (
@@ -380,6 +423,7 @@ def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
         + _storm_changes(engine, change_limit)
         + _crim_changes(engine)
         + _registry_changes(engine, change_limit)
+        + _pull_failures(engine)
     )
     # Newest first; None timestamps sink to the bottom.
     changes.sort(key=lambda c: c["at"] or "", reverse=True)
@@ -398,4 +442,19 @@ def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
         "stale_count": sum(1 for f in feeds if f["stale"]),
         "changes": kept,
         "crim_baseline": _crim_baseline(engine),
+        "pull_health": _pull_health_summary(engine),
     }
+
+
+def _pull_health_summary(engine: Engine) -> dict[str, Any]:
+    """Counts for the freshness strip's pull-health badge (F14d)."""
+    if not _exists(engine, "sync.pull_health"):
+        return {"tracked": 0, "failing": 0, "partial": 0}
+    with engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT count(*) AS tracked,
+                   count(*) FILTER (WHERE consecutive_failures > 0) AS failing,
+                   count(*) FILTER (WHERE last_status = 'partial')  AS partial
+            FROM sync.pull_health
+        """)).mappings().fetchone()
+    return {k: int(v or 0) for k, v in dict(row or {}).items()}

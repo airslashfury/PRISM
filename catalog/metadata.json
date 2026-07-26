@@ -2663,6 +2663,15 @@
       "license": "PR government (public register)",
       "compute_date": "2026-07-25",
       "computed_by": "prism.crim.registry.record_status_snapshot"
+    },
+    "derived:sync.pull_health": {
+      "title": "Pull health (per-source resilience telemetry)",
+      "source": "derived",
+      "description": "One row per tracked pull: last attempt, last success, consecutive failures, last error, and whether the last run was partial. Written by the shared resilient HTTP layer (prism/sync/http.py, F14d) so a pull that dies stops dying silently.",
+      "inputs": [
+        "prism/sync/http.py"
+      ],
+      "license": "internal"
     }
   }
 }

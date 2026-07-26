@@ -25,6 +25,7 @@ from typing import Any, Literal
 import requests
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +75,19 @@ def _query_census(street: str, urb: str | None, municipio: str | None,
         params["zip"] = zip_code
 
     _throttle()
-    resp = requests.get(GEOCODE_URL, params=params, timeout=timeout)
+    # A 400 is a real answer here (see below), so this goes through `fetch`'s
+    # raw response rather than its raise-on-4xx path — but it still gets the
+    # shared retry, backoff and rate limit (F14d).
+    try:
+        resp = prism_http.fetch(
+            GEOCODE_URL, source="census_geocoder", params=params,
+            policy=prism_http.RetryPolicy(attempts=3, read_timeout=float(timeout),
+                                          rate_limit_s=0.5),
+        )
+    except prism_http.PermanentError as exc:
+        if "HTTP 400" not in str(exc):
+            raise
+        return {"result": {"addressMatches": []}}
     if resp.status_code == 400:
         # The addressPR endpoint requires Urb+Municipio OR City/ZIP; a caller
         # that omits all three gets a 400 — treat that as an unmatchable query

@@ -160,9 +160,14 @@ async def sync_luma_outages(ctx: dict) -> dict:
     """
     from prism.sync.luma_ops import sync_luma_outages as _sync_luma
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = _sync_luma(engine, mirror=False)
+        with track_pull(engine, "luma_outages") as pull:
+            summary = _sync_luma(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled LUMA sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -180,9 +185,14 @@ async def sync_nwis_gauges(ctx: dict) -> dict:
     """
     from prism.sync.nwis import sync_nwis
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_nwis(engine, mirror=False)
+        with track_pull(engine, "nwis_gauges") as pull:
+            summary = sync_nwis(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled NWIS sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -201,9 +211,14 @@ async def sync_climate_normals(ctx: dict) -> dict:
     """
     from prism.sync.climate import sync_climate
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_climate(engine, mirror=False)
+        with track_pull(engine, "climate_normals") as pull:
+            summary = sync_climate(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled climate normals sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -297,9 +312,14 @@ async def sync_prepa_generation(ctx: dict) -> dict:
     """
     from prism.sync.prepa_ops import sync_generation_status
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_generation_status(engine, mirror=False)
+        with track_pull(engine, "prepa_generation") as pull:
+            summary = sync_generation_status(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled PREPA sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -318,9 +338,14 @@ async def sync_nhc_feed(ctx: dict) -> dict:
     """
     from prism.sync.nhc import sync_nhc
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_nhc(engine, mirror=False)
+        with track_pull(engine, "nhc_advisories") as pull:
+            summary = sync_nhc(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled NHC sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron

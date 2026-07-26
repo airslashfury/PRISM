@@ -339,6 +339,17 @@ tables:
     assumptions: Append-only audit log of sync runs.
     upgrade_path: null
 
+  sync.pull_health:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Per-source pull outcome written by prism/sync/http.py (F14d) — last
+      attempt, last success, consecutive failures, last error. Measured
+      operational telemetry, not a model. `last_partial` records that a
+      multi-part pull retrieved only some of its source, which is the state that
+      used to be indistinguishable from success.
+    upgrade_path: null
+
   corridor.routes:
     method: modeled
     confidence_tier: modeled
