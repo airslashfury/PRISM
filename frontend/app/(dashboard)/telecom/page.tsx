@@ -22,6 +22,9 @@ import { riskColor, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum } from "@/lib/utils";
 import type { TelecomSource, BarrioPoint } from "@/lib/api";
 import { usePulse, usePrefersReducedMotion, useStagedTimeline, domainRgb } from "@/lib/map-motion";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
 /** Cascade-arc reveal duration (F10c-2) — a single wave (source → covered
  *  barrios), unlike resilience's multi-domain staged sequence. */
@@ -44,21 +47,14 @@ const DIM_ALPHA = 45;
 /** Selection halo pulse (F8 B2): same period family as resilience/water. */
 const SELECT_PULSE_MS = 2400;
 
-const KIND_LABEL: Record<string, string> = {
-  telecom_tower: "Cell tower",
-  cell_site: "Cell site",
-};
-
-const KIND_CHIP: Record<string, string> = {
-  telecom_tower: "Tower",
-  cell_site: "Cell site",
-};
-
-function kindLabel(kind: string): string {
-  return KIND_LABEL[kind] ?? kind;
+function kindLabel(kind: string, t: Messages["telecom"]["kindLabel"]): string {
+  return t[kind as keyof typeof t] ?? kind;
 }
 
 export default function TelecomPage() {
+  const t = useMessages().telecom;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -109,10 +105,11 @@ export default function TelecomPage() {
         ? percentileContext(
             selectedSource.composite_score,
             sources.map((s) => s.composite_score),
-            "scored towers and cell sites",
+            t.scoredTowersAndCellSitesNoun,
+            locale,
           )
         : undefined,
-    [selectedSource, sources],
+    [selectedSource, sources, t.scoredTowersAndCellSitesNoun, locale],
   );
 
   // Cascade-arc target barrios (F10c-2): same queryKey as SourceDrawer's own
@@ -289,11 +286,11 @@ export default function TelecomPage() {
     if (!d) return null;
     return tip(
       [
-        ["Kind", kindLabel(d.kind)],
-        ["Composite", fmtNum(d.composite_score, 2)],
-        ["Barrios covered", fmtInt(d.barrios_covered)],
+        [t.kind, kindLabel(d.kind, t.kindLabel)],
+        [t.composite, fmtNum(d.composite_score, 2, tag)],
+        [t.barriosCovered, fmtInt(d.barrios_covered, tag)],
       ],
-      d.name ?? `${kindLabel(d.kind)} ${d.entity_id}`,
+      d.name ?? `${kindLabel(d.kind, t.kindLabel)} ${d.entity_id}`,
     );
   };
 
@@ -319,7 +316,7 @@ export default function TelecomPage() {
     <MapWorkspace
       layers={layers}
       paneKey="telecom"
-      paneLabel="telecom panel"
+      paneLabel={t.panelLabel}
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}
@@ -338,7 +335,7 @@ export default function TelecomPage() {
           {bannerSource?.headline && (
             <div className="pointer-events-auto absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
               <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                {bannerSource.name ?? kindLabel(bannerSource.kind)}
+                {bannerSource.name ?? kindLabel(bannerSource.kind, t.kindLabel)}
                 <ProvenanceBadge table="resilience.telecom_scores" />
               </div>
               <div className="mt-0.5 text-sm font-medium text-foreground">{bannerSource.headline}</div>
@@ -348,10 +345,10 @@ export default function TelecomPage() {
           <GradientLegend
             className="absolute bottom-6 left-4"
             titleClassName="text-domain-telecom"
-            title="Telecom risk"
+            title={t.telecomRisk}
             stops={RISK_STOPS}
-            minLabel={fmtNum(min, 1)}
-            maxLabel={fmtNum(max, 1)}
+            minLabel={fmtNum(min, 1, tag)}
+            maxLabel={fmtNum(max, 1, tag)}
           />
         </>
       }
@@ -361,13 +358,10 @@ export default function TelecomPage() {
             <DomainSwitcher className="mb-3" active="telecom" getView={() => currentViewRef.current} />
             <div className="flex items-center gap-2">
               <RadioTower className="h-4 w-4 text-domain-telecom" />
-              <h2 className="text-sm font-semibold">Telecom cascade</h2>
+              <h2 className="text-sm font-semibold">{t.telecomCascade}</h2>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              Every cell tower and cell site, ranked by consequence: how many barrios lose coverage
-              if it goes dark and how exposed it is to hazard and grid failure. A tower covering many
-              barrios, powered by a substation with no backup path, in a flood-prone spot ranks
-              highest.
+              {t.sidebarDesc}
             </p>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -387,18 +381,9 @@ export default function TelecomPage() {
             <div className="p-4 pt-0">
               <InfoPanel
                 sections={[
-                  {
-                    title: "What this is",
-                    body: "The power grid and cell coverage are coupled: cell towers and cell sites run on electricity, usually with only a few hours of battery backup. When a substation goes dark, the towers and cell sites it powers go dark too, and every barrio in their coverage radius loses cell service — that's the power→telecom cascade this page ranks.",
-                  },
-                  {
-                    title: "How it's calculated",
-                    body: "Risk = barrios-covered consequence × Cat-3 hazard exposure × grid dependency. A tower covering many barrios, sitting in the Cat-3 hazard field, and relying on a substation with no backup path scores highest. Sites with no coverage sink to the bottom regardless of hazard.",
-                  },
-                  {
-                    title: "Data sources & accuracy",
-                    body: "COVERS (tower/cell-site → barrio) is a 4 km straight-line distance proxy, not a modeled RF footprint. POWERS (substation → tower/cell-site) is a nearest-substation proxy, not measured feeder or circuit data. Tower and cell-site location data is FCC/PR, vintage 2010–2012.",
-                  },
+                  t.infoSections.whatThisIs,
+                  t.infoSections.howCalculated,
+                  t.infoSections.sources,
                 ]}
               />
             </div>
@@ -418,10 +403,13 @@ function TopList({
   selected: number | null;
   onSelect: (id: number) => void;
 }) {
+  const t = useMessages().telecom;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   return (
     <div>
       <div className="flex items-center gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Highest coverage-loss risk · top {rows.length}
+        {t.highestCoverageLoss} · {t.topN(rows.length)}
         <ProvenanceBadge table="resilience.telecom_scores" />
       </div>
       <ul>
@@ -441,17 +429,17 @@ function TopList({
               <span className="w-5 shrink-0 text-xs tnum text-muted-foreground/60">{r.rank}</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 truncate text-sm font-medium">
-                  {r.name ?? `${kindLabel(r.kind)} ${r.entity_id}`}
+                  {r.name ?? `${kindLabel(r.kind, t.kindLabel)} ${r.entity_id}`}
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <span className="rounded border border-border/70 px-1 py-px text-[9px] uppercase tracking-wide">
-                    {KIND_CHIP[r.kind] ?? r.kind}
+                    {t.kindChip[r.kind as keyof typeof t.kindChip] ?? r.kind}
                   </span>
-                  {fmtInt(r.barrios_covered)} barrios
+                  {fmtInt(r.barrios_covered, tag)} {t.barriosUnit}
                 </span>
               </span>
               <span className="shrink-0 text-sm font-semibold tnum">
-                {fmtNum(r.composite_score, 2)}
+                {fmtNum(r.composite_score, 2, tag)}
               </span>
             </button>
           </li>
@@ -471,48 +459,51 @@ function SourceDrawer({
   scoreContext?: string;
   onBack: () => void;
 }) {
+  const t = useMessages().telecom;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useTelecomSource(id);
 
-  if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
+  if (isLoading) return <div className="p-4"><LoadingBlock label={t.loadingDetail} /></div>;
   if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
   if (!data) return null;
 
   const sections: DrawerSection[] = [
     {
       id: "what",
-      title: "What it is",
+      title: t.sections.whatItIs,
       badge: <ProvenanceBadge table="resilience.telecom_scores" />,
       rows: [
-        { label: "Type", value: kindLabel(data.what.kind) },
-        { label: "Owner / licensee", value: data.what.owner_or_licensee ?? "—" },
-        { label: "Height", value: data.what.height_ft != null ? `${fmtNum(data.what.height_ft, 0)} ft` : "—" },
-        { label: "Municipality", value: data.what.municipality ?? "—" },
+        { label: t.sections.type, value: kindLabel(data.what.kind, t.kindLabel) },
+        { label: t.sections.ownerLicensee, value: data.what.owner_or_licensee ?? "—" },
+        { label: t.sections.height, value: data.what.height_ft != null ? `${fmtNum(data.what.height_ft, 0, tag)} ft` : "—" },
+        { label: t.sections.municipality, value: data.what.municipality ?? "—" },
       ],
       body: (
         <ScoreExplainer
           layout="row"
-          label="Risk score"
-          value={fmtNum(data.composite_score, 2)}
-          what="The risk this site goes dark — sized by how many barrios lose cell coverage if it does."
-          formula="barrios covered × hazard exposure × grid power dependency"
+          label={t.sections.riskScore}
+          value={fmtNum(data.composite_score, 2, tag)}
+          what={t.sections.riskScoreWhat}
+          formula={t.sections.riskScoreFormula}
           context={scoreContext}
         />
       ),
     },
     {
       id: "where",
-      title: "Where",
+      title: t.sections.where,
       hidden: !data.what.municipality,
-      rows: [{ label: "Municipality", value: data.what.municipality ?? "—" }],
+      rows: [{ label: t.sections.municipality, value: data.what.municipality ?? "—" }],
     },
     {
       id: "depends",
-      title: "Who depends on it",
+      title: t.sections.whoDependsOnIt,
       body: (
         <div className="space-y-2">
-          <Row label="Coverage lost" value={`${fmtInt(data.serves.barrios_covered)} barrios`} />
+          <Row label={t.sections.coverageLostLabel} value={t.sections.coverageLost(fmtInt(data.serves.barrios_covered, tag))} />
           <p className="text-xs text-muted-foreground">
-            These barrios lose cell coverage if this site goes dark.
+            {t.sections.coverageLostNote}
           </p>
           {data.serves.sample_barrios.length > 0 && (
             <div className="text-xs text-muted-foreground">
@@ -524,19 +515,19 @@ function SourceDrawer({
     },
     {
       id: "hazards",
-      title: "Hazard exposure",
+      title: t.sections.hazardExposure,
       body: (
         <>
           <ScoreExplainer
             layout="row"
-            label="Hazard score"
-            value={fmtNum(data.hazards.hazard_score, 2)}
-            what="The chance this site itself is knocked out in this scenario — 0 is safe, 1 is near-certain."
-            formula="flood, surge and slope exposure measured at this location"
+            label={t.sections.hazardScore}
+            value={fmtNum(data.hazards.hazard_score, 2, tag)}
+            what={t.sections.hazardScoreWhat}
+            formula={t.sections.hazardScoreFormula}
           />
-          <Row label="Scenario" value={data.hazards.scenario} />
+          <Row label={t.sections.scenario} value={data.hazards.scenario} />
           {data.hazards.hazard_score > 0.5 && (
-            <div className="text-xs text-amber-400">In the Cat-3 flood/surge field.</div>
+            <div className="text-xs text-amber-400">{t.sections.inCat3Field}</div>
           )}
         </>
       ),
@@ -544,16 +535,15 @@ function SourceDrawer({
     {
       id: "changed",
       hidden: true,
-      title: "Changed",
+      title: t.sections.changed,
     },
     {
       id: "data",
-      title: "Data & confidence",
+      title: t.sections.dataConfidence,
       body: (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Proxy: coverage is a 4 km distance radius, not modeled RF; the power→telecom edge is a
-            nearest-substation proxy.
+            {t.sections.proxyNote}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {Object.keys(data.confidence_tiers).map((table) => (
@@ -565,21 +555,21 @@ function SourceDrawer({
     },
     {
       id: "actions",
-      title: "Power dependency",
+      title: t.sections.powerDependency,
       hidden: !data.power.powering_substation_id,
       body: (
         <div className="space-y-2">
           <Row
-            label="Powered by"
-            value={data.power.powering_substation_name ?? `Substation ${data.power.powering_substation_id}`}
+            label={t.sections.poweredBy}
+            value={data.power.powering_substation_name ?? t.sections.substationFallback(data.power.powering_substation_id ?? "")}
           />
           {data.power.powering_substation_composite != null && (
             <ScoreExplainer
               layout="row"
-              label="Substation risk (Cat-3)"
-              value={fmtNum(data.power.powering_substation_composite, 1)}
-              what="The failure risk of the substation this site draws power from — fragility it inherits from the grid."
-              formula="that substation's hazard × cascade × centrality (see Resilience)"
+              label={t.sections.substationRiskCat3}
+              value={fmtNum(data.power.powering_substation_composite, 1, tag)}
+              what={t.sections.substationRiskWhat}
+              formula={t.sections.substationRiskFormula}
             />
           )}
           {data.power.powering_substation_id && (
@@ -587,7 +577,7 @@ function SourceDrawer({
               href={`/resilience?sel=${data.power.powering_substation_id}`}
               className="mt-1 inline-block text-xs text-primary hover:underline"
             >
-              View the substation that powers this →
+              {t.sections.viewSubstation}
             </a>
           )}
         </div>
@@ -601,12 +591,12 @@ function SourceDrawer({
       header={
         <div>
           <h3 className="text-lg font-semibold leading-tight">
-            {data.name ?? `${kindLabel(data.what.kind)} ${data.entity_id}`}
+            {data.name ?? `${kindLabel(data.what.kind, t.kindLabel)} ${data.entity_id}`}
           </h3>
           <div className="mt-1 flex items-center gap-2">
             <SeverityLabel score={data.composite_score} />
             {data.rank != null && (
-              <span className="text-xs text-muted-foreground">rank #{data.rank}</span>
+              <span className="text-xs text-muted-foreground">{t.rankHash(data.rank)}</span>
             )}
           </div>
         </div>
