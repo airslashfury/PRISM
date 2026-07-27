@@ -27,6 +27,7 @@ import {
 import { useNav } from "@/components/layout/nav";
 import { useParcelSearch, useOwnerSearch, useScores } from "@/lib/hooks";
 import { fmtNum, fmtUsd, fmtInt, cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 const OPEN_EVENT = "prism:command-palette:open";
 
@@ -42,14 +43,6 @@ interface StaticAction {
   href: string;
 }
 
-const ACTIONS: StaticAction[] = [
-  { label: "Run Cat-3 scenario", desc: "Category 3 hurricane overlay on Resilience", href: "/resilience?scenario=cat3" },
-  { label: "Compare combined scenario", desc: "Sea-level rise + hurricane surge overlay", href: "/resilience?scenario=combined" },
-  { label: "Track the live storm", desc: "The current NHC advisory cone, if active", href: "/weather?lens=storm" },
-  { label: "Open the assumptions lab", desc: "Dial VOLL, hazard, and feeder confidence", href: "/assumptions" },
-  { label: "Find industrial sites", desc: "Rank industrial parcels by port/grid/water access", href: "/sitefinder" },
-];
-
 const DEBOUNCE_MS = 200;
 const MIN_QUERY_LEN = 2;
 const ASK_MIN_LEN = 3;
@@ -61,6 +54,14 @@ function substr(haystack: string | null | undefined, needle: string): boolean {
 export function CommandPalette() {
   const router = useRouter();
   const NAV = useNav();
+  const t = useMessages().commandPalette;
+  const ACTIONS: StaticAction[] = [
+    { ...t.actions.cat3, href: "/resilience?scenario=cat3" },
+    { ...t.actions.combined, href: "/resilience?scenario=combined" },
+    { ...t.actions.storm, href: "/weather?lens=storm" },
+    { ...t.actions.assumptions, href: "/assumptions" },
+    { ...t.actions.sitefinder, href: "/sitefinder" },
+  ];
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -165,19 +166,19 @@ export function CommandPalette() {
               autoFocus
               value={query}
               onValueChange={setQuery}
-              placeholder="Search pages, substations, parcels, owners, or ask a question…"
+              placeholder={t.placeholder}
               className="w-full bg-transparent py-3.5 text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
 
           <Command.List className="max-h-[60vh] overflow-y-auto p-2">
             <Command.Empty className="px-3 py-8 text-center text-sm text-muted-foreground">
-              No results.
+              {t.noResults}
             </Command.Empty>
 
             {pageMatches.length > 0 && (
               <Command.Group
-                heading="Pages"
+                heading={t.groupPages}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {pageMatches.map((n) => (
@@ -188,7 +189,7 @@ export function CommandPalette() {
 
             {actionMatches.length > 0 && (
               <Command.Group
-                heading="Actions"
+                heading={t.groupActions}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {actionMatches.map((a) => (
@@ -210,7 +211,7 @@ export function CommandPalette() {
 
             {q && (
               <Command.Group
-                heading="Substations"
+                heading={t.groupSubstations}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {scores.isLoading && <LoadingRow />}
@@ -221,19 +222,19 @@ export function CommandPalette() {
                     onSelect={() => navigate(`/resilience?sel=${s.entity_id}`)}
                     className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm data-[selected=true]:bg-accent/60"
                   >
-                    <span className="min-w-0 flex-1 truncate font-medium">{s.name ?? `Substation ${s.entity_id}`}</span>
+                    <span className="min-w-0 flex-1 truncate font-medium">{s.name ?? t.substationFallback(s.entity_id)}</span>
                     <span className="shrink-0 text-xs tnum text-muted-foreground">{fmtNum(s.composite_score, 1)}</span>
                   </Command.Item>
                 ))}
                 {!scores.isLoading && substationMatches.length === 0 && (
-                  <div className="px-2.5 py-1.5 text-xs text-muted-foreground/70">No substations match.</div>
+                  <div className="px-2.5 py-1.5 text-xs text-muted-foreground/70">{t.noSubstations}</div>
                 )}
               </Command.Group>
             )}
 
             {remoteQuery && (
               <Command.Group
-                heading="Parcels"
+                heading={t.groupParcels}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {parcelSearch.isLoading && <LoadingRow />}
@@ -257,14 +258,14 @@ export function CommandPalette() {
                   </Command.Item>
                 ))}
                 {!parcelSearch.isLoading && parcelHits.length === 0 && (
-                  <div className="px-2.5 py-1.5 text-xs text-muted-foreground/70">No parcels match.</div>
+                  <div className="px-2.5 py-1.5 text-xs text-muted-foreground/70">{t.noParcels}</div>
                 )}
               </Command.Group>
             )}
 
             {remoteQuery && (
               <Command.Group
-                heading="Owners"
+                heading={t.groupOwners}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {ownerSearch.isLoading && <LoadingRow />}
@@ -279,20 +280,20 @@ export function CommandPalette() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{o.display_name ?? o.owner_key}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {fmtInt(o.parcel_count)} parcels · {fmtInt(o.municipio_count)} municipios
+                        {fmtInt(o.parcel_count)} {t.parcelsUnit} · {fmtInt(o.municipio_count)} {t.municipiosUnit}
                       </span>
                     </span>
                   </Command.Item>
                 ))}
                 {!ownerSearch.isLoading && ownerHits.length === 0 && (
-                  <div className="px-2.5 py-1.5 text-xs text-muted-foreground/70">No owners match.</div>
+                  <div className="px-2.5 py-1.5 text-xs text-muted-foreground/70">{t.noOwners}</div>
                 )}
               </Command.Group>
             )}
 
             {showAsk && (
               <Command.Group
-                heading="Ask PRISM"
+                heading={t.groupAsk}
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 <Command.Item
@@ -301,7 +302,7 @@ export function CommandPalette() {
                   className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm data-[selected=true]:bg-accent/60"
                 >
                   <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="min-w-0 flex-1 truncate font-medium">Ask PRISM: &ldquo;{query.trim()}&rdquo;</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{t.askPrism(query.trim())}</span>
                 </Command.Item>
               </Command.Group>
             )}
@@ -341,9 +342,10 @@ function PageItem({
 }
 
 function LoadingRow() {
+  const t = useMessages().commandPalette;
   return (
     <div className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted-foreground/70">
-      <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+      <Loader2 className="h-3 w-3 animate-spin" /> {t.searching}
     </div>
   );
 }

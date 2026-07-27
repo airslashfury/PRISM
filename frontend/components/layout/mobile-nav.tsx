@@ -18,6 +18,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const NAV = useNav();
   const t = useMessages().sidebar;
+  const tc = useMessages().common;
 
   useEffect(() => {
     setMounted(true);
@@ -42,7 +43,7 @@ export function MobileNav() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Open navigation"
+        aria-label={tc.openNavigation}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-foreground active:bg-accent md:hidden"
       >
         <Menu className="h-5 w-5" />
@@ -64,7 +65,7 @@ export function MobileNav() {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  aria-label="Close navigation"
+                  aria-label={tc.closeNavigation}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-5 w-5" />

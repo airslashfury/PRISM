@@ -151,7 +151,7 @@ export function Sidebar() {
           maxWidth={NAV_MAX_WIDTH}
           onWidth={pane.setWidth}
           onReset={pane.reset}
-          label="Resize navigation"
+          label={t.resizeNav}
           controls="prism-nav-pane"
           chrome
         />

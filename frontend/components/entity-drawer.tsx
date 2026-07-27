@@ -1,6 +1,9 @@
+"use client";
+
 import { ChevronLeft } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 /**
  * Reusable 7-section entity-detail grammar (extracted from resilience/page.tsx's
@@ -34,6 +37,7 @@ export interface EntityDrawerProps {
 }
 
 export function EntityDrawer({ header, sections, onBack }: EntityDrawerProps) {
+  const t = useMessages().common;
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none p-4">
       {onBack && (
@@ -41,7 +45,7 @@ export function EntityDrawer({ header, sections, onBack }: EntityDrawerProps) {
           onClick={onBack}
           className="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
-          <ChevronLeft className="h-3.5 w-3.5" /> Back to list
+          <ChevronLeft className="h-3.5 w-3.5" /> {t.backToList}
         </button>
       )}
       <div className="space-y-4">

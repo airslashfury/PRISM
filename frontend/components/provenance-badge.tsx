@@ -6,6 +6,7 @@ import { useConfidenceTiers, useProvenanceTable } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { fmtDateTime } from "@/lib/utils";
 import type { ConfidenceTierKey, ProvenanceRecord } from "@/lib/api";
+import { useMessages } from "@/lib/i18n/context";
 
 const TIER_FALLBACK: Record<ConfidenceTierKey, { label: string; color: string; description: string }> = {
   authoritative: {
@@ -40,6 +41,7 @@ interface ConfidenceChipProps {
 /** Small colored dot + tier label. Click opens a provenance popover if `detail` is supplied. */
 export function ConfidenceChip({ tier, className, detail }: ConfidenceChipProps) {
   const { data: tiers } = useConfidenceTiers();
+  const messages = useMessages();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
@@ -54,9 +56,14 @@ export function ConfidenceChip({ tier, className, detail }: ConfidenceChipProps)
 
   const known = tiers?.find((t) => t.key === tier);
   const fallback = TIER_FALLBACK[tier] ?? TIER_FALLBACK.modeled;
-  const label = known?.label ?? fallback.label;
+  // The tier data comes from a live (English-only) backend call — override its
+  // label/description client-side from the locale dictionary by the stable
+  // `tier` key, rather than translating the API response itself (that's
+  // F12c's Python-side job).
+  const localized = messages.confidenceTiers[tier] ?? messages.confidenceTiers.modeled;
+  const label = localized.label;
   const color = known?.color ?? fallback.color;
-  const description = known?.description ?? fallback.description;
+  const description = localized.description;
 
   return (
     <span ref={ref} className={cn("relative inline-flex", className)}>
@@ -85,40 +92,41 @@ export function ConfidenceChip({ tier, className, detail }: ConfidenceChipProps)
 
 /** Body shared by ConfidenceChip's popover and ProvenanceBadge. */
 function ProvenanceDetailBody({ detail }: { detail: ProvenanceRecord }) {
+  const t = useMessages().common;
   const vintage = detail.pulled_at ?? detail.compute_date;
   return (
     <div className="mt-2 space-y-1 border-t border-border/60 pt-2 text-muted-foreground">
       {detail.title && (
         <div>
-          <span className="font-medium text-foreground/80">Source: </span>
+          <span className="font-medium text-foreground/80">{t.provenanceSource}</span>
           {detail.title}
         </div>
       )}
       {vintage && (
         <div>
-          <span className="font-medium text-foreground/80">Vintage: </span>
+          <span className="font-medium text-foreground/80">{t.provenanceVintage}</span>
           {detail.pulled_at ? fmtDateTime(detail.pulled_at) : detail.compute_date}
         </div>
       )}
       <div>
-        <span className="font-medium text-foreground/80">Method: </span>
+        <span className="font-medium text-foreground/80">{t.provenanceMethod}</span>
         {detail.method}
       </div>
       {detail.license && (
         <div>
-          <span className="font-medium text-foreground/80">License: </span>
+          <span className="font-medium text-foreground/80">{t.provenanceLicense}</span>
           {detail.license}
         </div>
       )}
       {detail.assumptions && (
         <div>
-          <span className="font-medium text-foreground/80">Assumptions: </span>
+          <span className="font-medium text-foreground/80">{t.provenanceAssumptions}</span>
           {detail.assumptions}
         </div>
       )}
       {detail.upgrade_path && (
         <div>
-          <span className="font-medium text-foreground/80">Upgrades with: </span>
+          <span className="font-medium text-foreground/80">{t.provenanceUpgrades}</span>
           {detail.upgrade_path}
         </div>
       )}

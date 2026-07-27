@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { clampWidth, notifyMapResize, usePaneShortcut, usePaneState } from "@/lib/pane-state";
+import { useMessages } from "@/lib/i18n/context";
 
 const KEYBOARD_STEP = 24;
 
@@ -221,6 +222,7 @@ export function WorkspaceAside({
   className,
   children,
 }: WorkspaceAsideProps) {
+  const t = useMessages().common;
   const pane = usePaneState(storageKey, { defaultWidth, minWidth, maxWidth });
   const toggle = useCallback(() => {
     pane.toggle();
@@ -238,7 +240,7 @@ export function WorkspaceAside({
           data-collapsed="true"
           className="hidden w-8 shrink-0 flex-col items-center justify-center border-l border-border/70 bg-card/30 md:flex"
         >
-          <PaneToggle collapsed side="right" onToggle={toggle} label={`Show ${label}`} shortcut="]" />
+          <PaneToggle collapsed side="right" onToggle={toggle} label={t.showPane(label)} shortcut="]" />
         </aside>
         <aside
           className={cn(
@@ -261,7 +263,7 @@ export function WorkspaceAside({
         maxWidth={maxWidth}
         onWidth={pane.setWidth}
         onReset={pane.reset}
-        label={`Resize ${label}`}
+        label={t.resizePane(label)}
         controls="prism-workspace-pane"
       />
       <aside

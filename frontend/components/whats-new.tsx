@@ -8,6 +8,8 @@ import { SkeletonRows, EmptyState } from "@/components/query-state";
 import { useWhatsNew } from "@/lib/hooks";
 import { fmtRelative } from "@/lib/utils";
 import type { ChangeEvent, ChangeKind, FeedFreshness } from "@/lib/api";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const KIND_ICON: Record<ChangeKind, LucideIcon> = {
   sync: RefreshCw,
@@ -34,9 +36,12 @@ const KIND_COLOR: Record<ChangeKind, string> = {
 };
 
 function FeedChip({ f }: { f: FeedFreshness }) {
+  const t = useMessages().whatsNew;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   return (
     <span
-      title={`${f.source_name} · every ${f.interval_hours ?? "?"}h`}
+      title={t.feedTitle(f.source_name, f.interval_hours ?? "?")}
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] ${
         f.stale
           ? "border-amber-500/30 bg-amber-500/5 text-amber-300/90"
@@ -46,22 +51,26 @@ function FeedChip({ f }: { f: FeedFreshness }) {
       <span className={`h-1.5 w-1.5 rounded-full ${f.stale ? "bg-amber-400" : "bg-emerald-400"}`} />
       {f.source_name}
       <span className="text-muted-foreground">
-        {f.last_fetched_at ? fmtRelative(f.last_fetched_at) : "never"}
+        {f.last_fetched_at ? fmtRelative(f.last_fetched_at, tag) : t.never}
       </span>
     </span>
   );
 }
 
 function ChangeRow({ c, i }: { c: ChangeEvent; i: number }) {
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const Icon = KIND_ICON[c.kind] ?? Dot;
   const body = (
     <div className="flex items-start gap-3">
       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${KIND_COLOR[c.kind] ?? "text-muted-foreground"}`} />
       <div className="min-w-0 flex-1">
+        {/* c.headline/c.detail are backend-generated (F12c's Python-side job —
+            translating the M1 narrative contract — not this pass). */}
         <div className="text-sm leading-snug">{c.headline}</div>
         {c.detail && <div className="text-[11px] text-muted-foreground">{c.detail}</div>}
       </div>
-      {c.at && <div className="shrink-0 text-[11px] tnum text-muted-foreground">{fmtRelative(c.at)}</div>}
+      {c.at && <div className="shrink-0 text-[11px] tnum text-muted-foreground">{fmtRelative(c.at, tag)}</div>}
     </div>
   );
   return (
@@ -82,6 +91,7 @@ function ChangeRow({ c, i }: { c: ChangeEvent; i: number }) {
 
 /** Overview cockpit lead: what changed + which feeds are fresh/stale. */
 export function WhatsNew() {
+  const t = useMessages().whatsNew;
   const { data, isLoading, error } = useWhatsNew();
   if (error) return null; // overview shows its own error state
 
@@ -90,7 +100,7 @@ export function WhatsNew() {
       <Card>
         <div className="p-5">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            What changed
+            {t.title}
           </h2>
           <SkeletonRows count={5} className="mt-4 space-y-2" />
         </div>
@@ -107,26 +117,26 @@ export function WhatsNew() {
       <div className="p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            What changed
+            {t.title}
           </h2>
           <div className="flex items-center gap-2">
             {failingPulls > 0 && (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/5 px-2 py-0.5 text-[11px] text-red-300/90"
-                title="A feed chip tells you how old the data is. This tells you the pull that refreshes it is broken."
+                title={t.pullsFailingTooltip}
               >
                 <CloudOff className="h-3 w-3" />
-                {failingPulls} pull{failingPulls === 1 ? "" : "s"} failing
+                {t.pullsFailing(failingPulls)}
               </span>
             )}
             {stale_count > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[11px] text-amber-300/90">
                 <TriangleAlert className="h-3 w-3" />
-                {stale_count} feed{stale_count === 1 ? "" : "s"} stale
+                {t.feedsStale(stale_count)}
               </span>
             )}
             <Link href="/sync" className="text-[11px] text-primary hover:underline">
-              Feed details →
+              {t.feedDetails}
             </Link>
           </div>
         </div>
@@ -138,17 +148,17 @@ export function WhatsNew() {
           ))}
         </div>
         <div className="mt-2 text-[11px] text-muted-foreground">
-          {baseline ? `CRIM baseline ${baseline}` : "CRIM baseline —"}
+          {baseline ? t.crimBaseline(baseline) : t.crimBaselineNone}
           {crim_baseline.deltas_available
-            ? ` · deltas through ${crim_baseline.latest_delta_month?.slice(0, 7)}`
-            : " · next monthly delta pending"}
+            ? t.deltasThrough(crim_baseline.latest_delta_month?.slice(0, 7) ?? "")
+            : t.nextDeltaPending}
         </div>
 
         {/* The change stream. */}
         {changes.length === 0 ? (
           <EmptyState
             icon={Dot}
-            title="No recent changes recorded"
+            title={t.noRecentChanges}
             className="mt-4 border-t border-border/40 pt-5"
           />
         ) : (

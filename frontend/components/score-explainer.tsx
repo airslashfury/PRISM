@@ -5,6 +5,10 @@ import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
+import { en } from "@/lib/i18n/dictionaries/en";
+import { esPR } from "@/lib/i18n/dictionaries/es-pr";
+import { intlTag, type Locale } from "@/lib/i18n/locales";
 
 /**
  * F9a chunk A1 (Legibility & Trust): every score PRISM shows must explain
@@ -49,6 +53,7 @@ export function ScoreExplainer({
   className?: string;
   layout?: "stacked" | "row";
 }) {
+  const t = useMessages().common;
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -107,7 +112,7 @@ export function ScoreExplainer({
       type="button"
       aria-expanded={open}
       aria-controls={open ? popoverId : undefined}
-      aria-label={`What is ${label}?`}
+      aria-label={t.whatIs(label)}
       onClick={() => setOpen((o) => !o)}
       className={cn(
         "inline-flex items-center gap-1 text-sm tnum text-foreground transition-colors hover:text-primary",
@@ -132,7 +137,7 @@ export function ScoreExplainer({
         <p className="text-foreground">{what}</p>
         {formula && (
           <p className="mt-1.5 text-muted-foreground">
-            <span className="font-medium text-foreground/80">Built from: </span>
+            <span className="font-medium text-foreground/80">{t.builtFrom}</span>
             {formula}
           </p>
         )}
@@ -168,9 +173,11 @@ export function percentileContext(
   value: number,
   values: number[],
   nounPlural: string,
+  locale: Locale = "en",
 ): string | undefined {
   if (values.length < 10) return undefined;
   const below = values.filter((v) => v < value).length;
   const pct = Math.round((below / values.length) * 100);
-  return `Higher than ${pct}% of ${values.length.toLocaleString("en-US")} ${nounPlural}`;
+  const t = locale === "es-PR" ? esPR.common : en.common;
+  return t.higherThanPct(pct, values.length.toLocaleString(intlTag(locale)), nounPlural);
 }
