@@ -213,6 +213,137 @@ export const en = {
     feedTitle: (name: string, hours: number | string): string => `${name} · every ${hours}h`,
   },
 
+  storm: {
+    activeStorm: "Active storm",
+    stormFeed: "Storm feed",
+    historicalReplay: "HISTORICAL REPLAY",
+    unnamedStorm: "Unnamed storm",
+    advisoryNum: (n: number | string): string => `advisory #${n}`,
+    maxWind: (kt: number | string): string => `Max wind: ${kt} kt`,
+    minPressure: (mb: number | string): string => `Min pressure: ${mb} mb`,
+    noActiveSystem: "No active system",
+    liveStorm: "Live storm",
+    liveStormDesc: "The live NHC forecast cone over PRISM's grid — which substations, hospitals, and people fall inside the probable track area.",
+    noStormOnBoard: "No storm on the board",
+    noStormDesc: "No active Atlantic/Caribbean system currently threatens Puerto Rico. The NHC feed polls automatically during hurricane season — this page will populate the moment a PR-affecting advisory is issued.",
+    inConePath: "In the cone's path",
+    substations: "Substations",
+    inSurgeField: "— in surge field",
+    hospitals: "Hospitals",
+    waterPlants: "Water plants",
+    healthCenters: "Health centers",
+    barrios: "Barrios",
+    population: "Population",
+    islandScale: "island-scale",
+    advisory: "Advisory",
+    stormId: "Storm ID",
+    advisoryHash: "Advisory #",
+    issued: "Issued",
+    fetched: "Fetched",
+    mode: "Mode",
+    historicalReplayMode: "Historical replay",
+    live: "Live",
+    preLandfallConsequence: "Pre-landfall consequence",
+    panelLabel: "storm panel",
+    valid: "Valid",
+    maxWindTooltip: "Max wind",
+    pointFallback: (seq: number | string): string => `Point ${seq}`,
+    infoSections: {
+      whatThisIs: {
+        title: "What this is",
+        body: "The amber shape is NHC's official forecast cone — the probable path of the storm's center over the next several days. It is NOT the wind field: damaging winds and flooding extend well beyond the cone's edge, and areas outside it are not necessarily safe.",
+      },
+      howCalculated: {
+        title: "How it's calculated",
+        body: "Consequence counts every substation, hospital, water plant, health center, and barrio whose location falls inside the current cone polygon, plus a narrower surge-exposed subset for coastal substations. This is a proxy-tier spatial intersection, not a wind-speed or flood-depth model.",
+      },
+      sources: {
+        title: "Data sources & accuracy",
+        body: "The cone and track are pulled directly from NHC's official advisory feed — authoritative for the storm itself. Replay mode (shown when the current advisory is marked HISTORICAL REPLAY) exercises this same pipeline against Hurricane Fiona's 2022 advisories between live storms, so the page is never empty of a working example.",
+      },
+    },
+  },
+
+  weather: {
+    title: "Weather",
+    liveStormActive: "Live storm active",
+    panelLabel: "weather panel",
+    lensClimate: "Climate",
+    lensStorm: "Storm",
+    metricWorkableDays: "Workable days",
+    metricWorkableDaysLegend: "Workable days · per year",
+    metricRainDays: "Rain days",
+    metricRainDaysLegend: "Rain days · per year",
+    metricAvgTemp: "Avg temp",
+    metricAvgTempLegend: "Average temperature (°F)",
+    nearestStation: "Nearest station",
+    colorBy: "Color by",
+    clickMunicipio: "Click a municipio on the map for its nearest-station climate normals and estimated workable construction days.",
+    infoSections: {
+      whatThisIs: {
+        title: "What this is",
+        body: "Each municipio takes its climate figures from the nearest NOAA weather station — 19 stations spread across the island, since Puerto Rico has no gridded climate product mirrored locally. Workable days estimates outdoor-work days per year, a construction-siting/scheduling input.",
+      },
+      howCalculated: {
+        title: "How it's calculated",
+        body: "Workable days = days in month × (1 − rain-day fraction) × a heat derate (0.70 above 85°F average, 0.85 above 80°F, else 1.0), summed over 12 months. A rain day is any day with ≥0.10in of precipitation, NOAA's own threshold — not a calibrated productivity-loss model, a coarse scheduling heuristic.",
+      },
+      sources: {
+        title: "Data sources & accuracy",
+        body: "Monthly normals are NOAA NCEI's official 1991-2020 30-year baseline — authoritative for the 19 stations themselves. The municipio assignment (nearest station by straight-line distance) and the workable-days formula on top of it are both Modeled, not Authoritative.",
+      },
+    },
+    allMunicipios: "← All municipios",
+    nearestStationClimate: "Nearest-station climate",
+    station: "Station",
+    distance: "Distance",
+    workableDaysPerYear: "Workable days/yr",
+    workableDaysWhat: "Estimated outdoor construction-work days per year at this municipio's nearest weather station — a scheduling input, not a guarantee.",
+    workableDaysFormula: "days in month × (1 − rain-day fraction) × heat derate (0.70 above 85°F avg, 0.85 above 80°F, else 1.0), summed over 12 months",
+    rainDaysPerYear: "Rain days/yr",
+    avgTemp: "Avg temp",
+    annualPrecip: "Annual precip",
+  },
+
+  ask: {
+    title: "Ask PRISM",
+    subtitle: "Ask a question about Puerto Rico's infrastructure in plain language. PRISM answers using its own models — with the confidence tier of every figure it cites — never an invented number.",
+    whatYouCanAsk: "What you can ask",
+    // The quoted example questions themselves are left in English in both
+    // this panel and the EXAMPLES chips below — they are the literal text
+    // sent verbatim to Ask PRISM's router, which doesn't yet understand
+    // Spanish queries (that's F12c's Python-side job, parked). Translating
+    // only the quote would invite a Spanish-speaking user to type a Spanish
+    // question the backend can't route.
+    sections: {
+      infra: { title: "Infrastructure & failures", body: "“What happens if Palo Seco substation fails?” — what breaks downstream." },
+      resilience: { title: "Resilience rankings", body: "“What are the highest-risk substations under a Cat-3 hurricane?”" },
+      portfolio: { title: "The investment plan", body: "“What's the top investment in the current portfolio?”" },
+      svi: { title: "Community vulnerability (SVI)", body: "“How vulnerable is Comerío to a disruption?”" },
+      parcels: { title: "Parcels, owners & addresses (CRIM)", body: "“Who owns the most land in Bayamón?”" },
+      whatsNew: { title: "What changed recently", body: "“Did anything change in the data this week?”" },
+      corridor: { title: "Rail corridors", body: "“Compare rail routes from San Juan to Ponce.”" },
+    },
+    about: "About Ask PRISM",
+    aboutSections: {
+      whatThisIs: {
+        title: "What this is",
+        body: "A natural-language front end over a handful of PRISM's existing read-only models: entity lookup, downstream-failure consequences, top resilience risks, the investment portfolio, rail corridor comparisons, barrio social-vulnerability/civic data, CRIM owner and parcel lookups, and the what-changed feed. A small model routes your question to one of those models; another model writes up the answer.",
+      },
+      honest: {
+        title: "Honest by construction",
+        body: "Every answer either cites the confidence tier(s) of the data it used, or says plainly that it couldn't find a matching model. It never makes up a number that didn't come from the live model.",
+      },
+      needsBackend: {
+        title: "Needs an AI backend",
+        body: "If no LLM backend is configured (ANTHROPIC_API_KEY or a local Ollama via PRISM_LLM_BACKEND), Ask PRISM will say so rather than failing silently.",
+      },
+    },
+    placeholder: "Ask about a substation, an owner, a parcel, the portfolio, or what changed recently...",
+    answer: "Answer",
+    entityFallback: (id: number | string): string => `entity ${id}`,
+  },
+
   overview: {
     eyebrow: "Puerto Rico Infrastructure Simulation Model",
     heroTitle: "Power, water, telecom, roads — one island, one system.",

@@ -20,13 +20,11 @@ import { fmtInt, fmtNum } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
 import type { FeatureCollection, WeatherMunicipioRollup } from "@/lib/api";
 import StormPage from "../storm/storm-client";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
 type Lens = "climate" | "storm";
-
-const LENS_OPTIONS: SegmentedOption<Lens>[] = [
-  { value: "climate", label: "Climate" },
-  { value: "storm", label: "Storm" },
-];
 
 type MetricKey = "workable_days_per_year" | "rain_days_per_year" | "tavg_normal_f";
 
@@ -41,19 +39,17 @@ interface MetricDef {
   higherIsBetter: boolean;
 }
 
-const METRICS: MetricDef[] = [
-  { value: "workable_days_per_year", label: "Workable days", legend: "Workable days · per year",
-    fmt: (v) => fmtInt(v), higherIsBetter: true },
-  { value: "rain_days_per_year", label: "Rain days", legend: "Rain days · per year",
-    fmt: (v) => fmtInt(v), higherIsBetter: false },
-  { value: "tavg_normal_f", label: "Avg temp", legend: "Average temperature (°F)",
-    fmt: (v) => `${fmtNum(v, 1)}°F`, higherIsBetter: false },
-];
+const METRIC_KEYS: MetricKey[] = ["workable_days_per_year", "rain_days_per_year", "tavg_normal_f"];
 
-const METRIC_OPTIONS: SegmentedOption<MetricKey>[] = METRICS.map((m) => ({ value: m.value, label: m.label }));
-
-function metricDef(key: MetricKey): MetricDef {
-  return METRICS.find((m) => m.value === key) ?? METRICS[0];
+function metricList(t: Messages["weather"], tag: string): MetricDef[] {
+  return [
+    { value: "workable_days_per_year", label: t.metricWorkableDays, legend: t.metricWorkableDaysLegend,
+      fmt: (v) => fmtInt(v, tag), higherIsBetter: true },
+    { value: "rain_days_per_year", label: t.metricRainDays, legend: t.metricRainDaysLegend,
+      fmt: (v) => fmtInt(v, tag), higherIsBetter: false },
+    { value: "tavg_normal_f", label: t.metricAvgTemp, legend: t.metricAvgTempLegend,
+      fmt: (v) => `${fmtNum(v, 1, tag)}°F`, higherIsBetter: false },
+  ];
 }
 
 function muniProps(f: unknown): WeatherMunicipioRollup | null {
@@ -62,9 +58,15 @@ function muniProps(f: unknown): WeatherMunicipioRollup | null {
 }
 
 export default function WeatherPage() {
+  const t = useMessages().weather;
   const [lens, setLens] = useState<Lens>("climate");
   const [selectedMuni, setSelectedMuni] = useState<string | null>(null);
   const [metric, setMetric] = useState<MetricKey>("workable_days_per_year");
+
+  const LENS_OPTIONS: SegmentedOption<Lens>[] = [
+    { value: "climate", label: t.lensClimate },
+    { value: "storm", label: t.lensStorm },
+  ];
 
   const hydrated = useRef(false);
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function WeatherPage() {
     const m = readParam("m");
     if (m) setSelectedMuni(m);
     const met = readParam("metric") as MetricKey | null;
-    if (met && METRICS.some((d) => d.value === met)) setMetric(met);
+    if (met && METRIC_KEYS.includes(met)) setMetric(met);
     hydrated.current = true;
   }, []);
   useEffect(() => {
@@ -93,7 +95,7 @@ export default function WeatherPage() {
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-card/40 px-4 py-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <CloudSun className="h-4 w-4 text-domain-hazard" />
-          Weather
+          {t.title}
         </div>
         <div className="flex items-center gap-2">
           {stormActive && lens !== "storm" && (
@@ -102,7 +104,7 @@ export default function WeatherPage() {
               className="flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-400/20"
             >
               <Wind className="h-3 w-3" />
-              Live storm active
+              {t.liveStormActive}
             </button>
           )}
           <Segmented options={LENS_OPTIONS} value={lens} onChange={setLens} />
@@ -133,6 +135,13 @@ function ClimateView({
   selectedMuni: string | null;
   setSelectedMuni: (m: string | null) => void;
 }) {
+  const t = useMessages().weather;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
+  const METRICS = useMemo(() => metricList(t, tag), [t, tag]);
+  const METRIC_OPTIONS: SegmentedOption<MetricKey>[] = METRICS.map((m) => ({ value: m.value, label: m.label }));
+  const metricDef = (key: MetricKey): MetricDef => METRICS.find((m) => m.value === key) ?? METRICS[0];
+
   const { data: munis, isLoading, error } = useWeatherMunicipios();
   const activeMetric = metricDef(metric);
 
@@ -150,8 +159,8 @@ function ClimateView({
   }, [munis, metric]);
 
   const colorFor = (v: number): RGB => {
-    const t = metricRange.max > metricRange.min ? (v - metricRange.min) / (metricRange.max - metricRange.min) : 0.5;
-    return activeMetric.higherIsBetter ? suitColor(t) : riskColor(t, 0, 1);
+    const ratio = metricRange.max > metricRange.min ? (v - metricRange.min) / (metricRange.max - metricRange.min) : 0.5;
+    return activeMetric.higherIsBetter ? suitColor(ratio) : riskColor(ratio, 0, 1);
   };
 
   const layers = useMemo(() => {
@@ -198,7 +207,7 @@ function ClimateView({
     return tip(
       [
         [activeMetric.legend, v != null ? activeMetric.fmt(v) : "—"],
-        ["Nearest station", p.station_name ?? "—"],
+        [t.nearestStation, p.station_name ?? "—"],
       ],
       p.name,
     );
@@ -215,7 +224,7 @@ function ClimateView({
       onClick={onClick}
       sidebarWidth={360}
       paneKey="weather"
-      paneLabel="weather panel"
+      paneLabel={t.panelLabel}
       overlays={
         <GradientLegend
           className="absolute bottom-6 left-4"
@@ -231,7 +240,7 @@ function ClimateView({
           <div className="space-y-3 border-b border-border/70 p-4">
             <div>
               <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Color by
+                {t.colorBy}
               </div>
               <Segmented className="w-full" options={METRIC_OPTIONS} value={metric} onChange={setMetric} />
             </div>
@@ -241,8 +250,7 @@ function ClimateView({
             {isLoading && <SkeletonRows className="pt-2" />}
             {selectedMuni == null && (
               <div className="p-4 text-xs text-muted-foreground">
-                Click a municipio on the map for its nearest-station climate normals and estimated
-                workable construction days.
+                {t.clickMunicipio}
               </div>
             )}
             {selectedMuni != null && (
@@ -251,18 +259,9 @@ function ClimateView({
             <div className="p-4 pt-0">
               <InfoPanel
                 sections={[
-                  {
-                    title: "What this is",
-                    body: "Each municipio takes its climate figures from the nearest NOAA weather station — 19 stations spread across the island, since Puerto Rico has no gridded climate product mirrored locally. Workable days estimates outdoor-work days per year, a construction-siting/scheduling input.",
-                  },
-                  {
-                    title: "How it's calculated",
-                    body: "Workable days = days in month × (1 − rain-day fraction) × a heat derate (0.70 above 85°F average, 0.85 above 80°F, else 1.0), summed over 12 months. A rain day is any day with ≥0.10in of precipitation, NOAA's own threshold — not a calibrated productivity-loss model, a coarse scheduling heuristic.",
-                  },
-                  {
-                    title: "Data sources & accuracy",
-                    body: "Monthly normals are NOAA NCEI's official 1991-2020 30-year baseline — authoritative for the 19 stations themselves. The municipio assignment (nearest station by straight-line distance) and the workable-days formula on top of it are both Modeled, not Authoritative.",
-                  },
+                  t.infoSections.whatThisIs,
+                  t.infoSections.howCalculated,
+                  t.infoSections.sources,
                 ]}
               />
             </div>
@@ -274,31 +273,34 @@ function ClimateView({
 }
 
 function MunicipioClimatePanel({ name, onBack }: { name: string; onBack: () => void }) {
+  const t = useMessages().weather;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useWeatherMunicipioDetail(name);
 
   return (
     <div className="space-y-3 p-4">
       <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground">
-        ← All municipios
+        {t.allMunicipios}
       </button>
       <h3 className="text-base font-semibold">{name}</h3>
       {error && <ErrorBlock error={error} />}
       {isLoading && <SkeletonRows count={4} />}
       {data && (
-        <PanelBox title="Nearest-station climate" badge={<ProvenanceBadge table="sync.climate_normals" />}>
-          <Row label="Station" value={data.station_name ?? "—"} />
-          <Row label="Distance" value={data.station_dist_km != null ? `${fmtNum(data.station_dist_km, 1)} km` : "—"} />
+        <PanelBox title={t.nearestStationClimate} badge={<ProvenanceBadge table="sync.climate_normals" />}>
+          <Row label={t.station} value={data.station_name ?? "—"} />
+          <Row label={t.distance} value={data.station_dist_km != null ? `${fmtNum(data.station_dist_km, 1, tag)} km` : "—"} />
           <ScoreExplainer
             layout="row"
             className="text-sm"
-            label="Workable days/yr"
-            value={data.workable_days_per_year != null ? fmtInt(data.workable_days_per_year) : "—"}
-            what="Estimated outdoor construction-work days per year at this municipio's nearest weather station — a scheduling input, not a guarantee."
-            formula="days in month × (1 − rain-day fraction) × heat derate (0.70 above 85°F avg, 0.85 above 80°F, else 1.0), summed over 12 months"
+            label={t.workableDaysPerYear}
+            value={data.workable_days_per_year != null ? fmtInt(data.workable_days_per_year, tag) : "—"}
+            what={t.workableDaysWhat}
+            formula={t.workableDaysFormula}
           />
-          <Row label="Rain days/yr" value={data.rain_days_per_year != null ? fmtInt(data.rain_days_per_year) : "—"} />
-          <Row label="Avg temp" value={data.tavg_normal_f != null ? `${fmtNum(data.tavg_normal_f, 1)}°F` : "—"} />
-          <Row label="Annual precip" value={data.prcp_normal_in_per_year != null ? `${fmtNum(data.prcp_normal_in_per_year, 1)}in` : "—"} />
+          <Row label={t.rainDaysPerYear} value={data.rain_days_per_year != null ? fmtInt(data.rain_days_per_year, tag) : "—"} />
+          <Row label={t.avgTemp} value={data.tavg_normal_f != null ? `${fmtNum(data.tavg_normal_f, 1, tag)}°F` : "—"} />
+          <Row label={t.annualPrecip} value={data.prcp_normal_in_per_year != null ? `${fmtNum(data.prcp_normal_in_per_year, 1, tag)}in` : "—"} />
         </PanelBox>
       )}
     </div>

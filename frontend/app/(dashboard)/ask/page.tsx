@@ -11,6 +11,7 @@ import { NarrativePanel } from "@/components/narrative-panel";
 import { ErrorBlock } from "@/components/query-state";
 import { api, ApiError, type AskResponse, type ConfidenceTierKey } from "@/lib/api";
 import { readParam } from "@/lib/url-state";
+import { useMessages } from "@/lib/i18n/context";
 
 const EXAMPLES = [
   "What happens if Palo Seco substation fails?",
@@ -36,6 +37,7 @@ const MAP_PAGE_BY_KIND: Record<string, string> = {
 };
 
 export default function AskPage() {
+  const t = useMessages().ask;
   const [query, setQuery] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
 
@@ -78,66 +80,32 @@ export default function AskPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Ask PRISM</h1>
+        <h1 className="text-xl font-semibold text-foreground">{t.title}</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Ask a question about Puerto Rico&apos;s infrastructure in plain language. PRISM answers using
-          its own models — with the confidence tier of every figure it cites — never an invented number.
+          {t.subtitle}
         </p>
       </div>
 
       <InfoPanel
-        title="What you can ask"
+        title={t.whatYouCanAsk}
         defaultOpen
         sections={[
-          {
-            title: "Infrastructure & failures",
-            body: "“What happens if Palo Seco substation fails?” — what breaks downstream.",
-          },
-          {
-            title: "Resilience rankings",
-            body: "“What are the highest-risk substations under a Cat-3 hurricane?”",
-          },
-          {
-            title: "The investment plan",
-            body: "“What's the top investment in the current portfolio?”",
-          },
-          {
-            title: "Community vulnerability (SVI)",
-            body: "“How vulnerable is Comerío to a disruption?”",
-          },
-          {
-            title: "Parcels, owners & addresses (CRIM)",
-            body: "“Who owns the most land in Bayamón?”",
-          },
-          {
-            title: "What changed recently",
-            body: "“Did anything change in the data this week?”",
-          },
-          {
-            title: "Rail corridors",
-            body: "“Compare rail routes from San Juan to Ponce.”",
-          },
+          t.sections.infra,
+          t.sections.resilience,
+          t.sections.portfolio,
+          t.sections.svi,
+          t.sections.parcels,
+          t.sections.whatsNew,
+          t.sections.corridor,
         ]}
       />
 
       <InfoPanel
-        title="About Ask PRISM"
+        title={t.about}
         sections={[
-          {
-            title: "What this is",
-            body:
-              "A natural-language front end over a handful of PRISM's existing read-only models: entity lookup, downstream-failure consequences, top resilience risks, the investment portfolio, rail corridor comparisons, barrio social-vulnerability/civic data, CRIM owner and parcel lookups, and the what-changed feed. A small model routes your question to one of those models; another model writes up the answer.",
-          },
-          {
-            title: "Honest by construction",
-            body:
-              "Every answer either cites the confidence tier(s) of the data it used, or says plainly that it couldn't find a matching model. It never makes up a number that didn't come from the live model.",
-          },
-          {
-            title: "Needs an AI backend",
-            body:
-              "If no LLM backend is configured (ANTHROPIC_API_KEY or a local Ollama via PRISM_LLM_BACKEND), Ask PRISM will say so rather than failing silently.",
-          },
+          t.aboutSections.whatThisIs,
+          t.aboutSections.honest,
+          t.aboutSections.needsBackend,
         ]}
       />
 
@@ -152,7 +120,7 @@ export default function AskPage() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask about a substation, an owner, a parcel, the portfolio, or what changed recently..."
+          placeholder={t.placeholder}
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </form>
@@ -178,7 +146,7 @@ export default function AskPage() {
             <Card>
               <CardHeader className="flex flex-row items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <CardTitle className="text-sm font-medium text-muted-foreground">Answer</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">{t.answer}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {turn.loading && <NarrativePanel loading />}
@@ -203,7 +171,7 @@ export default function AskPage() {
                             href={MAP_PAGE_BY_KIND[p.kind ?? ""] ?? "/resilience"}
                             className="rounded-full border border-border bg-background/40 px-3 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                           >
-                            {p.name ?? `entity ${p.entity_id}`}
+                            {p.name ?? t.entityFallback(p.entity_id)}
                           </Link>
                         ))}
                       </div>
