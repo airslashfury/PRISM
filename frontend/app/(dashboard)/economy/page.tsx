@@ -35,6 +35,9 @@ import { sviColor, type RGB } from "@/lib/colors";
 import { fmtInt, fmtIntTiered, fmtNum, fmtPct, fmtUsd, fmtUsdTiered } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
 import { tileUrl, type ExposureRow, type FeatureCollection, type MunicipioRollup } from "@/lib/api";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
 const SVI_STOPS: RGB[] = [
   [56, 78, 122],
@@ -43,17 +46,7 @@ const SVI_STOPS: RGB[] = [
   [240, 70, 70],
 ];
 
-/** The existing VOLL formula wording — shared by the power lens list and the
- *  municipio panel so the two never drift. */
-const VOLL_FORMULA =
-  "people served × $2,707/person — the modeled 30-year cost of lost power (VOLL, NPV)";
-
 type Lens = "municipios" | "power";
-
-const LENS_OPTIONS: SegmentedOption<Lens>[] = [
-  { value: "municipios", label: "Municipios" },
-  { value: "power", label: "Power lens" },
-];
 
 type MetricKey = "svi_mean" | "population" | "voll_exposure_usd" | "assessed_value_usd" | "sales_12mo";
 
@@ -64,21 +57,14 @@ interface MetricDef {
   fmt: (v: number) => string;
 }
 
-const METRICS: MetricDef[] = [
-  { value: "svi_mean", label: "SVI", legend: "Mean social vulnerability", fmt: (v) => fmtNum(v, 2) },
-  { value: "population", label: "Population", legend: "Population", fmt: (v) => fmtInt(v) },
-  { value: "voll_exposure_usd", label: "VOLL", legend: "VOLL exposure · 30-yr", fmt: (v) => fmtUsdTiered(v, "proxy") },
-  { value: "assessed_value_usd", label: "Value", legend: "Assessed value (CRIM)", fmt: (v) => fmtUsd(v) },
-  { value: "sales_12mo", label: "Sales", legend: "Recorded sales · 12mo", fmt: (v) => fmtInt(v) },
-];
-
-const METRIC_OPTIONS: SegmentedOption<MetricKey>[] = METRICS.map((m) => ({
-  value: m.value,
-  label: m.label,
-}));
-
-function metricDef(key: MetricKey): MetricDef {
-  return METRICS.find((m) => m.value === key) ?? METRICS[0];
+function metricList(t: Messages["economy"], tag: string): MetricDef[] {
+  return [
+    { value: "svi_mean", label: t.metricSvi.label, legend: t.metricSvi.legend, fmt: (v) => fmtNum(v, 2, tag) },
+    { value: "population", label: t.metricPopulation.label, legend: t.metricPopulation.legend, fmt: (v) => fmtInt(v, tag) },
+    { value: "voll_exposure_usd", label: t.metricVoll.label, legend: t.metricVoll.legend, fmt: (v) => fmtUsdTiered(v, "proxy") },
+    { value: "assessed_value_usd", label: t.metricValue.label, legend: t.metricValue.legend, fmt: (v) => fmtUsd(v) },
+    { value: "sales_12mo", label: t.metricSales.label, legend: t.metricSales.legend, fmt: (v) => fmtInt(v, tag) },
+  ];
 }
 
 function muniProps(f: unknown): MunicipioRollup | null {
@@ -87,6 +73,16 @@ function muniProps(f: unknown): MunicipioRollup | null {
 }
 
 export default function EconomyPage() {
+  const t = useMessages().economy;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
+  const METRICS = useMemo(() => metricList(t, tag), [t, tag]);
+  const METRIC_OPTIONS: SegmentedOption<MetricKey>[] = METRICS.map((m) => ({ value: m.value, label: m.label }));
+  const metricDef = (key: MetricKey): MetricDef => METRICS.find((m) => m.value === key) ?? METRICS[0];
+  const LENS_OPTIONS: SegmentedOption<Lens>[] = [
+    { value: "municipios", label: t.lensMunicipios },
+    { value: "power", label: t.lensPower },
+  ];
   const [lens, setLens] = useState<Lens>("municipios");
   const [selectedMuni, setSelectedMuni] = useState<string | null>(null);
   const [metric, setMetric] = useState<MetricKey>("svi_mean");
@@ -246,7 +242,7 @@ export default function EconomyPage() {
       return tip(
         [
           [activeMetric.legend, v != null ? activeMetric.fmt(Number(v)) : "—"],
-          ["Population", fmtInt(p.population)],
+          [t.population, fmtInt(p.population, tag)],
         ],
         p.name,
       );
@@ -255,11 +251,11 @@ export default function EconomyPage() {
       const d = info.object as ExposureRow;
       return tip(
         [
-          ["Population", fmtInt(d.population_affected)],
-          ["Economic benefit", fmtUsd(d.economic_benefit_usd)],
-          ["Property impact", fmtUsd(d.property_impact_usd)],
+          [t.population, fmtInt(d.population_affected, tag)],
+          [t.economicBenefit, fmtUsd(d.economic_benefit_usd)],
+          [t.propertyImpact, fmtUsd(d.property_impact_usd)],
         ],
-        d.entity_name ?? "Substation",
+        d.entity_name ?? t.substationFallback,
       );
     }
     const f = info.object as { properties: Record<string, number | string> } | undefined;
@@ -267,14 +263,14 @@ export default function EconomyPage() {
     const p = f.properties;
     return tip(
       [
-        ["SVI", fmtNum(Number(p.svi_score), 3)],
-        ["Population", fmtInt(Number(p.population))],
-        ["Median income", fmtUsd(Number(p.median_income_usd), 0)],
-        ["Poverty rate", fmtPct(Number(p.poverty_rate))],
-        ["Elderly", fmtPct(Number(p.pct_elderly))],
-        ["Disabled", fmtPct(Number(p.pct_disabled))],
+        [t.svi, fmtNum(Number(p.svi_score), 3, tag)],
+        [t.population, fmtInt(Number(p.population), tag)],
+        [t.medianIncome, fmtUsd(Number(p.median_income_usd), 0)],
+        [t.povertyRate, fmtPct(Number(p.poverty_rate))],
+        [t.elderly, fmtPct(Number(p.pct_elderly))],
+        [t.disabled, fmtPct(Number(p.pct_disabled))],
       ],
-      `Tract ${p.tract_geoid}`,
+      t.tractFallback(p.tract_geoid),
     );
   };
 
@@ -292,7 +288,7 @@ export default function EconomyPage() {
       onClick={onClick}
       sidebarWidth={360}
       paneKey="economy"
-      paneLabel="economy panel"
+      paneLabel={t.panelLabel}
       overlays={
         lens === "municipios" ? (
           <GradientLegend
@@ -307,29 +303,29 @@ export default function EconomyPage() {
           <>
             <div className="pointer-events-auto absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
               <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Social Vulnerability Index (SVI)
+                {t.sviTitle}
                 <ProvenanceBadge table="economy.barrio_economics" />
               </div>
               <div className="mt-0.5 text-[10px] text-muted-foreground/70">
-                0 = low vulnerability, 1 = high · weighted: poverty · age · disability · flood · slope
+                {t.sviDesc}
               </div>
               <div className="mt-0.5 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tnum">{fmtNum(stats.avg, 2)}</span>
-                <span className="text-xs text-muted-foreground">mean · <span className="tnum">{fmtInt(stats.n)}</span> tracts</span>
+                <span className="text-2xl font-semibold tnum">{fmtNum(stats.avg, 2, tag)}</span>
+                <span className="text-xs text-muted-foreground">{t.meanUnit(fmtInt(stats.n, tag))}</span>
               </div>
               <div className="text-[11px] text-muted-foreground">
-                <span className="tnum">{fmtInt(stats.high)}</span> tracts at SVI ≥ 0.75 (limited self-recovery capacity)
+                {t.tractsAtRisk(fmtInt(stats.high, tag))}
               </div>
             </div>
             <div className="absolute right-4 top-4 w-48 rounded-lg border border-border/70 bg-card/90 p-3 shadow-lg backdrop-blur">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Layers
+                {t.layers}
               </div>
               <Segmented
                 className="mb-2 w-full"
                 options={[
-                  { value: "on", label: "Exposure" },
-                  { value: "off", label: "Hide" },
+                  { value: "on", label: t.exposureOn },
+                  { value: "off", label: t.hide },
                 ]}
                 value={showExposure}
                 onChange={setShowExposure}
@@ -340,7 +336,7 @@ export default function EconomyPage() {
               >
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: "rgb(37,99,235)", opacity: showFlood ? 1 : 0.3 }} />
                 <span className={showFlood ? "flex-1 text-foreground" : "flex-1 text-muted-foreground"}>
-                  Flood zones (1%)
+                  {t.floodZones}
                 </span>
                 <span className={`relative h-4 w-7 rounded-full ${showFlood ? "bg-primary/70" : "bg-muted"}`}>
                   <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${showFlood ? "left-3.5" : "left-0.5"}`} />
@@ -349,10 +345,10 @@ export default function EconomyPage() {
             </div>
             <GradientLegend
               className="absolute bottom-6 left-4"
-              title="Social vulnerability"
+              title={t.socialVulnerability}
               stops={SVI_STOPS}
-              minLabel="Low"
-              maxLabel="High"
+              minLabel={t.low}
+              maxLabel={t.high}
             />
           </>
         )
@@ -363,14 +359,14 @@ export default function EconomyPage() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
                 <Landmark className="h-4 w-4 shrink-0 text-domain-economy" />
-                Economy
+                {t.title}
               </h2>
               <Segmented options={LENS_OPTIONS} value={lens} onChange={setLens} />
             </div>
             {lens === "municipios" && (
               <div>
                 <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Color by
+                  {t.colorBy}
                 </div>
                 <Segmented className="w-full" options={METRIC_OPTIONS} value={metric} onChange={setMetric} />
               </div>
@@ -394,18 +390,9 @@ export default function EconomyPage() {
                 <div className="p-4 pt-0">
                   <InfoPanel
                     sections={[
-                      {
-                        title: "What this is",
-                        body: "All 78 municipios, each with the people who live there, how vulnerable they are (SVI), what the power grid puts at stake (VOLL exposure), and how the property market is moving. Click a municipio — on the map or in the list — to open its panel; the metric switcher recolors the map.",
-                      },
-                      {
-                        title: "How it's calculated",
-                        body: "Census tracts aggregate to municipios by county FIPS prefix (981 tracts → 78 municipios). Substations are assigned to the municipio that spatially contains them, and VOLL exposure is summed over those substations. CRIM parcels and recorded sales join by municipio name; sale prices use the median, with corrupt amounts clamped to a plausible range.",
-                      },
-                      {
-                        title: "Data sources & accuracy",
-                        body: "Population and SVI come from Census ACS 5-year 2022 per tract. Parcel counts, assessed values, and sales are the official CRIM register — assessed values, not market prices. VOLL exposure is Proxy-tier: it sums substation service areas, and where service areas overlap the same people are counted more than once (known model behavior, under review) — read it as relative exposure, not a headcount.",
-                      },
+                      t.infoSectionsMunicipios.whatThisIs,
+                      t.infoSectionsMunicipios.howCalculated,
+                      t.infoSectionsMunicipios.sources,
                     ]}
                   />
                 </div>
@@ -415,34 +402,23 @@ export default function EconomyPage() {
                 <div className="space-y-3 border-b border-border/70 p-4">
                   <div>
                     <h3 className="flex items-center gap-2 text-sm font-semibold">
-                      Most exposed substations
+                      {t.mostExposedSubstations}
                       <ProvenanceBadge table="economy.substation_exposure" />
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Ranked by people who lose power if this substation fails. Circle size on the map
-                      is proportional to that population. VOLL (Value of Lost Load) converts outage
-                      exposure to a 30-year net-present-value dollar figure at $2,707/person.
+                      {t.mostExposedDesc}
                     </p>
                   </div>
                   <InfoPanel
                     sections={[
-                      {
-                        title: "What this is",
-                        body: "Two related layers: the SVI choropleth (per Census tract, how vulnerable residents are to a disruption) and substation exposure (how many people each substation powers, and what an outage there would cost).",
-                      },
-                      {
-                        title: "How it's calculated",
-                        body: "SVI is a weighted composite, percentile-ranked 0–1 across all 981 tracts: poverty rate (30%), elderly population (15%), disability rate (10%), flood-zone overlap (30%), terrain slope (15%). Exposure traces the knowledge graph downstream from each substation (FEEDS → POWERS) to count the population it serves; VOLL converts that population's expected outage hours into a 30-year NPV dollar figure ($2,707/person) used as the \"economic benefit\" in Portfolio.",
-                      },
-                      {
-                        title: "Data sources & accuracy",
-                        body: "Poverty, elderly, and disability rates are from Census ACS 5-year 2022 estimates per tract. Flood zones are from the PR government WFS hazard layers; slope is derived from USGS 3DEP elevation. Median income and home value are currently statewide ACS medians applied uniformly, not yet per-tract.",
-                      },
+                      t.infoSectionsPower.whatThisIs,
+                      t.infoSectionsPower.howCalculated,
+                      t.infoSectionsPower.sources,
                     ]}
                   />
                 </div>
                 {tractsError && <div className="p-4"><ErrorBlock error={tractsError} /></div>}
-                {tractsLoading && <LoadingBlock label="Loading economy" />}
+                {tractsLoading && <LoadingBlock label={t.loadingEconomy} />}
                 <ul>
                   {topExposed.map((e, i) => (
                     <li
@@ -455,10 +431,10 @@ export default function EconomyPage() {
                         <ScoreExplainer
                           layout="row"
                           className="text-xs"
-                          label={`${fmtIntTiered(e.population_affected, "proxy")} people`}
+                          label={t.peopleUnit(fmtIntTiered(e.population_affected, "proxy", tag))}
                           value={fmtUsdTiered(e.economic_benefit_usd, "proxy")}
-                          what="What outages at this substation would cost the people it serves, in today's dollars."
-                          formula={VOLL_FORMULA}
+                          what={t.vollWhat}
+                          formula={t.volLFormula}
                         />
                       </div>
                     </li>
@@ -482,6 +458,9 @@ function IslandOverview({
   munis: FeatureCollection;
   onSelect: (name: string) => void;
 }) {
+  const t = useMessages().economy;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const rows = useMemo(
     () =>
       munis.features
@@ -510,25 +489,24 @@ function IslandOverview({
   return (
     <div className="space-y-4 p-4">
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Click a municipio on the map — or pick one below — to see who lives there, what the grid
-        puts at stake, and how its property market is moving.
+        {t.islandOverviewIntro}
       </p>
 
       <div>
         <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Island totals
+          {t.islandTotals}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <StatTile label="Population" value={fmtInt(totals.population)} />
-          <StatTile label="Municipios" value={fmtInt(totals.n)} />
-          <StatTile label="Parcels" value={fmtInt(totals.parcels)} />
-          <StatTile label="Sales · 12mo" value={fmtInt(totals.sales)} />
+          <StatTile label={t.population} value={fmtInt(totals.population, tag)} />
+          <StatTile label={t.municipios} value={fmtInt(totals.n, tag)} />
+          <StatTile label={t.parcels} value={fmtInt(totals.parcels, tag)} />
+          <StatTile label={t.salesUnit} value={fmtInt(totals.sales, tag)} />
         </div>
       </div>
 
       <div>
         <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Largest municipios
+          {t.largestMunicipios}
         </div>
         <ul>
           {top5.map((p, i) => (
@@ -540,7 +518,7 @@ function IslandOverview({
               >
                 <span className="w-4 shrink-0 text-[11px] tnum text-muted-foreground/60">{i + 1}</span>
                 <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
-                <span className="shrink-0 text-xs tnum text-muted-foreground">{fmtInt(p.population)}</span>
+                <span className="shrink-0 text-xs tnum text-muted-foreground">{fmtInt(p.population, tag)}</span>
               </button>
             </li>
           ))}
@@ -563,9 +541,12 @@ function MunicipioPanel({
   allSvi: number[];
   onBack: () => void;
 }) {
+  const t = useMessages().economy;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useEconomyMunicipioDetail(name);
 
-  if (isLoading) return <div className="p-4"><LoadingBlock label="Loading municipio" /></div>;
+  if (isLoading) return <div className="p-4"><LoadingBlock label={t.loadingMunicipio} /></div>;
   if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
   if (!data) return null;
 
@@ -580,53 +561,53 @@ function MunicipioPanel({
         onClick={onBack}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
-        <ChevronLeft className="h-3.5 w-3.5" /> All municipios
+        <ChevronLeft className="h-3.5 w-3.5" /> {t.allMunicipios}
       </button>
 
       <div>
         <h3 className="text-lg font-semibold leading-tight">{data.name}</h3>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          <span className="tnum">{fmtInt(data.population)}</span> residents ·{" "}
-          <span className="tnum">{fmtInt(data.tract_count)}</span> Census tracts
+          <span className="tnum">{fmtInt(data.population, tag)}</span> {t.residentsUnit} ·{" "}
+          <span className="tnum">{fmtInt(data.tract_count, tag)}</span> {t.censusTractsUnit}
         </div>
       </div>
 
-      <PanelBox title="People & vulnerability" badge={<ProvenanceBadge table="economy.barrio_economics" />}>
+      <PanelBox title={t.peopleVulnerability} badge={<ProvenanceBadge table="economy.barrio_economics" />}>
         <div className="grid grid-cols-2 gap-2">
           <ScoreExplainer
             className="rounded-lg border border-border/60 bg-background/40 p-2.5"
-            label="Mean SVI"
-            value={fmtNum(data.svi_mean, 2)}
-            what="Average social vulnerability across this municipio's Census tracts — 0 is the least vulnerable, 1 the most."
-            formula="tract SVI (poverty 30%, elderly 15%, disability 10%, flood 30%, slope 15%), percentile-ranked 0–1 island-wide, averaged over the municipio"
+            label={t.meanSvi}
+            value={fmtNum(data.svi_mean, 2, tag)}
+            what={t.meanSviWhat}
+            formula={t.meanSviFormula}
             context={
-              data.svi_mean != null ? percentileContext(data.svi_mean, allSvi, "municipios") : undefined
+              data.svi_mean != null ? percentileContext(data.svi_mean, allSvi, t.municipios.toLowerCase(), locale) : undefined
             }
           />
           <StatTile
-            label="High-SVI tracts"
-            value={fmtInt(data.high_svi_tracts)}
-            sub={`of ${fmtInt(data.tract_count)} at SVI ≥ 0.75`}
+            label={t.highSviTracts}
+            value={fmtInt(data.high_svi_tracts, tag)}
+            sub={t.ofTractsAtSvi(fmtInt(data.tract_count, tag))}
           />
         </div>
       </PanelBox>
 
-      <PanelBox title="Grid exposure" badge={<ProvenanceBadge table="economy.substation_exposure" />}>
+      <PanelBox title={t.gridExposure} badge={<ProvenanceBadge table="economy.substation_exposure" />}>
         <div className="grid grid-cols-2 gap-2">
-          <StatTile label="Substations" value={fmtInt(data.substations)} sub="inside this municipio" />
+          <StatTile label={t.substations} value={fmtInt(data.substations, tag)} sub={t.insideThisMunicipio} />
           <ScoreExplainer
             className="rounded-lg border border-border/60 bg-background/40 p-2.5"
-            label="VOLL exposure"
+            label={t.vollExposure}
             value={fmtUsdTiered(data.voll_exposure_usd, "proxy")}
-            what="What outages at this municipio's substations would cost the people they serve, in today's dollars."
-            formula={VOLL_FORMULA}
-            context="Sums substation service areas — where areas overlap, the same people are counted more than once (known model behavior, under review)."
+            what={t.vollWhatMuni}
+            formula={t.volLFormula}
+            context={t.vollContext}
           />
         </div>
         {data.top_substations.length > 0 && (
           <div className="pt-1">
             <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              Serving substations · top {Math.min(data.top_substations.length, 8)}
+              {t.servingSubstations(Math.min(data.top_substations.length, 8))}
             </div>
             <ul>
               {data.top_substations.slice(0, 8).map((s, i) => (
@@ -637,10 +618,10 @@ function MunicipioPanel({
                   >
                     <span className="w-4 shrink-0 tnum text-muted-foreground/60">{i + 1}</span>
                     <span className="min-w-0 flex-1 truncate font-medium">
-                      {s.name ?? `Substation ${s.entity_id}`}
+                      {s.name ?? `${t.substationFallback} ${s.entity_id}`}
                     </span>
                     <span className="shrink-0 tnum text-muted-foreground">
-                      {fmtIntTiered(s.population_affected, "proxy")} people
+                      {t.peopleUnit(fmtIntTiered(s.population_affected, "proxy", tag))}
                     </span>
                   </a>
                 </li>
@@ -653,28 +634,28 @@ function MunicipioPanel({
       <div className="flex items-center gap-4 rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Droplets className="h-3.5 w-3.5 text-domain-water" />
-          <span className="tnum">{fmtInt(data.water_sources)}</span> water sources
+          <span className="tnum">{fmtInt(data.water_sources, tag)}</span> {t.waterSourcesUnit}
         </span>
         <span className="flex items-center gap-1.5">
           <RadioTower className="h-3.5 w-3.5 text-domain-telecom" />
-          <span className="tnum">{fmtInt(data.telecom_sites)}</span> telecom sites
+          <span className="tnum">{fmtInt(data.telecom_sites, tag)}</span> {t.telecomSitesUnit}
         </span>
       </div>
 
-      <PanelBox title="Property market" badge={<ProvenanceBadge table="crim.parcelas" />}>
+      <PanelBox title={t.propertyMarket} badge={<ProvenanceBadge table="crim.parcelas" />}>
         <div className="grid grid-cols-2 gap-2">
-          <StatTile label="Parcels" value={fmtInt(data.parcel_count)} />
-          <StatTile label="Assessed value" value={fmtUsd(data.assessed_value_usd)} sub="CRIM assessed, not market" />
-          <StatTile label="Sales · 12mo" value={fmtInt(data.sales_12mo)} />
+          <StatTile label={t.parcels} value={fmtInt(data.parcel_count, tag)} />
+          <StatTile label={t.assessedValue} value={fmtUsd(data.assessed_value_usd)} sub={t.assessedNotMarket} />
+          <StatTile label={t.salesUnit} value={fmtInt(data.sales_12mo, tag)} />
           <StatTile
-            label="Median price · 12mo"
+            label={t.medianPrice}
             value={data.median_price_12mo != null ? fmtUsd(data.median_price_12mo, 0) : "—"}
           />
         </div>
         {chartData.length > 0 && (
           <div className="pt-1">
             <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              Recorded sales by year
+              {t.recordedSalesByYear}
             </div>
             <ResponsiveContainer width="100%" height={110}>
               <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
@@ -682,23 +663,23 @@ function MunicipioPanel({
                 <XAxis dataKey="year" {...AXIS_PROPS} />
                 <YAxis {...AXIS_PROPS} width={40} />
                 <Tooltip
-                  content={<ChartTooltip format={(v) => fmtNum(v, 0)} />}
+                  content={<ChartTooltip format={(v) => fmtNum(v, 0, tag)} />}
                   cursor={{ fill: "rgba(255,255,255,0.04)" }}
                 />
-                <Bar name="Sales" dataKey="sales" fill="#22d3ee" opacity={0.55} radius={[2, 2, 0, 0]} />
+                <Bar name={t.salesLegend} dataKey="sales" fill="#22d3ee" opacity={0.55} radius={[2, 2, 0, 0]} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         )}
         <div className="flex items-center gap-4 pt-1">
           <a href="/trends" className="text-xs text-primary hover:underline">
-            Market trends →
+            {t.marketTrends}
           </a>
           <a
             href={`/parcels?q=${encodeURIComponent(data.name)}`}
             className="text-xs text-primary hover:underline"
           >
-            Browse parcels →
+            {t.browseParcels}
           </a>
         </div>
       </PanelBox>
