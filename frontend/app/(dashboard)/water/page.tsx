@@ -22,6 +22,9 @@ import { riskColor, type RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtNum, fmtRelative, fmtDateTime } from "@/lib/utils";
 import type { WaterSource, WaterGauge, BarrioPoint } from "@/lib/api";
 import { usePulse, usePrefersReducedMotion, useStagedTimeline, domainRgb } from "@/lib/map-motion";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
 /** Cascade-arc reveal duration (F10c-2) — a single wave (source → served
  *  barrios), unlike resilience's multi-domain staged sequence. */
@@ -47,17 +50,14 @@ const GAUGE_PULSE_MS = 3200;
 /** Selection halo pulse (F8 B2): same period family as resilience. */
 const SELECT_PULSE_MS = 2400;
 
-const KIND_LABEL: Record<string, string> = {
-  water_plant: "Treatment plant",
-  water_pump_station: "Pump station",
-  water_well: "Well",
-};
-
-function kindLabel(kind: string): string {
-  return KIND_LABEL[kind] ?? kind;
+function kindLabel(kind: string, t: Messages["water"]["kindLabel"]): string {
+  return t[kind as keyof typeof t] ?? kind;
 }
 
 export default function WaterPage() {
+  const t = useMessages().water;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [showGauges, setShowGauges] = useState(true);
@@ -110,10 +110,11 @@ export default function WaterPage() {
         ? percentileContext(
             selectedSource.composite_score,
             sources.map((s) => s.composite_score),
-            "scored water sources",
+            t.scoredWaterSourcesNoun,
+            locale,
           )
         : undefined,
-    [selectedSource, sources],
+    [selectedSource, sources, t.scoredWaterSourcesNoun, locale],
   );
 
   // Cascade-arc target barrios (F10c-2): same queryKey as SourceDrawer's own
@@ -341,9 +342,9 @@ export default function WaterPage() {
       if (!d) return null;
       return tip(
         [
-          [d.param_label ?? "Reading", `${fmtNum(d.value, 2)} ${d.unit ?? ""}`],
-          ["Measured", fmtRelative(d.measured_at)],
-          ...(d.stale ? ([["", "⚠ Stale (>12h)"]] as [string, string][]) : []),
+          [d.param_label ?? t.reading, `${fmtNum(d.value, 2, tag)} ${d.unit ?? ""}`],
+          [t.measured, fmtRelative(d.measured_at, tag)],
+          ...(d.stale ? ([["", t.staleWarning]] as [string, string][]) : []),
         ],
         d.site_name ?? d.site_no,
       );
@@ -353,11 +354,11 @@ export default function WaterPage() {
       if (!d) return null;
       return tip(
         [
-          ["Composite", fmtNum(d.composite_score, 2)],
-          ["Barrios served", fmtInt(d.barrios_served)],
-          ...(d.has_generator ? ([["", "🔋 Has backup generator"]] as [string, string][]) : []),
+          [t.composite, fmtNum(d.composite_score, 2, tag)],
+          [t.barriosServed, fmtInt(d.barrios_served, tag)],
+          ...(d.has_generator ? ([["", t.hasBackupGenerator]] as [string, string][]) : []),
         ],
-        d.name ?? `${kindLabel(d.kind)} ${d.entity_id}`,
+        d.name ?? `${kindLabel(d.kind, t.kindLabel)} ${d.entity_id}`,
       );
     }
     return null;
@@ -385,7 +386,7 @@ export default function WaterPage() {
     <MapWorkspace
       layers={layers}
       paneKey="water"
-      paneLabel="water panel"
+      paneLabel={t.panelLabel}
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}
@@ -404,7 +405,7 @@ export default function WaterPage() {
           {bannerSource?.headline && (
             <div className="pointer-events-auto absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
               <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                {bannerSource.name ?? kindLabel(bannerSource.kind)}
+                {bannerSource.name ?? kindLabel(bannerSource.kind, t.kindLabel)}
                 <ProvenanceBadge table="resilience.water_scores" />
               </div>
               <div className="mt-0.5 text-sm font-medium text-foreground">{bannerSource.headline}</div>
@@ -413,7 +414,7 @@ export default function WaterPage() {
 
           <div className="absolute right-4 top-4 w-52 rounded-lg border border-border/70 bg-card/90 p-3 shadow-lg backdrop-blur">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Layers
+              {t.layers}
             </div>
             <button
               onClick={() => setShowGauges((v) => !v)}
@@ -424,7 +425,7 @@ export default function WaterPage() {
                 style={{ background: "rgb(34,211,238)", opacity: showGauges ? 1 : 0.3 }}
               />
               <span className={cn("flex-1", showGauges ? "text-foreground" : "text-muted-foreground")}>
-                USGS gauges
+                {t.usgsGauges}
               </span>
               <span
                 className={cn(
@@ -445,10 +446,10 @@ export default function WaterPage() {
           <GradientLegend
             className="absolute bottom-6 left-4"
             titleClassName="text-domain-water"
-            title="Water-source risk"
+            title={t.waterSourceRisk}
             stops={RISK_STOPS}
-            minLabel={fmtNum(min, 1)}
-            maxLabel={fmtNum(max, 1)}
+            minLabel={fmtNum(min, 1, tag)}
+            maxLabel={fmtNum(max, 1, tag)}
           />
         </>
       }
@@ -458,12 +459,10 @@ export default function WaterPage() {
             <DomainSwitcher className="mb-3" active="water" getView={() => currentViewRef.current} />
             <div className="flex items-center gap-2">
               <Droplets className="h-4 w-4 text-domain-water" />
-              <h2 className="text-sm font-semibold">Water cascade</h2>
+              <h2 className="text-sm font-semibold">{t.waterCascade}</h2>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              Every water plant, pump station, and well, ranked by consequence: how many barrios
-              depend on it and how exposed it is to hazard and grid failure. A pump with no backup
-              generator, feeding many barrios, in a flood-prone spot ranks highest.
+              {t.sidebarDesc}
             </p>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -483,18 +482,9 @@ export default function WaterPage() {
             <div className="p-4 pt-0">
               <InfoPanel
                 sections={[
-                  {
-                    title: "What this is",
-                    body: "The power grid and the water system are coupled: most treatment plants, pump stations, and wells run on electricity. When a substation goes dark and a water source has no backup generator, water supply to everyone downstream stops too — that's the power→water cascade this page ranks.",
-                  },
-                  {
-                    title: "How it's calculated",
-                    body: "Risk = barrios-served consequence × hazard exposure × grid dependency. A source serving many barrios, sitting in the Cat-3 hazard field, and relying on a substation with no backup path scores highest. A source with its own generator is largely decoupled from grid failure.",
-                  },
-                  {
-                    title: "Data sources & accuracy",
-                    body: "POWERS and WATER_SERVES edges connecting sources to substations and barrios are proxy-tier — modeled from nearest-feeder and service-area geometry, not measured circuit data. USGS NWIS stream/river gauges shown on the map are authoritative and update live.",
-                  },
+                  t.infoSections.whatThisIs,
+                  t.infoSections.howCalculated,
+                  t.infoSections.sources,
                 ]}
               />
             </div>
@@ -514,10 +504,13 @@ function TopList({
   selected: number | null;
   onSelect: (id: number) => void;
 }) {
+  const t = useMessages().water;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   return (
     <div>
       <div className="flex items-center gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Highest-risk sources · top {rows.length}
+        {t.highestRiskSources} · {t.topN(rows.length)}
         <ProvenanceBadge table="resilience.water_scores" />
       </div>
       <ul>
@@ -537,14 +530,14 @@ function TopList({
               <span className="w-5 shrink-0 text-xs tnum text-muted-foreground/60">{r.rank}</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 truncate text-sm font-medium">
-                  {r.name ?? `${kindLabel(r.kind)} ${r.entity_id}`}
+                  {r.name ?? `${kindLabel(r.kind, t.kindLabel)} ${r.entity_id}`}
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  {kindLabel(r.kind)} · {fmtInt(r.barrios_served)} barrios
+                  {kindLabel(r.kind, t.kindLabel)} · {fmtInt(r.barrios_served, tag)} {t.barriosUnit}
                 </span>
               </span>
               <span className="shrink-0 text-sm font-semibold tnum">
-                {fmtNum(r.composite_score, 2)}
+                {fmtNum(r.composite_score, 2, tag)}
               </span>
             </button>
           </li>
@@ -564,31 +557,34 @@ function SourceDrawer({
   scoreContext?: string;
   onBack: () => void;
 }) {
+  const t = useMessages().water;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useWaterSource(id);
 
-  if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
+  if (isLoading) return <div className="p-4"><LoadingBlock label={t.loadingDetail} /></div>;
   if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
   if (!data) return null;
 
-  const gaugeAge = data.nearest_gauge?.measured_at ? fmtRelative(data.nearest_gauge.measured_at) : null;
+  const gaugeAge = data.nearest_gauge?.measured_at ? fmtRelative(data.nearest_gauge.measured_at, tag) : null;
 
   const sections: DrawerSection[] = [
     {
       id: "what",
-      title: "What it is",
+      title: t.sections.whatItIs,
       badge: <ProvenanceBadge table="resilience.water_scores" />,
       rows: [
-        { label: "Type", value: kindLabel(data.what.kind) },
-        { label: "Capacity", value: data.what.capacity_gpm != null ? `${fmtNum(data.what.capacity_gpm, 0)} gpm` : "—" },
-        { label: "Backup generator", value: data.what.has_generator ? "Yes" : "No" },
+        { label: t.sections.type, value: kindLabel(data.what.kind, t.kindLabel) },
+        { label: t.sections.capacity, value: data.what.capacity_gpm != null ? `${fmtNum(data.what.capacity_gpm, 0, tag)} gpm` : "—" },
+        { label: t.sections.backupGenerator, value: data.what.has_generator ? t.yes : t.no },
       ],
       body: (
         <ScoreExplainer
           layout="row"
-          label="Risk score"
-          value={fmtNum(data.composite_score, 2)}
-          what="The risk this source stops delivering water — sized by how many barrios go dry if it does."
-          formula="barrios served × hazard exposure × grid power dependency"
+          label={t.sections.riskScore}
+          value={fmtNum(data.composite_score, 2, tag)}
+          what={t.sections.riskScoreWhat}
+          formula={t.sections.riskScoreFormula}
           context={scoreContext}
         />
       ),
@@ -599,15 +595,15 @@ function SourceDrawer({
       // the frontend, and a code with no gloss ("CAR") reads worse than nothing.
       // Hide this section entirely rather than show a code the reader can't use.
       id: "where",
-      title: "Where",
+      title: t.sections.where,
       hidden: true,
     },
     {
       id: "depends",
-      title: "Who depends on it",
+      title: t.sections.whoDependsOnIt,
       body: (
         <div className="space-y-2">
-          <Row label="Barrios served" value={fmtInt(data.serves.barrios_served)} />
+          <Row label={t.barriosServed} value={fmtInt(data.serves.barrios_served, tag)} />
           {data.serves.sample_barrios.length > 0 && (
             <div className="text-xs text-muted-foreground">
               {data.serves.sample_barrios.join(", ")}
@@ -618,37 +614,37 @@ function SourceDrawer({
     },
     {
       id: "hazards",
-      title: "Hazard exposure",
+      title: t.sections.hazardExposure,
       body: (
         <>
           <ScoreExplainer
             layout="row"
-            label="Hazard score"
-            value={fmtNum(data.hazards.hazard_score, 2)}
-            what="The chance this site itself is knocked out in this scenario — 0 is safe, 1 is near-certain."
-            formula="flood, surge and slope exposure measured at this location"
+            label={t.sections.hazardScore}
+            value={fmtNum(data.hazards.hazard_score, 2, tag)}
+            what={t.sections.hazardScoreWhat}
+            formula={t.sections.hazardScoreFormula}
           />
-          <Row label="Scenario" value={data.hazards.scenario} />
+          <Row label={t.sections.scenario} value={data.hazards.scenario} />
           {data.hazards.hazard_score > 0.5 && (
-            <div className="text-xs text-amber-400">In the Cat-3 hazard field.</div>
+            <div className="text-xs text-amber-400">{t.sections.inCat3Field}</div>
           )}
         </>
       ),
     },
     {
       id: "actions",
-      title: "Power dependency",
+      title: t.sections.powerDependency,
       hidden: !data.power.powering_substation_id,
       body: (
         <div className="space-y-2">
-          <Row label="Powered by" value={data.power.powering_substation_name ?? `Substation ${data.power.powering_substation_id}`} />
+          <Row label={t.sections.poweredBy} value={data.power.powering_substation_name ?? t.sections.substationFallback(data.power.powering_substation_id ?? "")} />
           {data.power.powering_substation_composite != null && (
             <ScoreExplainer
               layout="row"
-              label="Substation risk (Cat-3)"
-              value={fmtNum(data.power.powering_substation_composite, 1)}
-              what="The failure risk of the substation this source draws power from — fragility it inherits from the grid."
-              formula="that substation's hazard × cascade × centrality (see Resilience)"
+              label={t.sections.substationRiskCat3}
+              value={fmtNum(data.power.powering_substation_composite, 1, tag)}
+              what={t.sections.substationRiskWhat}
+              formula={t.sections.substationRiskFormula}
             />
           )}
           {data.power.generator_note && (
@@ -659,7 +655,7 @@ function SourceDrawer({
               href={`/resilience?sel=${data.power.powering_substation_id}`}
               className="mt-1 inline-block text-xs text-primary hover:underline"
             >
-              View this substation on Resilience →
+              {t.sections.viewOnResilience}
             </a>
           )}
         </div>
@@ -667,27 +663,27 @@ function SourceDrawer({
     },
     {
       id: "changed",
-      title: "Nearest live gauge",
+      title: t.sections.nearestLiveGauge,
       body: data.nearest_gauge ? (
         <div className="space-y-1">
-          <Row label="Station" value={data.nearest_gauge.site_name ?? data.nearest_gauge.site_no} />
+          <Row label={t.sections.station} value={data.nearest_gauge.site_name ?? data.nearest_gauge.site_no} />
           <Row
-            label={data.nearest_gauge.param_label ?? "Reading"}
-            value={`${fmtNum(data.nearest_gauge.value, 2)} ${data.nearest_gauge.unit ?? ""}`}
+            label={data.nearest_gauge.param_label ?? t.reading}
+            value={`${fmtNum(data.nearest_gauge.value, 2, tag)} ${data.nearest_gauge.unit ?? ""}`}
           />
-          <Row label="Measured" value={gaugeAge ?? fmtDateTime(data.nearest_gauge.measured_at)} />
+          <Row label={t.measured} value={gaugeAge ?? fmtDateTime(data.nearest_gauge.measured_at, tag)} />
         </div>
       ) : (
-        <div className="text-xs text-muted-foreground">No nearby USGS gauge.</div>
+        <div className="text-xs text-muted-foreground">{t.sections.noNearbyGauge}</div>
       ),
     },
     {
       id: "data",
-      title: "Data & confidence",
+      title: t.sections.dataConfidence,
       body: (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Proxy: feeder and service-area edges are modeled, not measured.
+            {t.sections.proxyNote}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {Object.keys(data.confidence_tiers).map((table) => (
@@ -705,12 +701,12 @@ function SourceDrawer({
       header={
         <div>
           <h3 className="text-lg font-semibold leading-tight">
-            {data.name ?? `${kindLabel(data.what.kind)} ${data.entity_id}`}
+            {data.name ?? `${kindLabel(data.what.kind, t.kindLabel)} ${data.entity_id}`}
           </h3>
           <div className="mt-1 flex items-center gap-2">
             <SeverityLabel score={data.composite_score} />
             {data.rank != null && (
-              <span className="text-xs text-muted-foreground">rank #{data.rank}</span>
+              <span className="text-xs text-muted-foreground">{t.rankHash(data.rank)}</span>
             )}
           </div>
         </div>
