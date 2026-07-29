@@ -102,7 +102,7 @@ export const esPR: Messages = {
     water: { label: "Agua", desc: "Qué plantas y bombas de agua fallan — y qué barrios pierden el suministro — cuando falla la red eléctrica" },
     telecom: { label: "Telecomunicaciones", desc: "Qué torres de celular se apagan — y qué barrios pierden cobertura — cuando falla la red eléctrica" },
     parcels: { label: "Parcelas", desc: "Busque cualquiera de las 1.5M parcelas de Puerto Rico por número de catastro, titular o dirección — vea las propiedades por titular y el expediente completo de CRIM, más lo que PRISM sabe sobre ese terreno" },
-    trends: { label: "Tendencias del mercado", desc: "Hacia dónde se mueve el mercado de propiedades de Puerto Rico: municipios de mayor actividad por ventas, la tendencia de precios en toda la isla, y los cambios de parcelas mes a mes" },
+    trends: { label: "Tendencias del mercado", desc: "Hacia dónde se mueve el mercado de propiedades de Puerto Rico: municipios de mayor actividad por ventas, la tendencia de precios en toda la isla y los cambios de parcelas mes a mes" },
     sitefinder: { label: "Buscador de sitios", desc: "Dónde construir: clasifique parcelas de zonificación industrial por acceso a puertos de carga, la red eléctrica, agua y seguridad ante inundaciones" },
     portfolio: { label: "Portafolio", desc: "La mejor combinación de inversiones de mitigación dentro de un presupuesto fijo" },
     playground: { label: "Zona de pruebas", desc: "Dibuje infraestructura sobre el modelo en vivo y vea el impacto en costo, capacidad y resiliencia al instante" },
@@ -231,7 +231,7 @@ export const esPR: Messages = {
       },
       howCalculated: {
         title: "Cómo se calcula",
-        body: "Cada fuente abajo tiene un intervalo de resincronización (24h para capas de riesgo, semanal para carreteras). Se compara una suma de verificación basada en el conteo de elementos con la última extracción. Si una capa de riesgo (zonas inundables o marejada) cambia, cada subestación se recalifica automáticamente contra el nuevo límite bajo el escenario Cat-3, y la corrida se registra abajo. Por separado, un nuevo terremoto de magnitud 4.5 o mayor activa una recalificación bajo el escenario sísmico — los dos disparadores son independientes, cada uno recalificando su propio escenario.",
+        body: "Cada fuente abajo tiene un intervalo de resincronización (24h para capas de riesgo, semanal para carreteras). Se compara una suma de verificación basada en el conteo de elementos con la última extracción. Si una capa de riesgo (zonas inundables o marejada) cambia, cada subestación se recalifica automáticamente contra el nuevo límite bajo el escenario Cat-3 y la corrida se registra abajo. Por separado, un nuevo terremoto de magnitud 4.5 o mayor activa una recalificación bajo el escenario sísmico — los dos disparadores son independientes, cada uno recalificando su propio escenario.",
       },
       accuracy: {
         title: "Fuentes de datos y precisión",
@@ -320,11 +320,11 @@ export const esPR: Messages = {
       },
       howCalculated: {
         title: "Cómo se calcula",
-        body: "Una superficie de costo de resolución de 300 m combina la pendiente del terreno (determina el multiplicador de costo de construcción: estándar $15M/km, elevado $40M/km, túnel $120M/km), la superposición con zona inundable (agrega una prima de riesgo), y el alcance poblacional ponderado por SVI (el lado del beneficio). Dijkstra (conectividad de 8) encuentra el camino de menor costo; las alternativas se producen penalizando el corredor de la ruta anterior (\"exclusión de corredor\") y volviendo a trazar la ruta. El mantenimiento es de $500K/km/año, expresado como un VPN a 30 años.",
+        body: "Una superficie de costo de resolución de 300 m combina la pendiente del terreno (determina el multiplicador de costo de construcción: estándar $15M/km, elevado $40M/km, túnel $120M/km), la superposición con zona inundable (agrega una prima de riesgo) y el alcance poblacional ponderado por SVI (el lado del beneficio). Dijkstra (conectividad de 8) encuentra el camino de menor costo; las alternativas se producen penalizando el corredor de la ruta anterior (\"exclusión de corredor\") y volviendo a trazar la ruta. El mantenimiento es de $500K/km/año, expresado como un VPN a 30 años.",
       },
       accuracy: {
         title: "Fuentes de datos y precisión",
-        body: "Estos son estimados a nivel de planificación para comparar alternativas, no estimados de costo de ingeniería: la resolución de 300 m de la superficie de costo puede pasar por alto obstáculos a nivel de propiedad, las luces de puente usan 50 m por defecto (aún no hay datos reales de luces disponibles), y los enlaces de estación/intermodales son aproximaciones al barrio más cercano en lugar de estaciones ubicadas.",
+        body: "Estos son estimados a nivel de planificación para comparar alternativas, no estimados de costo de ingeniería: la resolución de 300 m de la superficie de costo puede pasar por alto obstáculos a nivel de propiedad, las luces de puente usan 50 m por defecto (aún no hay datos reales de luces disponibles) y los enlaces de estación/intermodales son aproximaciones al barrio más cercano en lugar de estaciones ubicadas.",
       },
     },
     grade: "Pendiente",
@@ -344,7 +344,7 @@ export const esPR: Messages = {
     breadcrumbSuffix: " / Calibración y Validación",
     title: "Calibración y Validación",
     loadingReport: "Cargando informe de validación",
-    headerDesc: "¿Qué tan bien coinciden las clasificaciones de PRISM con lo que realmente ocurrió, y cuánto se mueven las clasificaciones si los supuestos subyacentes son incorrectos? Los fallos se reportan junto con los aciertos — un modelo que solo muestra sus victorias no es confiable.",
+    headerDesc: "¿Qué tan bien coinciden las clasificaciones de PRISM con lo que realmente ocurrió y cuánto se mueven las clasificaciones si los supuestos subyacentes son incorrectos? Los fallos se reportan junto con los aciertos — un modelo que solo muestra sus victorias no es confiable.",
     aboutThisReport: "Sobre este informe",
     infoSections: {
       whatThisIs: {
@@ -404,8 +404,8 @@ export const esPR: Messages = {
     loadingTrustCenter: "Cargando centro de confianza",
     trustCenter: "Centro de Confianza",
     headerDesc: (n) =>
-      `Cada cifra que muestra PRISM está respaldada por uno de los cuatro niveles siguientes. El nivel de un número es el nivel de su insumo requerido más débil — una puntuación compuesta construida sobre una relación Aproximada es en sí misma Aproximada, aun cuando todos los demás insumos sean Autoritativos. Esta página es el índice en vivo: cada modelo y cada una de las ${n} capas de datos mirados por PRISM, con su método, nivel de confianza, y qué lo mejoraría.`,
-    calibrationLink: "Calibración y Validación — pruebas retrospectivas de eventos, barridos de sensibilidad, y fichas por modelo →",
+      `Cada cifra que muestra PRISM está respaldada por uno de los cuatro niveles siguientes. El nivel de un número es el nivel de su insumo requerido más débil — una puntuación compuesta construida sobre una relación Aproximada es en sí misma Aproximada, aun cuando todos los demás insumos sean Autoritativos. Esta página es el índice en vivo: cada modelo y cada una de las ${n} capas de datos mirados por PRISM, con su método, nivel de confianza y qué lo mejoraría.`,
+    calibrationLink: "Calibración y Validación — pruebas retrospectivas de eventos, barridos de sensibilidad y fichas por modelo →",
     syncLink: "Registro de fuentes de datos — intervalos de sincronización, últimas horas de extracción, e historial de recalificación →",
     aboutTrustCenter: "Sobre el Centro de Confianza",
     infoSections: {
@@ -438,7 +438,7 @@ export const esPR: Messages = {
     globalAssumptions: (n) => `Supuestos globales (${n})`,
     globalAssumptionsDesc: "Constantes incorporadas en las fórmulas anteriores — cada una es candidata para el barrido de sensibilidad (Fase 2) y el panel de supuestos de ingeniería (Fase 3-ing).",
     assumptionsAndChoices: (n) => `Supuestos y decisiones (${n})`,
-    assumptionsAndChoicesDesc: "El puñado de constantes que más moldean lo que PRISM le dice — por qué se eligió cada una, de dónde viene, y qué tendría que cambiar para una mejor cifra.",
+    assumptionsAndChoicesDesc: "El puñado de constantes que más moldean lo que PRISM le dice — por qué se eligió cada una, de dónde viene y qué tendría que cambiar para una mejor cifra.",
     whyChosen: "Por qué se eligió",
     source: "Fuente",
     whatWouldChangeIt: "Qué lo cambiaría",
@@ -446,7 +446,7 @@ export const esPR: Messages = {
     allCount: (n) => `Todos ${n}`,
     upstreamDefects: (n) => `Defectos de origen ${n}`,
     excludedDataDesc: (fixable, total, agencies) =>
-      `PRISM deja de lado algunos datos de origen antes de que lleguen a una vista o a un cálculo — un nombre de titular provisional, un precio de venta de $10¹³, una parcela sin número de catastro. Cada uno se lista aquí con lo que afecta y qué tan grande es, porque un número que no se puede auditar es un número que hay que tomar como un acto de fe. ${fixable} de los ${total} son defectos en datos gubernamentales publicados en lugar de decisiones que tomó PRISM, y cada uno nombra al organismo que podría resolverlo — ${agencies} agencias en total. El registro completo está en `,
+      `PRISM deja de lado algunos datos de origen antes de que lleguen a una vista o a un cálculo — un nombre de titular provisional, un precio de venta de $10¹³, una parcela sin número de catastro. Cada uno se lista aquí con lo que afecta y qué tan grande es, porque un número que no se puede auditar es un número que hay que tomar como un acto de fe. ${fixable} de los ${total} son defectos en datos gubernamentales publicados en lugar de decisiones que tomó PRISM y cada uno nombra al organismo que podría resolverlo — ${agencies} agencias en total. El registro completo está en `,
     hide: "Ocultar",
     details: "Detalles",
     whatsExcluded: "Qué se excluye. ",
@@ -484,11 +484,11 @@ export const esPR: Messages = {
     infoSections: {
       whatThisIs: {
         title: "Qué es esto",
-        body: "Un banco de pruebas hipotéticas para los supuestos globales del modelo: VOLL (Valor de la Carga Perdida — el costo económico estimado por persona de una interrupción eléctrica), la tasa de descuento del VPN, las horas anuales de interrupción, el piso de confianza en los enlaces de alimentador aproximados, y una escala en la curva de probabilidad de riesgo. Mueva un control deslizante, vuelva a ejecutar, y el panel informa cómo cambia la clasificación de riesgo de subestaciones — con un veredicto robusto/sensible para esa perturbación exacta.",
+        body: "Un banco de pruebas hipotéticas para los supuestos globales del modelo: VOLL (Valor de la Carga Perdida — el costo económico estimado por persona de una interrupción eléctrica), la tasa de descuento del VPN, las horas anuales de interrupción, el piso de confianza en los enlaces de alimentador aproximados y una escala en la curva de probabilidad de riesgo. Mueva un control deslizante, vuelva a ejecutar y el panel informa cómo cambia la clasificación de riesgo de subestaciones — con un veredicto robusto/sensible para esa perturbación exacta.",
       },
       howCalculated: {
         title: "Cómo se calcula",
-        body: "VOLL, la tasa de descuento y las horas de interrupción son multiplicadores uniformes sobre la exposición en dólares de cada subestación — mueven los totales pero comprobadamente no pueden reordenar la clasificación, y el panel lo indica. El piso de confianza del alimentador descarta las asignaciones de alimentador Voronoi menos ciertas y vuelve a derivar el impacto en cascada sobre el grafo de la red; la escala de riesgo reescala P(falla) (con tope de 0.95) antes de recalcular compuesto = riesgo × cascada × (1 + centralidad). La concordancia de clasificación se mide por correlación de Spearman y solapamiento del top 10: robusto significa rho ≥ 0.9 y solapamiento ≥ 0.8.",
+        body: "VOLL, la tasa de descuento y las horas de interrupción son multiplicadores uniformes sobre la exposición en dólares de cada subestación — mueven los totales pero comprobadamente no pueden reordenar la clasificación y el panel lo indica. El piso de confianza del alimentador descarta las asignaciones de alimentador Voronoi menos ciertas y vuelve a derivar el impacto en cascada sobre el grafo de la red; la escala de riesgo reescala P(falla) (con tope de 0.95) antes de recalcular compuesto = riesgo × cascada × (1 + centralidad). La concordancia de clasificación se mide por correlación de Spearman y solapamiento del top 10: robusto significa rho ≥ 0.9 y solapamiento ≥ 0.8.",
       },
       accuracy: {
         title: "Fuentes de datos y precisión",
@@ -736,8 +736,8 @@ export const esPR: Messages = {
     scoringParcels: "Calificando parcelas",
     infoSections: {
       whatThisIs: (parcelCount) =>
-        `${parcelCount} parcelas con zonificación industrial (CRIM/JP) calificadas por proximidad a la red, agua, puertos de carga, y seguridad ante inundaciones. Más alto = más idóneo.`,
-      howCalculated: "Cada criterio se normaliza en todas las parcelas a una puntuación de 0 a 1, y luego se combina según sus pesos. El acceso a puertos/aeropuertos solo cuenta instalaciones comerciales de carga; los puertos de granel/petróleo y la carga aérea están apagados por defecto — actívelos para industria pesada.",
+        `${parcelCount} parcelas con zonificación industrial (CRIM/JP) calificadas por proximidad a la red, agua, puertos de carga y seguridad ante inundaciones. Más alto = más idóneo.`,
+      howCalculated: "Cada criterio se normaliza en todas las parcelas a una puntuación de 0 a 1 y luego se combina según sus pesos. El acceso a puertos/aeropuertos solo cuenta instalaciones comerciales de carga; los puertos de granel/petróleo y la carga aérea están apagados por defecto — actívelos para industria pesada.",
       accuracy: "Nivel aproximado — la confiabilidad de la red usa la aproximación de asignación de alimentadores de PRISM. La asequibilidad del terreno usa el valor tasado de terreno del Catastro de CRIM (autoritativo) — un valor menor por m² califica más alto. El valor tasado ≠ precio de mercado.",
     },
     whatThisIsTitle: "Qué es esto",
@@ -800,7 +800,7 @@ export const esPR: Messages = {
       },
       howCalculated: {
         title: "Cómo se calcula",
-        body: "El conteo de ventas es la señal confiable. Los precios usan la MEDIANA, y los montos se limitan a un rango plausible — el campo de monto crudo de CRIM lleva anomalías de captura de datos que hacen que las sumas y promedios carezcan de sentido. El impulso compara cada período con el anterior.",
+        body: "El conteo de ventas es la señal confiable. Los precios usan la MEDIANA y los montos se limitan a un rango plausible — el campo de monto crudo de CRIM lleva anomalías de captura de datos que hacen que las sumas y promedios carezcan de sentido. El impulso compara cada período con el anterior.",
       },
       accuracy: {
         title: "Precisión",
@@ -851,7 +851,7 @@ export const esPR: Messages = {
       },
       whatYouGet: {
         title: "Qué obtiene",
-        body: "Haga clic en cualquier parcela para ver su expediente completo de CRIM (titular, valor tasado, historial de ventas) más lo que PRISM sabe sobre ese terreno: subestación que la sirve y consecuencia de interrupción, exposición a inundación, resiliencia comunitaria, y acceso vial.",
+        body: "Haga clic en cualquier parcela para ver su expediente completo de CRIM (titular, valor tasado, historial de ventas) más lo que PRISM sabe sobre ese terreno: subestación que la sirve y consecuencia de interrupción, exposición a inundación, resiliencia comunitaria y acceso vial.",
       },
       accuracy: {
         title: "Precisión",
@@ -865,7 +865,7 @@ export const esPR: Messages = {
       },
       howItWorks: {
         title: "Cómo funciona",
-        body: "La dirección se geocodifica mediante el punto de acceso de Puerto Rico de la Oficina del Censo de EE. UU., y luego PRISM encuentra la(s) parcela(s) más cercana(s) a ese punto (dentro de 500m). Los resultados se presentan como \"cerca de esta dirección\" — una dirección aproximada no siempre es única en PR (vea /methods).",
+        body: "La dirección se geocodifica mediante el punto de acceso de Puerto Rico de la Oficina del Censo de EE. UU. y luego PRISM encuentra la(s) parcela(s) más cercana(s) a ese punto (dentro de 500m). Los resultados se presentan como \"cerca de esta dirección\" — una dirección aproximada no siempre es única en PR (vea /methods).",
       },
       accuracy: {
         title: "Precisión",
@@ -998,7 +998,7 @@ export const esPR: Messages = {
     },
     contractorLeaders: {
       title: "Titulares de terrenos pagados por el gobierno",
-      desc: "Quién posee terreno en Puerto Rico y tiene contratos gubernamentales — clasificados por valor de contrato según el registro del Contralor (2012–hoy). Los totales son tal como se registran allí: los contratos compartidos con un socio cuentan de forma completa en ambos lados, y las anomalías de captura de datos propias del registro pasan sin corregir. Abra un titular para ver el desglose por contrato.",
+      desc: "Quién posee terreno en Puerto Rico y tiene contratos gubernamentales — clasificados por valor de contrato según el registro del Contralor (2012–hoy). Los totales son tal como se registran allí: los contratos compartidos con un socio cuentan de forma completa en ambos lados y las anomalías de captura de datos propias del registro pasan sin corregir. Abra un titular para ver el desglose por contrato.",
       includeGov: "Incluir organismos gubernamentales — están entre los mayores terratenientes y contrapartes de contratos de la isla, así que opacan la señal privada.",
       governmentTag: "gobierno",
       governmentTagTooltip: "Identificado como organismo público a partir de la propia lista del registro de agencias contratantes, o de un prefijo de nombre con apariencia gubernamental — esta segunda parte es una heurística.",
@@ -1039,11 +1039,11 @@ export const esPR: Messages = {
     infoSections: {
       whatThisIs: {
         title: "Qué es esto",
-        body: "La red eléctrica y la cobertura celular están acopladas: las torres y sitios celulares funcionan con electricidad, usualmente con solo unas horas de respaldo por batería. Cuando una subestación se apaga, las torres y sitios que alimenta también se apagan, y cada barrio en su radio de cobertura pierde servicio celular — esa es la cascada energía→telecom que clasifica esta página.",
+        body: "La red eléctrica y la cobertura celular están acopladas: las torres y sitios celulares funcionan con electricidad, usualmente con solo unas horas de respaldo por batería. Cuando una subestación se apaga, las torres y sitios que alimenta también se apagan y cada barrio en su radio de cobertura pierde servicio celular — esa es la cascada energía→telecom que clasifica esta página.",
       },
       howCalculated: {
         title: "Cómo se calcula",
-        body: "Riesgo = consecuencia de barrios cubiertos × exposición a riesgo Cat-3 × dependencia de la red. Una torre que cubre muchos barrios, que está en el campo de riesgo Cat-3, y que depende de una subestación sin ruta de respaldo obtiene la puntuación más alta. Los sitios sin cobertura caen al fondo sin importar el riesgo.",
+        body: "Riesgo = consecuencia de barrios cubiertos × exposición a riesgo Cat-3 × dependencia de la red. Una torre que cubre muchos barrios, que está en el campo de riesgo Cat-3 y que depende de una subestación sin ruta de respaldo obtiene la puntuación más alta. Los sitios sin cobertura caen al fondo sin importar el riesgo.",
       },
       sources: {
         title: "Fuentes de datos y precisión",
@@ -1111,7 +1111,7 @@ export const esPR: Messages = {
       },
       howCalculated: {
         title: "Cómo se calcula",
-        body: "Riesgo = consecuencia de barrios servidos × exposición a riesgo × dependencia de la red. Una fuente que sirve a muchos barrios, que está en el campo de riesgo Cat-3, y que depende de una subestación sin ruta de respaldo obtiene la puntuación más alta. Una fuente con su propio generador está en gran medida desacoplada de una falla de red.",
+        body: "Riesgo = consecuencia de barrios servidos × exposición a riesgo × dependencia de la red. Una fuente que sirve a muchos barrios, que está en el campo de riesgo Cat-3 y que depende de una subestación sin ruta de respaldo obtiene la puntuación más alta. Una fuente con su propio generador está en gran medida desacoplada de una falla de red.",
       },
       sources: {
         title: "Fuentes de datos y precisión",
@@ -1199,15 +1199,15 @@ export const esPR: Messages = {
     infoSectionsMunicipios: {
       whatThisIs: {
         title: "Qué es esto",
-        body: "Los 78 municipios, cada uno con las personas que viven allí, qué tan vulnerables son (SVI), qué pone en juego la red eléctrica (exposición VOLL), y hacia dónde se mueve el mercado de propiedades. Haga clic en un municipio — en el mapa o en la lista — para abrir su panel; el selector de métrica recolorea el mapa.",
+        body: "Los 78 municipios, cada uno con las personas que viven allí, qué tan vulnerables son (SVI), qué pone en juego la red eléctrica (exposición VOLL) y hacia dónde se mueve el mercado de propiedades. Haga clic en un municipio — en el mapa o en la lista — para abrir su panel; el selector de métrica recolorea el mapa.",
       },
       howCalculated: {
         title: "Cómo se calcula",
-        body: "Los sectores censales se agregan a municipios por prefijo FIPS del condado (981 sectores → 78 municipios). Las subestaciones se asignan al municipio que las contiene espacialmente, y la exposición VOLL se suma sobre esas subestaciones. Las parcelas de CRIM y las ventas registradas se unen por nombre de municipio; los precios de venta usan la mediana, con montos corruptos limitados a un rango plausible.",
+        body: "Los sectores censales se agregan a municipios por prefijo FIPS del condado (981 sectores → 78 municipios). Las subestaciones se asignan al municipio que las contiene espacialmente y la exposición VOLL se suma sobre esas subestaciones. Las parcelas de CRIM y las ventas registradas se unen por nombre de municipio; los precios de venta usan la mediana, con montos corruptos limitados a un rango plausible.",
       },
       sources: {
         title: "Fuentes de datos y precisión",
-        body: "La población y el SVI provienen de las estimaciones ACS de 5 años (2022) del Censo por sector. Los conteos de parcelas, valores tasados y ventas son el registro oficial de CRIM — valores tasados, no precios de mercado. La exposición VOLL es de nivel Aproximado: suma las áreas de servicio de las subestaciones, y donde las áreas se superponen, las mismas personas se cuentan más de una vez (comportamiento conocido del modelo, en revisión) — léalo como exposición relativa, no como un conteo de personas.",
+        body: "La población y el SVI provienen de las estimaciones ACS de 5 años (2022) del Censo por sector. Los conteos de parcelas, valores tasados y ventas son el registro oficial de CRIM — valores tasados, no precios de mercado. La exposición VOLL es de nivel Aproximado: suma las áreas de servicio de las subestaciones y donde las áreas se superponen, las mismas personas se cuentan más de una vez (comportamiento conocido del modelo, en revisión) — léalo como exposición relativa, no como un conteo de personas.",
       },
     },
     mostExposedSubstations: "Subestaciones más expuestas",
@@ -1215,7 +1215,7 @@ export const esPR: Messages = {
     infoSectionsPower: {
       whatThisIs: {
         title: "Qué es esto",
-        body: "Dos capas relacionadas: el mapa de SVI (por sector censal, qué tan vulnerables son los residentes ante una interrupción) y la exposición por subestación (a cuántas personas alimenta cada subestación, y cuánto costaría una interrupción allí).",
+        body: "Dos capas relacionadas: el mapa de SVI (por sector censal, qué tan vulnerables son los residentes ante una interrupción) y la exposición por subestación (a cuántas personas alimenta cada subestación y cuánto costaría una interrupción allí).",
       },
       howCalculated: {
         title: "Cómo se calcula",
@@ -1230,7 +1230,7 @@ export const esPR: Messages = {
     loadingMunicipio: "Cargando municipio",
     peopleUnit: (n) => `${n} personas`,
     vollWhat: "Lo que costarían las interrupciones en esta subestación a las personas que sirve, en dólares de hoy.",
-    islandOverviewIntro: "Haga clic en un municipio en el mapa — o elija uno abajo — para ver quién vive allí, qué pone en juego la red, y cómo se mueve su mercado de propiedades.",
+    islandOverviewIntro: "Haga clic en un municipio en el mapa — o elija uno abajo — para ver quién vive allí, qué pone en juego la red y cómo se mueve su mercado de propiedades.",
     islandTotals: "Totales de la isla",
     municipios: "Municipios",
     parcels: "Parcelas",
@@ -1397,7 +1397,7 @@ export const esPR: Messages = {
     infoSections: {
       whatThisIs: {
         title: "Qué es esto",
-        body: "La forma ámbar es el cono de pronóstico oficial del NHC — la trayectoria probable del centro de la tormenta durante los próximos días. NO es el campo de viento: los vientos dañinos y las inundaciones se extienden mucho más allá del borde del cono, y las áreas fuera de él no son necesariamente seguras.",
+        body: "La forma ámbar es el cono de pronóstico oficial del NHC — la trayectoria probable del centro de la tormenta durante los próximos días. NO es el campo de viento: los vientos dañinos y las inundaciones se extienden mucho más allá del borde del cono y las áreas fuera de él no son necesariamente seguras.",
       },
       howCalculated: {
         title: "Cómo se calcula",
@@ -1468,7 +1468,7 @@ export const esPR: Messages = {
     aboutSections: {
       whatThisIs: {
         title: "Qué es esto",
-        body: "Una interfaz en lenguaje natural sobre un grupo de los modelos de solo lectura de PRISM: búsqueda de entidades, consecuencias de fallas río abajo, los mayores riesgos de resiliencia, el plan de inversión, comparaciones de corredores ferroviarios, datos cívicos y de vulnerabilidad social por barrio, búsquedas de titulares y parcelas de CRIM, y la fuente de qué cambió. Un modelo pequeño dirige su pregunta a uno de esos modelos; otro modelo redacta la respuesta.",
+        body: "Una interfaz en lenguaje natural sobre un grupo de los modelos de solo lectura de PRISM: búsqueda de entidades, consecuencias de fallas río abajo, los mayores riesgos de resiliencia, el plan de inversión, comparaciones de corredores ferroviarios, datos cívicos y de vulnerabilidad social por barrio, búsquedas de titulares y parcelas de CRIM y la fuente de qué cambió. Un modelo pequeño dirige su pregunta a uno de esos modelos; otro modelo redacta la respuesta.",
       },
       honest: {
         title: "Honesto por diseño",
@@ -1530,7 +1530,7 @@ export const esPR: Messages = {
       title: "Sobre esta tarjeta",
       whatThisIs: {
         title: "Qué es esto",
-        body: "Un resumen en lenguaje sencillo de los modelos existentes de PRISM para un barrio: qué subestación se estima que lo sirve y qué depende de ella, qué está haciendo la red eléctrica de la isla en este momento, qué podría significar aquí un huracán o un terremoto, cómo se compara la resiliencia general de esta área con el resto de Puerto Rico, el acceso por carretera al hospital más cercano, la exposición a inundaciones, y cualquier inversión ya planificada cerca.",
+        body: "Un resumen en lenguaje sencillo de los modelos existentes de PRISM para un barrio: qué subestación se estima que lo sirve y qué depende de ella, qué está haciendo la red eléctrica de la isla en este momento, qué podría significar aquí un huracán o un terremoto, cómo se compara la resiliencia general de esta área con el resto de Puerto Rico, el acceso por carretera al hospital más cercano, la exposición a inundaciones y cualquier inversión ya planificada cerca.",
       },
       honest: {
         title: "Honesto por diseño",
