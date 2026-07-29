@@ -17,6 +17,9 @@ import { cn, fmtInt, fmtNum } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
 import type { SiteResult, SiteScorecard, SiteAccessPoint, ConfidenceTierKey } from "@/lib/api";
 import { WorkspaceAside } from "@/components/ui/resizable-pane";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
 const TOP_N = 200;
 const PORT_PRIMARY_RGB: RGB = [37, 99, 235];
@@ -49,18 +52,18 @@ function km(m: number | null): string {
  * shown alongside it in the drawer's Criteria breakdown so "0.83" is never
  * the only number a criterion shows (F9a A2: sliders/subscores are unitless
  * weights/ranks; the underlying measurement always has real units). */
-function rawValueFor(key: string, d: SiteScorecard): string | null {
+function rawValueFor(key: string, d: SiteScorecard, t: Messages["sitefinder"]["rawUnits"], tag: string): string | null {
   switch (key) {
     case "power_access":
       return d.dist_substation_m != null ? km(d.dist_substation_m) : null;
     case "grid_reliability":
-      return d.substation_risk != null ? `risk ${fmtNum(d.substation_risk, 1)}` : null;
+      return d.substation_risk != null ? t.riskPrefix(fmtNum(d.substation_risk, 1, tag)) : null;
     case "flood_safety":
-      return d.flood_frac != null ? `${Math.round(d.flood_frac * 100)}% flood zone` : null;
+      return d.flood_frac != null ? t.floodPctZone(Math.round(d.flood_frac * 100)) : null;
     case "water_access":
       return d.dist_water_m != null ? km(d.dist_water_m) : null;
     case "road_access":
-      return d.road_access_min != null ? `${fmtNum(d.road_access_min, 1)} min` : null;
+      return d.road_access_min != null ? t.minutes(fmtNum(d.road_access_min, 1, tag)) : null;
     case "port_access":
       return d.dist_port_m != null ? km(d.dist_port_m) : null;
     case "bulk_port_access":
@@ -68,9 +71,9 @@ function rawValueFor(key: string, d: SiteScorecard): string | null {
     case "air_access":
       return d.dist_airport_m != null ? km(d.dist_airport_m) : null;
     case "land_value":
-      return d.land_per_m2 != null ? `$${fmtNum(d.land_per_m2, 2)}/m²` : null;
+      return d.land_per_m2 != null ? t.perM2(fmtNum(d.land_per_m2, 2, tag)) : null;
     case "dev_impact":
-      return d.svi != null ? `SVI ${fmtNum(d.svi, 2)}` : null;
+      return d.svi != null ? t.svi(fmtNum(d.svi, 2, tag)) : null;
     default:
       return null;
   }
@@ -82,6 +85,9 @@ function accessColor(p: SiteAccessPoint): RGB {
 }
 
 export default function SiteFinderPage() {
+  const t = useMessages().sitefinder;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const meta = useSiteFinderMeta();
   const access = useSiteAccessPoints();
   const [weights, setWeights] = useState<Record<string, number> | null>(null);
@@ -202,7 +208,7 @@ export default function SiteFinderPage() {
   const getTooltip = (info: PickingInfo) => {
     if (info.layer?.id === "access-points") {
       const a = info.object as SiteAccessPoint;
-      const label = a.kind === "airport" ? "Airport" : a.ap_class === "bulk" ? "Bulk/petro port" : "Cargo port";
+      const label = a.kind === "airport" ? t.airport : a.ap_class === "bulk" ? t.bulkPetroPort : t.cargoPort;
       return tip([["", label]], a.name ?? a.municipio ?? "");
     }
     if (info.layer?.id === "parcels") {
@@ -210,11 +216,11 @@ export default function SiteFinderPage() {
       if (!d) return null;
       return tip(
         [
-          ["Suitability", fmtNum(d.composite_score ?? 0, 3)],
-          ["Cargo port", km(d.dist_port_m)],
-          ["Flood", `${Math.round((d.flood_frac ?? 0) * 100)}%`],
+          [t.suitability, fmtNum(d.composite_score ?? 0, 3, tag)],
+          [t.cargoPort, km(d.dist_port_m)],
+          [t.flood, `${Math.round((d.flood_frac ?? 0) * 100)}%`],
         ],
-        `${d.municipio ?? "Parcel"} · ${d.cali ?? ""}`,
+        `${d.municipio ?? t.parcelFallback} · ${d.cali ?? ""}`,
       );
     }
     return null;
@@ -237,28 +243,28 @@ export default function SiteFinderPage() {
           {/* Headline */}
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Best industrial sites
+              {t.bestIndustrialSites}
             </div>
-            <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(rows.length)}</div>
+            <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(rows.length, tag)}</div>
             <div className="text-[11px] text-muted-foreground">
-              top parcels{topMunicipio ? ` · mostly ${topMunicipio}` : ""}
+              {t.topParcels(topMunicipio ? t.mostlySuffix(topMunicipio) : "")}
             </div>
           </div>
 
           <GradientLegend
             className="absolute bottom-6 left-4"
-            title="Site suitability"
+            title={t.siteSuitability}
             stops={SUIT_LEGEND_STOPS}
-            minLabel="Poor"
-            maxLabel="Best"
+            minLabel={t.poor}
+            maxLabel={t.best}
           />
 
           {/* Access-point legend */}
           <div className="pointer-events-none absolute bottom-6 right-4 rounded-lg border border-border/70 bg-card/85 p-3 text-xs shadow-lg backdrop-blur">
-            <div className="mb-1.5 font-medium text-foreground/90">Commercial access</div>
-            <LegendDot color={PORT_PRIMARY_RGB} label="Cargo port (San Juan, Ponce)" />
-            <LegendDot color={PORT_BULK_RGB} label="Bulk/petro port" />
-            <LegendDot color={AIRPORT_RGB} label="Commercial airport" />
+            <div className="mb-1.5 font-medium text-foreground/90">{t.commercialAccess}</div>
+            <LegendDot color={PORT_PRIMARY_RGB} label={t.cargoPortLegend} />
+            <LegendDot color={PORT_BULK_RGB} label={t.bulkPetroPortLegend} />
+            <LegendDot color={AIRPORT_RGB} label={t.commercialAirportLegend} />
           </div>
         </MapCanvas>
       </div>
@@ -266,7 +272,7 @@ export default function SiteFinderPage() {
       <WorkspaceAside
         storageKey="sitefinder"
         defaultWidth={400}
-        label="site finder panel"
+        label={t.panelLabel}
       >
         {meta.error && <div className="p-4"><ErrorBlock error={meta.error} /></div>}
         {selected != null ? (
@@ -275,32 +281,30 @@ export default function SiteFinderPage() {
           <>
             <div className="border-b border-border/70 p-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Weight the criteria</h2>
+                <h2 className="text-sm font-semibold">{t.weightTheCriteria}</h2>
                 <button
                   onClick={resetWeights}
                   className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
                 >
-                  <RotateCcw className="h-3 w-3" /> Reset
+                  <RotateCcw className="h-3 w-3" /> {t.reset}
                 </button>
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                Each slider is an importance weight, not a distance (0 = ignore this factor) —
-                every factor is normalized 0–1 across all parcels before blending. Drag to match
-                what your operation needs; the map re-ranks instantly.
+                {t.sliderDesc}
               </p>
               <Segmented
                 className="mt-3 w-full"
                 value={useType}
                 onChange={setUseType}
                 options={[
-                  { value: "all", label: "All" },
+                  { value: "all", label: t.all },
                   {
                     value: "industrial",
-                    label: `Factory${meta.data?.use_type_counts.industrial ? ` (${fmtInt(meta.data.use_type_counts.industrial)})` : ""}`,
+                    label: t.factory(meta.data?.use_type_counts.industrial ? ` (${fmtInt(meta.data.use_type_counts.industrial, tag)})` : ""),
                   },
                   {
                     value: "commercial",
-                    label: `Business${meta.data?.use_type_counts.commercial ? ` (${fmtInt(meta.data.use_type_counts.commercial)})` : ""}`,
+                    label: t.business(meta.data?.use_type_counts.commercial ? ` (${fmtInt(meta.data.use_type_counts.commercial, tag)})` : ""),
                   },
                 ]}
               />
@@ -308,7 +312,7 @@ export default function SiteFinderPage() {
                 type="text"
                 value={municipio}
                 onChange={(e) => setMunicipio(e.target.value)}
-                placeholder="Filter by municipio…"
+                placeholder={t.filterByMunicipio}
                 className="mt-2 w-full rounded-md border border-border/70 bg-background/60 px-2.5 py-1.5 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -327,23 +331,23 @@ export default function SiteFinderPage() {
                 ))}
             </div>
             <div className="flex-1 overflow-y-auto">
-              {score.isLoading && <LoadingBlock label="Scoring parcels" />}
+              {score.isLoading && <LoadingBlock label={t.scoringParcels} />}
               <TopList rows={rows} onSelect={setSelected} />
             </div>
             <div className="border-t border-border/60 p-3">
               <InfoPanel
                 sections={[
                   {
-                    title: "What this is",
-                    body: `${meta.data ? fmtInt(meta.data.parcel_count) : "~7,700"} industrial-zoned parcels (CRIM/JP) scored by proximity to the grid, water, cargo ports, and flood safety. Higher = more suitable.`,
+                    title: t.whatThisIsTitle,
+                    body: t.infoSections.whatThisIs(meta.data ? fmtInt(meta.data.parcel_count, tag) : "~7,700"),
                   },
                   {
-                    title: "How it's calculated",
-                    body: "Each criterion is normalized across all parcels to a 0–1 score, then blended by your weights. Port/air access counts only commercial freight facilities; bulk/petro ports and air cargo are off by default — turn them up for heavy industry.",
+                    title: t.howCalculatedTitle,
+                    body: t.infoSections.howCalculated,
                   },
                   {
-                    title: "Accuracy",
-                    body: "Proxy tier — grid reliability rides PRISM's feeder-assignment proxy. Land affordability uses CRIM Catastro assessed land value (authoritative) — lower value per m² scores higher. Assessed value ≠ market price.",
+                    title: t.accuracyTitle,
+                    body: t.infoSections.accuracy,
                   },
                 ]}
               />
@@ -402,10 +406,13 @@ function Slider({
 }
 
 function TopList({ rows, onSelect }: { rows: SiteResult[]; onSelect: (id: number) => void }) {
+  const t = useMessages().sitefinder;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   return (
     <div>
       <div className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Top sites · {rows.length}
+        {t.topSites(rows.length)}
       </div>
       <ul>
         {rows.slice(0, 60).map((r, i) => (
@@ -420,14 +427,14 @@ function TopList({ rows, onSelect }: { rows: SiteResult[]; onSelect: (id: number
                   {r.municipio ?? "—"} <span className="text-muted-foreground">· {r.cali ?? ""}</span>
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  {r.barrio ?? ""} · port {km(r.dist_port_m)} · flood {Math.round((r.flood_frac ?? 0) * 100)}%
+                  {r.barrio ?? ""} · {t.cargoPort.toLowerCase()} {km(r.dist_port_m)} · {t.flood.toLowerCase()} {Math.round((r.flood_frac ?? 0) * 100)}%
                 </span>
               </span>
               <span
                 className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold tnum text-black"
                 style={{ background: `rgb(${suitColor(r.composite_score ?? 0).join(",")})` }}
               >
-                {fmtNum(r.composite_score ?? 0, 2)}
+                {fmtNum(r.composite_score ?? 0, 2, tag)}
               </span>
             </button>
           </li>
@@ -438,39 +445,42 @@ function TopList({ rows, onSelect }: { rows: SiteResult[]; onSelect: (id: number
 }
 
 function Scorecard({ parcelId, onBack }: { parcelId: number; onBack: () => void }) {
+  const t = useMessages().sitefinder;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useSiteParcel(parcelId);
   return (
     <div className="overflow-y-auto p-4">
       <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-3.5 w-3.5" /> Back to ranking
+        <ChevronLeft className="h-3.5 w-3.5" /> {t.backToRanking}
       </button>
-      {isLoading && <LoadingBlock label="Loading parcel" />}
+      {isLoading && <LoadingBlock label={t.loadingParcel} />}
       {error && <ErrorBlock error={error} />}
       {data && (
         <div className="space-y-4">
           <div>
             <h3 className="text-lg font-semibold leading-tight">
-              {data.municipio ?? "Parcel"} <span className="text-sm text-muted-foreground">· {data.barrio ?? ""}</span>
+              {data.municipio ?? t.parcelFallback} <span className="text-sm text-muted-foreground">· {data.barrio ?? ""}</span>
             </h3>
             <div className="mt-0.5 text-[11px] text-muted-foreground">
-              Catastro {data.num_catastro ?? "—"} · {data.descrip ?? data.cali} · {data.clasi_desc ?? data.clasi}
-              {data.area_m2 != null && ` · ${fmtInt(data.area_m2)} m²`}
+              {t.catastroLine(data.num_catastro ?? "—")} · {data.descrip ?? data.cali} · {data.clasi_desc ?? data.clasi}
+              {data.area_m2 != null && ` · ${fmtInt(data.area_m2, tag)} m²`}
             </div>
           </div>
 
           <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Suitability score</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.suitabilityScore}</div>
             <div
               className="mx-auto mt-1 inline-block rounded px-3 py-1 text-2xl font-semibold tnum text-black"
               style={{ background: `rgb(${suitColor(data.composite_score ?? 0).join(",")})` }}
             >
-              {fmtNum(data.composite_score ?? 0, 3)}
+              {fmtNum(data.composite_score ?? 0, 3, tag)}
             </div>
           </div>
 
           <div className="rounded-lg border border-border/60 bg-background/30 p-3">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Criteria breakdown
+              {t.criteriaBreakdown}
             </div>
             <div className="space-y-2">
               {Object.entries(data.subscores)
@@ -483,7 +493,7 @@ function Scorecard({ parcelId, onBack }: { parcelId: number; onBack: () => void 
                     value={v ?? 0}
                     tier={data.criteria_tiers[key]}
                     weight={data.weights[key] ?? 0}
-                    raw={rawValueFor(key, data)}
+                    raw={rawValueFor(key, data, t.rawUnits, tag)}
                   />
                 ))}
             </div>
@@ -491,17 +501,17 @@ function Scorecard({ parcelId, onBack }: { parcelId: number; onBack: () => void 
 
           <div className="rounded-lg border border-border/60 bg-background/30 p-3">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Distances & exposure
+              {t.distancesExposure}
             </div>
             <div className="space-y-1.5">
-              <Row label="Nearest cargo port" value={`${data.port_name ?? "—"} · ${km(data.dist_port_m)}`} />
-              <Row label="Nearest bulk port" value={`${data.bulk_port_name ?? "—"} · ${km(data.dist_bulk_port_m)}`} />
-              <Row label="Nearest substation" value={`${data.substation_name ?? "—"} · ${km(data.dist_substation_m)}`} />
-              <Row label="Nearest water plant" value={km(data.dist_water_m)} />
-              <Row label="Airport" value={km(data.dist_airport_m)} />
-              <Row label="Flood-zone coverage" value={`${Math.round((data.flood_frac ?? 0) * 100)}%`} />
+              <Row label={t.nearestCargoPort} value={`${data.port_name ?? "—"} · ${km(data.dist_port_m)}`} />
+              <Row label={t.nearestBulkPort} value={`${data.bulk_port_name ?? "—"} · ${km(data.dist_bulk_port_m)}`} />
+              <Row label={t.nearestSubstation} value={`${data.substation_name ?? "—"} · ${km(data.dist_substation_m)}`} />
+              <Row label={t.nearestWaterPlant} value={km(data.dist_water_m)} />
+              <Row label={t.airportRow} value={km(data.dist_airport_m)} />
+              <Row label={t.floodZoneCoverage} value={`${Math.round((data.flood_frac ?? 0) * 100)}%`} />
               {data.road_access_min != null && (
-                <Row label="Road access" value={`${fmtNum(data.road_access_min, 1)} min`} />
+                <Row label={t.roadAccess} value={t.rawUnits.minutes(fmtNum(data.road_access_min, 1, tag))} />
               )}
             </div>
           </div>
@@ -509,18 +519,18 @@ function Scorecard({ parcelId, onBack }: { parcelId: number; onBack: () => void 
           {(data.crim_owner || data.crim_totalval != null) && (
             <div className="rounded-lg border border-border/60 bg-background/30 p-3">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                CRIM Catastro (authoritative)
+                {t.crimCatastroAuthoritative}
               </div>
               <div className="space-y-1.5">
-                {data.crim_owner && <Row label="Registered owner" value={data.crim_owner} />}
+                {data.crim_owner && <Row label={t.registeredOwner} value={data.crim_owner} />}
                 {data.crim_totalval != null && (
-                  <Row label="Total assessed value" value={`$${fmtInt(data.crim_totalval)}`} />
+                  <Row label={t.totalAssessedValue} value={`$${fmtInt(data.crim_totalval, tag)}`} />
                 )}
                 {data.land_value != null && (
-                  <Row label="Land value (assessed)" value={`$${fmtInt(data.land_value)}`} />
+                  <Row label={t.landValueAssessed} value={`$${fmtInt(data.land_value, tag)}`} />
                 )}
                 {data.land_per_m2 != null && (
-                  <Row label="Land value per m²" value={`$${fmtNum(data.land_per_m2, 2)}/m²`} />
+                  <Row label={t.landValuePerM2} value={t.rawUnits.perM2(fmtNum(data.land_per_m2, 2, tag))} />
                 )}
               </div>
             </div>
@@ -544,6 +554,7 @@ function SubscoreBar({
   weight: number;
   raw?: string | null;
 }) {
+  const t = useMessages().sitefinder;
   const muted = weight === 0;
   return (
     <div className={cn(muted && "opacity-50")}>
@@ -551,7 +562,7 @@ function SubscoreBar({
         <span className="flex items-center gap-1.5 capitalize">
           {label}
           {tier && <ConfidenceChip tier={tier} />}
-          {muted && <span className="text-[10px] text-muted-foreground">(off)</span>}
+          {muted && <span className="text-[10px] text-muted-foreground">{t.off}</span>}
         </span>
         <span className="tnum text-muted-foreground">
           {raw && <span className="mr-1.5">{raw}</span>}
