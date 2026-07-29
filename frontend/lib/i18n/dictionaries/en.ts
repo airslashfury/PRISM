@@ -225,6 +225,62 @@ export const en = {
     feedTitle: (name: string, hours: number | string): string => `${name} · every ${hours}h`,
   },
 
+  trends: {
+    salesHotSpots: (period: string): string => `Sales hot spots · ${period}`,
+    lastTwelveMonths: "last 12 months",
+    recordedSales: "recorded sales",
+    medianSuffix: (v: string): string => ` · median ${v}`,
+    bubbles: "Bubbles",
+    heatmap: "Heatmap",
+    trailingTwelveMonths: "Trailing 12 months",
+    resetToTrailing: "Reset to trailing 12 months",
+    bubbleSizeHint: "Bubble size = sales volume (count) per municipio",
+    colorHint: "Color = sales volume (count) per municipio",
+    panelLabel: "trends panel",
+    loadingMarketTrends: "Loading market trends",
+    loadingMunicipio: "Loading municipio",
+    crimRecordedSales: (range: string, count: number): string =>
+      `CRIM recorded sales${range} · ${count} municipios`,
+    stats: {
+      sales12mo: "Sales · 12mo",
+      medianPrice12mo: "Median price · 12mo",
+      salesAllTime: "Sales · all-time",
+      medianAllTime: "Median · all-time",
+    },
+    salesMedianByYear: "Sales & median price by year",
+    hotSpotsTopMunicipios: (period: string): string => `Hot spots · top municipios · ${period}`,
+    monthOverMonthChanges: "Month-over-month changes",
+    trackingBaseline: (snapshotClause: string): string =>
+      `Tracking baseline captured${snapshotClause}. The first month-over-month deltas — new parcels, recorded sales, reassessments, and ownership transfers — appear after the next monthly CRIM pull.`,
+    snapshotClause: (n: string): string => ` (${n} snapshot)`,
+    infoSections: {
+      whatThisIs: {
+        title: "What this is",
+        body: "Recorded property transactions from the CRIM Catastro register, rolled up by municipio and year. Scrub the timeline below the map — or click a municipio — to drill into any year or place. PRISM also captures a monthly snapshot and diffs it to track what's changing.",
+      },
+      howCalculated: {
+        title: "How it's calculated",
+        body: "Sale counts are the reliable signal. Prices use the MEDIAN, and amounts are clamped to a plausible range — the raw CRIM amount field carries data-entry outliers that make sums and averages meaningless. Momentum compares each period to the one before it.",
+      },
+      accuracy: {
+        title: "Accuracy",
+        body: "Authoritative — these are recorded transactions, not market appraisals. A sale amount of $0 (transfers, corrections) and stray dates are filtered out of the price figures.",
+      },
+    },
+    allMunicipios: "← All municipios",
+    salesTwelveMo: (n: string): string => `${n} sales · 12mo`,
+    market: "Market",
+    topBarriosSales: "Top barrios · 12mo sales",
+    municipioOverview: "Municipio overview →",
+    browseParcels: "Browse parcels →",
+    salesTooltip: "Sales (12mo)",
+    salesTooltipYear: "Sales",
+    vsPriorPeriod: "vs prior period",
+    medianPriceTooltip: "Median price",
+    salesLegend: "Sales",
+    medianKLegend: "Median $k",
+  },
+
   parcels: {
     ownerFootprint: "Owner footprint",
     parcelsUnit: "parcels",

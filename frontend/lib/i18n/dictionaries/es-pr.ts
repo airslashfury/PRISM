@@ -208,6 +208,62 @@ export const esPR: Messages = {
     feedTitle: (name, hours) => `${name} · cada ${hours}h`,
   },
 
+  trends: {
+    salesHotSpots: (period) => `Puntos calientes de venta · ${period}`,
+    lastTwelveMonths: "últimos 12 meses",
+    recordedSales: "ventas registradas",
+    medianSuffix: (v) => ` · mediana ${v}`,
+    bubbles: "Burbujas",
+    heatmap: "Mapa de calor",
+    trailingTwelveMonths: "Últimos 12 meses",
+    resetToTrailing: "Restablecer a los últimos 12 meses",
+    bubbleSizeHint: "Tamaño de burbuja = volumen de ventas (conteo) por municipio",
+    colorHint: "Color = volumen de ventas (conteo) por municipio",
+    panelLabel: "panel de tendencias",
+    loadingMarketTrends: "Cargando tendencias del mercado",
+    loadingMunicipio: "Cargando municipio",
+    crimRecordedSales: (range, count) =>
+      `Ventas registradas por CRIM${range} · ${count} municipios`,
+    stats: {
+      sales12mo: "Ventas · 12 meses",
+      medianPrice12mo: "Precio mediano · 12 meses",
+      salesAllTime: "Ventas · histórico",
+      medianAllTime: "Mediana · histórico",
+    },
+    salesMedianByYear: "Ventas y precio mediano por año",
+    hotSpotsTopMunicipios: (period) => `Puntos calientes · municipios principales · ${period}`,
+    monthOverMonthChanges: "Cambios mes a mes",
+    trackingBaseline: (snapshotClause) =>
+      `Línea base de seguimiento capturada${snapshotClause}. Los primeros cambios mes a mes — parcelas nuevas, ventas registradas, retasaciones y transferencias de titularidad — aparecen después de la próxima extracción mensual de CRIM.`,
+    snapshotClause: (n) => ` (${n} instantánea)`,
+    infoSections: {
+      whatThisIs: {
+        title: "Qué es esto",
+        body: "Transacciones de propiedad registradas del Catastro de CRIM, agrupadas por municipio y año. Deslice la línea de tiempo bajo el mapa — o haga clic en un municipio — para profundizar en cualquier año o lugar. PRISM también captura una instantánea mensual y la compara para rastrear qué está cambiando.",
+      },
+      howCalculated: {
+        title: "Cómo se calcula",
+        body: "El conteo de ventas es la señal confiable. Los precios usan la MEDIANA, y los montos se limitan a un rango plausible — el campo de monto crudo de CRIM lleva anomalías de captura de datos que hacen que las sumas y promedios carezcan de sentido. El impulso compara cada período con el anterior.",
+      },
+      accuracy: {
+        title: "Precisión",
+        body: "Autoritativo — estas son transacciones registradas, no tasaciones de mercado. Un monto de venta de $0 (transferencias, correcciones) y fechas atípicas se filtran de las cifras de precio.",
+      },
+    },
+    allMunicipios: "← Todos los municipios",
+    salesTwelveMo: (n) => `${n} ventas · 12 meses`,
+    market: "Mercado",
+    topBarriosSales: "Barrios principales · ventas 12 meses",
+    municipioOverview: "Resumen del municipio →",
+    browseParcels: "Explorar parcelas →",
+    salesTooltip: "Ventas (12 meses)",
+    salesTooltipYear: "Ventas",
+    vsPriorPeriod: "vs período anterior",
+    medianPriceTooltip: "Precio mediano",
+    salesLegend: "Ventas",
+    medianKLegend: "Mediana $k",
+  },
+
   parcels: {
     ownerFootprint: "Propiedades del titular",
     parcelsUnit: "parcelas",

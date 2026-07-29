@@ -28,6 +28,8 @@ import { sviColor } from "@/lib/colors";
 import { fmtInt, fmtUsd, fmtNum } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
 import { WorkspaceAside } from "@/components/ui/resizable-pane";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const HEAT_STOPS: [number, number, number][] = [
   [56, 78, 122],
@@ -50,6 +52,9 @@ function muniProps(f: unknown): MunicipioRollup | null {
 }
 
 export default function TrendsPage() {
+  const t = useMessages().trends;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const [view, setView] = useState<ViewMode>("bubbles");
   const [scrubYear, setScrubYear] = useState<number | null>(null); // null = trailing 12mo
   const [selectedMuni, setSelectedMuni] = useState<string | null>(null);
@@ -193,9 +198,9 @@ export default function TrendsPage() {
       const m = momentum(d.sales, d.prior_sales);
       return tip(
         [
-          [scrubYear == null ? "Sales (12mo)" : "Sales", fmtInt(d.sales)],
-          ["vs prior period", m.pct == null ? "—" : `${m.pct > 0 ? "+" : ""}${Math.round(m.pct * 100)}%`],
-          ["Median price", d.median_price != null ? fmtUsd(d.median_price, 0) : "—"],
+          [scrubYear == null ? t.salesTooltip : t.salesTooltipYear, fmtInt(d.sales, tag)],
+          [t.vsPriorPeriod, m.pct == null ? "—" : `${m.pct > 0 ? "+" : ""}${Math.round(m.pct * 100)}%`],
+          [t.medianPriceTooltip, d.median_price != null ? fmtUsd(d.median_price, 0) : "—"],
         ],
         d.municipio,
       );
@@ -204,7 +209,7 @@ export default function TrendsPage() {
       const p = muniProps(info.object);
       if (!p) return null;
       const sales = heatByName.get(p.name) ?? 0;
-      return tip([["Sales", fmtInt(sales)]], p.name);
+      return tip([[t.salesTooltipYear, fmtInt(sales, tag)]], p.name);
     }
     return null;
   };
@@ -222,7 +227,7 @@ export default function TrendsPage() {
     [data],
   );
 
-  const activeYearLabel = scrubYear == null ? "last 12 months" : `${scrubYear}`;
+  const activeYearLabel = scrubYear == null ? t.lastTwelveMonths : `${scrubYear}`;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto md:flex-row md:overflow-hidden">
@@ -231,16 +236,16 @@ export default function TrendsPage() {
           {data && (
             <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
               <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Sales hot spots · {activeYearLabel}
+                {t.salesHotSpots(activeYearLabel)}
                 <ConfidenceChip tier={data.summary.confidence_tier} />
               </div>
               <div className="mt-0.5 text-2xl font-semibold tnum">
-                {fmtInt(activeRows.reduce((s, r) => s + r.sales, 0))}
+                {fmtInt(activeRows.reduce((s, r) => s + r.sales, 0), tag)}
               </div>
               <div className="text-[11px] text-muted-foreground">
-                recorded sales
+                {t.recordedSales}
                 {scrubYear == null && data.summary.median_price_12mo != null
-                  ? ` · median ${fmtUsd(data.summary.median_price_12mo, 0)}`
+                  ? t.medianSuffix(fmtUsd(data.summary.median_price_12mo, 0))
                   : ""}
               </div>
             </div>
@@ -250,8 +255,8 @@ export default function TrendsPage() {
             <Segmented
               options={
                 [
-                  { value: "bubbles", label: "Bubbles" },
-                  { value: "heatmap", label: "Heatmap" },
+                  { value: "bubbles", label: t.bubbles },
+                  { value: "heatmap", label: t.heatmap },
                 ] satisfies SegmentedOption<ViewMode>[]
               }
               value={view}
@@ -264,7 +269,7 @@ export default function TrendsPage() {
               <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span>{years[0]}</span>
                 <span className="tnum font-medium text-foreground">
-                  {scrubYear == null ? "Trailing 12 months" : scrubYear}
+                  {scrubYear == null ? t.trailingTwelveMonths : scrubYear}
                 </span>
                 <span>{latestYear}</span>
               </div>
@@ -282,14 +287,14 @@ export default function TrendsPage() {
                   onClick={() => setScrubYear(null)}
                   className="mt-1 text-[10px] text-primary hover:underline"
                 >
-                  Reset to trailing 12 months
+                  {t.resetToTrailing}
                 </button>
               )}
             </div>
           )}
 
           <div className="pointer-events-none absolute bottom-6 left-4 rounded-md border border-border/60 bg-card/80 px-3 py-1.5 text-[11px] text-muted-foreground shadow backdrop-blur">
-            {view === "bubbles" ? "Bubble size = sales volume (count) per municipio" : "Color = sales volume (count) per municipio"}
+            {view === "bubbles" ? t.bubbleSizeHint : t.colorHint}
           </div>
         </MapCanvas>
       </div>
@@ -297,27 +302,30 @@ export default function TrendsPage() {
       <WorkspaceAside
         storageKey="trends"
         defaultWidth={440}
-        label="trends panel"
+        label={t.panelLabel}
       >
         <div className="overflow-y-auto p-4">
-          {isLoading && <LoadingBlock label="Loading market trends" />}
+          {isLoading && <LoadingBlock label={t.loadingMarketTrends} />}
           {error && <ErrorBlock error={error} />}
           {data && selectedMuni == null && (
             <div className="space-y-5">
               <p className="text-[11px] text-muted-foreground">
-                CRIM recorded sales{data.summary.earliest ? ` · ${data.summary.earliest.slice(0, 4)}–${(data.summary.latest ?? "").slice(0, 4)}` : ""} · {data.summary.municipios} municipios
+                {t.crimRecordedSales(
+                  data.summary.earliest ? ` · ${data.summary.earliest.slice(0, 4)}–${(data.summary.latest ?? "").slice(0, 4)}` : "",
+                  data.summary.municipios,
+                )}
               </p>
 
               <div className="grid grid-cols-2 gap-2">
-                <Stat label="Sales · 12mo" value={fmtInt(data.summary.sales_12mo)} />
-                <Stat label="Median price · 12mo" value={data.summary.median_price_12mo != null ? fmtUsd(data.summary.median_price_12mo, 0) : "—"} />
-                <Stat label="Sales · all-time" value={fmtInt(data.summary.sales_total)} />
-                <Stat label="Median · all-time" value={data.summary.median_price_all != null ? fmtUsd(data.summary.median_price_all, 0) : "—"} />
+                <Stat label={t.stats.sales12mo} value={fmtInt(data.summary.sales_12mo, tag)} />
+                <Stat label={t.stats.medianPrice12mo} value={data.summary.median_price_12mo != null ? fmtUsd(data.summary.median_price_12mo, 0) : "—"} />
+                <Stat label={t.stats.salesAllTime} value={fmtInt(data.summary.sales_total, tag)} />
+                <Stat label={t.stats.medianAllTime} value={data.summary.median_price_all != null ? fmtUsd(data.summary.median_price_all, 0) : "—"} />
               </div>
 
               <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                 <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Sales &amp; median price by year
+                  {t.salesMedianByYear}
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
                   <ComposedChart data={yearData} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
@@ -337,7 +345,7 @@ export default function TrendsPage() {
 
               <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                 <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Hot spots · top municipios · {activeYearLabel}
+                  {t.hotSpotsTopMunicipios(activeYearLabel)}
                 </div>
                 <ul className="space-y-1">
                   {[...activeRows]
@@ -357,7 +365,7 @@ export default function TrendsPage() {
                             {m.median_price != null && (
                               <span className="shrink-0 text-[11px] tnum text-muted-foreground">{fmtUsd(m.median_price, 0)}</span>
                             )}
-                            <span className="w-12 shrink-0 text-right text-xs tnum">{fmtInt(m.sales)}</span>
+                            <span className="w-12 shrink-0 text-right text-xs tnum">{fmtInt(m.sales, tag)}</span>
                             <MomentumChip dir={mo.dir} pct={mo.pct} />
                           </button>
                         </li>
@@ -368,7 +376,7 @@ export default function TrendsPage() {
 
               <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                 <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Month-over-month changes
+                  {t.monthOverMonthChanges}
                   <ConfidenceChip tier="authoritative" />
                 </div>
                 {data.summary.deltas_available ? (
@@ -376,7 +384,7 @@ export default function TrendsPage() {
                     <div className="flex flex-wrap gap-2 text-xs">
                       {Object.entries(data.recent_deltas.by_type).map(([k, v]) => (
                         <span key={k} className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5">
-                          {k.replace(/_/g, " ")}: <span className="tnum font-medium">{fmtInt(v)}</span>
+                          {k.replace(/_/g, " ")}: <span className="tnum font-medium">{fmtInt(v, tag)}</span>
                         </span>
                       ))}
                     </div>
@@ -392,27 +400,16 @@ export default function TrendsPage() {
                   </div>
                 ) : (
                   <p className="text-[12px] leading-relaxed text-muted-foreground">
-                    Tracking baseline captured{data.summary.snapshots ? ` (${data.summary.snapshots} snapshot)` : ""}. The first
-                    month-over-month deltas — new parcels, recorded sales, reassessments, and ownership transfers — appear after the
-                    next monthly CRIM pull.
+                    {t.trackingBaseline(data.summary.snapshots ? t.snapshotClause(fmtInt(data.summary.snapshots, tag)) : "")}
                   </p>
                 )}
               </div>
 
               <InfoPanel
                 sections={[
-                  {
-                    title: "What this is",
-                    body: "Recorded property transactions from the CRIM Catastro register, rolled up by municipio and year. Scrub the timeline below the map — or click a municipio — to drill into any year or place. PRISM also captures a monthly snapshot and diffs it to track what's changing.",
-                  },
-                  {
-                    title: "How it's calculated",
-                    body: "Sale counts are the reliable signal. Prices use the MEDIAN, and amounts are clamped to a plausible range — the raw CRIM amount field carries data-entry outliers that make sums and averages meaningless. Momentum compares each period to the one before it.",
-                  },
-                  {
-                    title: "Accuracy",
-                    body: "Authoritative — these are recorded transactions, not market appraisals. A sale amount of $0 (transfers, corrections) and stray dates are filtered out of the price figures.",
-                  },
+                  t.infoSections.whatThisIs,
+                  t.infoSections.howCalculated,
+                  t.infoSections.accuracy,
                 ]}
               />
             </div>
@@ -427,9 +424,12 @@ export default function TrendsPage() {
 /** The /trends drill-down (F9b chunk B3): momentum, year series, and top
  *  barrios for one municipio — one level down from the hot-spot map. */
 function MunicipioTrendPanel({ name, onBack }: { name: string; onBack: () => void }) {
+  const t = useMessages().trends;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useCrimTrendsMunicipio(name, 12, 2010);
 
-  if (isLoading) return <div className="p-4"><LoadingBlock label="Loading municipio" /></div>;
+  if (isLoading) return <div className="p-4"><LoadingBlock label={t.loadingMunicipio} /></div>;
   if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
   if (!data) return null;
 
@@ -443,26 +443,26 @@ function MunicipioTrendPanel({ name, onBack }: { name: string; onBack: () => voi
       className="animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none space-y-4"
     >
       <button onClick={onBack} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-3.5 w-3.5" /> All municipios
+        <ChevronLeft className="h-3.5 w-3.5" /> {t.allMunicipios}
       </button>
 
       <div>
         <h3 className="text-lg font-semibold leading-tight">{data.municipio}</h3>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="tnum">{fmtInt(data.sales)}</span> sales · 12mo
+          {t.salesTwelveMo(fmtInt(data.sales, tag))}
           <MomentumChip dir={mo.dir} pct={mo.pct} />
         </div>
       </div>
 
-      <PanelBox title="Market" badge={<ConfidenceChip tier={data.confidence_tier} />}>
+      <PanelBox title={t.market} badge={<ConfidenceChip tier={data.confidence_tier} />}>
         <div className="grid grid-cols-2 gap-2">
-          <Stat label="Sales · 12mo" value={fmtInt(data.sales)} />
-          <Stat label="Median price" value={data.median_price != null ? fmtUsd(data.median_price, 0) : "—"} />
+          <Stat label={t.stats.sales12mo} value={fmtInt(data.sales, tag)} />
+          <Stat label={t.medianPriceTooltip} value={data.median_price != null ? fmtUsd(data.median_price, 0) : "—"} />
         </div>
         {chartData.length > 0 && (
           <div className="pt-2">
             <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-              Sales &amp; median price by year
+              {t.salesMedianByYear}
             </div>
             <ResponsiveContainer width="100%" height={140}>
               <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -14 }}>
@@ -480,7 +480,7 @@ function MunicipioTrendPanel({ name, onBack }: { name: string; onBack: () => voi
       </PanelBox>
 
       {data.top_barrios.length > 0 && (
-        <PanelBox title="Top barrios · 12mo sales">
+        <PanelBox title={t.topBarriosSales}>
           <ul className="space-y-1">
             {data.top_barrios.map((b, i) => (
               <li key={b.barrio_name} className="flex items-center gap-2 text-sm">
@@ -492,7 +492,7 @@ function MunicipioTrendPanel({ name, onBack }: { name: string; onBack: () => voi
                     style={{ width: `${Math.max(6, (b.sales / maxBarrio) * 100)}%` }}
                   />
                 </div>
-                <span className="w-8 shrink-0 text-right text-xs tnum">{fmtInt(b.sales)}</span>
+                <span className="w-8 shrink-0 text-right text-xs tnum">{fmtInt(b.sales, tag)}</span>
               </li>
             ))}
           </ul>
@@ -501,10 +501,10 @@ function MunicipioTrendPanel({ name, onBack }: { name: string; onBack: () => voi
 
       <div className="flex items-center gap-4 px-0.5">
         <a href={`/economy?m=${encodeURIComponent(data.municipio)}`} className="text-xs text-primary hover:underline">
-          Municipio overview →
+          {t.municipioOverview}
         </a>
         <a href={`/parcels?q=${encodeURIComponent(data.municipio)}`} className="text-xs text-primary hover:underline">
-          Browse parcels →
+          {t.browseParcels}
         </a>
       </div>
     </div>
