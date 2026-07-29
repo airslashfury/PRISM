@@ -42,8 +42,10 @@ import {
 import { api, ApiError, pollJob, type AssetTypeSchema, type SubstationSlim, type WhatIfResult } from "@/lib/api";
 import { fmtInt, fmtNum, fmtUsd } from "@/lib/utils";
 import { nearestWithin } from "@/lib/geo";
-import { ESTIMATE_SCOPE } from "@/lib/estimate-scope";
+import { estimateScopeFor } from "@/lib/estimate-scope";
 import { WorkspaceAside } from "@/components/ui/resizable-pane";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 /** Endpoints within this distance of a substation snap to it — a drawn line's
  * grid connection should read as real, not floating (F9c C2). */
@@ -152,6 +154,9 @@ function defaultParams(schema: AssetTypeSchema): Record<string, unknown> {
 }
 
 export default function PlaygroundPage() {
+  const t = useMessages().playground;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const queryClient = useQueryClient();
 
   const { data: scenarios, isLoading: scenariosLoading } = usePlaygroundScenarios();
@@ -228,11 +233,7 @@ export default function PlaygroundPage() {
 
   const handleCommit = async () => {
     if (!activeScenarioId) return;
-    if (!window.confirm(
-      "Commit this scenario as a reference plan? This is the one Playground action that " +
-      "writes to the live model: any drafted rail lines get permanent station entities " +
-      "(+ SERVES links to the nearest barrio) in the knowledge graph.",
-    )) return;
+    if (!window.confirm(t.commitConfirm)) return;
     setCommitting(true);
     setCommitError(null);
     try {
@@ -240,7 +241,7 @@ export default function PlaygroundPage() {
       setCommitResult({ stations_created: res.stations_created, serves_created: res.serves_created });
       invalidateScenario(activeScenarioId);
     } catch (e) {
-      setCommitError(e instanceof ApiError ? e.message : "Commit failed");
+      setCommitError(e instanceof ApiError ? e.message : t.commitFailed);
     } finally {
       setCommitting(false);
     }
@@ -290,7 +291,7 @@ export default function PlaygroundPage() {
           const result = await pollJob<WhatIfResult>(job_id);
           setWhatifResult(result);
         } catch (e) {
-          setWhatifError(e instanceof ApiError ? e.message : "What-if check failed");
+          setWhatifError(e instanceof ApiError ? e.message : t.whatIfFailed);
         } finally {
           setWhatifLoading(false);
         }
@@ -344,7 +345,7 @@ export default function PlaygroundPage() {
       await pollJob(job_id, { timeoutMs: 180_000 });
       invalidateScenario(activeScenarioId);
     } catch (e) {
-      setEvalError(e instanceof ApiError ? e.message : "Evaluation failed");
+      setEvalError(e instanceof ApiError ? e.message : t.evaluationFailed);
     } finally {
       setEvaluating(false);
     }
@@ -361,7 +362,7 @@ export default function PlaygroundPage() {
         timeoutMs: 180_000,
       });
       if (!result.narrative_id) {
-        setCompareError("Narrative generation failed (no LLM backend available).");
+        setCompareError(t.narrativeFailedNoBackend);
         return;
       }
       const narratives = await api.narratives(50);
@@ -374,10 +375,10 @@ export default function PlaygroundPage() {
           status: match.status,
         });
       } else {
-        setCompareError("Narrative generated but could not be loaded.");
+        setCompareError(t.narrativeLoadFailed);
       }
     } catch (e) {
-      setCompareError(e instanceof ApiError ? e.message : "Comparison failed");
+      setCompareError(e instanceof ApiError ? e.message : t.comparisonFailed);
     } finally {
       setComparing(false);
     }
@@ -507,17 +508,17 @@ export default function PlaygroundPage() {
       if (!d) return null;
       return tip(
         [
-          ["Composite score", fmtNum(d.composite_score, 2)],
-          ["Entity ID", String(d.entity_id)],
+          [t.compositeScore, fmtNum(d.composite_score, 2, tag)],
+          [t.entityId, String(d.entity_id)],
         ],
-        d.name ?? "Substation",
+        d.name ?? t.substationFallback,
       );
     }
     if (info.layer?.id === "playground-assets") {
       const p = (info.object as { properties?: Record<string, unknown> })?.properties;
       if (!p) return null;
       return tip(
-        [["Op", String(p.op)], ["Asset ID", String(p.asset_id)]],
+        [[t.op, String(p.op)], [t.assetId, String(p.asset_id)]],
         String(p.asset_type),
       );
     }
@@ -548,24 +549,23 @@ export default function PlaygroundPage() {
         <MapCanvas layers={layers} getTooltip={getTooltip} onClick={handleMapClick}>
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              <FlaskConical className="h-3.5 w-3.5" /> Playground
+              <FlaskConical className="h-3.5 w-3.5" /> {t.playgroundLabel}
             </div>
-            <div className="mt-0.5 text-sm">{detail?.name ?? "No scenario selected"}</div>
+            <div className="mt-0.5 text-sm">{detail?.name ?? t.noScenarioSelected}</div>
           </div>
 
           {drawMode && (
             <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 rounded-lg border border-primary/30 bg-card/90 px-4 py-2 text-xs shadow-lg backdrop-blur">
-              {drawMode.kind === "asset" && drawMode.geometry === "point" && "Click the map to place this asset"}
+              {drawMode.kind === "asset" && drawMode.geometry === "point" && t.clickToPlace}
               {drawMode.kind === "asset" && drawMode.geometry === "line" &&
-                `Click to add points (${drawPoints.length} placed) — use "Finish line" when done`}
-              {drawMode.kind === "fail" && "Click a substation to add a failure event to this scenario"}
-              {drawMode.kind === "whatif" && "Click a substation for an instant downstream-failure check"}
+                t.clickToAddPoints(drawPoints.length)}
+              {drawMode.kind === "fail" && t.clickToFail}
+              {drawMode.kind === "whatif" && t.clickToWhatIf}
               {(() => {
                 const lastSnap = drawSnaps[drawSnaps.length - 1];
                 return lastSnap ? (
                   <div className="mt-1 flex items-center gap-1 text-cyan-300">
-                    <Zap className="h-3 w-3" /> Connects to {lastSnap.name ?? `#${lastSnap.entity_id}`}
-                    {" "}({fmtInt(lastSnap.dist_m)} m away)
+                    <Zap className="h-3 w-3" /> {t.connectsTo(lastSnap.name ?? `#${lastSnap.entity_id}`, fmtInt(lastSnap.dist_m, tag))}
                   </div>
                 ) : null;
               })()}
@@ -574,19 +574,19 @@ export default function PlaygroundPage() {
 
           {whatifLoading && (
             <div className="absolute bottom-6 left-4 rounded-lg border border-border/70 bg-card/90 px-4 py-2 text-xs shadow-lg backdrop-blur">
-              Computing downstream footprint…
+              {t.computingFootprint}
             </div>
           )}
           {whatifResult && (
             <div className="absolute bottom-6 left-4 max-w-xs rounded-lg border border-border/70 bg-card/90 p-3 text-xs shadow-lg backdrop-blur">
               <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                If entity {whatifResult.entity_id} fails
+                {t.ifEntityFails(whatifResult.entity_id)}
               </div>
               <div className="grid grid-cols-2 gap-1.5">
-                <div>People affected: <span className="tnum font-medium">{fmtInt(whatifResult.people)}</span></div>
-                <div>Barrios: <span className="tnum font-medium">{whatifResult.barrios}</span></div>
-                <div>Hospitals: <span className="tnum font-medium">{whatifResult.hospitals}</span></div>
-                <div>Water plants: <span className="tnum font-medium">{whatifResult.water_plants}</span></div>
+                <div>{t.peopleAffected}: <span className="tnum font-medium">{fmtInt(whatifResult.people, tag)}</span></div>
+                <div>{t.barrios}: <span className="tnum font-medium">{whatifResult.barrios}</span></div>
+                <div>{t.hospitals}: <span className="tnum font-medium">{whatifResult.hospitals}</span></div>
+                <div>{t.waterPlants}: <span className="tnum font-medium">{whatifResult.water_plants}</span></div>
               </div>
             </div>
           )}
@@ -601,27 +601,27 @@ export default function PlaygroundPage() {
       <WorkspaceAside
         storageKey="playground"
         defaultWidth={420}
-        label="playground panel"
+        label={t.panelLabel}
       >
         <div className="border-b border-border/70 p-4">
-          <h2 className="text-sm font-semibold">Playground</h2>
+          <h2 className="text-sm font-semibold">{t.playgroundLabel}</h2>
           <p className="text-xs text-muted-foreground">
-            Sketch infrastructure onto the live model — never touches base data.
+            {t.playgroundDesc}
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* scenario picker */}
           <div className="space-y-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scenario</div>
-            {scenariosLoading && <LoadingBlock label="Loading scenarios" />}
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.scenario}</div>
+            {scenariosLoading && <LoadingBlock label={t.loadingScenarios} />}
             <div className="flex items-center gap-2">
               <Select
                 value={activeScenarioId ? String(activeScenarioId) : ""}
                 onValueChange={(v) => setScenarioId(Number(v))}
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Select a scenario" />
+                  <SelectValue placeholder={t.selectAScenario} />
                 </SelectTrigger>
                 <SelectContent>
                   {scenarios?.map((s) => (
@@ -641,12 +641,12 @@ export default function PlaygroundPage() {
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="New scenario name…"
+                placeholder={t.newScenarioPlaceholder}
                 className="h-9 flex-1 rounded-md border border-border bg-card px-3 text-sm"
                 onKeyDown={(e) => e.key === "Enter" && handleCreateScenario()}
               />
               <Button size="sm" onClick={handleCreateScenario} disabled={creating || !newName.trim()}>
-                <Plus className="h-3.5 w-3.5" /> New
+                <Plus className="h-3.5 w-3.5" /> {t.newButton}
               </Button>
             </div>
           </div>
@@ -654,8 +654,8 @@ export default function PlaygroundPage() {
           {!activeScenarioId && !scenariosLoading && (
             <EmptyState
               icon={FlaskConical}
-              title="No scenarios yet"
-              hint="Create a scenario above to start sketching infrastructure onto the live model."
+              title={t.noScenariosYet}
+              hint={t.noScenariosHint}
             />
           )}
 
@@ -664,7 +664,7 @@ export default function PlaygroundPage() {
               {/* asset palette */}
               <div className="space-y-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Draw a new asset
+                  {t.drawNewAsset}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {assetTypes?.map((at) => {
@@ -695,11 +695,11 @@ export default function PlaygroundPage() {
                     <div className="flex gap-2">
                       {drawMode.geometry === "line" && (
                         <Button size="sm" onClick={finishLine} disabled={drawPoints.length < 2}>
-                          Finish line
+                          {t.finishLine}
                         </Button>
                       )}
                       <Button size="sm" variant="outline" onClick={cancelDraw}>
-                        Cancel
+                        {t.cancel}
                       </Button>
                     </div>
                   </div>
@@ -709,7 +709,7 @@ export default function PlaygroundPage() {
               {/* what-if / fail */}
               <div className="space-y-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Substation failure
+                  {t.substationFailure}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -717,14 +717,14 @@ export default function PlaygroundPage() {
                     variant={drawMode?.kind === "whatif" ? "default" : "outline"}
                     onClick={() => setDrawMode((m) => (m?.kind === "whatif" ? null : { kind: "whatif" }))}
                   >
-                    Quick check
+                    {t.quickCheck}
                   </Button>
                   <Button
                     size="sm"
                     variant={drawMode?.kind === "fail" ? "default" : "outline"}
                     onClick={() => setDrawMode((m) => (m?.kind === "fail" ? null : { kind: "fail" }))}
                   >
-                    <Ban className="h-3.5 w-3.5" /> Add to scenario
+                    <Ban className="h-3.5 w-3.5" /> {t.addToScenario}
                   </Button>
                 </div>
               </div>
@@ -733,7 +733,7 @@ export default function PlaygroundPage() {
               {detail && (detail.assets.length > 0 || detail.events.length > 0) && (
                 <div className="space-y-2">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    In this scenario
+                    {t.inThisScenario}
                   </div>
                   <div className="space-y-1.5">
                     {detail.assets.map((a) => (
@@ -746,7 +746,7 @@ export default function PlaygroundPage() {
                     ))}
                     {detail.events.map((ev) => (
                       <div key={ev.event_id} className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-1.5 text-xs">
-                        <span>Fail entity {ev.entity_id}</span>
+                        <span>{t.failEntity(ev.entity_id)}</span>
                         <button onClick={() => handleDeleteEvent(ev.event_id)} className="text-muted-foreground hover:text-destructive">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -759,7 +759,7 @@ export default function PlaygroundPage() {
               {/* evaluate */}
               <div className="space-y-2">
                 <Button onClick={handleEvaluate} disabled={evaluating || detailLoading} className="w-full">
-                  {evaluating ? "Evaluating…" : "Evaluate scenario"}
+                  {evaluating ? t.evaluating : t.evaluateScenario}
                 </Button>
                 {evalError && <ErrorBlock error={new Error(evalError)} />}
               </div>
@@ -769,7 +769,7 @@ export default function PlaygroundPage() {
                 <div className="space-y-3">
                   <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
-                      Objective value (lower = better)
+                      {t.objectiveValue}
                     </div>
                     <div className="mt-1 text-lg font-semibold tnum">
                       {fmtUsd(breakdown?.totals?.objective_value)}
@@ -779,11 +779,11 @@ export default function PlaygroundPage() {
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Construction</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.construction}</div>
                       <div className="mt-0.5 text-sm font-semibold tnum">{fmtUsd(breakdown?.totals?.construction_usd)}</div>
                     </div>
                     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Maintenance (NPV)</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.maintenanceNpv}</div>
                       <div className="mt-0.5 text-sm font-semibold tnum">{fmtUsd(breakdown?.totals?.maintenance_npv_usd)}</div>
                     </div>
                   </div>
@@ -793,7 +793,7 @@ export default function PlaygroundPage() {
                       | { people_affected: number; critical_facilities: number; is_single_point_of_failure: boolean; notes: string }
                       | undefined;
                     const anchor = a.nearest_substation as { entity_id: number; name: string | null; dist_m: number } | null | undefined;
-                    const scope = ESTIMATE_SCOPE[String(a.asset_type)];
+                    const scope = estimateScopeFor(String(a.asset_type), locale);
                     return (
                       <div key={String(a.asset_id)} className="rounded-lg border border-border/60 bg-background/30 p-2.5 text-xs">
                         <div className="mb-1 flex items-center justify-between">
@@ -801,26 +801,26 @@ export default function PlaygroundPage() {
                           <Badge variant="muted">{String(a.geometry)}</Badge>
                         </div>
                         <div className="grid grid-cols-2 gap-1 text-muted-foreground">
-                          <span>Construction: <span className="tnum text-foreground">{fmtUsd(a.construction_usd as number)}</span></span>
-                          <span>Maintenance: <span className="tnum text-foreground">{fmtUsd(a.maintenance_npv_usd as number)}</span></span>
-                          {a.total_km != null && <span>Length: <span className="tnum text-foreground">{(a.total_km as number).toFixed(2)} km</span></span>}
-                          {a.flood_fraction != null && <span>Flood exposure: <span className="tnum text-foreground">{((a.flood_fraction as number) * 100).toFixed(0)}%</span></span>}
-                          {a.capacity != null && <span>Capacity: <span className="tnum text-foreground">{fmtInt(a.capacity as number)}</span></span>}
+                          <span>{t.construction}: <span className="tnum text-foreground">{fmtUsd(a.construction_usd as number)}</span></span>
+                          <span>{t.maintenanceNpv}: <span className="tnum text-foreground">{fmtUsd(a.maintenance_npv_usd as number)}</span></span>
+                          {a.total_km != null && <span>{t.lengthLabel}: <span className="tnum text-foreground">{(a.total_km as number).toFixed(2)} km</span></span>}
+                          {a.flood_fraction != null && <span>{t.floodExposureLabel}: <span className="tnum text-foreground">{((a.flood_fraction as number) * 100).toFixed(0)}%</span></span>}
+                          {a.capacity != null && <span>{t.capacityLabel}: <span className="tnum text-foreground">{fmtInt(a.capacity as number, tag)}</span></span>}
                         </div>
                         {anchor && (
                           <div className="mt-1 text-[11px] text-muted-foreground">
                             {/* "Evaluated against" only for types where the substation is a real input to the
                                 numbers above (transmission/substation feed cascade context from it); for
                                 road/rail/bridge it's context, not an input, so the verb says less than that. */}
-                            {a.asset_type === "transmission" || a.asset_type === "substation" ? "Evaluated against" : "Nearest substation"}{" "}
-                            <span className="text-foreground">{anchor.name ?? `substation #${anchor.entity_id}`}</span>
-                            , {fmtInt(anchor.dist_m)} m away.
+                            {a.asset_type === "transmission" || a.asset_type === "substation" ? t.evaluatedAgainst : t.nearestSubstationLabel}{" "}
+                            <span className="text-foreground">{anchor.name ?? t.substationHash(anchor.entity_id)}</span>
+                            {t.metersAway(fmtInt(anchor.dist_m, tag))}
                           </div>
                         )}
                         {fi && (
                           <div className="mt-1.5 border-t border-border/50 pt-1.5 text-muted-foreground">
                             <div className="flex items-center justify-between">
-                              <span>If this fails: <span className="tnum text-foreground">{fmtInt(fi.people_affected)}</span> people affected</span>
+                              <span>{t.ifThisFails}<span className="tnum text-foreground">{fmtInt(fi.people_affected, tag)}</span>{t.peopleAffectedSuffix}</span>
                               {fi.is_single_point_of_failure && <Badge variant="danger">SPOF</Badge>}
                             </div>
                             {fi.notes && <div className="mt-0.5 text-[11px] italic">{fi.notes}</div>}
@@ -828,8 +828,8 @@ export default function PlaygroundPage() {
                         )}
                         {scope && (
                           <div className="mt-1.5 border-t border-border/50 pt-1.5 text-[11px] text-muted-foreground">
-                            <span className="font-medium text-foreground">Estimate includes:</span> {scope.includes.join("; ")}.{" "}
-                            <span className="font-medium text-foreground">Excludes:</span> {scope.excludes.join(", ")}.
+                            <span className="font-medium text-foreground">{t.estimateIncludes}</span> {scope.includes.join("; ")}.{" "}
+                            <span className="font-medium text-foreground">{t.estimateExcludes}</span> {scope.excludes.join(", ")}.
                           </div>
                         )}
                       </div>
@@ -839,31 +839,31 @@ export default function PlaygroundPage() {
                   {delta && (delta.touched_substations?.length ?? 0) > 0 && (
                     <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                       <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Resilience delta
+                        {t.resilienceDelta}
                       </div>
                       <div className="mb-2 text-xs">
-                        Composite total: <span className="tnum">{delta.baseline_composite_total?.toFixed(2)}</span>
+                        {t.compositeTotal}<span className="tnum">{delta.baseline_composite_total?.toFixed(2)}</span>
                         {" → "}
                         <span className="tnum">{delta.scenario_composite_total?.toFixed(2)}</span>
                         {" "}
                         <Badge variant={(delta.delta ?? 0) < 0 ? "success" : (delta.delta ?? 0) > 0 ? "danger" : "muted"}>
-                          {(delta.delta ?? 0) < 0 ? "improves" : (delta.delta ?? 0) > 0 ? "worsens" : "no change"} {Math.abs(delta.delta ?? 0).toFixed(2)}
+                          {(delta.delta ?? 0) < 0 ? t.improves : (delta.delta ?? 0) > 0 ? t.worsens : t.noChange} {Math.abs(delta.delta ?? 0).toFixed(2)}
                         </Badge>
                       </div>
                       <div className="space-y-1">
-                        {delta.touched_substations?.map((t) => (
-                          <div key={t.entity_id} className="flex items-center justify-between text-xs">
-                            <span className="truncate">{t.name ?? `entity ${t.entity_id}`}</span>
-                            <span className="tnum text-muted-foreground">{t.before.toFixed(2)} → {t.after.toFixed(2)}</span>
+                        {delta.touched_substations?.map((ts) => (
+                          <div key={ts.entity_id} className="flex items-center justify-between text-xs">
+                            <span className="truncate">{ts.name ?? t.entityFallback(ts.entity_id)}</span>
+                            <span className="tnum text-muted-foreground">{ts.before.toFixed(2)} → {ts.after.toFixed(2)}</span>
                           </div>
                         ))}
                       </div>
                       {delta.downstream_footprint && (
                         <div className="mt-2 grid grid-cols-2 gap-1.5 border-t border-border/50 pt-2 text-xs">
-                          <span>People: <span className="tnum font-medium">{fmtInt(delta.downstream_footprint.people)}</span></span>
-                          <span>Barrios: <span className="tnum font-medium">{delta.downstream_footprint.barrios}</span></span>
-                          <span>Hospitals: <span className="tnum font-medium">{delta.downstream_footprint.hospitals}</span></span>
-                          <span>Water plants: <span className="tnum font-medium">{delta.downstream_footprint.water_plants}</span></span>
+                          <span>{t.peopleAffected}: <span className="tnum font-medium">{fmtInt(delta.downstream_footprint.people, tag)}</span></span>
+                          <span>{t.barrios}: <span className="tnum font-medium">{delta.downstream_footprint.barrios}</span></span>
+                          <span>{t.hospitals}: <span className="tnum font-medium">{delta.downstream_footprint.hospitals}</span></span>
+                          <span>{t.waterPlants}: <span className="tnum font-medium">{delta.downstream_footprint.water_plants}</span></span>
                         </div>
                       )}
                     </div>
@@ -875,7 +875,7 @@ export default function PlaygroundPage() {
               {otherScenarios.length > 0 && (
                 <div className="space-y-2 rounded-lg border border-border/60 bg-background/30 p-3">
                   <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <Sparkles className="h-3.5 w-3.5" /> Compare with another scenario
+                    <Sparkles className="h-3.5 w-3.5" /> {t.compareWithAnother}
                   </div>
                   <div className="flex items-center gap-2">
                     <Select
@@ -883,7 +883,7 @@ export default function PlaygroundPage() {
                       onValueChange={(v) => setCompareTargetId(Number(v))}
                     >
                       <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Choose scenario" />
+                        <SelectValue placeholder={t.chooseScenario} />
                       </SelectTrigger>
                       <SelectContent>
                         {otherScenarios.map((s) => (
@@ -892,7 +892,7 @@ export default function PlaygroundPage() {
                       </SelectContent>
                     </Select>
                     <Button size="sm" variant="outline" disabled={!compareTargetId || comparing} onClick={handleCompare}>
-                      {comparing ? "Comparing…" : "Compare"}
+                      {comparing ? t.comparing : t.compare}
                     </Button>
                   </div>
                   {compareError && <p className="text-xs text-destructive">{compareError}</p>}
@@ -912,22 +912,19 @@ export default function PlaygroundPage() {
                 <div className="space-y-2 rounded-lg border border-border/60 bg-background/30 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      <Milestone className="h-3.5 w-3.5" /> Commit as reference
+                      <Milestone className="h-3.5 w-3.5" /> {t.commitAsReference}
                     </div>
-                    {detail.is_reference && <Badge variant="success">Reference</Badge>}
+                    {detail.is_reference && <Badge variant="success">{t.reference}</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Materializes drafted rail lines as permanent station entities (+ SERVES links to
-                    the nearest barrio) in the knowledge graph. The only Playground action that
-                    writes to the live model.
+                    {t.commitDesc}
                   </p>
                   <Button size="sm" variant="outline" disabled={committing} onClick={handleCommit}>
-                    {committing ? "Committing…" : detail.is_reference ? "Re-commit reference" : "Commit as reference"}
+                    {committing ? t.committing : detail.is_reference ? t.reCommitReference : t.commitAsReference}
                   </Button>
                   {commitResult && (
                     <p className="text-xs text-muted-foreground">
-                      {commitResult.stations_created} station{commitResult.stations_created === 1 ? "" : "s"} created,{" "}
-                      {commitResult.serves_created} SERVES link{commitResult.serves_created === 1 ? "" : "s"} created.
+                      {t.commitResult(commitResult.stations_created, commitResult.serves_created)}
                     </p>
                   )}
                   {commitError && <p className="text-xs text-destructive">{commitError}</p>}
@@ -936,18 +933,9 @@ export default function PlaygroundPage() {
 
               <InfoPanel
                 sections={[
-                  {
-                    title: "What this is",
-                    body: "A sandbox to sketch any infrastructure asset onto the live PRISM model and see its cost, capacity, and resilience impact — without touching the underlying simulation data.",
-                  },
-                  {
-                    title: "How it's calculated",
-                    body: "Each asset uses the same construction/maintenance/capacity/failure models as the rest of PRISM (prism/assets/*). Lines are segmented against the corridor cost surface for terrain-aware costing and flood exposure. Substations near a drafted asset, or named in a failure event, get a before/after resilience composite using the Phase-4 intervention-factor model.",
-                  },
-                  {
-                    title: "Data sources & accuracy",
-                    body: "Evaluation runs as a background job and reads the same PostGIS tables as the rest of the app (read-only) — scenarios are stored separately and never modify base data. Planning-level estimates only.",
-                  },
+                  t.infoSections.whatThisIs,
+                  t.infoSections.howCalculated,
+                  t.infoSections.accuracy,
                 ]}
               />
             </>
