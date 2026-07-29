@@ -208,6 +208,54 @@ export const esPR: Messages = {
     feedTitle: (name, hours) => `${name} · cada ${hours}h`,
   },
 
+  sync: {
+    sourceInfo: {
+      wfs_flood_zones_1pct: "Extensión de inundación de 1% de probabilidad anual del gobierno de PR (alineado con FEMA). Alimenta el modelo de riesgo de resiliencia.",
+      wfs_marejada: "Zonas de riesgo de marejada ciclónica. Alimenta el modelo de riesgo de resiliencia.",
+      wfs_roads_primary: "Red vial primaria. Usada para la puntuación de tiempo de viaje de acceso vial.",
+    },
+    registeredSources: "Fuentes registradas",
+    wfsOsmNoaa: "Fuentes WFS · OSM · NOAA",
+    lastSyncCycle: "Último ciclo de sincronización",
+    mostRecentRun: "corrida más reciente",
+    rescoresTriggered: "Recalificaciones activadas",
+    hazardLayerChanges: "cambios en capas de riesgo",
+    aboutDigitalTwin: "Sobre el gemelo digital",
+    infoSections: {
+      whatThisIs: {
+        title: "Qué es esto",
+        body: "PRISM revisa periódicamente las fuentes de datos en vivo del gobierno de PR para que las puntuaciones de resiliencia reflejen las extensiones de riesgo actuales en lugar de una instantánea única — el vínculo entre la simulación estática y las condiciones del mundo real.",
+      },
+      howCalculated: {
+        title: "Cómo se calcula",
+        body: "Cada fuente abajo tiene un intervalo de resincronización (24h para capas de riesgo, semanal para carreteras). Se compara una suma de verificación basada en el conteo de elementos con la última extracción. Si una capa de riesgo (zonas inundables o marejada) cambia, cada subestación se recalifica automáticamente contra el nuevo límite bajo el escenario Cat-3, y la corrida se registra abajo. Por separado, un nuevo terremoto de magnitud 4.5 o mayor activa una recalificación bajo el escenario sísmico — los dos disparadores son independientes, cada uno recalificando su propio escenario.",
+      },
+      accuracy: {
+        title: "Fuentes de datos y precisión",
+        body: "Las sumas de verificación se basan en el conteo de elementos, así que una edición de geometría in situ con un conteo de elementos constante no activará una resincronización. La recalificación automática cubre los escenarios Cat-3 (cambio de capa de riesgo) y sísmico (mag ≥ 4.5); los escenarios de aumento del nivel del mar y combinado no se activan automáticamente y solo reflejan una recalificación ejecutada manualmente.",
+      },
+    },
+    loadingSyncRegistry: "Cargando registro de sincronización",
+    dataSourceRegistry: "Registro de fuentes de datos",
+    registryDesc: "PRISM vuelve a extraer las zonas inundables cada 24 h y las carreteras cada 7 días. Cuando el conteo de elementos de una fuente cambia, la capa se recarga y — si alimenta el modelo de riesgo — cada subestación se recalifica automáticamente contra el nuevo límite (el conteo calificado varía ligeramente según el escenario). Mapas de inundación desactualizados = puntuaciones de riesgo desactualizadas.",
+    columns: {
+      source: "Fuente",
+      type: "Tipo",
+      interval: "Intervalo",
+      rows: "Filas",
+      lastFetched: "Última extracción",
+      status: "Estado",
+      run: "Corrida",
+      rowsUpdated: "Filas actualizadas",
+      duration: "Duración",
+      rescore: "Recalificación",
+      when: "Cuándo",
+    },
+    recentSyncRuns: "Corridas de sincronización recientes",
+    triggeredNote: "“Activada” = se disparó una recalificación porque cambió una suma de verificación de capa de riesgo.",
+    triggered: "activada",
+  },
+
   corridor: {
     rankLabel: ["", "Mejor", "Alternativa", "Más costosa"] as string[],
     terrainType: {
