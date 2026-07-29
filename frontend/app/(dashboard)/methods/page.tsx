@@ -17,16 +17,20 @@ import {
 } from "@/lib/hooks";
 import { fmtDateTime, fmtInt } from "@/lib/utils";
 import type { ConfidenceTierKey, InventoryEntry } from "@/lib/api";
-
-const TIER_FILTERS: { value: "all" | ConfidenceTierKey; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "authoritative", label: "Authoritative" },
-  { value: "modeled", label: "Modeled" },
-  { value: "proxy", label: "Proxy" },
-  { value: "estimated", label: "Estimated" },
-];
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 export default function MethodsPage() {
+  const t = useMessages().methods;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
+  const TIER_FILTERS: { value: "all" | ConfidenceTierKey; label: string }[] = [
+    { value: "all", label: t.tierFilters.all },
+    { value: "authoritative", label: t.tierFilters.authoritative },
+    { value: "modeled", label: t.tierFilters.modeled },
+    { value: "proxy", label: t.tierFilters.proxy },
+    { value: "estimated", label: t.tierFilters.estimated },
+  ];
   const { data: tiers, isLoading: tiersLoading, error: tiersError } = useConfidenceTiers();
   const { data: assumptions } = useProvenanceAssumptions();
   const { data: rationale } = useAssumptionRationale();
@@ -48,33 +52,29 @@ export default function MethodsPage() {
     [models, tierFilter],
   );
 
-  if (tiersLoading || invLoading) return <LoadingBlock label="Loading trust center" className="p-10" />;
+  if (tiersLoading || invLoading) return <LoadingBlock label={t.loadingTrustCenter} className="p-10" />;
   if (tiersError) return <ErrorBlock error={tiersError} className="m-6" />;
   if (invError) return <ErrorBlock error={invError} className="m-6" />;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Trust Center</h1>
+        <h1 className="text-xl font-semibold text-foreground">{t.trustCenter}</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Every figure PRISM shows is backed by one of the four tiers below. A number&apos;s tier is the
-          tier of its <em>weakest</em> required input — a composite score built on a Proxy
-          relationship is itself Proxy, even when every other input is Authoritative. This page is
-          the live index: every model and every one of PRISM&apos;s {fmtInt((inventory ?? []).length)} mirrored
-          data layers, with its method, confidence tier, and what would upgrade it.
+          {t.headerDesc(fmtInt((inventory ?? []).length, tag))}
         </p>
         <Link
           href="/methods/validation"
           className="mt-2 inline-flex items-center text-sm text-primary hover:underline"
         >
-          Calibration &amp; Validation — event backtests, sensitivity sweeps, and per-model cards →
+          {t.calibrationLink}
         </Link>
         <div>
           <Link
             href="/sync"
             className="mt-1 inline-flex items-center text-sm text-primary hover:underline"
           >
-            Data source registry — sync intervals, last-fetched times, and rescore history →
+            {t.syncLink}
           </Link>
         </div>
       </div>
@@ -94,42 +94,30 @@ export default function MethodsPage() {
       </section>
 
       <InfoPanel
-        title="About the Trust Center"
+        title={t.aboutTrustCenter}
         defaultOpen
         sections={[
-          {
-            title: "What this is",
-            body:
-              "A live index of every model PRISM computes and every data layer it mirrors, each stamped with a confidence tier (config/confidence.yml). Click the chip on any figure across the app to see this same information for that specific number.",
-          },
-          {
-            title: "How it's calculated",
-            body:
-              "Tiers and methods are declared once in config/confidence.yml and merged at request time with catalog/metadata.json (source, vintage, license, row counts). Nothing here is hand-typed prose disconnected from the live catalog.",
-          },
-          {
-            title: "Sources & accuracy",
-            body:
-              "Authoritative = government/federal data, measured. Modeled = PRISM's computation over Authoritative inputs. Proxy = a spatial/statistical stand-in for a relationship that isn't public (chiefly substation-to-facility feeder assignment). Estimated = a national constant used until a PR-specific figure is available.",
-          },
+          t.infoSections.whatThisIs,
+          t.infoSections.howCalculated,
+          t.infoSections.accuracy,
         ]}
       />
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Models ({filteredModels.length})</h2>
+          <h2 className="text-sm font-semibold text-foreground">{t.models(filteredModels.length)}</h2>
           <Segmented options={TIER_FILTERS} value={tierFilter} onChange={setTierFilter} />
         </div>
         <div className="overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/30 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Model</th>
-                <th className="px-3 py-2 font-medium">Method</th>
-                <th className="px-3 py-2 font-medium">Confidence</th>
-                <th className="px-3 py-2 font-medium">Rows</th>
-                <th className="px-3 py-2 font-medium">Assumptions</th>
-                <th className="px-3 py-2 font-medium">Upgrade path</th>
+                <th className="px-3 py-2 font-medium">{t.columns.model}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.method}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.confidence}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.rows}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.assumptions}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.upgradePath}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -143,7 +131,7 @@ export default function MethodsPage() {
                   <td className="px-3 py-2">
                     <ConfidenceChip tier={m.confidence_tier} detail={m} />
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground">{m.row_count != null ? fmtInt(m.row_count) : "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{m.row_count != null ? fmtInt(m.row_count, tag) : "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{m.assumptions ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{m.upgrade_path ?? "—"}</td>
                 </tr>
@@ -154,20 +142,19 @@ export default function MethodsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Global assumptions ({(assumptions ?? []).length})</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t.globalAssumptions((assumptions ?? []).length)}</h2>
         <p className="text-xs text-muted-foreground">
-          Constants baked into the formulas above — every one of these is a candidate for the
-          sensitivity sweep (P2) and the engineer assumptions panel (P3-eng).
+          {t.globalAssumptionsDesc}
         </p>
         <div className="overflow-x-auto rounded-lg border border-border/70">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/30 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Assumption</th>
-                <th className="px-3 py-2 font-medium">Value</th>
-                <th className="px-3 py-2 font-medium">Confidence</th>
-                <th className="px-3 py-2 font-medium">Used by</th>
-                <th className="px-3 py-2 font-medium">Notes</th>
+                <th className="px-3 py-2 font-medium">{t.columns.assumption}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.value}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.confidence}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.usedBy}</th>
+                <th className="px-3 py-2 font-medium">{t.columns.notes}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -190,10 +177,9 @@ export default function MethodsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Assumptions & choices ({(rationale ?? []).length})</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t.assumptionsAndChoices((rationale ?? []).length)}</h2>
         <p className="text-xs text-muted-foreground">
-          The handful of constants that most shape what PRISM tells you — why each one was
-          chosen, where it comes from, and what would need to change for a better number.
+          {t.assumptionsAndChoicesDesc}
         </p>
         <div className="space-y-2">
           {(rationale ?? []).map((r) => (
@@ -204,15 +190,15 @@ export default function MethodsPage() {
               </div>
               <dl className="grid gap-1.5 sm:grid-cols-3">
                 <div>
-                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Why chosen</dt>
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{t.whyChosen}</dt>
                   <dd className="mt-0.5 text-muted-foreground">{r.why_chosen}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Source</dt>
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{t.source}</dt>
                   <dd className="mt-0.5 text-muted-foreground">{r.source}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">What would change it</dt>
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{t.whatWouldChangeIt}</dt>
                   <dd className="mt-0.5 text-muted-foreground">{r.what_would_change_it}</dd>
                 </div>
               </dl>
@@ -236,6 +222,7 @@ const SEVERITY_STYLE: Record<string, string> = {
 
 /** F14b — every exclusion PRISM applies to source data, from config/anomalies.yml. */
 function ExcludedData() {
+  const t = useMessages().methods;
   const { data } = useProvenanceAnomalies();
   const [openId, setOpenId] = useState<string | null>(null);
   const [institutionsOnly, setInstitutionsOnly] = useState(false);
@@ -252,23 +239,18 @@ function ExcludedData() {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">Excluded data ({data.total})</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t.excludedData(data.total)}</h2>
         <Segmented
           options={[
-            { value: "all", label: `All ${data.total}` },
-            { value: "institutions", label: `Upstream defects ${fixable}` },
+            { value: "all", label: t.allCount(data.total) },
+            { value: "institutions", label: t.upstreamDefects(fixable) },
           ]}
           value={institutionsOnly ? "institutions" : "all"}
           onChange={(v) => setInstitutionsOnly(v === "institutions")}
         />
       </div>
       <p className="max-w-3xl text-xs text-muted-foreground">
-        PRISM sets some source data aside before it reaches a view or a calculation — a placeholder
-        owner name, a sale price of $10<sup>13</sup>, a parcel with no catastro number. Each one is
-        listed here with what it affects and how big it is, because a number you can&apos;t audit is
-        a number you have to take on faith. {fixable} of the {data.total} are defects in published
-        government data rather than choices PRISM made, and each names the body that could close
-        it — {(data.institutions ?? []).length} agencies in all. The full register is in{" "}
+        {t.excludedDataDesc(fixable, data.total, (data.institutions ?? []).length)}
         <code className="rounded bg-muted/40 px-1 py-0.5">ANOMALIES.md</code>.
       </p>
 
@@ -297,23 +279,23 @@ function ExcludedData() {
                   </span>
                 </span>
                 <span className="shrink-0 text-[10px] text-muted-foreground/70">
-                  {open ? "Hide" : "Details"}
+                  {open ? t.hide : t.details}
                 </span>
               </button>
 
               {open && (
                 <div className="space-y-2.5 border-t border-border/60 px-3 py-3 text-xs">
                   <p className="text-muted-foreground">
-                    <span className="text-foreground/90">What&apos;s excluded. </span>
+                    <span className="text-foreground/90">{t.whatsExcluded}</span>
                     {a.what}
                   </p>
                   <p className="text-muted-foreground">
-                    <span className="text-foreground/90">Why. </span>
+                    <span className="text-foreground/90">{t.why}</span>
                     {a.why}
                   </p>
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Affects
+                      {t.affects}
                     </div>
                     <ul className="mt-1 list-inside list-disc text-muted-foreground">
                       {a.scope.map((s) => (
@@ -323,28 +305,23 @@ function ExcludedData() {
                   </div>
                   <p className="text-muted-foreground">
                     <span className="text-foreground/90">
-                      What would fix it
+                      {t.whatWouldFixIt}
                       {a.remediation_owner_names?.length
                         ? ` (${a.remediation_owner_names.join(", ")})`
                         : ""}
                       .{" "}
                     </span>
-                    {a.remediation ?? (
-                      <>
-                        Nothing upstream — this is a PRISM modelling choice, listed because it is a
-                        real exclusion from a calculation.
-                      </>
-                    )}
+                    {a.remediation ?? t.noUpstreamFix}
                   </p>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[10px] text-muted-foreground/70">
                     <span>
-                      Source: <span className="text-muted-foreground">{a.source}</span>
+                      {t.sourceLabel}<span className="text-muted-foreground">{a.source}</span>
                     </span>
                     <span>
-                      Dataset: <code className="text-muted-foreground">{a.dataset}</code>
+                      {t.dataset}<code className="text-muted-foreground">{a.dataset}</code>
                     </span>
                     <span>
-                      Enforced at: <code className="text-muted-foreground">{a.where}</code>
+                      {t.enforcedAt}<code className="text-muted-foreground">{a.where}</code>
                     </span>
                   </div>
                 </div>
@@ -355,7 +332,7 @@ function ExcludedData() {
       </div>
       {data.measured_on && (
         <p className="text-[10px] text-muted-foreground/70">
-          Counts measured {data.measured_on}. Registry: config/anomalies.yml
+          {t.countsMeasured(data.measured_on)}
         </p>
       )}
     </section>
@@ -363,17 +340,20 @@ function ExcludedData() {
 }
 
 function DataInventory({ sources }: { sources: InventoryEntry[] }) {
+  const t = useMessages().methods;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const [open, setOpen] = useState(false);
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Data inventory ({sources.length} mirrored layers)</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t.dataInventory(sources.length)}</h2>
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           className="text-xs text-primary hover:underline"
         >
-          {open ? "Hide" : "Show"}
+          {open ? t.hide : t.show}
         </button>
       </div>
       {open && (
@@ -381,13 +361,13 @@ function DataInventory({ sources }: { sources: InventoryEntry[] }) {
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 bg-muted/30 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Layer</th>
-                <th className="px-3 py-2 font-medium">Domain</th>
-                <th className="px-3 py-2 font-medium">Source</th>
-                <th className="px-3 py-2 font-medium">Vintage</th>
-                <th className="px-3 py-2 font-medium">Features</th>
-                <th className="px-3 py-2 font-medium">License</th>
-                <th className="px-3 py-2 font-medium">Confidence</th>
+                <th className="px-3 py-2 font-medium">{t.invColumns.layer}</th>
+                <th className="px-3 py-2 font-medium">{t.invColumns.domain}</th>
+                <th className="px-3 py-2 font-medium">{t.invColumns.source}</th>
+                <th className="px-3 py-2 font-medium">{t.invColumns.vintage}</th>
+                <th className="px-3 py-2 font-medium">{t.invColumns.features}</th>
+                <th className="px-3 py-2 font-medium">{t.invColumns.license}</th>
+                <th className="px-3 py-2 font-medium">{t.invColumns.confidence}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -396,8 +376,8 @@ function DataInventory({ sources }: { sources: InventoryEntry[] }) {
                   <td className="px-3 py-2 font-medium text-foreground">{s.title ?? s.id}</td>
                   <td className="px-3 py-2 text-muted-foreground">{s.domain ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{s.source ?? "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{s.pulled_at ? fmtDateTime(s.pulled_at) : "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{s.feature_count != null ? fmtInt(s.feature_count) : "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{s.pulled_at ? fmtDateTime(s.pulled_at, tag) : "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{s.feature_count != null ? fmtInt(s.feature_count, tag) : "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{s.license ?? "—"}</td>
                   <td className="px-3 py-2">
                     <ConfidenceChip tier={s.confidence_tier} detail={s} />
