@@ -15,6 +15,8 @@ import {
 import { AXIS_PROPS, GRID_PROPS } from "@/components/charts";
 import type { ProfilePoint } from "@/lib/api";
 import { fmtNum } from "@/lib/utils";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const TERRAIN_FILL: Record<string, string> = {
   standard: "rgba(56, 189, 248, 0.18)",
@@ -59,26 +61,31 @@ function ProfileTooltip({
   active?: boolean;
   payload?: Array<{ payload: ChartPoint }>;
 }) {
+  const t = useMessages().corridor;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
     <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-xl">
       <div className="mb-1 font-medium capitalize text-foreground">
-        {p.terrain_type} · {fmtNum(p.km, 1)} km
+        {t.terrainType[p.terrain_type as keyof typeof t.terrainType] ?? p.terrain_type} · {fmtNum(p.km, 1, tag)} km
       </div>
       <div className="flex items-center justify-between gap-4 text-muted-foreground">
-        <span>Elevation</span>
-        <span className="tnum text-foreground">{fmtNum(p.elev_m, 0)} m</span>
+        <span>{t.elevation}</span>
+        <span className="tnum text-foreground">{fmtNum(p.elev_m, 0, tag)} m</span>
       </div>
       <div className="flex items-center justify-between gap-4 text-muted-foreground">
-        <span>Grade</span>
-        <span className="tnum text-foreground">{fmtNum(p.grade_pct, 1)}%</span>
+        <span>{t.grade}</span>
+        <span className="tnum text-foreground">{fmtNum(p.grade_pct, 1, tag)}%</span>
       </div>
     </div>
   );
 }
 
 export function ElevationProfile({ data }: { data: ProfilePoint[] }) {
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   if (!data?.length) return null;
 
   const chartData: ChartPoint[] = data.map((p) => ({
@@ -115,9 +122,9 @@ export function ElevationProfile({ data }: { data: ProfilePoint[] }) {
           type="number"
           domain={["dataMin", "dataMax"]}
           {...AXIS_PROPS}
-          tickFormatter={(v) => `${fmtNum(v, 0)} km`}
+          tickFormatter={(v) => `${fmtNum(v, 0, tag)} km`}
         />
-        <YAxis {...AXIS_PROPS} width={48} tickFormatter={(v) => `${fmtNum(v, 0)} m`} />
+        <YAxis {...AXIS_PROPS} width={48} tickFormatter={(v) => `${fmtNum(v, 0, tag)} m`} />
         <Tooltip content={<ProfileTooltip />} cursor={{ stroke: "hsl(215 18% 50%)" }} />
         <Area
           type="monotone"

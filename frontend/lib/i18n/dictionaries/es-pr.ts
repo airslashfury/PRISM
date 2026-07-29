@@ -30,6 +30,9 @@ export const esPR: Messages = {
     provenanceUpgrades: "Mejora con: ",
     loading: "Cargando",
     dismiss: "Descartar",
+    generatedBy: (model) => `Generado por ${model}`,
+    unknownModel: "desconocido",
+    generationFailedFallback: " · falló la generación, mostrando resultado alternativo",
     severity: {
       low: "Baja",
       moderate: "Moderada",
@@ -324,6 +327,7 @@ export const esPR: Messages = {
         body: "Estos son estimados a nivel de planificación para comparar alternativas, no estimados de costo de ingeniería: la resolución de 300 m de la superficie de costo puede pasar por alto obstáculos a nivel de propiedad, las luces de puente usan 50 m por defecto (aún no hay datos reales de luces disponibles), y los enlaces de estación/intermodales son aproximaciones al barrio más cercano en lugar de estaciones ubicadas.",
       },
     },
+    grade: "Pendiente",
     aiCorridorBriefing: "Resumen de corredor por IA",
     generating: "Generando…",
     regenerate: "Regenerar",
