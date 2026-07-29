@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 
 /**
  * es-PR language toggle (ROADMAP F12a). The failure modes here are the
@@ -21,9 +21,15 @@ async function openMobileNavIfNeeded(page: Page): Promise<void> {
   // it), so a second call here must not re-click "Open navigation" — its
   // full-screen backdrop overlay would intercept the click since the drawer
   // never closed. "Close navigation" only renders while the drawer is open.
-  const alreadyOpen = await page.getByRole("button", { name: "Close navigation" }).isVisible().catch(() => false);
+  // Both button aria-labels are dictionary-driven (F12b), so within a single
+  // test that toggles locale mid-flow the label may already be Spanish by the
+  // time this runs — match either language, not just English.
+  const alreadyOpen = await page
+    .getByRole("button", { name: /Close navigation|Cerrar navegación/ })
+    .isVisible()
+    .catch(() => false);
   if (alreadyOpen) return;
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: /Open navigation|Abrir navegación/ }).click();
 }
 
 test.describe("language toggle", () => {
@@ -146,4 +152,55 @@ test.describe("language toggle", () => {
       await expect(nav.getByText("Módulos", { exact: true })).toBeVisible();
     }
   });
+});
+
+/**
+ * F12b — chrome translation smoke test (ROADMAP item F12, "Done when: no
+ * English remains in the chrome under es-PR"). One distinctive, page-specific
+ * Spanish string per route, loaded via the `?lang=es-PR` permalink so no
+ * toggle interaction is needed. Not a rendering test (maps.spec.ts already
+ * proves each map paints, in English) — this only proves the F12b translation
+ * pass actually wired each page's dictionary strings into its JSX rather than
+ * leaving the English literals in place, and that no locale ever throws.
+ */
+const ES_PR_CHROME_ROUTES: { path: string; locator: (p: Page) => Locator }[] = [
+  { path: "/", locator: (p) => p.getByText("Modelo de Simulación de Infraestructura de Puerto Rico") },
+  // Heading role, not plain text: "Preguntar a PRISM" is also the nav label,
+  // present (hidden) in the mobile drawer's DOM before this page's own H1 —
+  // a substring/case-insensitive getByText().first() would resolve to that
+  // hidden nav link instead of the visible heading.
+  { path: "/ask", locator: (p) => p.getByRole("heading", { name: "Preguntar a PRISM", level: 1 }) },
+  { path: "/weather", locator: (p) => p.getByText("Días laborables") },
+  { path: "/resilience", locator: (p) => p.getByText("Red de transmisión") },
+  { path: "/economy", locator: (p) => p.getByText("Vulnerabilidad social promedio") },
+  { path: "/water", locator: (p) => p.getByText("Riesgo de fuente de agua") },
+  { path: "/telecom", locator: (p) => p.getByText("Riesgo de telecomunicaciones") },
+  { path: "/parcels", locator: (p) => p.getByPlaceholder(/Catastro, titular, o dirección/) },
+  { path: "/trends", locator: (p) => p.getByText(/mercado de propiedades/i) },
+  { path: "/sitefinder", locator: (p) => p.getByText("Ponderar los criterios") },
+  { path: "/portfolio", locator: (p) => p.getByText("Portafolio de inversión") },
+  { path: "/playground", locator: (p) => p.getByPlaceholder(/escenario/i) },
+  { path: "/assumptions", locator: (p) => p.getByText("Ajustar el modelo") },
+  // Same reasoning as /ask above: the nav label is "Centro de confianza"
+  // (lowercase c), a case-insensitive substring match of this page's own
+  // "Centro de Confianza" H1 — use the heading role to disambiguate.
+  { path: "/methods", locator: (p) => p.getByRole("heading", { name: "Centro de Confianza", level: 1 }) },
+  { path: "/methods/validation", locator: (p) => p.getByText("Calibración y Validación") },
+  { path: "/corridor", locator: (p) => p.getByText(/objetivo de valor social/i) },
+  { path: "/sync", locator: (p) => p.getByText("Registro de fuentes de datos") },
+];
+
+test.describe("F12b chrome translation (es-PR)", () => {
+  for (const { path, locator } of ES_PR_CHROME_ROUTES) {
+    test(`${path} renders its es-PR chrome with no errors`, async ({ page }) => {
+      const pageErrors: string[] = [];
+      page.on("pageerror", (e) => pageErrors.push(e.message));
+
+      await page.goto(`${path}?lang=es-PR`, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("html")).toHaveAttribute("lang", "es-PR");
+      await expect(locator(page).first()).toBeVisible();
+
+      expect(pageErrors, `uncaught page errors on ${path}: ${pageErrors.join("; ")}`).toEqual([]);
+    });
+  }
 });
