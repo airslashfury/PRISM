@@ -402,6 +402,12 @@ export const esPR: Messages = {
       proxy: "Aproximado",
       estimated: "Estimado",
     },
+    tierDescriptions: {
+      authoritative: "Datos gubernamentales o federales, medidos directamente (capas WFS, TIGER/ACS del Censo, USGS 3DEP, geometría OSM/HIFLD, zonas inundables de FEMA). Se muestran con precisión total.",
+      modeled: "Cómputo propio de PRISM sobre insumos Autoritativos usando un método documentado (centralidad de intermediación, optimización ILP, ruteo por superficie de costo de Dijkstra, exposición VOLL). Internamente consistente y reproducible; la exactitud depende del método y del nivel de sus insumos.",
+      proxy: "Una aproximación espacial o estadística que sustituye una relación que no es de acceso público (principalmente la asignación de alimentador subestación→instalación, construida con una heurística Voronoi/jerarquía de voltaje a una confianza de 0.4-0.7). Útil para clasificar; solo para visualización redondeada — nunca falsa precisión.",
+      estimated: "Una constante nacional o de la literatura usada como valor por defecto ante la falta de una medición específica de Puerto Rico (VOLL en $/kWh, tasa de descuento, longitud de tramo de puente, duración de interrupción). Igual para cada activo de su tipo hasta que se reemplace con una cifra local.",
+    },
     loadingTrustCenter: "Cargando centro de confianza",
     trustCenter: "Centro de Confianza",
     headerDesc: (n) =>

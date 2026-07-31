@@ -6,7 +6,8 @@ import { useConfidenceTiers, useProvenanceTable } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { fmtDateTime } from "@/lib/utils";
 import type { ConfidenceTierKey, ProvenanceRecord } from "@/lib/api";
-import { useMessages } from "@/lib/i18n/context";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const TIER_FALLBACK: Record<ConfidenceTierKey, { label: string; color: string; description: string }> = {
   authoritative: {
@@ -93,6 +94,8 @@ export function ConfidenceChip({ tier, className, detail }: ConfidenceChipProps)
 /** Body shared by ConfidenceChip's popover and ProvenanceBadge. */
 function ProvenanceDetailBody({ detail }: { detail: ProvenanceRecord }) {
   const t = useMessages().common;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const vintage = detail.pulled_at ?? detail.compute_date;
   return (
     <div className="mt-2 space-y-1 border-t border-border/60 pt-2 text-muted-foreground">
@@ -105,7 +108,7 @@ function ProvenanceDetailBody({ detail }: { detail: ProvenanceRecord }) {
       {vintage && (
         <div>
           <span className="font-medium text-foreground/80">{t.provenanceVintage}</span>
-          {detail.pulled_at ? fmtDateTime(detail.pulled_at) : detail.compute_date}
+          {detail.pulled_at ? fmtDateTime(detail.pulled_at, tag) : detail.compute_date}
         </div>
       )}
       <div>

@@ -22,6 +22,7 @@ import { intlTag } from "@/lib/i18n/locales";
 
 export default function MethodsPage() {
   const t = useMessages().methods;
+  const tierLabels = useMessages().confidenceTiers;
   const { locale } = useLocale();
   const tag = intlTag(locale);
   const TIER_FILTERS: { value: "all" | ConfidenceTierKey; label: string }[] = [
@@ -80,15 +81,17 @@ export default function MethodsPage() {
       </div>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {(tiers ?? []).map((t) => (
-          <Card key={t.key}>
+        {(tiers ?? []).map((tier) => (
+          <Card key={tier.key}>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color ?? undefined }} />
-                {t.label}
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tier.color ?? undefined }} />
+                {tierLabels[tier.key as ConfidenceTierKey]?.label ?? tier.label}
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-xs leading-relaxed text-muted-foreground">{t.description}</CardContent>
+            <CardContent className="text-xs leading-relaxed text-muted-foreground">
+              {t.tierDescriptions[tier.key] ?? tier.description}
+            </CardContent>
           </Card>
         ))}
       </section>

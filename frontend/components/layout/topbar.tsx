@@ -11,13 +11,16 @@ import { useOverview } from "@/lib/hooks";
 import { activeNav, useNav } from "./nav";
 import { MobileNav } from "./mobile-nav";
 import { openCommandPalette } from "@/components/command-palette";
-import { useMessages } from "@/lib/i18n/context";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 export function Topbar() {
   const pathname = usePathname();
   const nav = activeNav(useNav(), pathname);
   const { data: overview } = useOverview();
   const t = useMessages().common;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const health = useQuery({
     queryKey: ["health"],
     queryFn: api.health,
@@ -41,7 +44,7 @@ export function Topbar() {
         <CommandPaletteTrigger />
         <div className="hidden items-center gap-1.5 sm:flex">
           <span className="text-muted-foreground">{t.lastSync}</span>
-          <span className="tnum text-foreground/90">{fmtRelative(overview?.last_sync_at)}</span>
+          <span className="tnum text-foreground/90">{fmtRelative(overview?.last_sync_at, tag)}</span>
         </div>
         <div className="h-5 w-px bg-border" />
         <div className="flex items-center gap-2">

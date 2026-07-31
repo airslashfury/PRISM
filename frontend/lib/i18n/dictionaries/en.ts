@@ -419,6 +419,15 @@ export const en = {
       proxy: "Proxy",
       estimated: "Estimated",
     },
+    // Client-side override for the backend's /provenance/tiers descriptions
+    // (config/confidence.yml) — the long form shown on the tier cards here,
+    // distinct from confidenceTiers' short chip-popover description above.
+    tierDescriptions: {
+      authoritative: "Government or federal data, measured directly (WFS layers, Census TIGER/ACS, USGS 3DEP, OSM/HIFLD geometry, FEMA flood zones). Rendered at full precision.",
+      modeled: "PRISM's own computation over Authoritative inputs using a documented method (betweenness centrality, ILP optimization, Dijkstra cost-surface routing, VOLL exposure). Internally consistent and reproducible; correctness depends on the method and on its inputs' tiers.",
+      proxy: "A spatial or statistical approximation standing in for a relationship that is not publicly published (chiefly substation→facility feeder assignment, built from a Voronoi / voltage-hierarchy heuristic at confidence 0.4-0.7). Good for ranking; rounded display only — never false precision.",
+      estimated: "A national or literature constant used as a default in the absence of a Puerto Rico-specific measurement (VOLL $/kWh, discount rate, bridge span, outage duration). Same for every asset of its type until replaced with a local figure.",
+    } as Record<string, string>,
     loadingTrustCenter: "Loading trust center",
     trustCenter: "Trust Center",
     headerDesc: (n: string): string =>

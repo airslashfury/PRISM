@@ -10,7 +10,10 @@ import { useLocale, useMessages } from "@/lib/i18n/context";
 import { intlTag } from "@/lib/i18n/locales";
 
 export interface NarrativePanelProps {
-  /** GitHub-flavored markdown narrative body — never render LLM output as a bare string. */
+  /** GitHub-flavored markdown narrative body — never render LLM output as a bare string.
+   *  English-only under es-PR by design (F12c carve-out, not F12b's job): every
+   *  caller passes a live LLM-generated narrative (portfolio/corridor diffs,
+   *  playground results), not static UI copy. */
   markdown?: string | null;
   title?: string | null;
   modelUsed?: string | null;

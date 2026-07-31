@@ -222,6 +222,9 @@ const ES_PR_BACKEND_LABEL_ROUTES: { path: string; locator: (p: Page) => Locator 
   { path: "/playground", locator: (p) => p.getByText("Ferroviario", { exact: true }) },
   // /trends month-over-month chips — prism/crim/snapshots.py change_type enum
   { path: "/trends", locator: (p) => p.getByText(/cambio de (valor|titular)/) },
+  // /methods tier cards — prism's /provenance/tiers descriptions (long form,
+  // distinct from the short confidenceTiers chip-popover description)
+  { path: "/methods", locator: (p) => p.getByText(/Datos gubernamentales/) },
 ];
 
 test.describe("F12b backend-schema label surfaces (es-PR)", () => {
@@ -231,4 +234,21 @@ test.describe("F12b backend-schema label surfaces (es-PR)", () => {
       await expect(locator(page).first()).toBeVisible();
     });
   }
+});
+
+/**
+ * Regression guard for the second F12b gate round: the global topbar's
+ * "last sync" relative-time string (fmtRelative) was hardcoded to en-US
+ * everywhere, so it read "5d ago"/"never" under es-PR regardless of page.
+ * Scoped to the topbar itself (not a whole-page text scan) so it can't
+ * false-positive against legitimate F12c English (AI narratives, /methods
+ * long-form prose) elsewhere on the page.
+ */
+test.describe("F12b global chrome (es-PR)", () => {
+  test("topbar last-sync renders in Spanish, not raw 'ago'/'never'", async ({ page }) => {
+    await page.goto("/?lang=es-PR", { waitUntil: "domcontentloaded" });
+    const topbar = page.locator("header[data-chrome]");
+    await expect(topbar).toContainText(/hace |nunca/);
+    await expect(topbar).not.toContainText(/\bago\b|\bnever\b/);
+  });
 });

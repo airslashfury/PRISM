@@ -74,6 +74,8 @@ export default function OverviewPage() {
   const liveFeeds = useCountUp(whatsNew?.feeds.length);
 
   const advisory = storm?.advisory ?? null;
+  // Generated English sentence from prism/resilience/storm.py — F12c
+  // carve-out, not F12b's job (same category as build_water_risk_headline).
   const stormHeadline = storm?.consequence?.headline ?? null;
 
   const offlineSubstations = useMemo(
