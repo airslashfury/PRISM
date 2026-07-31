@@ -156,6 +156,7 @@ function defaultParams(schema: AssetTypeSchema): Record<string, unknown> {
 
 export default function PlaygroundPage() {
   const t = useMessages().playground;
+  const tc = useMessages().common;
   const { locale } = useLocale();
   const tag = intlTag(locale);
   const queryClient = useQueryClient();
@@ -346,7 +347,17 @@ export default function PlaygroundPage() {
       await pollJob(job_id, { timeoutMs: 180_000 });
       invalidateScenario(activeScenarioId);
     } catch (e) {
-      setEvalError(e instanceof ApiError ? e.message : t.evaluationFailed);
+      // pollJob's own fallback strings (not a real backend error message,
+      // which would be different text and is left untranslated like any
+      // other backend-authored prose) -- substitute the localized version.
+      const JOB_STATUS_MESSAGES: Record<string, string> = {
+        "job failed": tc.jobFailed,
+        "job not found": tc.jobNotFound,
+        "job timed out": tc.jobTimedOut,
+      };
+      setEvalError(
+        e instanceof ApiError ? (JOB_STATUS_MESSAGES[e.message] ?? e.message) : t.evaluationFailed,
+      );
     } finally {
       setEvaluating(false);
     }
@@ -802,8 +813,10 @@ export default function PlaygroundPage() {
                     return (
                       <div key={String(a.asset_id)} className="rounded-lg border border-border/60 bg-background/30 p-2.5 text-xs">
                         <div className="mb-1 flex items-center justify-between">
-                          <span className="font-medium capitalize">{String(a.asset_type)}</span>
-                          <Badge variant="muted">{String(a.geometry)}</Badge>
+                          <span className="font-medium capitalize">
+                            {t.assetTypeLabels[String(a.asset_type)] ?? String(a.asset_type)}
+                          </span>
+                          <Badge variant="muted">{t.geometryLabels[String(a.geometry)] ?? String(a.geometry)}</Badge>
                         </div>
                         <div className="grid grid-cols-2 gap-1 text-muted-foreground">
                           <span>{t.construction}: <span className="tnum text-foreground">{fmtUsd(a.construction_usd as number)}</span></span>

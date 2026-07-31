@@ -15,6 +15,10 @@ export const esPR: Messages = {
     openNavigation: "Abrir navegación",
     closeNavigation: "Cerrar navegación",
     wordmarkTagline: "Inteligencia de Infraestructura",
+    pixels: (n) => `${n} píxeles`,
+    jobFailed: "la tarea falló",
+    jobNotFound: "tarea no encontrada",
+    jobTimedOut: "la tarea agotó el tiempo de espera",
     showPane: (label) => `Mostrar ${label}`,
     hidePane: (label) => `Ocultar ${label}`,
     resizePane: (label) => `Redimensionar ${label}`,
@@ -582,6 +586,11 @@ export const esPR: Messages = {
     opLabels: {
       add: "Agregar",
       remove: "Eliminar",
+    },
+    geometryLabels: {
+      line: "Línea",
+      point: "Punto",
+      polygon: "Polígono",
     },
     commitConfirm: "¿Confirmar este escenario como un plan de referencia? Esta es la única acción de Playground que escribe en el modelo en vivo: cualquier línea ferroviaria dibujada obtiene entidades de estación permanentes (+ enlaces SERVES al barrio más cercano) en el grafo de conocimiento.",
     commitFailed: "Falló la confirmación",

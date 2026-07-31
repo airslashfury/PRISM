@@ -23,6 +23,10 @@ export const en = {
     openNavigation: "Open navigation",
     closeNavigation: "Close navigation",
     wordmarkTagline: "Infrastructure Intelligence",
+    pixels: (n: number): string => `${n} pixels`,
+    jobFailed: "job failed",
+    jobNotFound: "job not found",
+    jobTimedOut: "job timed out",
     showPane: (label: string): string => `Show ${label}`,
     hidePane: (label: string): string => `Hide ${label}`,
     resizePane: (label: string): string => `Resize ${label}`,
@@ -612,6 +616,11 @@ export const en = {
     opLabels: {
       add: "Add",
       remove: "Remove",
+    } as Record<string, string>,
+    geometryLabels: {
+      line: "Line",
+      point: "Point",
+      polygon: "Polygon",
     } as Record<string, string>,
     commitConfirm: "Commit this scenario as a reference plan? This is the one Playground action that writes to the live model: any drafted rail lines get permanent station entities (+ SERVES links to the nearest barrio) in the knowledge graph.",
     commitFailed: "Commit failed",

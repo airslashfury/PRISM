@@ -48,6 +48,7 @@ export function PaneResizer({
   controls,
   chrome = false,
 }: PaneResizerProps) {
+  const t = useMessages().common;
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -127,7 +128,7 @@ export function PaneResizer({
       aria-valuenow={width}
       aria-valuemin={minWidth}
       aria-valuemax={maxWidth}
-      aria-valuetext={`${width} pixels`}
+      aria-valuetext={t.pixels(width)}
       tabIndex={0}
       data-pane-resizer={side}
       {...(chrome ? { "data-chrome": "" } : {})}
