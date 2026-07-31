@@ -930,7 +930,7 @@ rewritten to state the split.
 
 ---
 
-### Item F12 — Spanish (es-PR) language toggle  *(ACTIVE — F12a DONE 2026-07-26, F12b next, branch `feat/f12`)*
+### Item F12 — Spanish (es-PR) language toggle  *(F12a + F12b DONE 2026-07-31, F12c parked to BACKLOG.md, branch `feat/f12`)*
 
 PRISM models Puerto Rico for Puerto Rico, and its chrome is English while its **data is already
 Spanish** — municipio and barrio names, CRIM owner names, OCPR service classes (`VIVIENDAS`,
@@ -1011,13 +1011,51 @@ Sub-chunks, each Opus-gated:
   all; fixed by adding it to the mobile drawer too. Full e2e green on both projects except two
   pre-existing Windows-only `next/og` font-loading failures (documented since F10a/F10c,
   unrelated).
-- **F12b — Translate the chrome.** All 17 pages, nav, `EntityDrawer`'s 7-section grammar,
-  `MapWorkspace`, `ScoreExplainer`, `InfoPanel`, confidence-tier labels (`authoritative` →
-  *autoritativo*, `modeled` → *modelado*, `proxy` → *aproximado*), `EmptyState`/`ErrorBlock`, the
-  ⌘K palette, toasts. Run every string through `/ui-ux` — the consequence-first voice has to
-  survive translation, and a literal rendering of "make the consequences easy to see" copy will
-  not. **Done when:** no English remains in the chrome under `es-PR` and the e2e suite passes in
-  both locales.
+- **F12b — Translate the chrome.** — ✅ DONE (2026-07-31, Opus GO after six NO-GO rounds) All 17
+  pages, nav, `EntityDrawer`'s 7-section grammar, `MapWorkspace`, `ScoreExplainer`, `InfoPanel`,
+  confidence-tier labels (`authoritative` → *autoritativo*, `modeled` → *modelado*, `proxy` →
+  *aproximado*), `EmptyState`/`ErrorBlock`, the ⌘K palette, toasts. Ran every string through
+  `/ui-ux`. **Done when:** no English remains in the chrome under `es-PR` and the e2e suite passes
+  in both locales.
+
+  **Built:** every remaining page/shared-component string translated via the F12a dictionary
+  pattern; closed backend-key-set translation overrides added for `/sitefinder` criteria (11 keys),
+  `/assumptions` knobs (5), `/playground` asset-types/params/intervention-options/ops (mirroring
+  the F12a `confidenceTiers` client-side-override pattern — stable backend key, localized display
+  string only), `/trends` change-types (4), `/methods` tier descriptions + anomaly severity, and
+  `/portfolio`/`/sync` closed enums. `frontend/e2e/i18n.spec.ts` grew from F12a's 5 permalink tests
+  to 33: a 17-route "chrome translation" sweep, a "backend-schema label surfaces" block, and a
+  "global chrome" block covering attribute-level (title/aria) and hover-gated (Recharts/deck.gl
+  tooltip) leaks a page-load visible-text assertion structurally can't see.
+
+  **Gate history — six NO-GO rounds, each catching a different bug class** (commits `ec75440` →
+  `93a0092` → `68c9846` → `ba225fc` → `c1cd00c` → `230a083`, all on `feat/f12`): (1) four
+  page-level closed-enum key sets left untranslated + a stale `/citizen` honesty-copy comment
+  contradicting its own now-translated chip + `brand.tsx`'s hardcoded tagline; (2) a `.map((t) =>
+  …)` loop variable shadowing the outer `useMessages()` result hid `/methods`' tier cards, and two
+  global formatter call sites (`topbar.tsx`'s `fmtRelative`, `provenance-badge.tsx`'s
+  `fmtDateTime`) omitted the locale argument, so the topbar's last-sync time and every
+  `ConfidenceChip`/`ProvenanceBadge` popover's vintage date stayed English on literally every page;
+  (3) attribute-level leaks invisible to visible-text sweeps — a hardcoded `Hide ${label}` template
+  string on the workspace-pane toggle despite the correct dictionary key already existing and being
+  used by its siblings, a hardcoded tooltip connector sentence on `/sitefinder`, `/methods`' raw
+  anomaly-severity enum, and `/ask`'s undocumented English-only carve-out (its example chips route
+  to a backend that doesn't understand Spanish yet — F12c) fixed with a conditional on-screen note
+  rather than either silently leaving it or unsafely translating chips the router can't handle; (4)
+  hover-gated chart/map tooltip content invisible until a mouse hovers the plot area — `/trends`'
+  Recharts `name` props were hardcoded English despite matching translated dictionary keys already
+  existing *unused*, and `/corridor`'s deck.gl tooltip rendered a raw `terrain_type` enum next to
+  its own already-correct translation lookup; (5) and (6) a recurring pattern once isolated — a raw
+  backend enum rendered right next to its own correctly-translated sibling on the same screen
+  (`/playground`'s cost-breakdown card vs. its asset palette; `/portfolio`'s allocation chart vs.
+  its item cards; `/sync`'s status badge vs. its own `statusVariant()` enumeration two lines away).
+  Round 5 also caught a stale-Docker-image false pass (the review verified against a container
+  built *before* the fix commit); round 6 confirmed the corrected rebuild-then-verify ordering
+  against the served JS bundle directly. Final state: 33/33 `i18n.spec.ts` on both desktop and
+  mobile; no regressions on `maps.spec.ts`/`interactive.spec.ts`/`panes.spec.ts` (44/44 desktop,
+  37/37 mobile, verified across multiple rounds). Closed via a final self-directed sweep (not a
+  seventh full review round, per explicit user direction to converge) confirming the same
+  enum-consistency bug class had no further live instances.
 - **F12c — Generated + long-form text.** Three surfaces the dictionary can't reach: (1) **AI
   narratives** — `prism/llm.py` needs a language parameter and the M1 output contract needs an
   es-PR variant, so `/portfolio` diffs, corridor narratives, and Ask PRISM answer in the asked

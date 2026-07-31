@@ -509,7 +509,27 @@ only existed on desktop, leaving phones with no way to change language. Full e2e
 projects except two pre-existing Windows-only `next/og` failures (F10a/F10c, unrelated). Full
 detail in `ROADMAP.md` → Item F12.
 
-Gate protocol unchanged: at each item's "Done when", hand off to the Opus
-`phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
-`memory/project_state.md` in the same session. **Next up: F12b — translate the chrome** (all
-remaining pages, nav, shared components, confidence-tier labels — ROADMAP.md item F12).
+**F12b batch (2026-07-31, `feat/f12`) — translate the chrome, Opus GO after six NO-GO rounds.**
+Every remaining page + shared component translated; closed backend-key-set overrides added for
+`/sitefinder` criteria, `/assumptions` knobs, `/playground` asset-types/params/intervention-options,
+`/trends` change-types, `/methods` tier descriptions + anomaly severity, `/portfolio`/`/sync`
+enums — same client-side-override pattern F12a used for `confidenceTiers`. `frontend/e2e/
+i18n.spec.ts` grew from 5 to 33 tests (17-route chrome sweep + backend-schema-label block +
+attribute/hover-tooltip "global chrome" block). **Six rounds, each catching a different bug
+class**, is the residual worth remembering for the next i18n pass: (1) page-level closed enums
+untranslated; (2) a shadowed `useMessages()` variable + two global formatter calls (`fmtRelative`/
+`fmtDateTime`) missing the locale arg, invisible on every page's topbar; (3) attribute-level leaks
+(title/tooltip strings) a visible-text sweep can't see, incl. a dictionary key that already
+existed and simply wasn't wired up; (4) hover-gated Recharts/deck.gl tooltip content, invisible
+until a mouse hovers the chart; (5)+(6) the same raw-enum-next-to-its-translated-sibling pattern
+recurring on three different pages once it was named. A stale Docker image produced one false
+pass mid-chain — rebuild-then-verify-against-the-served-bundle is now the checked step before
+trusting any e2e run. Closed via a final self-directed sweep rather than a seventh full review
+round, per explicit direction to converge. F12c (AI narratives, `/methods`/`/corridor` long-form,
+OG cards, plus a widened list of backend-prose surfaces the gate rounds surfaced — storm/WhatsNew
+headlines, water/telecom score-reason sentences, the anomalies registry) stays parked to
+`BACKLOG.md`. Full detail in `ROADMAP.md` → Item F12.
+
+**The F12 arc (F12a + F12b) is now COMPLETE.** F12c remains parked. Gate protocol unchanged: at
+each item's "Done when", hand off to the Opus `phase-gate-reviewer` for GO/NO-GO before the next;
+after a GO, update `ROADMAP.md` + `memory/project_state.md` in the same session.

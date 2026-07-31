@@ -70,6 +70,31 @@ once the toggle + translated chrome are live and there's a reason to extend past
   dictionary lookup.
 - **OG share cards + `generateMetadata`.** `/og/[view]` titles/descriptions should render in the
   sharer's language once the toggle exists to know what that language is.
+- **Widened scope from F12b's gate rounds (2026-07-31):** F12b's six-round translation gate
+  surfaced more backend-generated English prose than this entry's original three bullets named.
+  Fold these in explicitly so they're not re-litigated as "should this have been F12b's job"
+  next time: the storm consequence headline (`prism/resilience/storm.py`) and WhatsNew's
+  registry/rank/rescore event headlines (`prism/sync/changes.py`) — both lead the overview page,
+  the highest-visibility English left in the app; `/water` + `/telecom`'s score-reason sentences
+  (`prism/resilience/water.py build_water_risk_headline`, `prism/resilience/telecom.py
+  build_telecom_risk_headline` — both carry an explicit F12c carve-out docstring pointing here);
+  the F14b anomalies-registry rows on `/methods` (`config/anomalies.yml` — 39 entries' `title`/
+  `what`/`why`/`scope`/`remediation` text, postdates this entry's original scoping so wasn't named
+  at intake); `/methods`'s per-table `method`/`upgrade_path`/`notes` columns (from
+  `catalog/metadata.json`). All confirmed-in-scope for F12c, not F12b, per the gate reviews.
+
+---
+
+## F12b minor residuals (deferred, low priority, 2026-07-31)
+
+Small items the six F12b gate rounds surfaced but judged not worth blocking on: dead English
+`label`/`description` fields in `provenance-badge.tsx`'s `TIER_FALLBACK` constant (only `.color`
+is read since the F12a-era `confidenceTiers` dictionary took over the text — safe to delete);
+source-authored data labels left untranslated on the same "never translate source data" basis as
+CRIM owner names — USGS `param_label` ("Gage height") on `/water`'s gauge tooltip, PREPA
+`plant_type`/fuel-mix keys on the generation panel, `site_finder.use_type` on `/parcels` (decide
+once, not per-page, if this is ever revisited); Next.js's default English `not-found`/`error` pages
+(no custom `not-found.tsx`/`error.tsx` exist in either locale).
 
 ---
 
