@@ -84,6 +84,7 @@ function ProfileTooltip({
 }
 
 export function ElevationProfile({ data }: { data: ProfilePoint[] }) {
+  const t = useMessages().corridor;
   const { locale } = useLocale();
   const tag = intlTag(locale);
   if (!data?.length) return null;
@@ -129,7 +130,7 @@ export function ElevationProfile({ data }: { data: ProfilePoint[] }) {
         <Area
           type="monotone"
           dataKey="elev_m"
-          name="Elevation"
+          name={t.elevation}
           stroke="#22d3ee"
           strokeWidth={2}
           fill="url(#elevFill)"
