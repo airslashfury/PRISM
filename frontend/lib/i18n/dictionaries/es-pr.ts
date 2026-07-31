@@ -217,6 +217,11 @@ export const esPR: Messages = {
   },
 
   sync: {
+    statusLabels: {
+      updated: "actualizado",
+      error: "error",
+      skipped: "omitido",
+    },
     sourceInfo: {
       wfs_flood_zones_1pct: "Extensión de inundación de 1% de probabilidad anual del gobierno de PR (alineado con FEMA). Alimenta el modelo de riesgo de resiliencia.",
       wfs_marejada: "Zonas de riesgo de marejada ciclónica. Alimenta el modelo de riesgo de resiliencia.",

@@ -234,6 +234,13 @@ export const en = {
   },
 
   sync: {
+    // Client-side override for statusVariant()'s closed 3-value backend
+    // status enum (updated/error/skipped) on the source-registry table below.
+    statusLabels: {
+      updated: "updated",
+      error: "error",
+      skipped: "skipped",
+    } as Record<string, string>,
     sourceInfo: {
       wfs_flood_zones_1pct: "PR govt 1% annual-chance flood extent (FEMA-aligned). Feeds the resilience hazard model.",
       wfs_marejada: "Storm-surge / marejada hazard zones. Feeds the resilience hazard model.",

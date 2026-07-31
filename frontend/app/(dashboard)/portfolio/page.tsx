@@ -391,9 +391,15 @@ export default function PortfolioPage() {
               </div>
               <div className="p-4">
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={run.allocation_by_type} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                  <BarChart
+                    data={run.allocation_by_type.map((a) => ({
+                      ...a,
+                      intervention_label: humanizeIntervention(a.intervention_type, locale),
+                    }))}
+                    margin={{ top: 8, right: 8, left: 8, bottom: 0 }}
+                  >
                     <CartesianGrid {...GRID_PROPS} />
-                    <XAxis dataKey="intervention_type" {...AXIS_PROPS} />
+                    <XAxis dataKey="intervention_label" {...AXIS_PROPS} />
                     <YAxis {...AXIS_PROPS} tickFormatter={(v) => fmtUsd(v, 0)} width={52} />
                     <Tooltip cursor={{ fill: "hsl(215 28% 16% / 0.4)" }} content={<ChartTooltip format={(v) => fmtUsd(v)} />} />
                     <Bar dataKey="total_cost_usd" name={t.capitalLegend} radius={[4, 4, 0, 0]}>
@@ -563,6 +569,7 @@ function DiffList({
   items: PortfolioCompareItem[];
 }) {
   const t = useMessages().portfolio;
+  const { locale } = useLocale();
   const dot = accent === "emerald" ? "bg-emerald-400" : "bg-rose-400";
   return (
     <div>
@@ -578,7 +585,7 @@ function DiffList({
             <li key={`${it.entity_id}-${it.intervention_type}`} className="flex items-center justify-between gap-2 text-xs">
               <span className="truncate">{it.entity_name ?? `#${it.entity_id}`}</span>
               <span className="shrink-0 text-muted-foreground">
-                {it.intervention_type} · {fmtUsd(it.cost_usd, 0)}
+                {humanizeIntervention(it.intervention_type, locale)} · {fmtUsd(it.cost_usd, 0)}
               </span>
             </li>
           ))}

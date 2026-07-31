@@ -284,4 +284,24 @@ test.describe("F12b global chrome (es-PR)", () => {
     await expect(tooltip).toContainText(/Ventas/);
     await expect(tooltip).not.toContainText(/\bSales\b|\bMedian\b/);
   });
+
+  test("/portfolio allocation chart uses translated intervention names, not raw enum tokens", async ({ page }) => {
+    // Round 6 caught the "Capital by type" chart's X-axis rendering the raw
+    // intervention_type enum (relocation/elevation/hardening) even though the
+    // same page already translates the same field correctly two panels below
+    // via humanizeIntervention() -- inconsistent spelling on one screen.
+    await page.goto("/portfolio?lang=es-PR", { waitUntil: "domcontentloaded" });
+    const body = page.locator("body");
+    await expect(body).not.toContainText(/\brelocation\b|\belevation\b|\bhardening\b|\bredundant_feed\b|\bnew_access_road\b|\broad_hardening\b/);
+  });
+
+  test("/sync source table status badge is translated, not the raw backend enum", async ({ page }) => {
+    // Round 6 caught the source-registry table's status Badge rendering the
+    // raw closed-enum backend value (updated/error/skipped) on an otherwise
+    // fully-translated page -- the same class round 1 fixed on other pages.
+    await page.goto("/sync?lang=es-PR", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("actualizado").first()).toBeVisible();
+    await expect(page.getByText(/^updated$/)).toHaveCount(0);
+    await expect(page.getByText(/^skipped$/)).toHaveCount(0);
+  });
 });

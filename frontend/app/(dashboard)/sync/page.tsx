@@ -90,7 +90,9 @@ export default function SyncPage() {
                     <td className="px-4 py-2.5 text-right tnum">{fmtInt(s.row_count, tag)}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{fmtRelative(s.last_fetched_at, tag)}</td>
                     <td className="px-4 py-2.5">
-                      <Badge variant={statusVariant(s.status)}>{s.status ?? "—"}</Badge>
+                      <Badge variant={statusVariant(s.status)}>
+                        {(s.status && t.statusLabels[s.status]) ?? s.status ?? "—"}
+                      </Badge>
                     </td>
                   </tr>
                 ))}
