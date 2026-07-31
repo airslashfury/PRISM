@@ -268,4 +268,20 @@ test.describe("F12b global chrome (es-PR)", () => {
     await expect(topbar).toContainText(/hace |nunca/);
     await expect(topbar).not.toContainText(/\bago\b|\bnever\b/);
   });
+
+  test("/trends chart tooltip series names are translated, not raw Recharts `name` props", async ({ page }) => {
+    // Round 4 caught the Bar/Line `name="Sales"`/`name="Median $k"` props
+    // rendered verbatim by ChartTooltip on hover -- invisible to every prior
+    // round's visible-text and attribute sweeps since the tooltip doesn't
+    // exist in the DOM until a mouse hovers the chart's plot area.
+    await page.goto("/trends?lang=es-PR", { waitUntil: "domcontentloaded" });
+    const chart = page.locator(".recharts-wrapper").first();
+    await expect(chart).toBeVisible();
+    const box = await chart.boundingBox();
+    if (!box) throw new Error("chart has no bounding box");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const tooltip = page.locator(".recharts-tooltip-wrapper");
+    await expect(tooltip).toContainText(/Ventas/);
+    await expect(tooltip).not.toContainText(/\bSales\b|\bMedian\b/);
+  });
 });

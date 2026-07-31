@@ -1580,7 +1580,7 @@ export const esPR: Messages = {
       },
       languageNote: {
         title: "Solo en inglés, por ahora",
-        body: "El enrutador de Preguntar a PRISM solo entiende preguntas en inglés por ahora — escriba su pregunta en inglés aunque esté navegando PRISM en Español. Las consultas en español están en la hoja de ruta (punto F12c).",
+        body: "El enrutador de Preguntar a PRISM solo entiende preguntas en inglés por ahora — escriba su pregunta en inglés aunque esté navegando PRISM en español. Las consultas en español están en la hoja de ruta (punto F12c).",
       },
     },
     placeholder: "Pregunte sobre una subestación, un titular, una parcela, el portafolio, o qué cambió recientemente...",

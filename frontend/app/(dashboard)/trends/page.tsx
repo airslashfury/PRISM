@@ -337,8 +337,8 @@ export default function TrendsPage() {
                       content={<ChartTooltip format={(v) => fmtNum(v, 0)} />}
                       cursor={{ fill: "rgba(255,255,255,0.04)" }}
                     />
-                    <Bar yAxisId="l" name="Sales" dataKey="sales" fill="#22d3ee" opacity={0.55} radius={[2, 2, 0, 0]} />
-                    <Line yAxisId="r" name="Median $k" dataKey="median_k" stroke="#fbbf24" strokeWidth={2} dot={false} />
+                    <Bar yAxisId="l" name={t.salesLegend} dataKey="sales" fill="#22d3ee" opacity={0.55} radius={[2, 2, 0, 0]} />
+                    <Line yAxisId="r" name={t.medianKLegend} dataKey="median_k" stroke="#fbbf24" strokeWidth={2} dot={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
@@ -471,8 +471,8 @@ function MunicipioTrendPanel({ name, onBack }: { name: string; onBack: () => voi
                 <YAxis yAxisId="l" {...AXIS_PROPS} width={36} />
                 <YAxis yAxisId="r" orientation="right" {...AXIS_PROPS} width={40} tickFormatter={(v) => `$${fmtNum(v, 0)}k`} />
                 <Tooltip content={<ChartTooltip format={(v) => fmtNum(v, 0)} />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                <Bar yAxisId="l" name="Sales" dataKey="sales" fill="#22d3ee" opacity={0.55} radius={[2, 2, 0, 0]} />
-                <Line yAxisId="r" name="Median $k" dataKey="median_k" stroke="#fbbf24" strokeWidth={2} dot={false} />
+                <Bar yAxisId="l" name={t.salesLegend} dataKey="sales" fill="#22d3ee" opacity={0.55} radius={[2, 2, 0, 0]} />
+                <Line yAxisId="r" name={t.medianKLegend} dataKey="median_k" stroke="#fbbf24" strokeWidth={2} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

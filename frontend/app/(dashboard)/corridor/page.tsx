@@ -431,7 +431,7 @@ export default function CorridorPage() {
       if (!p) return null;
       return tip(
         [
-          [t.terrain, String(p.terrain_type)],
+          [t.terrain, t.terrainType[p.terrain_type as keyof typeof t.terrainType] ?? String(p.terrain_type)],
           [t.length, fmtKm(Number(p.km))],
           [t.costPerKm, fmtUsd(Number(p.cost_per_km), 0)],
         ],
