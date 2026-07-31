@@ -245,6 +245,23 @@ test.describe("F12b backend-schema label surfaces (es-PR)", () => {
  * long-form prose) elsewhere on the page.
  */
 test.describe("F12b global chrome (es-PR)", () => {
+  test("workspace pane hide-toggle title is translated, not 'Hide <label>'", async ({ page }) => {
+    // Round 3 caught resizable-pane.tsx hardcoding `Hide ${label}` even
+    // though `t.hidePane` already existed and every sibling toggle used it.
+    await page.goto("/water?lang=es-PR", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTitle(/Ocultar panel de agua/)).toBeAttached();
+    await expect(page.getByTitle(/^Hide /)).toHaveCount(0);
+  });
+
+  test("/sitefinder criterion tooltip has no English connector sentence", async ({ page }) => {
+    // Round 3 caught the criteria label/description/unit translated
+    // individually, but the "Shown per-parcel as: <unit>." sentence joining
+    // them was still hardcoded English inside the tooltip title.
+    await page.goto("/sitefinder?lang=es-PR", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTitle(/Se muestra por parcela como/).first()).toBeAttached();
+    await expect(page.getByTitle(/Shown per-parcel/)).toHaveCount(0);
+  });
+
   test("topbar last-sync renders in Spanish, not raw 'ago'/'never'", async ({ page }) => {
     await page.goto("/?lang=es-PR", { waitUntil: "domcontentloaded" });
     const topbar = page.locator("header[data-chrome]");

@@ -11,8 +11,14 @@ import { NarrativePanel } from "@/components/narrative-panel";
 import { ErrorBlock } from "@/components/query-state";
 import { api, ApiError, type AskResponse, type ConfidenceTierKey } from "@/lib/api";
 import { readParam } from "@/lib/url-state";
-import { useMessages } from "@/lib/i18n/context";
+import { useLocale, useMessages } from "@/lib/i18n/context";
 
+// English-only by design (F12c carve-out, not F12b's job): these are the
+// literal text sent verbatim to Ask PRISM's router, which doesn't yet
+// understand Spanish queries. Translating the chips would invite a
+// Spanish-speaking user to type a Spanish question the backend can't route —
+// see aboutSections.languageNote below for the on-screen honesty note this
+// implies under es-PR.
 const EXAMPLES = [
   "What happens if Palo Seco substation fails?",
   "What about my area in Mayagüez?",
@@ -38,6 +44,7 @@ const MAP_PAGE_BY_KIND: Record<string, string> = {
 
 export default function AskPage() {
   const t = useMessages().ask;
+  const { locale } = useLocale();
   const [query, setQuery] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
 
@@ -106,6 +113,7 @@ export default function AskPage() {
           t.aboutSections.whatThisIs,
           t.aboutSections.honest,
           t.aboutSections.needsBackend,
+          ...(locale === "es-PR" ? [t.aboutSections.languageNote] : []),
         ]}
       />
 

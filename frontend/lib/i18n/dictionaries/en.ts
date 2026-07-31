@@ -422,6 +422,13 @@ export const en = {
     // Client-side override for the backend's /provenance/tiers descriptions
     // (config/confidence.yml) — the long form shown on the tier cards here,
     // distinct from confidenceTiers' short chip-popover description above.
+    // Client-side override for config/anomalies.yml's closed 3-value
+    // severity enum (low/medium/high) on the exclusion-registry rows below.
+    anomalySeverity: {
+      low: "low",
+      medium: "medium",
+      high: "high",
+    } as Record<string, string>,
     tierDescriptions: {
       authoritative: "Government or federal data, measured directly (WFS layers, Census TIGER/ACS, USGS 3DEP, OSM/HIFLD geometry, FEMA flood zones). Rendered at full precision.",
       modeled: "PRISM's own computation over Authoritative inputs using a documented method (betweenness centrality, ILP optimization, Dijkstra cost-surface routing, VOLL exposure). Internally consistent and reproducible; correctness depends on the method and on its inputs' tiers.",
@@ -814,6 +821,8 @@ export const en = {
       dev_impact: "Community vulnerability (SVI) — siting where it helps most.",
       workable_days: "Estimated outdoor-work days per year at the nearest weather station (rain-day and heat-derate heuristic — see Trust Center).",
     } as Record<string, string>,
+    shownPerParcel: (unit: string): string => ` Shown per-parcel as: ${unit}.`,
+    weightAbbrev: "wt",
     criteriaUnits: {
       power_access: "km to nearest substation",
       grid_reliability: "nearest substation's Cat-3 risk score",
@@ -1611,6 +1620,10 @@ export const en = {
       needsBackend: {
         title: "Needs an AI backend",
         body: "If no LLM backend is configured (ANTHROPIC_API_KEY or a local Ollama via PRISM_LLM_BACKEND), Ask PRISM will say so rather than failing silently.",
+      },
+      languageNote: {
+        title: "English only, for now",
+        body: "Ask PRISM's router only understands English questions today — type your question in English even if you're browsing PRISM en Español. Spanish-language queries are on the roadmap (item F12c).",
       },
     },
     placeholder: "Ask about a substation, an owner, a parcel, the portfolio, or what changed recently...",

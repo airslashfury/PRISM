@@ -287,7 +287,7 @@ export function WorkspaceAside({
           collapsed={false}
           side="right"
           onToggle={toggle}
-          label={`Hide ${label}`}
+          label={t.hidePane(label)}
           shortcut="]"
           className="absolute left-0 top-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 shadow-sm md:inline-flex"
         />

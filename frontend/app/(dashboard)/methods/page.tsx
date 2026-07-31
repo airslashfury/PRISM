@@ -273,7 +273,7 @@ function ExcludedData() {
                     SEVERITY_STYLE[a.severity] ?? SEVERITY_STYLE.low
                   }`}
                 >
-                  {a.severity}
+                  {t.anomalySeverity[a.severity] ?? a.severity}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs font-medium text-foreground">{a.title}</span>

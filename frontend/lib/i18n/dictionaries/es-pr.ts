@@ -402,6 +402,11 @@ export const esPR: Messages = {
       proxy: "Aproximado",
       estimated: "Estimado",
     },
+    anomalySeverity: {
+      low: "baja",
+      medium: "media",
+      high: "alta",
+    },
     tierDescriptions: {
       authoritative: "Datos gubernamentales o federales, medidos directamente (capas WFS, TIGER/ACS del Censo, USGS 3DEP, geometría OSM/HIFLD, zonas inundables de FEMA). Se muestran con precisión total.",
       modeled: "Cómputo propio de PRISM sobre insumos Autoritativos usando un método documentado (centralidad de intermediación, optimización ILP, ruteo por superficie de costo de Dijkstra, exposición VOLL). Internamente consistente y reproducible; la exactitud depende del método y del nivel de sus insumos.",
@@ -783,6 +788,8 @@ export const esPR: Messages = {
       dev_impact: "Vulnerabilidad comunitaria (SVI) — ubicar donde más ayude.",
       workable_days: "Días laborables al aire libre estimados por año en la estación meteorológica más cercana (heurística de días de lluvia y derrateo por calor — ver Centro de Confianza).",
     },
+    shownPerParcel: (unit) => ` Se muestra por parcela como: ${unit}.`,
+    weightAbbrev: "peso",
     criteriaUnits: {
       power_access: "km a la subestación más cercana",
       grid_reliability: "puntuación de riesgo Cat-3 de la subestación más cercana",
@@ -1570,6 +1577,10 @@ export const esPR: Messages = {
       needsBackend: {
         title: "Necesita un backend de IA",
         body: "Si no hay un backend de LLM configurado (ANTHROPIC_API_KEY o un Ollama local vía PRISM_LLM_BACKEND), Preguntar a PRISM lo indicará en lugar de fallar en silencio.",
+      },
+      languageNote: {
+        title: "Solo en inglés, por ahora",
+        body: "El enrutador de Preguntar a PRISM solo entiende preguntas en inglés por ahora — escriba su pregunta en inglés aunque esté navegando PRISM en Español. Las consultas en español están en la hoja de ruta (punto F12c).",
       },
     },
     placeholder: "Pregunte sobre una subestación, un titular, una parcela, el portafolio, o qué cambió recientemente...",

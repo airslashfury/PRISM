@@ -383,14 +383,15 @@ function Slider({
   value: number;
   onChange: (v: number) => void;
 }) {
+  const t = useMessages().sitefinder;
   return (
-    <div className="px-1 py-1.5" title={unit ? `${description} Shown per-parcel as: ${unit}.` : description}>
+    <div className="px-1 py-1.5" title={unit ? `${description}${t.shownPerParcel(unit)}` : description}>
       <div className="mb-1 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-xs font-medium">
           {label}
           <ConfidenceChip tier={tier} />
         </span>
-        <span className="text-[11px] tnum text-muted-foreground">{value.toFixed(2)} wt</span>
+        <span className="text-[11px] tnum text-muted-foreground">{value.toFixed(2)} {t.weightAbbrev}</span>
       </div>
       <input
         type="range"
