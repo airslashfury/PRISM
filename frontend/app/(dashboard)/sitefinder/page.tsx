@@ -321,9 +321,9 @@ export default function SiteFinderPage() {
                 meta.data?.criteria.map((c) => (
                   <Slider
                     key={c.key}
-                    label={c.label}
-                    description={c.description}
-                    unit={c.unit}
+                    label={t.criteriaLabels[c.key] ?? c.label}
+                    description={t.criteriaDescriptions[c.key] ?? c.description}
+                    unit={t.criteriaUnits[c.key] ?? c.unit}
                     tier={c.tier}
                     value={weights[c.key] ?? 0}
                     onChange={(v) => setWeights((w) => ({ ...(w ?? {}), [c.key]: v }))}
@@ -489,7 +489,7 @@ function Scorecard({ parcelId, onBack }: { parcelId: number; onBack: () => void 
                 .map(([key, v]) => (
                   <SubscoreBar
                     key={key}
-                    label={key.replace(/_/g, " ")}
+                    label={t.criteriaLabels[key] ?? key.replace(/_/g, " ")}
                     value={v ?? 0}
                     tier={data.criteria_tiers[key]}
                     weight={data.weights[key] ?? 0}

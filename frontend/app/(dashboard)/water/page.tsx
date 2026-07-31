@@ -408,6 +408,9 @@ export default function WaterPage() {
                 {bannerSource.name ?? kindLabel(bannerSource.kind, t.kindLabel)}
                 <ProvenanceBadge table="resilience.water_scores" />
               </div>
+              {/* headline is a generated English sentence from
+                  prism/resilience/water.py build_water_risk_headline —
+                  F12c carve-out, not F12b's job (see that function's docstring). */}
               <div className="mt-0.5 text-sm font-medium text-foreground">{bannerSource.headline}</div>
             </div>
           )}

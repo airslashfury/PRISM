@@ -338,6 +338,9 @@ export default function TelecomPage() {
                 {bannerSource.name ?? kindLabel(bannerSource.kind, t.kindLabel)}
                 <ProvenanceBadge table="resilience.telecom_scores" />
               </div>
+              {/* headline is a generated English sentence from
+                  prism/resilience/telecom.py build_telecom_risk_headline —
+                  F12c carve-out, not F12b's job (see that function's docstring). */}
               <div className="mt-0.5 text-sm font-medium text-foreground">{bannerSource.headline}</div>
             </div>
           )}

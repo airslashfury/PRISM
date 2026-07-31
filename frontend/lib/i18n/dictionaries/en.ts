@@ -22,6 +22,7 @@ export const en = {
     apiOffline: "API offline",
     openNavigation: "Open navigation",
     closeNavigation: "Close navigation",
+    wordmarkTagline: "Infrastructure Intelligence",
     showPane: (label: string): string => `Show ${label}`,
     hidePane: (label: string): string => `Hide ${label}`,
     resizePane: (label: string): string => `Resize ${label}`,
@@ -495,6 +496,23 @@ export const en = {
       unchanged: "unchanged",
       unknown: "unknown",
     },
+    // Client-side override for the backend's closed 5-key knob set
+    // (prism/validate/assumptions.py _EDITABLE) — same pattern as
+    // confidenceTiers: stable keys, localized display strings only.
+    knobLabels: {
+      voll_usd_per_kwh: "Value of Lost Load (VOLL)",
+      discount_rate: "Discount rate (NPV)",
+      outage_hours_per_year: "Annual outage hours",
+      feeder_confidence_min: "Feeder-edge confidence floor",
+      hazard_scale: "Hazard probability scale",
+    } as Record<string, string>,
+    knobUnits: {
+      voll_usd_per_kwh: "USD/kWh",
+      discount_rate: "fraction/yr",
+      outage_hours_per_year: "hours/yr",
+      feeder_confidence_min: "min edge confidence",
+      hazard_scale: "× scenario hazard curve",
+    } as Record<string, string>,
     title: "Assumptions",
     headerDesc: "Every ranking in PRISM rests on a handful of estimated constants. Dial them here and re-run the affected scores to see which conclusions survive — a ranking that holds under pressure is one you can act on.",
     hazardScenario: "Hazard scenario",
@@ -547,6 +565,38 @@ export const en = {
   },
 
   playground: {
+    // Client-side override for closed backend key sets — same pattern as
+    // confidenceTiers. assetTypeLabels: prism/playground/registry.py's palette
+    // (rail/road/bridge/transmission + synthetic substation). paramLabels:
+    // the `label` field on every AssetTypeSchema param across prism/assets/*.
+    // interventionOptions: every enum param's `options` values.
+    assetTypeLabels: {
+      rail: "Rail",
+      road: "Road",
+      bridge: "Bridge",
+      transmission: "Transmission",
+      substation: "Substation",
+    } as Record<string, string>,
+    paramLabels: {
+      intervention_type: "Intervention type",
+      voltage_kv: "Voltage (kV)",
+      intervention: "Intervention",
+      lanes: "Lanes",
+      auto_route: "Auto-route to terrain",
+      span_m: "Span length (m)",
+      posted: "Load-posted",
+      capacity_mw: "Capacity (MW)",
+    } as Record<string, string>,
+    interventionOptions: {
+      redundant_feed: "Redundant feed",
+      hardening: "Hardening",
+      new_corridor: "New corridor",
+      relocation: "Relocation",
+    } as Record<string, string>,
+    opLabels: {
+      add: "Add",
+      remove: "Remove",
+    } as Record<string, string>,
     commitConfirm: "Commit this scenario as a reference plan? This is the one Playground action that writes to the live model: any drafted rail lines get permanent station entities (+ SERVES links to the nearest barrio) in the knowledge graph.",
     commitFailed: "Commit failed",
     whatIfFailed: "What-if check failed",
@@ -726,6 +776,48 @@ export const en = {
       svi: (v: string): string => `SVI ${v}`,
       perM2: (v: string): string => `$${v}/m²`,
     },
+    // Client-side override for the backend's closed 11-key criteria set
+    // (prism/sitefinder/query.py CRITERIA) — same pattern as confidenceTiers:
+    // the API keeps returning stable keys, only the display strings localize.
+    criteriaLabels: {
+      power_access: "Power access",
+      grid_reliability: "Grid reliability",
+      flood_safety: "Flood safety",
+      water_access: "Water access",
+      road_access: "Road access",
+      port_access: "Cargo port access",
+      bulk_port_access: "Bulk/petro port",
+      air_access: "Air cargo access",
+      land_value: "Land affordability",
+      dev_impact: "Development impact",
+      workable_days: "Workable construction days",
+    } as Record<string, string>,
+    criteriaDescriptions: {
+      power_access: "Proximity to the transmission grid (nearest substation).",
+      grid_reliability: "Hurricane Cat-3 resilience of the nearest substation (inverted risk).",
+      flood_safety: "Share of the parcel outside the FEMA 1% flood zone.",
+      water_access: "Proximity to a water plant or pump station.",
+      road_access: "Barrio road connectivity (travel-time proxy, inverted).",
+      port_access: "Proximity to a primary container/cargo port (San Juan, Ponce).",
+      bulk_port_access: "Proximity to a bulk/petrochemical port (Yabucoa, Guayanilla, Peñuelas) — for heavy industry.",
+      air_access: "Proximity to a commercial airport (SJU, Aguadilla, Ponce).",
+      land_value: "Lower CRIM assessed land value per m² = higher score. Requires CRIM parcel data (crim.parcelas).",
+      dev_impact: "Community vulnerability (SVI) — siting where it helps most.",
+      workable_days: "Estimated outdoor-work days per year at the nearest weather station (rain-day and heat-derate heuristic — see Trust Center).",
+    } as Record<string, string>,
+    criteriaUnits: {
+      power_access: "km to nearest substation",
+      grid_reliability: "nearest substation's Cat-3 risk score",
+      flood_safety: "% of parcel inside the 1% flood zone",
+      water_access: "km to nearest water plant",
+      road_access: "minutes travel time (barrio proxy)",
+      port_access: "km to nearest cargo port",
+      bulk_port_access: "km to nearest bulk/petro port",
+      air_access: "km to nearest airport",
+      land_value: "assessed land value per m²",
+      dev_impact: "barrio SVI, 0-1 (higher = more vulnerable)",
+      workable_days: "workable days per year",
+    } as Record<string, string>,
     airport: "Airport",
     bulkPetroPort: "Bulk/petro port",
     cargoPort: "Cargo port",
@@ -783,6 +875,14 @@ export const en = {
   },
 
   trends: {
+    // Client-side override for the backend's closed 4-value change_type enum
+    // (prism/crim/snapshots.py: new_parcel | sale | value_change | owner_change).
+    changeTypeLabels: {
+      new_parcel: "new parcel",
+      sale: "sale",
+      value_change: "value change",
+      owner_change: "owner change",
+    } as Record<string, string>,
     salesHotSpots: (period: string): string => `Sales hot spots · ${period}`,
     lastTwelveMonths: "last 12 months",
     recordedSales: "recorded sales",

@@ -384,7 +384,7 @@ export default function TrendsPage() {
                     <div className="flex flex-wrap gap-2 text-xs">
                       {Object.entries(data.recent_deltas.by_type).map(([k, v]) => (
                         <span key={k} className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5">
-                          {k.replace(/_/g, " ")}: <span className="tnum font-medium">{fmtInt(v, tag)}</span>
+                          {t.changeTypeLabels[k] ?? k.replace(/_/g, " ")}: <span className="tnum font-medium">{fmtInt(v, tag)}</span>
                         </span>
                       ))}
                     </div>
@@ -392,7 +392,7 @@ export default function TrendsPage() {
                       {data.recent_deltas.items.slice(0, 12).map((d, i) => (
                         <li key={i} className="flex items-center gap-2 text-[11px] text-muted-foreground">
                           <span className="w-24 shrink-0 truncate">{d.num_catastro}</span>
-                          <span className="min-w-0 flex-1 truncate">{d.change_type.replace(/_/g, " ")}{d.municipio ? ` · ${d.municipio}` : ""}</span>
+                          <span className="min-w-0 flex-1 truncate">{t.changeTypeLabels[d.change_type] ?? d.change_type.replace(/_/g, " ")}{d.municipio ? ` · ${d.municipio}` : ""}</span>
                           {d.delta_num != null && <span className="tnum">{d.delta_num > 0 ? "+" : ""}{fmtUsd(d.delta_num, 0)}</span>}
                         </li>
                       ))}

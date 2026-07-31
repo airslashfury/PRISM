@@ -175,7 +175,7 @@ const ES_PR_CHROME_ROUTES: { path: string; locator: (p: Page) => Locator }[] = [
   { path: "/economy", locator: (p) => p.getByText("Vulnerabilidad social promedio") },
   { path: "/water", locator: (p) => p.getByText("Riesgo de fuente de agua") },
   { path: "/telecom", locator: (p) => p.getByText("Riesgo de telecomunicaciones") },
-  { path: "/parcels", locator: (p) => p.getByPlaceholder(/Catastro, titular, o dirección/) },
+  { path: "/parcels", locator: (p) => p.getByPlaceholder(/Catastro, titular o dirección/) },
   { path: "/trends", locator: (p) => p.getByText(/mercado de propiedades/i) },
   { path: "/sitefinder", locator: (p) => p.getByText("Ponderar los criterios") },
   { path: "/portfolio", locator: (p) => p.getByText("Portafolio de inversión") },
@@ -201,6 +201,34 @@ test.describe("F12b chrome translation (es-PR)", () => {
       await expect(locator(page).first()).toBeVisible();
 
       expect(pageErrors, `uncaught page errors on ${path}: ${pageErrors.join("; ")}`).toEqual([]);
+    });
+  }
+});
+
+/**
+ * F12b gate follow-up: closed backend key sets (criteria/knobs/asset-types/
+ * change-types) are translated client-side by key, same pattern as
+ * confidenceTiers — but the page-chrome-heading assertions above would pass
+ * even if these panels stayed English, since they render below the fold or
+ * behind live data. One assertion per surface so this class of leak can't
+ * silently come back.
+ */
+const ES_PR_BACKEND_LABEL_ROUTES: { path: string; locator: (p: Page) => Locator }[] = [
+  // /sitefinder criteria slider — prism/sitefinder/query.py CRITERIA labels
+  { path: "/sitefinder", locator: (p) => p.getByText("Acceso eléctrico") },
+  // /assumptions knob — prism/validate/assumptions.py _EDITABLE labels
+  { path: "/assumptions", locator: (p) => p.getByText("Valor de la carga perdida (VOLL)") },
+  // /playground asset palette — prism/playground/registry.py asset_type_schemas()
+  { path: "/playground", locator: (p) => p.getByText("Ferroviario", { exact: true }) },
+  // /trends month-over-month chips — prism/crim/snapshots.py change_type enum
+  { path: "/trends", locator: (p) => p.getByText(/cambio de (valor|titular)/) },
+];
+
+test.describe("F12b backend-schema label surfaces (es-PR)", () => {
+  for (const { path, locator } of ES_PR_BACKEND_LABEL_ROUTES) {
+    test(`${path} translates its backend-schema labels`, async ({ page }) => {
+      await page.goto(`${path}?lang=es-PR`, { waitUntil: "domcontentloaded" });
+      await expect(locator(page).first()).toBeVisible();
     });
   }
 });

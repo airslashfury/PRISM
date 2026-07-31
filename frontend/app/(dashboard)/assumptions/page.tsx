@@ -324,7 +324,7 @@ function KnobSlider({
     <div>
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          {knob.label}
+          {t.knobLabels[knob.key] ?? knob.label}
           {knob.stored_stability && <StabilityBadge stability={knob.stored_stability} />}
         </label>
         <span className={`tnum text-sm font-semibold ${edited ? "text-primary" : ""}`}>
@@ -344,7 +344,7 @@ function KnobSlider({
       <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
         <span>
           {t.baselinePrefix}{knob.baseline != null ? fmtKnob(knob.key, knob.baseline, tag) : "—"}
-          {knob.unit ? ` · ${knob.unit}` : ""}
+          {knob.unit ? ` · ${t.knobUnits[knob.key] ?? knob.unit}` : ""}
         </span>
         <span>{knob.affects_ranking ? t.canReorderRankings : t.dollarsOnly}</span>
       </div>

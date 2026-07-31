@@ -14,6 +14,7 @@ export const esPR: Messages = {
     apiOffline: "API fuera de línea",
     openNavigation: "Abrir navegación",
     closeNavigation: "Cerrar navegación",
+    wordmarkTagline: "Inteligencia de Infraestructura",
     showPane: (label) => `Mostrar ${label}`,
     hidePane: (label) => `Ocultar ${label}`,
     resizePane: (label) => `Redimensionar ${label}`,
@@ -404,9 +405,9 @@ export const esPR: Messages = {
     loadingTrustCenter: "Cargando centro de confianza",
     trustCenter: "Centro de Confianza",
     headerDesc: (n) =>
-      `Cada cifra que muestra PRISM está respaldada por uno de los cuatro niveles siguientes. El nivel de un número es el nivel de su insumo requerido más débil — una puntuación compuesta construida sobre una relación Aproximada es en sí misma Aproximada, aun cuando todos los demás insumos sean Autoritativos. Esta página es el índice en vivo: cada modelo y cada una de las ${n} capas de datos mirados por PRISM, con su método, nivel de confianza y qué lo mejoraría.`,
+      `Cada cifra que muestra PRISM está respaldada por uno de los cuatro niveles siguientes. El nivel de un número es el nivel de su insumo requerido más débil — una puntuación compuesta construida sobre una relación Aproximada es en sí misma Aproximada, aun cuando todos los demás insumos sean Autoritativos. Esta página es el índice en vivo: cada modelo y cada una de las ${n} capas de datos replicadas por PRISM, con su método, nivel de confianza y qué lo mejoraría.`,
     calibrationLink: "Calibración y Validación — pruebas retrospectivas de eventos, barridos de sensibilidad y fichas por modelo →",
-    syncLink: "Registro de fuentes de datos — intervalos de sincronización, últimas horas de extracción, e historial de recalificación →",
+    syncLink: "Registro de fuentes de datos — intervalos de sincronización, últimas horas de extracción e historial de recalificación →",
     aboutTrustCenter: "Sobre el Centro de Confianza",
     infoSections: {
       whatThisIs: {
@@ -458,7 +459,7 @@ export const esPR: Messages = {
     dataset: "Conjunto de datos: ",
     enforcedAt: "Aplicado en: ",
     countsMeasured: (date) => `Conteos medidos el ${date}. Registro: config/anomalies.yml`,
-    dataInventory: (n) => `Inventario de datos (${n} capas mirroreadas)`,
+    dataInventory: (n) => `Inventario de datos (${n} capas replicadas localmente)`,
     show: "Mostrar",
     invColumns: {
       layer: "Capa",
@@ -477,6 +478,20 @@ export const esPR: Messages = {
       sensitive: "sensible",
       unchanged: "sin cambio",
       unknown: "desconocido",
+    },
+    knobLabels: {
+      voll_usd_per_kwh: "Valor de la carga perdida (VOLL)",
+      discount_rate: "Tasa de descuento (VPN)",
+      outage_hours_per_year: "Horas de interrupción anuales",
+      feeder_confidence_min: "Piso de confianza del alimentador",
+      hazard_scale: "Escala de probabilidad de riesgo",
+    },
+    knobUnits: {
+      voll_usd_per_kwh: "USD/kWh",
+      discount_rate: "fracción/año",
+      outage_hours_per_year: "horas/año",
+      feeder_confidence_min: "confianza mínima del borde",
+      hazard_scale: "× curva de riesgo del escenario",
     },
     title: "Supuestos",
     headerDesc: "Cada clasificación en PRISM se apoya en un puñado de constantes estimadas. Ajústelas aquí y vuelva a ejecutar las puntuaciones afectadas para ver qué conclusiones sobreviven — una clasificación que se mantiene bajo presión es una sobre la que puede actuar.",
@@ -530,6 +545,33 @@ export const esPR: Messages = {
   },
 
   playground: {
+    assetTypeLabels: {
+      rail: "Ferroviario",
+      road: "Vial",
+      bridge: "Puente",
+      transmission: "Transmisión",
+      substation: "Subestación",
+    },
+    paramLabels: {
+      intervention_type: "Tipo de intervención",
+      voltage_kv: "Voltaje (kV)",
+      intervention: "Intervención",
+      lanes: "Carriles",
+      auto_route: "Enrutar automáticamente según el terreno",
+      span_m: "Longitud del tramo (m)",
+      posted: "Con restricción de carga",
+      capacity_mw: "Capacidad (MW)",
+    },
+    interventionOptions: {
+      redundant_feed: "Alimentador redundante",
+      hardening: "Refuerzo",
+      new_corridor: "Corredor nuevo",
+      relocation: "Reubicación",
+    },
+    opLabels: {
+      add: "Agregar",
+      remove: "Eliminar",
+    },
     commitConfirm: "¿Confirmar este escenario como un plan de referencia? Esta es la única acción de Playground que escribe en el modelo en vivo: cualquier línea ferroviaria dibujada obtiene entidades de estación permanentes (+ enlaces SERVES al barrio más cercano) en el grafo de conocimiento.",
     commitFailed: "Falló la confirmación",
     whatIfFailed: "Falló la verificación hipotética",
@@ -709,6 +751,45 @@ export const esPR: Messages = {
       svi: (v) => `SVI ${v}`,
       perM2: (v) => `$${v}/m²`,
     },
+    criteriaLabels: {
+      power_access: "Acceso eléctrico",
+      grid_reliability: "Confiabilidad de la red",
+      flood_safety: "Seguridad ante inundaciones",
+      water_access: "Acceso a agua",
+      road_access: "Acceso vial",
+      port_access: "Acceso a puerto de carga",
+      bulk_port_access: "Puerto de granel/petróleo",
+      air_access: "Acceso a carga aérea",
+      land_value: "Costo del terreno",
+      dev_impact: "Impacto en el desarrollo",
+      workable_days: "Días laborables de construcción",
+    },
+    criteriaDescriptions: {
+      power_access: "Proximidad a la red de transmisión (subestación más cercana).",
+      grid_reliability: "Resiliencia ante huracán Cat-3 de la subestación más cercana (riesgo invertido).",
+      flood_safety: "Porcentaje de la parcela fuera de la zona inundable del 1% de FEMA.",
+      water_access: "Proximidad a una planta de agua o estación de bombeo.",
+      road_access: "Conectividad vial del barrio (aproximación de tiempo de viaje, invertida).",
+      port_access: "Proximidad a un puerto de carga/contenedores principal (San Juan, Ponce).",
+      bulk_port_access: "Proximidad a un puerto de granel/petroquímico (Yabucoa, Guayanilla, Peñuelas) — para industria pesada.",
+      air_access: "Proximidad a un aeropuerto comercial (SJU, Aguadilla, Ponce).",
+      land_value: "Menor valor tasado de CRIM por m² = mayor puntuación. Requiere datos de parcelas de CRIM (crim.parcelas).",
+      dev_impact: "Vulnerabilidad comunitaria (SVI) — ubicar donde más ayude.",
+      workable_days: "Días laborables al aire libre estimados por año en la estación meteorológica más cercana (heurística de días de lluvia y derrateo por calor — ver Centro de Confianza).",
+    },
+    criteriaUnits: {
+      power_access: "km a la subestación más cercana",
+      grid_reliability: "puntuación de riesgo Cat-3 de la subestación más cercana",
+      flood_safety: "% de la parcela dentro de la zona inundable del 1%",
+      water_access: "km a la planta de agua más cercana",
+      road_access: "minutos de tiempo de viaje (aproximación por barrio)",
+      port_access: "km al puerto de carga más cercano",
+      bulk_port_access: "km al puerto de granel/petróleo más cercano",
+      air_access: "km al aeropuerto más cercano",
+      land_value: "valor tasado del terreno por m²",
+      dev_impact: "SVI del barrio, 0-1 (mayor = más vulnerable)",
+      workable_days: "días laborables por año",
+    },
     airport: "Aeropuerto",
     bulkPetroPort: "Puerto de granel/petróleo",
     cargoPort: "Puerto de carga",
@@ -766,6 +847,12 @@ export const esPR: Messages = {
   },
 
   trends: {
+    changeTypeLabels: {
+      new_parcel: "parcela nueva",
+      sale: "venta",
+      value_change: "cambio de valor",
+      owner_change: "cambio de titular",
+    },
     salesHotSpots: (period) => `Puntos calientes de venta · ${period}`,
     lastTwelveMonths: "últimos 12 meses",
     recordedSales: "ventas registradas",
@@ -838,7 +925,7 @@ export const esPR: Messages = {
     panelLabel: "panel de parcelas",
     tabSearch: "Buscar",
     tabSearchByAddress: "Buscar por dirección",
-    freeSearchPlaceholder: "Catastro, titular, o dirección…",
+    freeSearchPlaceholder: "Catastro, titular o dirección…",
     addressStreetPlaceholder: "Número + calle (por ejemplo, 101 Calle Fortaleza)",
     municipioPlaceholder: "Municipio",
     urbPlaceholder: "Urbanización (opcional)",
@@ -847,7 +934,7 @@ export const esPR: Messages = {
     infoSectionsMain: {
       whatThisIs: {
         title: "Qué es esto",
-        body: "Cada parcela en el registro del Catastro de CRIM de Puerto Rico (~1.5M). Busque por número de catastro, titular, o dirección; las coincidencias se iluminan en el mapa. Busque un titular para ver todas sus propiedades.",
+        body: "Cada parcela en el registro del Catastro de CRIM de Puerto Rico (~1.5M). Busque por número de catastro, titular o dirección; las coincidencias se iluminan en el mapa. Busque un titular para ver todas sus propiedades.",
       },
       whatYouGet: {
         title: "Qué obtiene",
@@ -1534,13 +1621,10 @@ export const esPR: Messages = {
       },
       honest: {
         title: "Honesto por diseño",
-        // Quotes the literal English word still shown on the chip itself
-        // ("Proxy") rather than a translated "Aproximado" — ConfidenceChip's
-        // tier labels come from a backend call with an English fallback and
-        // are F12b's job, not F12a's. Translating this sentence without
-        // translating the chip would have the honesty copy point at a label
-        // that isn't on screen.
-        body: 'Esto es informativo, no una predicción sobre la cual debe actuar. La etiqueta de color en cada cifra indica qué tan sólida es — la etiqueta "Proxy" significa que PRISM estimó algo (como qué subestación sirve esta área) porque el dato real no es público. Haga clic en una etiqueta para más detalles.',
+        // Quotes the chip's own es-PR label ("Aproximado"), not "Proxy" —
+        // ConfidenceChip's tier labels are dictionary-driven since F12b
+        // (see confidenceTiers below), so this must match what's on screen.
+        body: 'Esto es informativo, no una predicción sobre la cual debe actuar. La etiqueta de color en cada cifra indica qué tan sólida es — la etiqueta "Aproximado" significa que PRISM estimó algo (como qué subestación sirve esta área) porque el dato real no es público. Haga clic en una etiqueta para más detalles.',
       },
       notEmergency: {
         title: "No es un aviso de emergencia",

@@ -58,6 +58,10 @@ def build_telecom_risk_headline(row: dict[str, Any]) -> str:
 
     `row` keys: barrios_covered, hazard_score, power_dependency.
     Clauses that don't apply are omitted.
+
+    English-only by design (F12c carve-out, not F12b's job): a generated
+    closed-form sentence, same category as build_water_risk_headline in
+    prism/resilience/water.py — see that docstring for the rationale.
     """
     barrios = row.get("barrios_covered", 0) or 0
     hazard_score = row.get("hazard_score", 0.0) or 0.0

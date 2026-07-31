@@ -85,6 +85,7 @@ function ParamForm({
   params: Record<string, unknown>;
   onChange: (p: Record<string, unknown>) => void;
 }) {
+  const t = useMessages().playground;
   const paramDefs = schema.params ?? [];
   if (!paramDefs.length) return null;
   return (
@@ -92,7 +93,7 @@ function ParamForm({
       {paramDefs.map((p) => {
         const name = String(p.name);
         const type = String(p.type);
-        const label = String(p.label ?? name);
+        const label = t.paramLabels[name] ?? String(p.label ?? name);
         const value = params[name];
 
         if (type === "enum") {
@@ -106,7 +107,7 @@ function ParamForm({
                 </SelectTrigger>
                 <SelectContent>
                   {options.map((o) => (
-                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                    <SelectItem key={o} value={o}>{t.interventionOptions[o] ?? o}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -517,9 +518,11 @@ export default function PlaygroundPage() {
     if (info.layer?.id === "playground-assets") {
       const p = (info.object as { properties?: Record<string, unknown> })?.properties;
       if (!p) return null;
+      const assetType = String(p.asset_type);
+      const op = String(p.op);
       return tip(
-        [[t.op, String(p.op)], [t.assetId, String(p.asset_id)]],
-        String(p.asset_type),
+        [[t.op, t.opLabels[op] ?? op], [t.assetId, String(p.asset_id)]],
+        t.assetTypeLabels[assetType] ?? assetType,
       );
     }
     return null;
@@ -679,7 +682,7 @@ export default function PlaygroundPage() {
                         }`}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
-                        <span className="capitalize">{at.asset_type}</span>
+                        <span className="capitalize">{t.assetTypeLabels[at.asset_type] ?? at.asset_type}</span>
                       </button>
                     );
                   })}
@@ -738,7 +741,9 @@ export default function PlaygroundPage() {
                   <div className="space-y-1.5">
                     {detail.assets.map((a) => (
                       <div key={a.asset_id} className="flex items-center justify-between rounded-md border border-border/60 bg-background/30 px-2.5 py-1.5 text-xs">
-                        <span className="capitalize">{a.asset_type} · {a.op}</span>
+                        <span className="capitalize">
+                          {t.assetTypeLabels[a.asset_type] ?? a.asset_type} · {t.opLabels[a.op] ?? a.op}
+                        </span>
                         <button onClick={() => handleDeleteAsset(a.asset_id)} className="text-muted-foreground hover:text-destructive">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
