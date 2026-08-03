@@ -1098,7 +1098,7 @@ export const esPR: Messages = {
       cluster: {
         title: "Oficiales en común",
         intro: (corpName, n) =>
-          `${corpName} comparte al menos dos oficiales o incorporadores nombrados con ${n} ${n === 1 ? "otra empresa registrada" : "otras empresas registradas"} — directamente, o a través de una cadena de vínculos similares — suficiente para ser una pista real, no una coincidencia.`,
+          `${corpName} comparte al menos dos oficiales o incorporadores nombrados con ${n === 1 ? "otra empresa registrada" : `otras ${n} empresas registradas`} — directamente, o a través de una cadena de vínculos similares — suficiente para ser una pista real, no una coincidencia.`,
         spansMultipleOwners: (n) =>
           `${n} de ${n === 1 ? "ellas pertenece" : "ellas pertenecen"}, según los registros de CRIM, a un titular distinto al que usted está viendo — posiblemente el mismo operador trabajando a través de otra empresa.`,
         unmatchedSiblings: (n) =>
