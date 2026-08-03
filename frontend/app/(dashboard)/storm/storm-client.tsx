@@ -15,6 +15,9 @@ import { useStorm } from "@/lib/hooks";
 import { fmtDateTime, fmtInt } from "@/lib/utils";
 import type { StormTrackPoint } from "@/lib/api";
 import { usePulse, usePrefersReducedMotion } from "@/lib/map-motion";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const CONE_RGB: [number, number, number] = [251, 191, 36];
 const TRACK_RGB: [number, number, number] = [255, 255, 255];
@@ -36,6 +39,9 @@ const CONE_STATIC_ALPHA = 22;
 const POSITION_PULSE_MS = 2400;
 
 export default function StormPage() {
+  const t = useMessages().storm;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useStorm();
   const reducedMotion = usePrefersReducedMotion();
 
@@ -162,10 +168,10 @@ export default function StormPage() {
     if (!d) return null;
     return tip(
       [
-        ["Valid", fmtDateTime(d.valid_at)],
-        ["Max wind", d.max_wind_kt != null ? `${d.max_wind_kt} kt` : "—"],
+        [t.valid, fmtDateTime(d.valid_at, tag)],
+        [t.maxWindTooltip, d.max_wind_kt != null ? `${d.max_wind_kt} kt` : "—"],
       ],
-      d.label ?? `Point ${d.seq}`,
+      d.label ?? t.pointFallback(d.seq),
     );
   };
 
@@ -186,45 +192,45 @@ export default function StormPage() {
                 <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   {data?.active ? (
                     <>
-                      Active storm
+                      {t.activeStorm}
                       <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                     </>
                   ) : (
-                    "Storm feed"
+                    t.stormFeed
                   )}
                 </div>
                 {advisory.replay && (
                   <Badge variant="warning" className="mt-1">
-                    HISTORICAL REPLAY
+                    {t.historicalReplay}
                   </Badge>
                 )}
                 <div className="mt-1 text-lg font-semibold">
                   {advisory.replay ? (
                     <>
-                      {advisory.storm_name ?? "Unnamed storm"} ({advisory.storm_id})
+                      {advisory.storm_name ?? t.unnamedStorm} ({advisory.storm_id})
                       {issuedYear && <span className="text-muted-foreground"> — {issuedYear}</span>}
                     </>
                   ) : (
                     <>
-                      {advisory.storm_name ?? "Unnamed storm"}
-                      <span className="text-muted-foreground"> · advisory #{advisory.advisory_num}</span>
+                      {advisory.storm_name ?? t.unnamedStorm}
+                      <span className="text-muted-foreground"> · {t.advisoryNum(advisory.advisory_num)}</span>
                     </>
                   )}
                 </div>
                 <div className="mt-0.5 space-y-0.5 text-[11px] text-muted-foreground">
                   {advisory.classification && <div>{advisory.classification}</div>}
-                  {advisory.max_wind_kt != null && <div>Max wind: {advisory.max_wind_kt} kt</div>}
+                  {advisory.max_wind_kt != null && <div>{t.maxWind(advisory.max_wind_kt)}</div>}
                   {advisory.min_pressure_mb != null && (
-                    <div>Min pressure: {advisory.min_pressure_mb} mb</div>
+                    <div>{t.minPressure(advisory.min_pressure_mb)}</div>
                   )}
                 </div>
               </>
             ) : (
               <>
                 <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Storm feed
+                  {t.stormFeed}
                 </div>
-                <div className="mt-0.5 text-lg font-semibold text-emerald-400">No active system</div>
+                <div className="mt-0.5 text-lg font-semibold text-emerald-400">{t.noActiveSystem}</div>
               </>
             )}
           </div>
@@ -233,7 +239,7 @@ export default function StormPage() {
           {consequence?.headline && (
             <div className="pointer-events-auto absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
               <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                Pre-landfall consequence
+                {t.preLandfallConsequence}
                 <ProvenanceBadge table="sync.nhc_consequences" />
               </div>
               <div className="mt-0.5 text-sm font-medium text-foreground">{consequence.headline}</div>
@@ -242,15 +248,18 @@ export default function StormPage() {
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[380px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="storm"
+        defaultWidth={380}
+        label={t.panelLabel}
+      >
         <div className="border-b border-border/70 p-4">
           <div className="flex items-center gap-2">
             <Wind className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">Live storm</h2>
+            <h2 className="text-sm font-semibold">{t.liveStorm}</h2>
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-            The live NHC forecast cone over PRISM&apos;s grid — which substations, hospitals, and
-            people fall inside the probable track area.
+            {t.liveStormDesc}
           </p>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -264,11 +273,9 @@ export default function StormPage() {
           {!isLoading && !error && advisory === null && (
             <div className="border-b border-border/50 px-4 py-6 text-center">
               <Wind className="mx-auto h-6 w-6 text-muted-foreground/60" />
-              <div className="mt-2 text-sm font-medium">No storm on the board</div>
+              <div className="mt-2 text-sm font-medium">{t.noStormOnBoard}</div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                No active Atlantic/Caribbean system currently threatens Puerto Rico. The NHC feed
-                polls automatically during hurricane season — this page will populate the moment a
-                PR-affecting advisory is issued.
+                {t.noStormDesc}
               </p>
             </div>
           )}
@@ -277,38 +284,38 @@ export default function StormPage() {
             <div className="space-y-4 p-4">
               {consequence && (
                 <PanelBox
-                  title="In the cone's path"
+                  title={t.inConePath}
                   badge={<ProvenanceBadge table="sync.nhc_consequences" />}
                   className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
                   style={{ animationDelay: "0ms", animationFillMode: "backwards" }}
                 >
-                  <Row label="Substations" value={fmtInt(consequence.n_substations)} />
-                  <Row label="— in surge field" value={fmtInt(consequence.n_substations_surge)} />
-                  <Row label="Hospitals" value={fmtInt(consequence.n_hospitals)} />
-                  <Row label="Water plants" value={fmtInt(consequence.n_water_plants)} />
-                  <Row label="Health centers" value={fmtInt(consequence.n_health_centers)} />
-                  <Row label="Barrios" value={fmtInt(consequence.n_barrios)} />
+                  <Row label={t.substations} value={fmtInt(consequence.n_substations, tag)} />
+                  <Row label={t.inSurgeField} value={fmtInt(consequence.n_substations_surge, tag)} />
+                  <Row label={t.hospitals} value={fmtInt(consequence.n_hospitals, tag)} />
+                  <Row label={t.waterPlants} value={fmtInt(consequence.n_water_plants, tag)} />
+                  <Row label={t.healthCenters} value={fmtInt(consequence.n_health_centers, tag)} />
+                  <Row label={t.barrios} value={fmtInt(consequence.n_barrios, tag)} />
                   <Row
-                    label="Population"
+                    label={t.population}
                     value={
                       consequence.population_served > 3_000_000
-                        ? "island-scale"
-                        : fmtInt(consequence.population_served)
+                        ? t.islandScale
+                        : fmtInt(consequence.population_served, tag)
                     }
                   />
                 </PanelBox>
               )}
 
               <PanelBox
-                title="Advisory"
+                title={t.advisory}
                 className="animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
                 style={{ animationDelay: consequence ? "40ms" : "0ms", animationFillMode: "backwards" }}
               >
-                <Row label="Storm ID" value={advisory.storm_id} />
-                <Row label="Advisory #" value={advisory.advisory_num} />
-                <Row label="Issued" value={fmtDateTime(advisory.issued_at)} />
-                <Row label="Fetched" value={fmtDateTime(advisory.fetched_at)} />
-                <Row label="Mode" value={advisory.replay ? "Historical replay" : "Live"} />
+                <Row label={t.stormId} value={advisory.storm_id} />
+                <Row label={t.advisoryHash} value={advisory.advisory_num} />
+                <Row label={t.issued} value={fmtDateTime(advisory.issued_at, tag)} />
+                <Row label={t.fetched} value={fmtDateTime(advisory.fetched_at, tag)} />
+                <Row label={t.mode} value={advisory.replay ? t.historicalReplayMode : t.live} />
               </PanelBox>
             </div>
           )}
@@ -316,23 +323,14 @@ export default function StormPage() {
           <div className="p-4 pt-0">
             <InfoPanel
               sections={[
-                {
-                  title: "What this is",
-                  body: "The amber shape is NHC's official forecast cone — the probable path of the storm's center over the next several days. It is NOT the wind field: damaging winds and flooding extend well beyond the cone's edge, and areas outside it are not necessarily safe.",
-                },
-                {
-                  title: "How it's calculated",
-                  body: "Consequence counts every substation, hospital, water plant, health center, and barrio whose location falls inside the current cone polygon, plus a narrower surge-exposed subset for coastal substations. This is a proxy-tier spatial intersection, not a wind-speed or flood-depth model.",
-                },
-                {
-                  title: "Data sources & accuracy",
-                  body: "The cone and track are pulled directly from NHC's official advisory feed — authoritative for the storm itself. Replay mode (shown when the current advisory is marked HISTORICAL REPLAY) exercises this same pipeline against Hurricane Fiona's 2022 advisories between live storms, so the page is never empty of a working example.",
-                },
+                t.infoSections.whatThisIs,
+                t.infoSections.howCalculated,
+                t.infoSections.sources,
               ]}
             />
           </div>
         </div>
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }

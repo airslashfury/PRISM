@@ -8,6 +8,9 @@ Examples:
   python -m prism.report --compare-runs 1 2 --labels voll equity
   python -m prism.report --flagship               # escalate to Opus
   python -m prism.report --list-runs              # show available portfolio runs
+  python -m prism.report --monthly                # monthly change report (current month)
+  python -m prism.report --monthly --month 2026-07
+  python -m prism.report --monthly --out some/dir
 """
 from __future__ import annotations
 
@@ -50,6 +53,28 @@ def _latest_run_id(engine, scenario_name: str) -> int | None:
     return row[0] if row else None
 
 
+def _run_monthly(engine, month: str | None, out: str | None) -> None:
+    from pathlib import Path
+
+    from prism.report.monthly import build_monthly_report, write_report
+
+    report = build_monthly_report(engine, month)
+    manifest = write_report(report, Path(out) if out else None)
+
+    print(f"Monthly change report — {report['month_label']}")
+    for key, sec in report["sections"].items():
+        if sec["available"]:
+            print(f"  {key:20s} ok")
+        else:
+            print(f"  {key:20s} — {sec['reason']}")
+    if report["empty"]:
+        # An honest empty report, not a crash and not fabricated zeros.
+        print()
+        print("Nothing to report for this month; the artifacts say so explicitly.")
+    print()
+    print(f"Wrote {len(manifest['files']) + 1} files to {manifest['dir']}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="PRISM Phase 7 — Decision Intelligence")
     p.add_argument("--scenario",      default="cat3",
@@ -67,6 +92,13 @@ def main() -> None:
                    help="Escalate to Opus for partner-facing output")
     p.add_argument("--list-runs",     action="store_true",
                    help="List available portfolio runs and exit")
+    p.add_argument("--monthly",       action="store_true",
+                   help="Build the monthly change report (CSVs + HTML) and exit (F14c)")
+    p.add_argument("--month",         default=None, metavar="YYYY-MM",
+                   help="Reporting month for --monthly (default: the current month)")
+    p.add_argument("--out",           default=None, metavar="DIR",
+                   help="Output directory for --monthly "
+                        "(default: data/derived/reports/<YYYY-MM>)")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args()
 
@@ -80,6 +112,10 @@ def main() -> None:
 
     if args.list_runs:
         _list_runs(engine)
+        return
+
+    if args.monthly:
+        _run_monthly(engine, args.month, args.out)
         return
 
     from prism.report.narrative import generate_narrative

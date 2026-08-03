@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import os
 
+from datetime import date, timedelta
+
 from arq import cron
 from arq.connections import RedisSettings
 
@@ -160,9 +162,14 @@ async def sync_luma_outages(ctx: dict) -> dict:
     """
     from prism.sync.luma_ops import sync_luma_outages as _sync_luma
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = _sync_luma(engine, mirror=False)
+        with track_pull(engine, "luma_outages") as pull:
+            summary = _sync_luma(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled LUMA sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -180,9 +187,14 @@ async def sync_nwis_gauges(ctx: dict) -> dict:
     """
     from prism.sync.nwis import sync_nwis
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_nwis(engine, mirror=False)
+        with track_pull(engine, "nwis_gauges") as pull:
+            summary = sync_nwis(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled NWIS sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -201,9 +213,14 @@ async def sync_climate_normals(ctx: dict) -> dict:
     """
     from prism.sync.climate import sync_climate
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_climate(engine, mirror=False)
+        with track_pull(engine, "climate_normals") as pull:
+            summary = sync_climate(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled climate normals sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -245,6 +262,53 @@ async def check_stalled_pulls(ctx: dict) -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def build_monthly_change_report(ctx: dict, month: str | None = None) -> dict:
+    """Monthly: build the change report for the month that just ENDED (F14c).
+
+    The month is explicit, and defaults to the previous one. Firing on the 2nd
+    with no argument would otherwise report the *current* month — one day of
+    contracts, and none of the 6,990 the month just finished with. The parcel
+    section is snapshot-scoped so it would have resolved either way, which is
+    exactly what made the bug survive a review.
+
+    Writes to a host bind mount so the artifact survives the container; the API
+    serves the same content from the same builder on demand, so a missing mount
+    degrades the artifact, not the product.
+    """
+    from prism.alerts import send_alert
+    from prism.report.monthly import build_monthly_report, write_report
+
+    engine = get_engine()
+    if month is None:
+        today = date.today().replace(day=1)
+        month = (today - timedelta(days=1)).strftime("%Y-%m")
+    try:
+        report = build_monthly_report(engine, month)
+        manifest = write_report(report)
+        totals = report["sections"]["parcel_ownership"]["totals"]
+        contracts = report["sections"]["contracts_added"]["totals"]
+        headline = (
+            f"Monthly change report ready for {report['month_label']}: "
+            f"{totals.get('owner_change_substantive', 0):,} ownership changes, "
+            f"{contracts.get('contracts', 0):,} contracts granted"
+            if not report["empty"]
+            else f"Monthly change report for {report['month_label']}: nothing changed"
+        )
+        send_alert(
+            engine,
+            kind="monthly_report",
+            dedup_key=report["month"],
+            headline=headline,
+            detail=f"{len(manifest['files']) + 1} files in {manifest['dir']}",
+            href=f"/reports/monthly/{report['month']}/html",
+        )
+        log.info("Monthly change report: %s", headline)
+        return {"status": "ok", "month": report["month"], "files": manifest["files"]}
+    except Exception as exc:  # don't let one bad pass kill the cron
+        log.warning("Monthly change report failed: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
 async def sync_prepa_generation(ctx: dict) -> dict:
     """Scheduled pull of the PREPA/Genera live generation feed.
 
@@ -258,9 +322,14 @@ async def sync_prepa_generation(ctx: dict) -> dict:
     """
     from prism.sync.prepa_ops import sync_generation_status
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_generation_status(engine, mirror=False)
+        with track_pull(engine, "prepa_generation") as pull:
+            summary = sync_generation_status(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled PREPA sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -279,9 +348,14 @@ async def sync_nhc_feed(ctx: dict) -> dict:
     """
     from prism.sync.nhc import sync_nhc
 
+    from prism.sync.http import track_pull
+
     engine = get_engine()
     try:
-        summary = sync_nhc(engine, mirror=False)
+        with track_pull(engine, "nhc_advisories") as pull:
+            summary = sync_nhc(engine, mirror=False)
+            pull.detail.update({k: v for k, v in summary.items()
+                                if isinstance(v, (int, float, str, bool))})
         log.info("Scheduled NHC sync: %s", summary)
         return summary
     except Exception as exc:  # don't let one bad fetch kill the cron
@@ -307,6 +381,7 @@ class WorkerSettings:
         sync_climate_normals,
         check_stale_feeds,
         check_stalled_pulls,
+        build_monthly_change_report,
     ]
     cron_jobs = [
         # Track the live PREPA (supply) + LUMA (delivery) feeds every
@@ -337,6 +412,11 @@ class WorkerSettings:
         # lag is at most one interval past the pull's own staleness threshold —
         # ample for a walk measured in days, and it costs two SELECTs.
         cron(check_stalled_pulls, minute={10, 40}),
+        # The monthly change report (F14c). Fires on the 2nd rather than the 1st
+        # so the CRIM snapshot/delta cycle for the new month has landed first —
+        # a report built the instant the month rolls over would have nothing to
+        # diff and would correctly, but uselessly, say so.
+        cron(build_monthly_change_report, day={2}, hour={6}, minute={0}),
     ]
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     max_jobs = 2

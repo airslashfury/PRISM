@@ -25,7 +25,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -34,6 +33,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from prism.sync.schema import create_schema
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +41,6 @@ LUMA_URL = (
     "https://api.miluma.lumapr.com/miluma-outage-api/outage/regionsWithoutService"
 )
 _RAW_DIR = Path("data/raw/luma_ops")
-_UA = "Mozilla/5.0 (PRISM infrastructure simulation; data-sovereignty mirror)"
 
 
 # --------------------------------------------------------------------------- #
@@ -49,12 +48,11 @@ _UA = "Mozilla/5.0 (PRISM infrastructure simulation; data-sovereignty mirror)"
 # --------------------------------------------------------------------------- #
 def fetch_outages(*, timeout: float = 25.0) -> str:
     """Fetch the raw regionsWithoutService JSON text (for mirroring + parse)."""
-    req = urllib.request.Request(LUMA_URL, headers={
-        "User-Agent": _UA,
-        "Accept": "application/json",
-    })
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read().decode("utf-8", "replace")
+    return prism_http.fetch_text(
+        LUMA_URL, source="luma_outages",
+        headers={"Accept": "application/json"},
+        policy=prism_http.RetryPolicy(read_timeout=timeout),
+    )
 
 
 def _to_int(v: Any) -> int:

@@ -8,6 +8,12 @@ import type { ConsequenceSummary, StormResponse, ParcelDetail } from "@/lib/api"
 
 export const revalidate = 300;
 
+// OG share cards render English-only, always — no locale plumbing here at
+// all (F12c carve-out, per ROADMAP.md item F12). Social platforms render a
+// single cached image per URL with no Accept-Language-aware variant, so a
+// localized card would need its own route/cache key; parked with the rest
+// of F12c (AI narratives, /methods long-form rationale).
+
 /** Inter TTFs (F10c-5) — Satori/next-og needs raw ttf/otf font bytes, which
  *  next/font/google's self-hosting doesn't expose (it only ships woff2,
  *  which Satori doesn't support, and the build output is content-hashed).

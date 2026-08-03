@@ -114,4 +114,4 @@ def test_whatsnew_accepts_rank_kind(engine):
 
     result = whatsnew(engine)
     for c in result["changes"]:
-        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim", "storm", "registry"}
+        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim", "storm", "registry", "pull"}

@@ -111,6 +111,35 @@ export type AssumptionRationale = Schemas["AssumptionRationale"];
 /** F9c C3 — /corridor's "Cost basis" popover citation source. */
 export type CostReference = Schemas["CostReference"];
 
+/** F14b — the anomalies registry (config/anomalies.yml). Hand-written rather than
+ *  re-exported from `Schemas[...]`: regenerating api-types.ts renders Pydantic-
+ *  defaulted fields as TS-optional instead of required-nullable, which is the
+ *  trap F10c item 4 hit. */
+export interface Anomaly {
+  id: string;
+  title: string;
+  dataset: string;
+  source: string;
+  what: string;
+  why: string;
+  where: string;
+  scope: string[];
+  magnitude: { measured: string; probe: string | null };
+  severity: "high" | "medium" | "low";
+  remediation: string | null;
+  remediation_owner: string[];
+  remediation_owner_names: string[];
+  status: "active" | "resolved";
+}
+
+export interface AnomalyReport {
+  measured_on: string | null;
+  total: number;
+  by_severity: Record<string, number>;
+  institutions: string[];
+  anomalies: Anomaly[];
+}
+
 /** MVP3 Pillar 2 — not yet in the generated OpenAPI types (api/routers/validate.py),
  * typed by hand to match `api.schemas.BacktestResult`/`SensitivityResult`/`ModelCard`. */
 export interface BacktestHit {
@@ -888,6 +917,44 @@ export interface OwnerContractFootprint {
   confidence_tier: ConfidenceTierKey;
 }
 
+/** F11d — another registry entity in the same control cluster. */
+export interface ClusterSibling {
+  registration_index: string;
+  corp_name: string | null;
+  status_es: string | null;
+  /** The CRIM owner this sibling matches, if any. */
+  owner_key: string | null;
+  owner_display_name: string | null;
+  /** Belongs to the SAME owner_key as the entity being viewed. */
+  is_same_owner: boolean;
+}
+
+/** F11d — a named individual whose shared officer/incorporator role links entities. */
+export interface SharedPerson {
+  person_key: string;
+  display_name: string;
+  role: string; // officer | incorporator
+  entities_in_cluster: number;
+}
+
+/**
+ * F11d — entities sharing 2+ named officers/incorporators with this one.
+ * One inferential step past F11c's already-proxy name match: shared officers
+ * is strong evidence of common control, not proof.
+ */
+export interface ControlCluster {
+  cluster_id: string;
+  entity_count: number;
+  distinct_owner_count: number;
+  /** The headline finding: more than one CRIM owner_key in this cluster. */
+  spans_multiple_owners: boolean;
+  shared_people: SharedPerson[];
+  siblings: ClusterSibling[];
+  /** >=2 members also share a non-agent-office address. */
+  address_corroborated: boolean;
+  confidence_tier: ConfidenceTierKey;
+}
+
 /** F11c — one corporations-registry record linked to a CRIM owner. */
 export interface RegistryEntity {
   registration_index: string;
@@ -908,6 +975,8 @@ export interface RegistryEntity {
   /** The registered address sits in a municipio where this owner holds parcels. */
   municipio_corroborated: boolean;
   as_of: string | null;
+  /** F11d — null when this entity belongs to no control cluster. */
+  cluster: ControlCluster | null;
 }
 
 export interface RegistryNearMiss {
@@ -1199,7 +1268,8 @@ export type ChangeKind =
   | "quake"
   | "crim"
   | "storm"
-  | "registry";
+  | "registry"
+  | "pull";
 
 export interface ChangeEvent {
   kind: ChangeKind;
@@ -1216,11 +1286,21 @@ export interface CrimBaseline {
   latest_delta_month: string | null;
 }
 
+/** F14d — how many tracked pulls are currently broken. Distinct from feed
+ *  staleness: a source whose last success was recent still looks fresh while
+ *  every attempt since has failed. */
+export interface PullHealthSummary {
+  tracked: number;
+  failing: number;
+  partial: number;
+}
+
 export interface WhatsNewResponse {
   feeds: FeedFreshness[];
   stale_count: number;
   changes: ChangeEvent[];
   crim_baseline: CrimBaseline;
+  pull_health: PullHealthSummary;
 }
 
 // ── CRIM sales trends ───────────────────────────────────────────────────────
@@ -1557,6 +1637,7 @@ export const api = {
   confidenceTiers: () => apiGet<ConfidenceTier[]>("/provenance/tiers"),
   provenanceAssumptions: () => apiGet<Assumption[]>("/provenance/assumptions"),
   assumptionRationale: () => apiGet<AssumptionRationale[]>("/provenance/assumption-rationale"),
+  provenanceAnomalies: () => apiGet<AnomalyReport>("/provenance/anomalies"),
   provenanceInventory: () => apiGet<InventoryEntry[]>("/provenance/inventory"),
   provenanceTable: (table: string) => apiGet<ProvenanceRecord>(`/provenance/${table}`),
   provenanceLayer: (layerId: string) =>

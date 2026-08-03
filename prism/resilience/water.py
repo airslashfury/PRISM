@@ -56,6 +56,11 @@ def build_water_risk_headline(row: dict[str, Any]) -> str:
 
     `row` keys: barrios_served, hazard_score, has_generator, power_dependency.
     Clauses that don't apply are omitted.
+
+    English-only by design (F12c carve-out, not F12b's job): this is a
+    generated closed-form sentence, same category as the AI narratives and
+    /methods rationale prose parked to F12c — templatizing it bilingually
+    here would duplicate the clause-composition logic on the frontend.
     """
     barrios = row.get("barrios_served", 0) or 0
     hazard_score = row.get("hazard_score", 0.0) or 0.0

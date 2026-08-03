@@ -2663,6 +2663,33 @@
       "license": "PR government (public register)",
       "compute_date": "2026-07-25",
       "computed_by": "prism.crim.registry.record_status_snapshot"
+    },
+    "derived:sync.pull_health": {
+      "title": "Pull health (per-source resilience telemetry)",
+      "source": "derived",
+      "description": "One row per tracked pull: last attempt, last success, consecutive failures, last error, and whether the last run was partial. Written by the shared resilient HTTP layer (prism/sync/http.py, F14d) so a pull that dies stops dying silently.",
+      "inputs": [
+        "prism/sync/http.py"
+      ],
+      "license": "internal"
+    },
+    "derived:crim.control_cluster_summary": {
+      "title": "crim.control_cluster_summary — shell companies grouped by shared officer identity",
+      "description": "F11d control clusters over the mirrored PR corporations registry: two entities are grouped only when they share 2 or more named individual officers/incorporators (crim.rce_person, excluding people appearing on more than 10 mirrored entities — professional filers, not principals). Measured live 2026-08: requiring 1 shared person produced a 2,317-entity blob and a single cluster spanning 106 CRIM owner_keys via single-officer bridging (an accountant or secondary officer connecting unrelated boards); requiring 2 collapsed the largest cluster to 13 entities and left 138 clusters that genuinely span more than one CRIM owner_key. `spans_multiple_owners` is the headline signal — a cluster confined to one owner_key is a single owner's own shells (already visible on their own drawer); a cluster touching two or more owner_keys means two seemingly-unrelated CRIM owners may be the same operator. Confidence tier 'proxy', one further inferential step past F11b's already-proxy name match: shared officers is strong evidence of common control, not proof.",
+      "source": "derived",
+      "schema": "crim",
+      "table": "control_cluster_summary",
+      "inputs": [
+        "crim.rce_entities (prism/sync/rcp.py registry mirror)",
+        "crim.owner_rce_match",
+        "crim.rce_addresses / crim.rce_address_entities",
+        "prism/crim/clusters.py"
+      ],
+      "domain": "territorio",
+      "priority": "P2",
+      "license": "PR government (public register)",
+      "compute_date": "2026-08-03",
+      "computed_by": "prism.crim.clusters.run"
     }
   }
 }

@@ -28,6 +28,9 @@ import { streamCorridorNarrative } from "@/lib/api";
 import { rankColor, type RGB } from "@/lib/colors";
 import { fmtInt, fmtKm, fmtNum, fmtPct, fmtUsd } from "@/lib/utils";
 import type { ProfilePoint } from "@/lib/api";
+import { WorkspaceAside } from "@/components/ui/resizable-pane";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const TERRAIN: Record<string, RGB> = {
   standard: [56, 189, 248],
@@ -35,8 +38,6 @@ const TERRAIN: Record<string, RGB> = {
   tunnel: [167, 139, 250],
 };
 const terrainColor = (t: string): RGB => TERRAIN[t] ?? [148, 163, 184];
-
-const RANK_LABEL = ["", "Best", "Alternative", "Costliest"];
 
 // Pier piers every ~4th profile sample (~400 m at the 100 m sampling interval).
 const PIER_STRIDE = 4;
@@ -132,6 +133,9 @@ function bearingBetween(a: { lng: number; lat: number }, b: { lng: number; lat: 
 }
 
 export default function CorridorPage() {
+  const t = useMessages().corridor;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data: routes, isLoading, error } = useCorridorRoutes();
   const { data: geojson } = useCorridorGeojson();
   const [picked, setPicked] = useState<number | null>(null);
@@ -405,10 +409,10 @@ export default function CorridorPage() {
       if (!d) return null;
       return tip(
         [
-          ["Elevation", `${fmtNum(d.elev_m, 0)} m`],
-          ["Distance", fmtKm(d.distance_m / 1000)],
+          [t.elevation, `${fmtNum(d.elev_m, 0, tag)} m`],
+          [t.distance, fmtKm(d.distance_m / 1000)],
         ],
-        "Tunnel portal",
+        t.tunnelPortal,
       );
     }
     if (info.layer?.id?.startsWith("route-3d-piers-")) {
@@ -416,10 +420,10 @@ export default function CorridorPage() {
       if (!d) return null;
       return tip(
         [
-          ["Ground elevation", `${fmtNum(d.elev_m, 0)} m`],
-          ["Deck height", `+${ELEVATED_OFFSET_M} m`],
+          [t.groundElevation, `${fmtNum(d.elev_m, 0, tag)} m`],
+          [t.deckHeightLabel, t.deckHeight(ELEVATED_OFFSET_M)],
         ],
-        "Viaduct pier",
+        t.viaductPier,
       );
     }
     if (info.layer?.id === "segments") {
@@ -427,22 +431,22 @@ export default function CorridorPage() {
       if (!p) return null;
       return tip(
         [
-          ["Terrain", String(p.terrain_type)],
-          ["Length", fmtKm(Number(p.km))],
-          ["Cost / km", fmtUsd(Number(p.cost_per_km), 0)],
+          [t.terrain, t.terrainType[p.terrain_type as keyof typeof t.terrainType] ?? String(p.terrain_type)],
+          [t.length, fmtKm(Number(p.km))],
+          [t.costPerKm, fmtUsd(Number(p.cost_per_km), 0)],
         ],
-        `Segment ${p.seq}`,
+        t.segmentHash(p.seq),
       );
     }
     const p = (info.object as { properties: Record<string, number | string> })?.properties;
     if (!p) return null;
     return tip(
       [
-        ["Length", fmtKm(Number(p.total_km))],
-        ["Cost", fmtUsd(Number(p.total_cost_usd))],
-        ["Served", `${fmtInt(Number(p.population_served))} people`],
+        [t.length, fmtKm(Number(p.total_km))],
+        [t.cost, fmtUsd(Number(p.total_cost_usd))],
+        [t.served, t.peopleUnit(fmtInt(Number(p.population_served), tag))],
       ],
-      `${p.from_city} → ${p.to_city} · Alt ${p.alternative_n}`,
+      t.routeLabel(String(p.from_city), String(p.to_city), p.alternative_n),
     );
   };
 
@@ -474,7 +478,7 @@ export default function CorridorPage() {
         >
           <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-border/70 bg-card/85 px-4 py-3 shadow-lg backdrop-blur">
             <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              <TrainFront className="h-3.5 w-3.5" /> Inter-city rail corridors
+              <TrainFront className="h-3.5 w-3.5" /> {t.interCityCorridors}
             </div>
             <div className="mt-0.5 text-sm">
               {detail ? `${detail.from_city} → ${detail.to_city}` : "—"}
@@ -484,16 +488,16 @@ export default function CorridorPage() {
             <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card/90 p-2 shadow-lg backdrop-blur">
               <Segmented
                 options={[
-                  { value: "2d", label: "2D" },
-                  { value: "3d", label: "3D" },
+                  { value: "2d", label: t.twoD },
+                  { value: "3d", label: t.threeD },
                 ]}
                 value={is3d ? "3d" : "2d"}
                 onChange={(v) => setIs3d(v === "3d")}
               />
               <Segmented
                 options={[
-                  { value: "dark", label: "Dark" },
-                  { value: "sat", label: "Satellite" },
+                  { value: "dark", label: t.dark },
+                  { value: "sat", label: t.satellite },
                 ]}
                 value={satellite ? "sat" : "dark"}
                 onChange={(v) => setSatellite(v === "sat")}
@@ -503,7 +507,7 @@ export default function CorridorPage() {
               <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card/90 px-3 py-2 shadow-lg backdrop-blur">
                 <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Relief ×{fmtNum(exaggeration, 1)}
+                  {t.relief(fmtNum(exaggeration, 1, tag))}
                 </span>
                 <input
                   type="range"
@@ -519,20 +523,22 @@ export default function CorridorPage() {
           </div>
           <DiscreteLegend
             className="absolute bottom-6 left-4"
-            title="Segment terrain"
+            title={t.segmentTerrain}
             items={[
-              { label: "Standard ($15M/km)", color: TERRAIN.standard },
-              { label: "Elevated ($40M/km)", color: TERRAIN.elevated },
-              { label: "Tunnel ($120M/km)", color: TERRAIN.tunnel },
+              { label: t.standardTier, color: TERRAIN.standard },
+              { label: t.elevatedTier, color: TERRAIN.elevated },
+              { label: t.tunnelTier, color: TERRAIN.tunnel },
             ]}
           />
           {touring && tourSegment && (
             <div className="pointer-events-none absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-4 py-2 shadow-lg backdrop-blur">
               <Video className="h-3.5 w-3.5 text-cyan-400" />
               <span className="text-xs">
-                Segment {tourSegment.seq} ·{" "}
-                <span className="capitalize">{tourSegment.terrain_type}</span> ·{" "}
-                {fmtUsd(tourSegment.cost_per_km, 0)}/km
+                {t.tourSegment(
+                  tourSegment.seq,
+                  t.terrainType[tourSegment.terrain_type as keyof typeof t.terrainType] ?? tourSegment.terrain_type,
+                  fmtUsd(tourSegment.cost_per_km, 0),
+                )}
               </span>
               <span className="text-[10px] tnum text-muted-foreground">
                 {fmtKm((profile?.[tourIndex]?.distance_m ?? 0) / 1000)} / {fmtKm(detail?.total_km ?? 0)}
@@ -548,24 +554,28 @@ export default function CorridorPage() {
               onClick={touring ? stopTour : startTour}
             >
               {touring ? <X className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
-              <span className="ml-1.5">{touring ? "Stop tour" : "Tour"}</span>
+              <span className="ml-1.5">{touring ? t.stopTour : t.tour}</span>
             </Button>
           </div>
         </MapCanvas>
       </div>
 
-      <aside className="flex w-full flex-col border-t border-border/70 bg-card/30 md:w-[400px] md:shrink-0 md:border-l md:border-t-0">
+      <WorkspaceAside
+        storageKey="corridor"
+        defaultWidth={400}
+        label={t.panelLabel}
+      >
         <div className="border-b border-border/70 p-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            Route alternatives
+            {t.routeAlternatives}
             <ProvenanceBadge table="corridor.routes" />
           </h2>
-          <p className="text-xs text-muted-foreground">Ranked by societal-value objective</p>
+          <p className="text-xs text-muted-foreground">{t.rankedBy}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {error && <div className="p-4"><ErrorBlock error={error} /></div>}
-          {isLoading && <LoadingBlock label="Loading corridors" />}
+          {isLoading && <LoadingBlock label={t.loadingCorridors} />}
 
           {/* selector */}
           <ul className="border-b border-border/60">
@@ -589,11 +599,11 @@ export default function CorridorPage() {
                         {r.from_city} → {r.to_city}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Alt {r.alternative_n} · {fmtKm(r.total_km)} · {fmtUsd(r.total_cost_usd)}
+                        {t.altLabel(r.alternative_n, fmtKm(r.total_km), fmtUsd(r.total_cost_usd))}
                       </span>
                     </span>
                     <Badge variant={r.rank === 1 ? "success" : r.rank === 2 ? "warning" : "muted"}>
-                      {RANK_LABEL[r.rank] ?? `#${r.rank}`}
+                      {t.rankLabel[r.rank] || t.rankHash(r.rank)}
                     </Badge>
                   </button>
                 </li>
@@ -605,12 +615,12 @@ export default function CorridorPage() {
           {detail && (
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-2 gap-2">
-                <Metric label="Length" value={fmtKm(detail.total_km)} />
-                <Metric label="Total cost" value={fmtUsd(detail.total_cost_usd)} />
-                <Metric label="Construction" value={fmtUsd(detail.construction_cost_usd)} />
-                <Metric label="Maint. (30yr NPV)" value={fmtUsd(detail.maintenance_30yr_usd)} />
-                <Metric label="Population served" value={fmtInt(detail.population_served)} />
-                <Metric label="Flood exposure" value={fmtPct(detail.flood_exposure_frac)} />
+                <Metric label={t.metrics.length} value={fmtKm(detail.total_km)} />
+                <Metric label={t.metrics.totalCost} value={fmtUsd(detail.total_cost_usd)} />
+                <Metric label={t.metrics.construction} value={fmtUsd(detail.construction_cost_usd)} />
+                <Metric label={t.metrics.maintenanceNpv} value={fmtUsd(detail.maintenance_30yr_usd)} />
+                <Metric label={t.metrics.populationServed} value={fmtInt(detail.population_served, tag)} />
+                <Metric label={t.metrics.floodExposure} value={fmtPct(detail.flood_exposure_frac)} />
               </div>
               <div className="flex justify-end">
                 <CostBasisPopover />
@@ -618,16 +628,16 @@ export default function CorridorPage() {
 
               <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                 <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  <Mountain className="h-3.5 w-3.5" /> Terrain composition
+                  <Mountain className="h-3.5 w-3.5" /> {t.terrainComposition}
                 </div>
                 <div className="space-y-1.5">
-                  {terrainSummary.map(([t, km]) => (
-                    <div key={t} className="flex items-center gap-2 text-sm">
+                  {terrainSummary.map(([tt, km]) => (
+                    <div key={tt} className="flex items-center gap-2 text-sm">
                       <span
                         className="h-2.5 w-2.5 rounded-full"
-                        style={{ background: `rgb(${terrainColor(t).join(",")})` }}
+                        style={{ background: `rgb(${terrainColor(tt).join(",")})` }}
                       />
-                      <span className="capitalize text-muted-foreground">{t}</span>
+                      <span className="capitalize text-muted-foreground">{t.terrainType[tt as keyof typeof t.terrainType] ?? tt}</span>
                       <span className="ml-auto tnum">{fmtKm(km)}</span>
                     </div>
                   ))}
@@ -637,7 +647,7 @@ export default function CorridorPage() {
               {profile && profile.length > 0 && (
                 <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                   <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <Mountain className="h-3.5 w-3.5" /> Elevation profile
+                    <Mountain className="h-3.5 w-3.5" /> {t.elevationProfile}
                   </div>
                   <ElevationProfile data={profile} />
                 </div>
@@ -645,41 +655,28 @@ export default function CorridorPage() {
 
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
-                  Objective score (lower = better societal value)
+                  {t.objectiveScore}
                 </div>
                 <div className="mt-1 text-lg font-semibold tnum">
                   {fmtUsd(detail.objective_score)}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  construction + maintenance (30yr NPV) + flood risk premium
-                  − SVI-weighted population value served. The route that costs less
-                  and serves more vulnerable people wins. This score is only meaningful
-                  *relative* to the other alternatives for this O-D pair — it is not an
-                  absolute project budget.
+                  {t.objectiveScoreDesc}
                 </div>
               </div>
 
               <InfoPanel
                 sections={[
-                  {
-                    title: "What this is",
-                    body: "Each alternative is one routed path between two cities, generated by finding the lowest-cost path across a cost-surface raster and then scored on the same societal-value objective used elsewhere in PRISM (construction + maintenance − population benefit).",
-                  },
-                  {
-                    title: "How it's calculated",
-                    body: "A 300 m-resolution cost surface combines terrain slope (drives the construction-cost multiplier: standard $15M/km, elevated $40M/km, tunnel $120M/km), flood-zone overlap (adds a risk premium), and SVI-weighted population reachability (the benefit side). Dijkstra (8-connectivity) finds the lowest-cost path; alternates are produced by penalizing the prior path's corridor (\"corridor exclusion\") and re-routing. Maintenance is $500K/km/yr, expressed as a 30-yr NPV.",
-                  },
-                  {
-                    title: "Data sources & accuracy",
-                    body: "These are planning-level estimates for comparing alternatives, not engineering cost estimates: the 300 m cost-surface resolution can miss property-level obstacles, bridge spans default to 50 m (no real span data is available yet), and station/intermodal links are nearest-barrio proxies rather than sited stations.",
-                  },
+                  t.infoSections.whatThisIs,
+                  t.infoSections.howCalculated,
+                  t.infoSections.accuracy,
                 ]}
               />
 
               <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <Sparkles className="h-3.5 w-3.5" /> AI corridor briefing
+                    <Sparkles className="h-3.5 w-3.5" /> {t.aiCorridorBriefing}
                   </div>
                   <Button
                     size="sm"
@@ -687,11 +684,11 @@ export default function CorridorPage() {
                     disabled={streaming}
                     onClick={handleGenerateNarrative}
                   >
-                    {streaming ? "Generating…" : detail.narrative ? "Regenerate" : "Generate"}
+                    {streaming ? t.generating : detail.narrative ? t.regenerate : t.generate}
                   </Button>
                 </div>
                 {streaming ? (
-                  <NarrativePanel markdown={streamText || "Generating…"} streaming />
+                  <NarrativePanel markdown={streamText || t.generating} streaming />
                 ) : detail.narrative ? (
                   <NarrativePanel
                     markdown={detail.narrative.narrative_md}
@@ -701,14 +698,14 @@ export default function CorridorPage() {
                   />
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    No briefing yet — generate one to compare these alternatives in plain language.
+                    {t.noBriefingYet}
                   </p>
                 )}
               </div>
             </div>
           )}
         </div>
-      </aside>
+      </WorkspaceAside>
     </div>
   );
 }
@@ -727,6 +724,7 @@ function Metric({ label, value }: { label: string; value: string }) {
  * light-rail projects), not just the "$15M/$40M/$120M" figures on their own
  * (F9c C3). */
 function CostBasisPopover() {
+  const t = useMessages().corridor;
   const { data: refs } = useCorridorCostReferences();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -747,15 +745,13 @@ function CostBasisPopover() {
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
       >
-        <BookOpen className="h-3 w-3" /> Cost basis
+        <BookOpen className="h-3 w-3" /> {t.costBasis}
       </button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 max-h-96 w-80 overflow-y-auto rounded-lg border border-border bg-popover p-3 text-xs shadow-lg">
-          <div className="mb-1 font-semibold text-foreground">What these figures are checked against</div>
+          <div className="mb-1 font-semibold text-foreground">{t.costBasisTitle}</div>
           <p className="mb-2 text-muted-foreground">
-            PRISM&apos;s per-km tiers (standard $15M, elevated $40M, tunnel $120M) are DTOP/FTA PRIITS
-            2024 planning estimates — here are the real as-built comparables they should be
-            weighed against.
+            {t.costBasisDesc}
           </p>
           <div className="space-y-2.5 border-t border-border/60 pt-2">
             {(refs ?? []).map((r) => (
@@ -772,7 +768,7 @@ function CostBasisPopover() {
                       rel="noreferrer"
                       className="text-primary underline underline-offset-2"
                     >
-                      source
+                      {t.source}
                     </a>
                   ))}
                 </div>

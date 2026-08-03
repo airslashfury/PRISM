@@ -32,6 +32,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 
 from prism.load.db import get_engine
+from prism.sync.http import record_attempt
 
 log = logging.getLogger(__name__)
 
@@ -287,6 +288,31 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                 if n % CHECKPOINT_EVERY == 0:
                     _checkpoint(engine, n, entities)   # cursor = next number to attempt
                     log.info("RCP progress: at number=%d entities=%d", n, entities)
+    except (KeyboardInterrupt, SystemExit) as exc:
+        # A deliberate stop of a resumable multi-day walk is not a failure. This
+        # walk is restarted routinely (host reboots, WSL recycles), and recording
+        # each restart as a failure would alert "failed 3 times in a row" after
+        # three normal stops — the boy-who-cried-wolf failure that makes a health
+        # signal worthless (F14d gate).
+        record_attempt(
+            engine, "rce_registry", ok=True, partial=True,
+            error=f"interrupted: {type(exc).__name__}",
+            detail={"cursor": n, "entities": entities, "interrupted": True},
+            # Silent, matching track_pull's own interrupted-vs-failed policy
+            # (F14d gate finding) — a deliberate stop must never be the thing
+            # that fires "pull completed only partially" on a routine restart.
+            alert=False,
+        )
+        raise
+    except BaseException as exc:
+        # A genuine failure mid-walk. Resumable, so the cursor still holds — but
+        # this one counts, because nobody asked for it.
+        record_attempt(
+            engine, "rce_registry", ok=False, partial=True,
+            error=f"{type(exc).__name__}: {exc}"[:400],
+            detail={"cursor": n, "entities": entities},
+        )
+        raise
     finally:
         # Bounded here: on shutdown (Ctrl-C, or the DB genuinely gone) hanging on
         # an indefinite retry is worse than losing the last few numbers — the
@@ -299,8 +325,17 @@ def enumerate_registry(engine: Engine | None = None, *, max_number: int = MAX_NU
                       CHECKPOINT_EVERY)
         client.close()
 
-    log.info("RCP enumeration complete: %d entities mirrored, cursor at %d", entities, n)
-    return {"entities": entities, "last_number": n}
+    # The `while n >= MIN_NUMBER` loop has only one normal exit, so reaching here
+    # means the cursor did pass the floor. Kept explicit rather than hardcoding
+    # True: if the loop ever grows a `break`, this stays correct.
+    complete = n < MIN_NUMBER
+    record_attempt(
+        engine, "rce_registry", ok=True, partial=not complete,
+        detail={"entities": entities, "cursor": n, "floor": MIN_NUMBER},
+    )
+    log.info("RCP enumeration %s: %d entities mirrored, cursor at %d",
+             "complete" if complete else "paused", entities, n)
+    return {"entities": entities, "last_number": n, "complete": complete}
 
 
 if __name__ == "__main__":

@@ -7,11 +7,16 @@ import { ConfidenceChip } from "@/components/provenance-badge";
 import { SkeletonStats } from "@/components/query-state";
 import { useOutages } from "@/lib/hooks";
 import { cn, fmtInt } from "@/lib/utils";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 /** Live LUMA delivery-side outages by operational region. Complements the
  *  supply-side GenerationPanel: generation = MW produced, this = customers
  *  actually served. Authoritative customer counts (miluma.lumapr.com). */
 export function OutagesPanel() {
+  const t = useMessages().outagesPanel;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading } = useOutages();
 
   // No reading yet (sync never run) — render nothing rather than an empty shell.
@@ -46,11 +51,11 @@ export function OutagesPanel() {
               )}
             />
           </span>
-          <h2 className="text-sm font-semibold">Customers without service</h2>
+          <h2 className="text-sm font-semibold">{t.title}</h2>
           <ConfidenceChip tier="authoritative" />
         </div>
         <span className="text-xs text-muted-foreground">
-          LUMA · {asOf ? asOf.toLocaleString() : "—"}
+          LUMA · {asOf ? asOf.toLocaleString(tag) : "—"}
         </span>
       </div>
 
@@ -62,18 +67,18 @@ export function OutagesPanel() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Kpi
               icon={clear ? CheckCircle2 : AlertTriangle}
-              label="Without service"
-              value={fmtInt(out)}
-              sub={`${pct.toFixed(2)}% of island`}
+              label={t.withoutService}
+              value={fmtInt(out, tag)}
+              sub={t.ofIsland(pct.toFixed(2))}
               accent={clear ? "text-emerald-400" : pct >= 1 ? "text-red-400" : "text-amber-400"}
             />
-            <Kpi icon={Zap} label="Unplanned" value={fmtInt(unplanned)} sub="storm / fault" />
-            <Kpi icon={CalendarClock} label="Planned" value={fmtInt(planned)} sub="scheduled work" />
+            <Kpi icon={Zap} label={t.unplanned} value={fmtInt(unplanned, tag)} sub={t.unplannedSub} />
+            <Kpi icon={CalendarClock} label={t.planned} value={fmtInt(planned, tag)} sub={t.plannedSub} />
             <Kpi
               icon={Users}
-              label="Customers served"
-              value={fmtInt((data.total_clients ?? 0) - out)}
-              sub={`of ${fmtInt(data.total_clients)}`}
+              label={t.customersServed}
+              value={fmtInt((data.total_clients ?? 0) - out, tag)}
+              sub={t.ofTotal(fmtInt(data.total_clients, tag))}
               accent="text-emerald-400"
             />
           </div>
@@ -82,11 +87,11 @@ export function OutagesPanel() {
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                By LUMA region
+                {t.byRegion}
               </span>
               {loadShed > 0 && (
                 <span className="text-[11px] font-medium text-red-400">
-                  {fmtInt(loadShed)} load-shed
+                  {t.loadShed(fmtInt(loadShed, tag))}
                 </span>
               )}
             </div>
@@ -108,7 +113,7 @@ export function OutagesPanel() {
                     />
                   </div>
                   <span className="w-14 shrink-0 text-right tnum">
-                    {fmtInt(r.clients_without_service)}
+                    {fmtInt(r.clients_without_service, tag)}
                   </span>
                   <span className="w-12 shrink-0 text-right tnum text-muted-foreground">
                     {r.pct_without_service.toFixed(2)}%
@@ -121,9 +126,7 @@ export function OutagesPanel() {
       )}
 
       <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
-        Live delivery-side data from LUMA — how many customers are actually without service, the
-        complement to generation (MW produced). Region grain is the only granularity LUMA publishes;
-        &ldquo;planned&rdquo; counts scheduled work, not faults.
+        {t.footnote}
       </p>
     </Card>
   );

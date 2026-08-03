@@ -5,6 +5,8 @@
         python -m prism.crim --normalize         # (re)build owner_key + normalized address tables
         python -m prism.crim --rce-match         # (re)run the offline CRIM <-> corporations-registry match
         python -m prism.crim --rce-stats         # print the measured match rate without rebuilding
+        python -m prism.crim --clusters          # (re)build control clusters over the registry mirror
+        python -m prism.crim --cluster-stats     # print the measured cluster yield without rebuilding
 """
 from __future__ import annotations
 
@@ -41,6 +43,11 @@ def main() -> None:
                     help="With --rce-match: exact-key pass only, skip the trigram tail")
     ap.add_argument("--rce-stats", action="store_true",
                     help="Print the measured registry match rate without rebuilding anything")
+    ap.add_argument("--clusters", action="store_true",
+                    help="(Re)build control clusters over the registry mirror (F11d): entities "
+                         "sharing >=2 named officers/incorporators. Idempotent.")
+    ap.add_argument("--cluster-stats", action="store_true",
+                    help="Print the measured control-cluster yield without rebuilding anything")
     ap.add_argument("--rce-snapshot", action="store_true",
                     help="Bank the current registry status of every matched entity (F11c SCD). "
                          "Runs automatically at the end of --rce-match; expose it separately so a "
@@ -70,6 +77,22 @@ def main() -> None:
         from prism.crim.rce_match import stats
         for k, v in stats(engine).items():
             print(f"{k:>28}: {v}")
+        return
+
+    if args.cluster_stats:
+        from prism.crim.clusters import stats as cluster_stats
+        for k, v in cluster_stats(engine).items():
+            print(f"{k:>28}: {v}")
+        return
+
+    if args.clusters:
+        from prism.crim.clusters import run as run_clusters
+        res = run_clusters(engine)
+        print(f"person rows              : {res['person_rows']:,}")
+        print(f"clusters                 : {res['clusters']:,} "
+              f"({res['entities_clustered']:,} entities, largest {res['largest']:,})")
+        print(f"spanning >1 CRIM owner   : {res['summary_spanning_multiple_owners']:,}")
+        print(f"address-corroborated     : {res['summary_address_corroborated']:,}")
         return
 
     if args.rce_match:

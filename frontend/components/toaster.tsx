@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useRef, useState, type ReactNod
 import { X, CheckCircle2, AlertTriangle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 export interface ToastInput {
   title: string;
@@ -27,6 +28,7 @@ const AUTO_DISMISS_MS = 6000;
 /** Hand-rolled toast stack — no new dependency. Fixed bottom-right, max 3
  *  visible, auto-dismiss + manual close, CSS-only enter animation. */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const tc = useMessages().common;
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
@@ -79,7 +81,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               onClick={() => dismiss(t.id)}
               className="shrink-0 text-muted-foreground/70 hover:text-foreground"
-              aria-label="Dismiss"
+              aria-label={tc.dismiss}
             >
               <X className="h-3.5 w-3.5" />
             </button>

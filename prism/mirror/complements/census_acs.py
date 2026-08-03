@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import requests
+from prism.sync import http as prism_http
 
 LICENSE = "public domain"
 ACS_BASE = "https://api.census.gov/data"
@@ -45,9 +45,11 @@ def mirror(raw_dir: Path, date_str: str, cfg: dict, timeout: int) -> list[dict[s
             continue
         try:
             out_dir.mkdir(parents=True, exist_ok=True)
-            r = requests.get(url, timeout=timeout)
-            r.raise_for_status()
-            dest.write_text(json.dumps(r.json(), indent=2), encoding="utf-8")
+            payload = prism_http.fetch_json(
+                url, source="census_acs",
+                policy=prism_http.RetryPolicy(attempts=3, read_timeout=float(timeout)),
+            )
+            dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
             results.append({
                 "skipped": False,
                 "file_key": f"acs_{geo_name}",

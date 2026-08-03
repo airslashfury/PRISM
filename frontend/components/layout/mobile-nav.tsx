@@ -7,13 +7,18 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
 import { BrandWordmark } from "@/components/brand";
-import { NAV } from "./nav";
+import { useNav } from "./nav";
+import { LanguageToggle } from "./language-toggle";
+import { useMessages } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const NAV = useNav();
+  const t = useMessages().sidebar;
+  const tc = useMessages().common;
 
   useEffect(() => {
     setMounted(true);
@@ -38,7 +43,7 @@ export function MobileNav() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Open navigation"
+        aria-label={tc.openNavigation}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-foreground active:bg-accent md:hidden"
       >
         <Menu className="h-5 w-5" />
@@ -60,7 +65,7 @@ export function MobileNav() {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  aria-label="Close navigation"
+                  aria-label={tc.closeNavigation}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
@@ -69,7 +74,7 @@ export function MobileNav() {
 
               <nav className="flex-1 space-y-1 overflow-y-auto p-3">
                 <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                  Modules
+                  {t.modules}
                 </div>
                 {NAV.map((item) => {
                   const active =
@@ -99,6 +104,10 @@ export function MobileNav() {
                   );
                 })}
               </nav>
+
+              <div className="border-t border-border/70 p-3">
+                <LanguageToggle collapsed={false} />
+              </div>
             </div>
           </div>,
           document.body,

@@ -27,7 +27,6 @@ import hashlib
 import json
 import logging
 import re
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -36,6 +35,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from prism.sync.schema import create_schema
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,6 @@ FEED_FILES = {
     "graph": "dataGraph.js",          # island-wide generation + frequency
 }
 _RAW_DIR = Path("data/raw/prepa_ops")
-_UA = "PRISM/1.0 (infrastructure simulation; data-sovereignty mirror)"
 
 
 # --------------------------------------------------------------------------- #
@@ -55,9 +54,10 @@ def fetch_feed(name: str, *, timeout: float = 25.0) -> str:
     """Fetch one PREPA feed. The server sends UTF-8 (accented Spanish Desc strings
     in dataMetrics require this; ASCII plant names are unaffected)."""
     url = f"{PREPA_BASE}/{FEED_FILES[name]}"
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read().decode("utf-8", "replace")
+    return prism_http.fetch_text(
+        url, source="prepa_generation",
+        policy=prism_http.RetryPolicy(read_timeout=timeout),
+    )
 
 
 def _extract_array(raw: str, varname: str) -> str:

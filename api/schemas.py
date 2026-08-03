@@ -78,7 +78,7 @@ class FeedFreshness(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    kind: str                           # sync | rescore | rank | quake | crim | storm | registry
+    kind: str                           # sync | rescore | rank | quake | crim | storm | registry | pull
     headline: str
     detail: str | None = None
     at: str | None = None               # ISO timestamp (or month for CRIM deltas)
@@ -92,11 +92,20 @@ class CrimBaseline(BaseModel):
     latest_delta_month: str | None = None
 
 
+class PullHealthSummary(BaseModel):
+    """How many tracked pulls are currently broken (F14d) — distinct from feed
+    staleness, which only says how old the data is."""
+    tracked: int = 0
+    failing: int = 0
+    partial: int = 0
+
+
 class WhatsNewResponse(BaseModel):
     feeds: list[FeedFreshness] = Field(default_factory=list)
     stale_count: int
     changes: list[ChangeEvent] = Field(default_factory=list)
     crim_baseline: CrimBaseline
+    pull_health: PullHealthSummary = Field(default_factory=PullHealthSummary)
 
 
 # --------------------------------------------------------------------------- #
@@ -786,6 +795,71 @@ class AssumptionRationale(BaseModel):
     what_would_change_it: str
 
 
+class AnomalyMagnitude(BaseModel):
+    """How big the exclusion is, and the SQL that measured it (documentation —
+    the API does not execute it)."""
+    measured: str
+    probe: str | None = None
+
+
+class Anomaly(BaseModel):
+    """One registered data exclusion (F14b) — see config/anomalies.yml."""
+    id: str
+    title: str
+    dataset: str
+    source: str
+    what: str
+    why: str
+    where: str
+    scope: list[str] = Field(default_factory=list)
+    magnitude: AnomalyMagnitude
+    severity: str
+    remediation: str | None = None
+    # Institution keys (config/anomalies.yml `institutions:`) that could fix it,
+    # plus their display names. Empty when nothing upstream can.
+    remediation_owner: list[str] = Field(default_factory=list)
+    remediation_owner_names: list[str] = Field(default_factory=list)
+    status: str
+
+
+class AnomalyReport(BaseModel):
+    """The Trust Center's "Excluded data" payload."""
+    measured_on: str | None = None
+    total: int
+    by_severity: dict[str, int]
+    # Source institutions at least one remediation is addressed to.
+    institutions: list[str] = Field(default_factory=list)
+    anomalies: list[Anomaly] = Field(default_factory=list)
+
+
+class MonthlyReportSection(BaseModel):
+    key: str
+    title: str
+    available: bool
+    reason: str | None = None
+    source_tables: list[str] = Field(default_factory=list)
+    #: When the source register was last synced — several of PRISM's lag.
+    vintage: str | None = None
+    #: The window this section covers. The three sections do NOT align: parcel
+    #: ownership is snapshot-scoped, the other two are calendar-scoped.
+    period: str | None = None
+
+
+class MonthlyReport(BaseModel):
+    """Monthly change report summary (F14c). The full detail lives in the CSVs
+    and the HTML artifact — this is the index over them."""
+    month: str
+    month_label: str
+    generated_at: str
+    empty: bool
+    sections: list[MonthlyReportSection] = Field(default_factory=list)
+    parcel_totals: dict[str, int] = Field(default_factory=dict)
+    transfer_classes: dict[str, int] = Field(default_factory=dict)
+    registry_standing: dict[str, Any] = Field(default_factory=dict)
+    contract_totals: dict[str, Any] = Field(default_factory=dict)
+    files: list[str] = Field(default_factory=list)
+
+
 class CostReference(BaseModel):
     key: str
     label: str
@@ -1373,6 +1447,42 @@ class OwnerContractFootprint(BaseModel):
     confidence_tier: str
 
 
+class ClusterSibling(BaseModel):
+    """Another registry entity in the same control cluster (F11d)."""
+    registration_index: str
+    corp_name: str | None = None
+    status_es: str | None = None
+    owner_key: str | None = None            # the CRIM owner this sibling matches, if any
+    owner_display_name: str | None = None
+    is_same_owner: bool                     # belongs to the SAME owner_key being viewed
+
+
+class SharedPerson(BaseModel):
+    """One named individual whose shared officer/incorporator role links >=2
+    entities in a control cluster (F11d)."""
+    person_key: str
+    display_name: str
+    role: str                               # officer | incorporator
+    entities_in_cluster: int
+
+
+class ControlCluster(BaseModel):
+    """Entities sharing >=2 named officers/incorporators with this one (F11d).
+
+    One inferential step past F11c's already-`proxy` name match: shared
+    officers is strong evidence of common control, not proof — the same two
+    people could legitimately co-found unrelated ventures.
+    """
+    cluster_id: str
+    entity_count: int
+    distinct_owner_count: int
+    spans_multiple_owners: bool             # the headline finding: >1 CRIM owner_key in one cluster
+    shared_people: list[SharedPerson] = Field(default_factory=list)
+    siblings: list[ClusterSibling] = Field(default_factory=list)
+    address_corroborated: bool              # >=2 members also share a non-agent-office address
+    confidence_tier: str
+
+
 class RegistryEntity(BaseModel):
     """One corporations-registry record linked to a CRIM owner (F11c)."""
     registration_index: str
@@ -1390,6 +1500,7 @@ class RegistryEntity(BaseModel):
     match_confidence: float | None = None
     municipio_corroborated: bool        # registered address sits where the parcels are
     as_of: str | None = None            # when PRISM last pulled this record
+    cluster: ControlCluster | None = None   # F11d — None when this entity is in no cluster
 
 
 class RegistryNearMiss(BaseModel):

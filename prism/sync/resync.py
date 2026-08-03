@@ -18,13 +18,13 @@ import hashlib
 import logging
 import time
 import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -87,8 +87,12 @@ def _fetch_hits(layer_name: str, url: str, timeout: int = 30) -> int | None:
     })
     req_url = f"{url}?{params}"
     try:
-        with urllib.request.urlopen(req_url, timeout=timeout) as resp:
-            content = resp.read()
+        # A hits query against the OGP WFS is cheap but the endpoint is flaky
+        # under load; before F14d one 503 silently reported the layer unchanged.
+        content = prism_http.fetch_bytes(
+            req_url, source="wfs_resync",
+            policy=prism_http.RetryPolicy(attempts=3, read_timeout=float(timeout)),
+        )
         root = ET.fromstring(content)
         matched = root.get("numberMatched") or root.get("numberOfFeatures")
         if matched and matched != "unknown" and str(matched).isdigit():

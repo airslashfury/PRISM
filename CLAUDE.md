@@ -105,6 +105,25 @@ After every phase "Done when" gate that receives a GO verdict, you **must** upda
 
 Do this in the same session as the gate review, before the user asks. If a session ends without a gate, no update needed.
 
+## Exclusion protocol (F14b — follow whenever code sets data aside)
+
+**If you write code that excludes, filters, caps, or drops source data before it reaches a view
+or a calculation, you register it in `config/anomalies.yml` in the same session.** Sentinel-value
+filters, noise floors, plausibility bounds, capped radii, dropped NULLs, default-off toggles,
+silent `continue`s — all of it. The test is *would the source institution want to know?*
+
+- The registry is the source of truth; **`ANOMALIES.md` is generated** — run `make anomalies`
+  (or `python -m prism.provenance --anomalies`) and commit the regenerated doc.
+  `tests/test_anomalies.py` fails if it drifts, and a second test fails if an entry's `where:`
+  points at a file or symbol that no longer exists.
+- Each entry names its blast radius (`scope`), its measured size (`magnitude`, with the SQL that
+  measured it), and — the point of the whole exercise — what the **source institution** would
+  have to fix (`remediation: null` when it's PRISM's own modelling choice).
+- Pure presentation limits (a `LIMIT` on a UI list, a map zoom threshold) are out of scope.
+
+The registry is surfaced at `GET /provenance/anomalies` and on `/methods` ("Excluded data"), and
+is the basis for the eventual printed data-quality report to CRIM / AEE / the Contralor / JP.
+
 ## Phase log
 | Phase | Status | Gate date | Notes |
 |---|---|---|---|
@@ -446,7 +465,97 @@ substations, a shed-feed refresh cron — checked and it's a real architecture d
 `data/raw` isn't bind-mounted into the `worker` container, not a quick wire-up — and a
 feeder-network UI layer). **The F11 arc is now CORE COMPLETE.**
 
-Gate protocol unchanged: at each item's "Done when", hand off to the Opus
-`phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
-`memory/project_state.md` in the same session. **Next up: F12 — Spanish (es-PR) language toggle**
-(ROADMAP.md, queued 2026-07-19, sequenced after F11).
+**F14 batch (2026-07-26, `feat/f14` off `main`) — workspace panes, anomalies registry, monthly
+change report, pull resilience, all four Opus GO.** Requested out of the queued F12/F13 order,
+built and closed in one session. **F14a** — hideable + resizable global sidebar (56px icon rail)
+and map-route right pane (`frontend/components/ui/resizable-pane.tsx` + `frontend/lib/
+pane-state.ts`, `WorkspaceAside` shared across all eleven map routes), `[`/`]` shortcuts,
+localStorage-persisted, mobile untouched. **F14b** — `config/anomalies.yml`, the exclusion
+registry (39 active entries: sentinel filters, noise floors, capped radii, dropped NULLs) that
+*generates* `ANOMALIES.md` (`make anomalies` / `prism/provenance/anomalies.py`, stale-doc test),
+surfaced at `GET /provenance/anomalies` and on `/methods`; the going-forward rule ("any new
+exclusion registers here in the same session") is now this file's own Exclusion protocol section
+above. **F14c** — `prism/report/monthly.py`: parcel-ownership + corporate-status + contracts-added
+sections, CSV + self-contained HTML (inline SVG, print-to-PDF), wired through `api/routers/
+reports.py` and an arq monthly cron. **F14d** — `prism/sync/http.py`, one resilient fetch (retry +
+backoff + jitter, transient-vs-permanent classification, per-host rate limit, `Retry-After`
+honored, `sync.pull_health` + `track_pull`) retrofitted across every HTTP pull in `prism/` except
+the documented push/local carve-outs (`alerts.py`, `llm.py`) and the three sources that keep their
+own proven transports (`aee.py`, `rcp.py`, `ocpr.py` — health-reporting only); `sync.pull_health`
+failures surface as a red WhatsNew chip distinct from the amber staleness chips. F14b/c/d each hit
+one NO-GO round (count corrections, a sentinel-churn double-count, a CRIM-download checkpoint that
+could disagree with itself after a kill) before GO; F14d's re-review caught a live regression its
+own fix had introduced — `prism/crim/geocode.py`'s Census-outage fallback caught `requests.
+RequestException`, but the retrofitted `_query_census` now raises `prism_http.PullError` instead,
+so the `except` had gone silently unreachable and a Census outage would 500 the parcel-360 card
+instead of degrading to Tier B as designed. Fixed and verified live before the closing GO. Full
+detail and residuals in `ROADMAP.md` → Item F14.
+
+**F12a batch (2026-07-26, `feat/f12` off `feat/f14`) — es-PR language toggle infrastructure, Opus
+GO after two NO-GO rounds.** Scope set with the user at intake: F12a (this batch) + F12b (translate
+all chrome) ship; F12c (AI narratives, `/methods`/`/corridor` long-form, OG cards — the only chunk
+touching the Python side) parked to `BACKLOG.md`. Hand-rolled dictionary + context
+(`frontend/lib/i18n/`), not `next-intl` — the roadmap's cookie+URL permalink pattern doesn't need
+next-intl's path-prefix `[locale]/` routing, which would have restructured all ~18 existing routes.
+`/citizen` is the "one page fully bilingual" proof. `frontend/middleware.ts` promotes a valid
+`?lang=` into the request cookie before any Server Component renders, so a shared link SSRs in the
+right language on first paint — better than the "Done when" strictly required. Toggle lives in
+both the desktop sidebar footer (no theme control exists in this codebase for it to sit "next to,"
+contrary to the item's original wording) and the mobile drawer. Round 1 NO-GO caught three dropped
+bold `<span>`s (JSX styling flattened by an over-simplified template-string dictionary function),
+an RAE grammar error hitting ~53% of barrios, a `municipio` word-order bug, and a Spanish honesty
+sentence contradicting the still-English confidence chip; round 2 NO-GO caught that the toggle
+only existed on desktop, leaving phones with no way to change language. Full e2e green on both
+projects except two pre-existing Windows-only `next/og` failures (F10a/F10c, unrelated). Full
+detail in `ROADMAP.md` → Item F12.
+
+**F12b batch (2026-07-31, `feat/f12`) — translate the chrome, Opus GO after six NO-GO rounds.**
+Every remaining page + shared component translated; closed backend-key-set overrides added for
+`/sitefinder` criteria, `/assumptions` knobs, `/playground` asset-types/params/intervention-options,
+`/trends` change-types, `/methods` tier descriptions + anomaly severity, `/portfolio`/`/sync`
+enums — same client-side-override pattern F12a used for `confidenceTiers`. `frontend/e2e/
+i18n.spec.ts` grew from 5 to 33 tests (17-route chrome sweep + backend-schema-label block +
+attribute/hover-tooltip "global chrome" block). **Six rounds, each catching a different bug
+class**, is the residual worth remembering for the next i18n pass: (1) page-level closed enums
+untranslated; (2) a shadowed `useMessages()` variable + two global formatter calls (`fmtRelative`/
+`fmtDateTime`) missing the locale arg, invisible on every page's topbar; (3) attribute-level leaks
+(title/tooltip strings) a visible-text sweep can't see, incl. a dictionary key that already
+existed and simply wasn't wired up; (4) hover-gated Recharts/deck.gl tooltip content, invisible
+until a mouse hovers the chart; (5)+(6) the same raw-enum-next-to-its-translated-sibling pattern
+recurring on three different pages once it was named. A stale Docker image produced one false
+pass mid-chain — rebuild-then-verify-against-the-served-bundle is now the checked step before
+trusting any e2e run. Closed via a final self-directed sweep rather than a seventh full review
+round, per explicit direction to converge. F12c (AI narratives, `/methods`/`/corridor` long-form,
+OG cards, plus a widened list of backend-prose surfaces the gate rounds surfaced — storm/WhatsNew
+headlines, water/telecom score-reason sentences, the anomalies registry) stays parked to
+`BACKLOG.md`. Full detail in `ROADMAP.md` → Item F12.
+
+**The F12 arc (F12a + F12b) is now COMPLETE.** F12c remains parked. Gate protocol unchanged: at
+each item's "Done when", hand off to the Opus `phase-gate-reviewer` for GO/NO-GO before the next;
+after a GO, update `ROADMAP.md` + `memory/project_state.md` in the same session.
+
+**F11d — control-cluster merge (2026-08-03, `feat/f11d` off `feat/f12`, Opus GO after two fix
+rounds) — closes the last open F11 tail.** Registry entities sharing 2+ named
+officers/incorporators (`prism/crim/clusters.py`) are grouped into control clusters, surfaced on
+the `/parcels` owner drawer as a "Shared officers" block — the finding CRIM's owner-of-record field
+cannot show: two seemingly-unrelated CRIM owners may be the same operator working through separate
+shell companies. Two things the build measured rather than assumed before shipping: (1) **there is
+no `relatedEntities` field** anywhere in the mirrored registry JSON (a full-key sweep of
+`crim.rce_entities.raw` confirms it) — officer/incorporator identity is the only structured control
+signal available, not merely the "primary" one as originally scoped; (2) **naive one-shared-officer
+transitive clustering does not work** — run live, it produced a 2,317-entity blob and one cluster
+spanning 106 CRIM owner_keys, because a single shared officer (an accountant, a secondary officer on
+one unrelated board) bridges unrelated corporate families under transitive closure. Requiring
+`MIN_SHARED_PEOPLE=2` collapsed the largest cluster to 13 entities and left 138 clusters that
+genuinely span more than one owner_key (a Barreto-family construction/pharmacy/hardware group; an
+"MTPR WAREHOUSE" x5 group). Both findings registered in `config/anomalies.yml`. **Gate history:**
+first round NO-GO — the owner-drawer copy was binary ("spans multiple owners" vs. "all one owner"),
+but 833 of 971 reachable clusters have a sibling with no CRIM owner match at all (F11b resolves only
+~53% of corporate-suffixed owners), so "all one owner, not a new lead" rendered directly above a
+sibling row reading "not linked to a CRIM property owner" — fixed with a third, correct copy state
+computed from the actual sibling list, plus four smaller fixes (mechanism-accuracy copy, a
+measurement off-by-2, a newly-registered anomaly for the officer-source exclusion scope, a doc
+count). Second round caught one more defect the fix itself introduced: the new Spanish string
+placed a numeral before *otro* ("3 otras empresas"), which RAE's DPD disallows (*otro* precedes
+cardinals: "otros dos días"); fixed and verified live through a rebuilt docker stack in both
+languages. Full detail in `ROADMAP.md` → Item F11 → F11d.

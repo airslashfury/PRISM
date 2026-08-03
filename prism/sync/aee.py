@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+from sqlalchemy.engine import Engine
 
 ORG = "https://services3.arcgis.com/0n3sEGhALDkUSwc5/arcgis/rest/services"
 LS_QUERY = ORG + "/Manual_Load_Shedding/FeatureServer/0/query"
@@ -42,9 +43,19 @@ def _last_edit(client: httpx.Client) -> int | None:
     return (meta.get("editingInfo") or {}).get("lastEditDate")
 
 
-def snapshot_load_shedding(client: httpx.Client | None = None) -> dict:
+def snapshot_load_shedding(client: httpx.Client | None = None,
+                           engine: Engine | None = None) -> dict:
     """Capture one full snapshot of the live shed layer (geojson + geometry) to
-    data/raw/aee_load_shedding/<utc>/ with a checksummed manifest."""
+    data/raw/aee_load_shedding/<utc>/ with a checksummed manifest.
+
+    Keeps its own httpx client rather than moving to `prism.sync.http`: the AEE
+    ArcGIS endpoint needs `follow_redirects` and a 120s timeout that the shared
+    feed policy does not carry, and this is a manual snapshot rather than a
+    scheduled pull. It does report health, so a failure is as visible as any
+    other pull's (F14d).
+    """
+    from prism.sync.http import record_attempt
+
     own = client is None
     client = client or _client()
     try:
@@ -52,6 +63,11 @@ def snapshot_load_shedding(client: httpx.Client | None = None) -> dict:
         r = client.get(LS_QUERY, params={"where": "1=1", "outFields": "*",
                                          "returnGeometry": "true", "outSR": "4326", "f": "geojson"})
         raw = r.content
+    except BaseException as exc:
+        if engine is not None:
+            record_attempt(engine, "aee_load_shedding", ok=False,
+                           error=f"{type(exc).__name__}: {exc}"[:400])
+        raise
     finally:
         if own:
             client.close()
@@ -67,6 +83,9 @@ def snapshot_load_shedding(client: httpx.Client | None = None) -> dict:
         "total_clients": clients, "lastEditDate_ms": last_edit,
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    if engine is not None:
+        record_attempt(engine, "aee_load_shedding", ok=True,
+                       detail={"records": len(feats), "total_clients": clients})
     return manifest
 
 

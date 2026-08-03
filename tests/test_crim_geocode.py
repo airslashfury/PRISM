@@ -62,9 +62,8 @@ def test_geocode_address_caches_after_first_call(engine):
         conn.execute(text("DELETE FROM crim.geocode_cache WHERE query_street = :s"), {"s": street})
 
     payload = _matches_payload(-66.5, 18.3, "1 TEST ST, TEST MUNI, PR, 00601")
-    with patch("prism.crim.geocode.requests.get") as mock_get:
+    with patch("prism.crim.geocode.prism_http.fetch") as mock_get:
         mock_get.return_value.status_code = 200
-        mock_get.return_value.raise_for_status.return_value = None
         mock_get.return_value.json.return_value = payload
 
         r1 = geocode.geocode_address(engine, street, municipio="Test Muni")
@@ -88,9 +87,8 @@ def test_geocode_address_no_confident_match_not_guessed(engine):
         {"coordinates": {"x": -66.1, "y": 18.4}, "matchedAddress": "A"},
         {"coordinates": {"x": -66.2, "y": 18.5}, "matchedAddress": "B"},
     ]}}
-    with patch("prism.crim.geocode.requests.get") as mock_get:
+    with patch("prism.crim.geocode.prism_http.fetch") as mock_get:
         mock_get.return_value.status_code = 200
-        mock_get.return_value.raise_for_status.return_value = None
         mock_get.return_value.json.return_value = tie_payload
 
         r = geocode.geocode_address(engine, street, municipio="Test Muni")
@@ -146,3 +144,71 @@ def test_search_by_address_no_candidates_in_middle_of_ocean(engine):
 
     assert r["status"] == "no_candidates"
     assert r["candidates"] == []
+
+
+def test_geocode_address_degrades_gracefully_on_census_outage(engine):
+    """F14d gate finding: `_query_census` moved onto `prism_http.fetch`, which
+    never raises `requests.RequestException` — transients and permanents both
+    come out as `prism_http.PullError` subclasses. The `except
+    requests.RequestException` guard here had gone unreachable, so a Census
+    outage (a 503 exhausting retries) stopped degrading to an honest
+    "no confident match" and instead raised straight through, 500-ing the
+    parcel-360 card. This proves the degradation survives a real
+    `prism_http.TransientError`, not just a mocked HTTP response."""
+    from prism.crim import geocode
+    from prism.sync import http as prism_http
+
+    street = f"TEST OUTAGE STREET {id(engine)}"
+    with engine.begin() as conn:
+        from sqlalchemy import text
+        conn.execute(text("DELETE FROM crim.geocode_cache WHERE query_street = :s"), {"s": street})
+
+    with patch("prism.crim.geocode.prism_http.fetch") as mock_fetch:
+        mock_fetch.side_effect = prism_http.TransientError("census_geocoder: 3 attempts failed")
+        result = geocode.geocode_address(engine, street, municipio="Test Muni")
+
+    assert result["status"] == "no_confident_match"
+    assert result["lon"] is None and result["lat"] is None
+
+
+def test_search_by_address_degrades_gracefully_on_census_outage(engine):
+    """Same outage, through the `/crim/parcels/search/address` path — proves
+    the fix propagates past `geocode_address` into `search_by_address` rather
+    than raising into a 500."""
+    from prism.crim import query
+    from prism.sync import http as prism_http
+
+    with patch("prism.crim.geocode.prism_http.fetch") as mock_fetch:
+        mock_fetch.side_effect = prism_http.TransientError("census_geocoder: 3 attempts failed")
+        r = query.search_by_address(engine, "anything", municipio="San Juan")
+
+    assert r["status"] == "no_confident_match"
+    assert r["candidates"] == []
+
+
+def test_geocode_tests_never_reach_the_live_network(engine, monkeypatch):
+    """A guard the F14d retrofit earned: when geocode moved off `requests.get`
+    onto the shared client, these tests silently started making real Census
+    calls — one failed, the other passed by coincidence. Any future transport
+    change that slips past the patches fails loudly here instead."""
+    from prism.crim import geocode
+    from prism.sync import http as prism_http
+
+    def _explode(*_a, **_kw):
+        raise AssertionError("a geocode test reached the network")
+
+    monkeypatch.setattr(prism_http, "fetch", _explode)
+    monkeypatch.setattr(prism_http, "_session", _explode)
+
+    street = f"TEST NETWORK GUARD {id(engine)}"
+    with engine.begin() as conn:
+        from sqlalchemy import text
+        conn.execute(text("DELETE FROM crim.geocode_cache WHERE query_street = :s"), {"s": street})
+
+    with patch("prism.crim.geocode.prism_http.fetch") as mock_fetch:
+        mock_fetch.return_value.status_code = 200
+        mock_fetch.return_value.json.return_value = {"result": {"addressMatches": []}}
+        result = geocode.geocode_address(engine, street, municipio="Test Muni")
+
+    assert result["status"] == "no_confident_match"
+    assert mock_fetch.call_count == 1

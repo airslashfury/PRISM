@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorBlock } from "@/components/query-state";
-import { NAV } from "@/components/layout/nav";
+import { useNav } from "@/components/layout/nav";
 import { MapCanvas, PR_VIEW } from "@/components/map/map-canvas";
 import { GenerationPanel } from "@/components/generation-panel";
 import { OutagesPanel } from "@/components/outages-panel";
@@ -22,14 +22,22 @@ import { DOMAIN_RGB } from "@/lib/colors";
 import { cn, fmtInt, fmtIntTiered, fmtNum, fmtRelative } from "@/lib/utils";
 import type { CurrentStateScore, SeismicEvent } from "@/lib/api";
 import { usePulse } from "@/lib/map-motion";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
-const MODULE_METRIC: Record<string, (c: any) => string> = {
-  "/resilience": (c) => `${fmtInt(c.substations_scored)} substations scored`,
-  "/portfolio": (c) => `${fmtInt(c.portfolio_runs)} optimizer runs`,
-  "/economy": (c) => `${fmtInt(c.economy_tracts)} census tracts`,
-  "/corridor": (c) => `${fmtInt(c.corridor_routes)} route alternatives`,
-  "/sync": (c) => `${fmtInt(c.sync_sources)} live data sources`,
-};
+function moduleMetric(
+  t: Messages["overview"]["moduleMetric"],
+  tag: string,
+): Record<string, (c: any) => string> {
+  return {
+    "/resilience": (c) => t.resilience(fmtInt(c.substations_scored, tag)),
+    "/portfolio": (c) => t.portfolio(fmtInt(c.portfolio_runs, tag)),
+    "/economy": (c) => t.economy(fmtInt(c.economy_tracts, tag)),
+    "/corridor": (c) => t.corridor(fmtInt(c.corridor_routes, tag)),
+    "/sync": (c) => t.sync(fmtInt(c.sync_sources, tag)),
+  };
+}
 
 // Framed so PR's landmass sits in the frame's right two-thirds (where the text
 // gradient below has faded clear) and Charlotte Amalie/Road Town (USVI/BVI,
@@ -46,6 +54,11 @@ const HERO_VIEW = { ...PR_VIEW, longitude: -66.113, latitude: 18.267, zoom: 8.5 
 const OFFLINE_PULSE_MS = 2200;
 
 export default function OverviewPage() {
+  const NAV = useNav();
+  const t = useMessages().overview;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
+  const MODULE_METRIC = useMemo(() => moduleMetric(t.moduleMetric, tag), [t.moduleMetric, tag]);
   const { data, error } = useOverview();
   const { data: current } = useCurrentState();
   const { data: seismic } = useSeismic(30);
@@ -61,6 +74,8 @@ export default function OverviewPage() {
   const liveFeeds = useCountUp(whatsNew?.feeds.length);
 
   const advisory = storm?.advisory ?? null;
+  // Generated English sentence from prism/resilience/storm.py — F12c
+  // carve-out, not F12b's job (same category as build_water_risk_headline).
   const stormHeadline = storm?.consequence?.headline ?? null;
 
   const offlineSubstations = useMemo(
@@ -199,18 +214,18 @@ export default function OverviewPage() {
         >
           <Wind className="h-4 w-4 shrink-0 text-domain-hazard" />
           <div className="min-w-0 flex-1 text-sm">
-            <span className="font-medium">{advisory.storm_name ?? "Unnamed storm"}</span>
-            <span className="text-muted-foreground"> · advisory #{advisory.advisory_num}</span>
+            <span className="font-medium">{advisory.storm_name ?? t.unnamedStorm}</span>
+            <span className="text-muted-foreground"> · {t.advisoryNum(advisory.advisory_num)}</span>
             {stormHeadline && (
               <span className="text-muted-foreground"> — {stormHeadline}</span>
             )}
           </div>
           {advisory.replay && (
             <Badge variant="warning" className="shrink-0">
-              REPLAY
+              {t.replay}
             </Badge>
           )}
-          <span className="shrink-0 text-xs font-medium text-primary">Track live →</span>
+          <span className="shrink-0 text-xs font-medium text-primary">{t.trackLive}</span>
         </Link>
       )}
 
@@ -231,32 +246,31 @@ export default function OverviewPage() {
         <div className="relative z-10 flex h-full flex-col justify-between p-6 md:p-8">
           <div className="max-w-[85%] sm:max-w-xl">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Puerto Rico Infrastructure Simulation Model
+              {t.eyebrow}
             </div>
             <h1 className="mt-2 text-display font-semibold tracking-tight md:text-display-lg">
-              Power, water, telecom, roads — one island, one system.
+              {t.heroTitle}
             </h1>
             <p className="mt-3 max-w-md text-sm text-muted-foreground">
-              PRISM models how failures cascade across Puerto Rico&apos;s infrastructure — live,
-              with consequences in people and dollars.
+              {t.heroSubtitle}
             </p>
           </div>
 
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div data-testid="hero-stats" className="flex flex-wrap gap-x-8 gap-y-3">
-              <Stat label="Nodes modeled" value={data ? fmtInt(nodesModeled) : "—"} />
-              <Stat label="Dependencies mapped" value={data ? fmtInt(dependenciesMapped) : "—"} />
+              <Stat label={t.stats.nodesModeled} value={data ? fmtInt(nodesModeled, tag) : "—"} />
+              <Stat label={t.stats.dependenciesMapped} value={data ? fmtInt(dependenciesMapped, tag) : "—"} />
               {/* crim_parcels is a pg_class planner estimate, not an exact COUNT —
                   render it with the same "estimated" tier fmtIntTiered already
                   uses for proxy figures elsewhere, so it never reads as more
                   precise than it is. */}
-              <Stat label="Parcels" value={data ? fmtIntTiered(parcels, "estimated") : "—"} />
-              <Stat label="Live feeds" value={whatsNew ? fmtInt(liveFeeds) : "—"} />
-              <Stat label="Last sync" value={data ? fmtRelative(data.last_sync_at) : "—"} />
+              <Stat label={t.stats.parcels} value={data ? fmtIntTiered(parcels, "estimated", tag) : "—"} />
+              <Stat label={t.stats.liveFeeds} value={whatsNew ? fmtInt(liveFeeds, tag) : "—"} />
+              <Stat label={t.stats.lastSync} value={data ? fmtRelative(data.last_sync_at, tag as "en-US" | "es-PR") : "—"} />
             </div>
             <Button asChild variant="ghost" size="sm" className="shrink-0 text-muted-foreground hover:text-foreground">
               <Link href="/resilience">
-                Open the model <ArrowRight className="h-3.5 w-3.5" />
+                {t.openModel} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </Button>
           </div>
@@ -283,32 +297,31 @@ export default function OverviewPage() {
               <div className="p-5">
                 <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-red-400">
                   <TriangleAlert className="h-4 w-4" />
-                  Highest consequence node
+                  {t.highestConsequence}
                 </div>
                 <div className="mt-3 text-lg font-semibold">{data.top_substation ?? "—"}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Cat-3 composite score
+                  {t.cat3Composite}
                   <span className="ml-2 tnum text-red-400">
-                    {fmtNum(data.top_substation_score, 1)}
+                    {fmtNum(data.top_substation_score, 1, tag)}
                   </span>
                 </div>
                 {(hasPopulation || hasHospitals) && (
                   <div className="mt-2 text-[11px] text-muted-foreground/80">
-                    Failure would cut power to
+                    {t.failureWouldCut}
                     {hasPopulation && (
-                      <> ~{fmtIntTiered(topPopulation)} people</>
+                      <> {t.approxPeople(fmtIntTiered(topPopulation, undefined, tag))}</>
                     )}
-                    {hasPopulation && hasHospitals && <>, including</>}
+                    {hasPopulation && hasHospitals && <>{t.including}</>}
                     {hasHospitals && (
-                      <> {fmtInt(topHospitals)} hospital{topHospitals === 1 ? "" : "s"}</>
+                      <> {t.hospitalCount(topHospitals as number, fmtInt(topHospitals, tag))}</>
                     )}
-                    .
+                    {t.period}
                   </div>
                 )}
                 {!hasPopulation && !hasHospitals && (
                   <div className="mt-2 text-[11px] text-muted-foreground/80">
-                    Highest hazard × cascade impact × centrality on the island. See Resilience for
-                    downstream hospitals and population.
+                    {t.noImpactData}
                   </div>
                 )}
               </div>
@@ -318,7 +331,7 @@ export default function OverviewPage() {
           {/* Module navigation */}
           <section>
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Explore the model
+              {t.exploreModel}
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {NAV.filter((n) => n.href !== "/").map((m) => {
@@ -352,13 +365,10 @@ export default function OverviewPage() {
             <div className="relative">
               <Badge variant="outline" className="mb-3 gap-1.5 border-primary/30 text-primary">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                Puerto Rico Infrastructure Simulation Model
+                {t.brandBadge}
               </Badge>
               <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                PRISM models power, water, roads, telecom, and emergency response as one
-                interconnected system — optimizing for long-term societal value, not the cheapest
-                path. The objective is not to make decisions; it is to make their consequences easy
-                to see.
+                {t.brandStatement}
               </p>
             </div>
           </section>

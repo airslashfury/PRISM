@@ -174,3 +174,64 @@ def test_summary_counts_are_coherent(engine):
     # a wild mismatch means the two counts drifted apart.
     assert s["matched_owners"] <= s["corporate_owners"] * 2
     assert s["registry_entities"] > 0
+
+
+# ── F11d — control clusters attached to a matched entity ────────────────────
+
+def test_entity_with_no_cluster_carries_none(engine):
+    """The common case: a matched entity that shares no >=2-officer overlap
+    with anything else must read as `cluster: None`, not an empty object."""
+    with engine.connect() as conn:
+        key = conn.execute(text("""
+            SELECT m.owner_key FROM crim.owner_rce_match m
+            WHERE m.registration_index IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM crim.control_clusters cc
+                  WHERE cc.registration_index = m.registration_index)
+            LIMIT 1
+        """)).scalar()
+    if key is None:
+        pytest.skip("every matched entity in the current mirror is clustered")
+    ent = registry.owner_registry(engine, key)["entities"][0]
+    assert ent["cluster"] is None
+
+
+def test_entity_in_a_cluster_marks_same_owner_siblings_correctly(engine):
+    """A sibling that resolves to the SAME CRIM owner as the entity being
+    viewed must be flagged `is_same_owner=True` — otherwise a single owner's
+    own shell companies would misread as a cross-owner finding."""
+    with engine.connect() as conn:
+        key = conn.execute(text("""
+            SELECT m.owner_key FROM crim.owner_rce_match m
+            JOIN crim.control_clusters cc ON cc.registration_index = m.registration_index
+            WHERE m.registration_index IS NOT NULL
+            GROUP BY m.owner_key HAVING COUNT(*) > 1
+            LIMIT 1
+        """)).scalar()
+    if key is None:
+        pytest.skip("no owner in the current mirror has >1 matched entity in a cluster")
+
+    out = registry.owner_registry(engine, key)
+    clustered = [e for e in out["entities"] if e["cluster"]]
+    assert clustered, "expected at least one clustered entity for this owner"
+    for ent in clustered:
+        same_owner_siblings = [s for s in ent["cluster"]["siblings"] if s["owner_key"] == key]
+        assert all(s["is_same_owner"] for s in same_owner_siblings)
+
+
+def test_cluster_confidence_tier_never_outranks_the_match_it_extends(engine):
+    """A control cluster is one further inferential step past an already-proxy
+    name match — it can never present as more certain than F11b's link."""
+    with engine.connect() as conn:
+        key = conn.execute(text("""
+            SELECT m.owner_key FROM crim.owner_rce_match m
+            JOIN crim.control_clusters cc ON cc.registration_index = m.registration_index
+            WHERE m.registration_index IS NOT NULL LIMIT 1
+        """)).scalar()
+    if key is None:
+        pytest.skip("no clustered matched entity in the current mirror")
+    out = registry.owner_registry(engine, key)
+    clustered = [e for e in out["entities"] if e["cluster"]]
+    assert clustered
+    for ent in clustered:
+        assert ent["cluster"]["confidence_tier"] == "proxy"

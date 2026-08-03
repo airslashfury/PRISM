@@ -247,7 +247,7 @@ def swap_powers(engine: Engine | None = None) -> dict[str, Any]:
         conductor) substation at full touch confidence, plus only secondaries
         carrying ≥25% share and ≥1 km; slivers are dropped. Secondary confidence
         scales by length share, so a partial feeder never reads as certain.
-      * **FEEDS-orphan sources** — 22 measured source substations have no FEEDS
+      * **FEEDS-orphan sources** — 19 measured source substations have no FEEDS
         edge, so their barrios would drop out of every upstream transmission
         cascade. A barrio is swapped to measured ONLY if its primary substation
         is in the FEEDS graph; otherwise it keeps its Voronoi proxy edge, so

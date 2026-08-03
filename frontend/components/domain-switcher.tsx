@@ -4,16 +4,17 @@ import { Zap, Droplets, RadioTower } from "lucide-react";
 
 import { formatViewport } from "@/lib/url-state";
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 /** Domain switcher (F9b B4): every map page (Power/Water/Telecom) shows the
  *  same switcher, hopping between them carries the current viewport via
  *  `?view=` (already mirrored live by each page's permalink effect) so the
  *  camera doesn't jump on switch. Symmetric — any domain can hand off to any
  *  other, not just Power outward. */
-export const DOMAINS = [
-  { id: "power", href: "/resilience", label: "Power", icon: Zap, color: "text-domain-power" },
-  { id: "water", href: "/water", label: "Water", icon: Droplets, color: "text-domain-water" },
-  { id: "telecom", href: "/telecom", label: "Telecom", icon: RadioTower, color: "text-domain-telecom" },
+const DOMAIN_META = [
+  { id: "power", href: "/resilience", icon: Zap, color: "text-domain-power" },
+  { id: "water", href: "/water", icon: Droplets, color: "text-domain-water" },
+  { id: "telecom", href: "/telecom", icon: RadioTower, color: "text-domain-telecom" },
 ] as const;
 
 export function DomainSwitcher({
@@ -27,6 +28,8 @@ export function DomainSwitcher({
    *  updates once the user pans, so this can't just be a plain href. */
   getView: () => { longitude?: number; latitude?: number; zoom?: number };
 }) {
+  const t = useMessages().domains;
+  const DOMAINS = DOMAIN_META.map((d) => ({ ...d, label: t[d.id] }));
   return (
     <div className={cn("inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5", className)}>
       {DOMAINS.map((d) => {
