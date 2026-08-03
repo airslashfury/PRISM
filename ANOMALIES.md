@@ -9,7 +9,7 @@ of the exclusion, and — where there is one — what the source institution wou
 have to fix.
 
 The exclusions are individually defensible. Together they are a data-quality
-report: 24 of the 39 entries below describe a defect in
+report: 24 of the 41 entries below describe a defect in
 published government data rather than a modelling choice, and each of those names
 the institution that could close it.
 
@@ -28,8 +28,8 @@ registry, not this file.
 |---|---|
 | High — materially affects conclusions PRISM draws | 7 |
 | Medium — narrows or biases a figure | 17 |
-| Low — cosmetic or well-bounded | 15 |
-| **Total active** | **39** |
+| Low — cosmetic or well-bounded | 17 |
+| **Total active** | **41** |
 
 | # | Exclusion | Dataset | Severity |
 |---|---|---|---|
@@ -60,18 +60,20 @@ registry, not this file.
 | 25 | [Ask PRISM only excludes government owners when explicitly asked to](#ask-government-owner-filter-opt-in) | `crim.parcelas_dedup (via the Ask SQL tool)` | low |
 | 26 | [One barrio has no measured feeder conductors at all and keeps the Voronoi proxy](#barrios-without-measured-feeder-coverage) | `graph.feeder_service` | low |
 | 27 | [The ACS mirror is skipped without an API key](#census-acs-requires-api-key) | `Census ACS 5-year estimates` | low |
-| 28 | [An owner blanked between snapshots is not recorded as a change](#crim-delta-blanked-owner-dropped) | `crim.parcel_deltas (change_type='owner_change')` | low |
-| 29 | [A parcel that disappears between snapshots produces no delta row](#crim-delta-no-removal-branch) | `crim.parcel_deltas` | low |
-| 30 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
-| 31 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
-| 32 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
-| 33 | [The investment plan can only choose from the worst 200 substations and 100 barrios](#ilp-catalog-top-n-cap) | `optimize.portfolio_runs (via the intervention catalog)` | low |
-| 34 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
-| 35 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
-| 36 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
-| 37 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
-| 38 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
-| 39 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
+| 28 | [Two entities sharing exactly one officer are not clustered — a stronger bar than the obvious one](#control-cluster-single-officer-bridge) | `crim.control_cluster_summary` | low |
+| 29 | [An owner blanked between snapshots is not recorded as a change](#crim-delta-blanked-owner-dropped) | `crim.parcel_deltas (change_type='owner_change')` | low |
+| 30 | [A parcel that disappears between snapshots produces no delta row](#crim-delta-no-removal-branch) | `crim.parcel_deltas` | low |
+| 31 | [Assessed-value changes under $1 are not recorded as deltas](#crim-reassessment-noise-floor) | `crim.parcel_deltas` | low |
+| 32 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
+| 33 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
+| 34 | [The investment plan can only choose from the worst 200 substations and 100 barrios](#ilp-catalog-top-n-cap) | `optimize.portfolio_runs (via the intervention catalog)` | low |
+| 35 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
+| 36 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
+| 37 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
+| 38 | [People who sign for many companies are flagged as filers, not treated as shared control](#rce-frequent-filer-people) | `crim.rce_person_entities` | low |
+| 39 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
+| 40 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
+| 41 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
 
 ## High — materially affects conclusions PRISM draws
 
@@ -806,6 +808,33 @@ SELECT count(DISTINCT rel.dst_entity) FROM graph.relationships rel WHERE rel.rel
 
 ---
 
+### Two entities sharing exactly one officer are not clustered — a stronger bar than the obvious one
+
+<a id="control-cluster-single-officer-bridge"></a>
+
+- **id** `control_cluster_single_officer_bridge`
+- **Dataset** `crim.control_cluster_summary`
+- **Source** PRISM-derived (clustering threshold)
+- **Enforced at** `prism/crim/clusters.py:MIN_SHARED_PEOPLE`
+
+**What is excluded.** Two registry entities are grouped into a control cluster only when they share 2 or more named, non-frequent-filer officers/incorporators. A pair sharing exactly one such person is deliberately left unclustered.
+
+**Why.** Measured before shipping, not assumed: requiring only 1 shared person and taking the transitive closure (the obvious first design) produced a 2,317-entity connected component and one cluster spanning 106 distinct CRIM owner_keys. A single shared officer — an accountant, a notary, a secondary officer sitting on one unrelated board — is enough to bridge otherwise-unrelated corporate families once transitive closure is taken, because the bridge only needs one shared name to chain arbitrarily far. Requiring 2 shared people collapsed the largest cluster to 13 entities and left 138 clusters that genuinely span more than one CRIM owner_key — coherent groups (a family construction business, a hospitality group under related LLC names) rather than name-collision noise. Same never-guess discipline as `rce_ambiguous_match_withdrawn`: a plausible but weakly-supported link is withheld rather than shown as if confirmed.
+
+**Affects.**
+- control-cluster formation (F11d)
+- the owner-drawer "control cluster" section on /parcels
+
+**How much.** min_shared_people=1: 28,749 clusters, largest 2,317 entities, 1 cluster spanning 106 owner_keys. min_shared_people=2 (shipped): 6,076 clusters, largest 13 entities, 138 clusters spanning >1 owner_key.
+
+```sql
+SELECT max(cluster_size) FROM crim.control_clusters
+```
+
+**What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.
+
+---
+
 ### An owner blanked between snapshots is not recorded as a change
 
 <a id="crim-delta-blanked-owner-dropped"></a>
@@ -1031,12 +1060,39 @@ SELECT count(*) FROM ocpr.government_keys
 
 **Affects.**
 - address-corroborated fuzzy owner matching
-- any future control-cluster analysis (F11d, parked)
+- control-cluster address corroboration (F11d)
 
 **How much.** 929 of 445,988 distinct addresses flagged, covering 25,447 entity registrations
 
 ```sql
 SELECT count(*) FROM crim.rce_address_entities WHERE is_agent_office
+```
+
+**What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.
+
+---
+
+### People who sign for many companies are flagged as filers, not treated as shared control
+
+<a id="rce-frequent-filer-people"></a>
+
+- **id** `rce_frequent_filer_people`
+- **Dataset** `crim.rce_person_entities`
+- **Source** PR Department of State — corporations registry
+- **Enforced at** `prism/crim/clusters.py:FREQUENT_FILER_THRESHOLD`
+
+**What is excluded.** Individuals appearing as a named officer or incorporator on more than 10 mirrored registry entities are flagged `is_frequent_filer` and excluded from control-cluster formation. They are kept and shown, not deleted.
+
+**Why.** A formation service's own staff, or a notary/accountant who signs incorporation paperwork as a courtesy, appears as "officer" or "incorporator" on dozens to hundreds of unrelated companies. The two most frequent names in the mirror sit at 1,098 and 743 mirrored entities — unmistakably a filing service, not a beneficial owner. The address-layer precedent (`rce_agent_office_addresses`) is the same shape applied to a person instead of an address.
+
+**Affects.**
+- control-cluster formation (F11d)
+- the owner-drawer "control cluster" section on /parcels
+
+**How much.** 2,960 of 203,597 distinct named officers/incorporators flagged (>10 mirrored entities)
+
+```sql
+SELECT count(*) FROM crim.rce_person_entities WHERE is_frequent_filer
 ```
 
 **What would fix it.** Nothing upstream — this is a PRISM modelling choice, recorded because it is a real exclusion from a calculation.

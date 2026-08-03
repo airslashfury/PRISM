@@ -439,10 +439,73 @@ anomalies:
     where: prism/crim/rce_match.py:AGENT_OFFICE_THRESHOLD
     scope:
       - address-corroborated fuzzy owner matching
-      - "any future control-cluster analysis (F11d, parked)"
+      - control-cluster address corroboration (F11d)
     magnitude:
       measured: 929 of 445,988 distinct addresses flagged, covering 25,447 entity registrations
       probe: "SELECT count(*) FROM crim.rce_address_entities WHERE is_agent_office"
+    severity: low
+    remediation: null
+    status: active
+
+  - id: rce_frequent_filer_people
+    title: People who sign for many companies are flagged as filers, not treated as shared control
+    dataset: crim.rce_person_entities
+    source: PR Department of State — corporations registry
+    what: >-
+      Individuals appearing as a named officer or incorporator on more than 10
+      mirrored registry entities are flagged `is_frequent_filer` and excluded
+      from control-cluster formation. They are kept and shown, not deleted.
+    why: >-
+      A formation service's own staff, or a notary/accountant who signs
+      incorporation paperwork as a courtesy, appears as "officer" or
+      "incorporator" on dozens to hundreds of unrelated companies. The two most
+      frequent names in the mirror sit at 1,098 and 743 mirrored entities —
+      unmistakably a filing service, not a beneficial owner. The address-layer
+      precedent (`rce_agent_office_addresses`) is the same shape applied to a
+      person instead of an address.
+    where: prism/crim/clusters.py:FREQUENT_FILER_THRESHOLD
+    scope:
+      - control-cluster formation (F11d)
+      - the owner-drawer "control cluster" section on /parcels
+    magnitude:
+      measured: 2,960 of 203,597 distinct named officers/incorporators flagged (>10 mirrored entities)
+      probe: "SELECT count(*) FROM crim.rce_person_entities WHERE is_frequent_filer"
+    severity: low
+    remediation: null
+    status: active
+
+  - id: control_cluster_single_officer_bridge
+    title: Two entities sharing exactly one officer are not clustered — a stronger bar than the obvious one
+    dataset: crim.control_cluster_summary
+    source: PRISM-derived (clustering threshold)
+    what: >-
+      Two registry entities are grouped into a control cluster only when they
+      share 2 or more named, non-frequent-filer officers/incorporators. A pair
+      sharing exactly one such person is deliberately left unclustered.
+    why: >-
+      Measured before shipping, not assumed: requiring only 1 shared person and
+      taking the transitive closure (the obvious first design) produced a
+      2,317-entity connected component and one cluster spanning 106 distinct
+      CRIM owner_keys. A single shared officer — an accountant, a notary, a
+      secondary officer sitting on one unrelated board — is enough to bridge
+      otherwise-unrelated corporate families once transitive closure is taken,
+      because the bridge only needs one shared name to chain arbitrarily far.
+      Requiring 2 shared people collapsed the largest cluster to 13 entities
+      and left 138 clusters that genuinely span more than one CRIM owner_key —
+      coherent groups (a family construction business, a hospitality group
+      under related LLC names) rather than name-collision noise. Same
+      never-guess discipline as `rce_ambiguous_match_withdrawn`: a plausible
+      but weakly-supported link is withheld rather than shown as if confirmed.
+    where: prism/crim/clusters.py:MIN_SHARED_PEOPLE
+    scope:
+      - control-cluster formation (F11d)
+      - the owner-drawer "control cluster" section on /parcels
+    magnitude:
+      measured: >-
+        min_shared_people=1: 28,749 clusters, largest 2,317 entities, 1
+        cluster spanning 106 owner_keys. min_shared_people=2 (shipped):
+        6,076 clusters, largest 13 entities, 138 clusters spanning >1 owner_key.
+      probe: "SELECT max(cluster_size) FROM crim.control_clusters"
     severity: low
     remediation: null
     status: active

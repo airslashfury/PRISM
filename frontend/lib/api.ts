@@ -917,6 +917,44 @@ export interface OwnerContractFootprint {
   confidence_tier: ConfidenceTierKey;
 }
 
+/** F11d — another registry entity in the same control cluster. */
+export interface ClusterSibling {
+  registration_index: string;
+  corp_name: string | null;
+  status_es: string | null;
+  /** The CRIM owner this sibling matches, if any. */
+  owner_key: string | null;
+  owner_display_name: string | null;
+  /** Belongs to the SAME owner_key as the entity being viewed. */
+  is_same_owner: boolean;
+}
+
+/** F11d — a named individual whose shared officer/incorporator role links entities. */
+export interface SharedPerson {
+  person_key: string;
+  display_name: string;
+  role: string; // officer | incorporator
+  entities_in_cluster: number;
+}
+
+/**
+ * F11d — entities sharing 2+ named officers/incorporators with this one.
+ * One inferential step past F11c's already-proxy name match: shared officers
+ * is strong evidence of common control, not proof.
+ */
+export interface ControlCluster {
+  cluster_id: string;
+  entity_count: number;
+  distinct_owner_count: number;
+  /** The headline finding: more than one CRIM owner_key in this cluster. */
+  spans_multiple_owners: boolean;
+  shared_people: SharedPerson[];
+  siblings: ClusterSibling[];
+  /** >=2 members also share a non-agent-office address. */
+  address_corroborated: boolean;
+  confidence_tier: ConfidenceTierKey;
+}
+
 /** F11c — one corporations-registry record linked to a CRIM owner. */
 export interface RegistryEntity {
   registration_index: string;
@@ -937,6 +975,8 @@ export interface RegistryEntity {
   /** The registered address sits in a municipio where this owner holds parcels. */
   municipio_corroborated: boolean;
   as_of: string | null;
+  /** F11d — null when this entity belongs to no control cluster. */
+  cluster: ControlCluster | null;
 }
 
 export interface RegistryNearMiss {

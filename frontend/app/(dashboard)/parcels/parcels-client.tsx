@@ -32,6 +32,7 @@ import type {
   AddressSearchCandidate,
   ContractSummaryRow,
   OwnerRegistry,
+  RegistryEntity,
 } from "@/lib/api";
 import { fmtInt, fmtUsd, fmtNum, fmtPct, fmtDate, fmtDateTime } from "@/lib/utils";
 import { patchUrl, readParam } from "@/lib/url-state";
@@ -974,7 +975,74 @@ function RegistrySection({ ownerKey }: { ownerKey: string }) {
           {t.registry.unresolvedNote(data.unresolved.length, "")}
         </p>
       )}
+
+      <ClusterNote entity={lead} />
     </Section>
+  );
+}
+
+/**
+ * F11d — companies sharing 2+ named officers/incorporators with the entity
+ * being viewed, some of which may belong to a *different* CRIM owner. Silent
+ * when the entity is in no cluster: most matched entities aren't.
+ */
+function ClusterNote({ entity }: { entity: RegistryEntity }) {
+  const t = useMessages().parcels;
+  const c = entity.cluster;
+  if (!c) return null;
+
+  const otherOwners = c.siblings.filter((s) => !s.is_same_owner && s.owner_key);
+  const uniquePeople = Array.from(
+    new Map(c.shared_people.map((p) => [p.display_name, p])).values(),
+  );
+
+  return (
+    <div className="mt-1.5 border-t border-border/40 pt-1.5">
+      <div className="pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {t.registry.cluster.title}
+      </div>
+      <p className="pb-1 text-[12px] leading-snug text-muted-foreground">
+        {t.registry.cluster.intro(entity.corp_name ?? "—", c.siblings.length)}
+      </p>
+
+      {c.spans_multiple_owners && otherOwners.length > 0 ? (
+        <p className="pb-1 text-[12px] leading-snug text-amber-600 dark:text-amber-500">
+          {t.registry.cluster.spansMultipleOwners(otherOwners.length)}
+        </p>
+      ) : (
+        <p className="pb-1 text-[11px] leading-snug text-muted-foreground">
+          {t.registry.cluster.sameOwnerOnly}
+        </p>
+      )}
+
+      {c.siblings.slice(0, 5).map((s) => (
+        <Row
+          key={s.registration_index}
+          label={s.corp_name ?? s.registration_index}
+          value={
+            s.owner_key
+              ? t.registry.cluster.siblingOwner(s.owner_display_name?.trim() ?? s.owner_key)
+              : t.registry.cluster.siblingNoOwner
+          }
+        />
+      ))}
+
+      {uniquePeople.length > 0 && (
+        <p className="pt-1 text-[11px] leading-snug text-muted-foreground">
+          {t.registry.cluster.sharedPeopleLabel}:{" "}
+          {uniquePeople.map((p) => p.display_name).join(", ")}
+        </p>
+      )}
+      {c.address_corroborated && (
+        <p className="pt-1 text-[11px] leading-snug text-muted-foreground">
+          {t.registry.cluster.addressNote}
+        </p>
+      )}
+
+      <p className="pt-1.5 text-[11px] leading-snug text-muted-foreground">
+        {t.registry.cluster.caveat}
+      </p>
+    </div>
   );
 }
 

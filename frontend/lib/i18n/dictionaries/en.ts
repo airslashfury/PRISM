@@ -1134,6 +1134,22 @@ export const en = {
         `No confident match in the Departamento de Estado register. PRISM found ${n} near-miss${n === 1 ? "" : "es"} on this name but none was strong enough to link, so none was recorded — a wrong company is worse than no company.`,
       closest: (names: string): string => `Closest: ${names}.`,
       searchRegistry: "Search the register ↗",
+      cluster: {
+        title: "Shared officers",
+        intro: (corpName: string, n: number): string =>
+          `${corpName} lists the same officer or incorporator as ${n} other registered ${n === 1 ? "company" : "companies"} — enough to be a real lead, not a coincidence.`,
+        spansMultipleOwners: (n: number): string =>
+          `${n} of ${n === 1 ? "them is" : "them are"} owned, in CRIM's records, by a different owner than the one you're viewing — possibly the same operator working through a separate company.`,
+        sameOwnerOnly:
+          "All of these trace back to the same CRIM owner you're viewing — one owner's own companies, not a new lead.",
+        siblingOwner: (name: string): string => `Owned by ${name} in CRIM`,
+        siblingNoOwner: "Not linked to a CRIM property owner",
+        sharedPeopleLabel: "Named in common",
+        addressNote:
+          "These companies also share a registered address that is not a law firm or filing-service office — a second, independent signal pointing the same way.",
+        caveat:
+          "Shared officers is strong evidence of common control, not proof — the same people can legitimately co-found unrelated companies. A lead worth checking, not a finding of ownership.",
+      },
     },
     contracts: {
       governmentContracts: "Government contracts",

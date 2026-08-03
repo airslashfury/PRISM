@@ -533,3 +533,19 @@ headlines, water/telecom score-reason sentences, the anomalies registry) stays p
 **The F12 arc (F12a + F12b) is now COMPLETE.** F12c remains parked. Gate protocol unchanged: at
 each item's "Done when", hand off to the Opus `phase-gate-reviewer` for GO/NO-GO before the next;
 after a GO, update `ROADMAP.md` + `memory/project_state.md` in the same session.
+
+**F11d — control-cluster merge (2026-08-03, `feat/f11d` off `feat/f12`, Opus GO) — closes the last
+open F11 tail.** Registry entities sharing 2+ named officers/incorporators (`prism/crim/clusters.py`)
+are grouped into control clusters, surfaced on the `/parcels` owner drawer as a "Shared officers"
+block — the finding CRIM's owner-of-record field cannot show: two seemingly-unrelated CRIM owners
+may be the same operator working through separate shell companies. Two things the build measured
+rather than assumed before shipping: (1) **there is no `relatedEntities` field** anywhere in the
+mirrored registry JSON (a full-key sweep of `crim.rce_entities.raw` confirms it) — officer/
+incorporator identity is the only structured control signal available, not merely the "primary"
+one as originally scoped; (2) **naive one-shared-officer transitive clustering does not work** —
+run live, it produced a 2,317-entity blob and one cluster spanning 106 CRIM owner_keys, because a
+single shared officer (an accountant, a secondary officer on one unrelated board) bridges unrelated
+corporate families under transitive closure. Requiring `MIN_SHARED_PEOPLE=2` collapsed the largest
+cluster to 13 entities and left 138 clusters that genuinely span more than one owner_key (a
+Barreto-family construction/pharmacy/hardware group; an "MTPR WAREHOUSE" x6 group). Both findings
+registered in `config/anomalies.yml`. Full detail in `ROADMAP.md` → Item F11 → F11d.

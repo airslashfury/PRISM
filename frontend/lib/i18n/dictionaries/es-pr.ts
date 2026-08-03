@@ -1095,6 +1095,22 @@ export const esPR: Messages = {
         `Ninguna coincidencia confiable en el registro del Departamento de Estado. PRISM encontró ${n} casi-coincidencia${n === 1 ? "" : "s"} con este nombre pero ninguna fue lo bastante fuerte para vincularla, así que no se registró ninguna — una empresa equivocada es peor que ninguna empresa.`,
       closest: (names) => `Más cercanas: ${names}.`,
       searchRegistry: "Buscar en el registro ↗",
+      cluster: {
+        title: "Oficiales en común",
+        intro: (corpName, n) =>
+          `${corpName} tiene el mismo oficial o incorporador que ${n} ${n === 1 ? "otra empresa registrada" : "otras empresas registradas"} — suficiente para ser una pista real, no una coincidencia.`,
+        spansMultipleOwners: (n) =>
+          `${n} de ${n === 1 ? "ellas pertenece" : "ellas pertenecen"}, según los registros de CRIM, a un titular distinto al que usted está viendo — posiblemente el mismo operador trabajando a través de otra empresa.`,
+        sameOwnerOnly:
+          "Todas estas se remontan al mismo titular de CRIM que usted está viendo — empresas propias de un solo titular, no una pista nueva.",
+        siblingOwner: (name) => `Pertenece a ${name} en CRIM`,
+        siblingNoOwner: "No vinculada a ningún titular de CRIM",
+        sharedPeopleLabel: "Nombrados en común",
+        addressNote:
+          "Estas empresas también comparten una dirección registrada que no es una oficina de bufete o servicio de radicación — una segunda señal independiente que apunta en la misma dirección.",
+        caveat:
+          "Compartir oficiales es evidencia sólida de control común, no prueba — las mismas personas pueden fundar legítimamente empresas no relacionadas. Una pista que vale la pena revisar, no un hallazgo de titularidad.",
+      },
     },
     contracts: {
       governmentContracts: "Contratos gubernamentales",

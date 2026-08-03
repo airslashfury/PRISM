@@ -1535,13 +1535,51 @@ Sub-chunks, each Opus-gated:
   stable permalink, and probing for one while the F11a mirror is mid-flight against the same
   operator risks a WAF cooldown that costs days of pulling — the UI links to the public search
   page instead. Revisit when the pull completes.
-- ⏸️ **F11d — Control-cluster merge (stretch, PARKED to `BACKLOG.md` 2026-07-25 — no user demand
-  yet, and the prerequisite address layer it would build on already shipped inside F11b).** Collapse
-  shell LLCs into control clusters on
-  **shared officer identity** (person-name, own accent/case normalization) + `relatedentities`
-  (authoritative). Person→parcels reverse view = deliberate fast-follow, out of v1. Docs/PDFs
-  (agent/members sometimes in filings, mostly boilerplate): lazy-fetch on drill-in only, never
-  bulk (WAF-risky, low-yield).
+- ✅ **F11d — Control-cluster merge** — **DONE 2026-08-03, Opus GO**, on `feat/f11d` (off
+  `feat/f12`). Collapse shell LLCs into control clusters on **shared officer identity**
+  (person-name, own accent/case normalization). Person→parcels reverse view stayed the deliberate
+  fast-follow, out of v1, as scoped. Docs/PDFs were never pulled — no use case needed them once the
+  officer-identity signal alone proved out.
+
+  **There is no `relatedEntities` field.** A full-key sweep of the mirrored `raw` JSONB
+  (`jsonb_object_keys` over the whole `crim.rce_entities` mirror) found `officers`, `incorporators`,
+  `residentAgent`, and address blocks — no `relatedEntities` key at any nesting level, on any
+  entity. So officer/incorporator identity is the *only* structured control signal the API
+  actually exposes, not merely the "primary" one as originally scoped — a narrowing to what's
+  real, not a design change, since the roadmap already named it primary with address as corroborator.
+
+  **Naive transitive clustering does not work — measured before shipping, not assumed.** The first
+  cut unioned any two entities sharing one non-frequent-filer named officer/incorporator (the
+  `AGENT_OFFICE_THRESHOLD` pattern, applied to people — `FREQUENT_FILER_THRESHOLD=10`, since the
+  two most frequent names in the mirror sit at 1,098 and 743 entities, unmistakably a filing
+  service). Run against the live mirror (~386K entities, 2026-08), that produced a 2,317-entity
+  connected component and one cluster spanning **106** distinct CRIM owner_keys — a single shared
+  officer (an accountant, a notary, a secondary officer on one unrelated board) bridges otherwise-
+  unrelated corporate families the moment transitive closure is taken across *any* shared person.
+  Requiring **`MIN_SHARED_PEOPLE=2`** — two or more shared people before two entities link —
+  collapsed the largest cluster to 13 entities and left **138** clusters that genuinely span more
+  than one CRIM owner_key: coherent, legible groups (a Barreto-family construction/pharmacy/
+  hardware cluster spanning 3 owner_keys; an "MTPR WAREHOUSE ⋯" x6 cluster; an "OLV / OLIVE VILLA /
+  O:LIVE HOTEL" hospitality group x5) rather than name-collision noise. Registered as
+  `config/anomalies.yml:control_cluster_single_officer_bridge` (+ a sibling entry for the
+  frequent-filer exclusion) with the measured before/after, on the same never-guess discipline as
+  F11b's `rce_ambiguous_match_withdrawn`.
+
+  **Shipped:** `prism/crim/clusters.py` (person-key flattening from `officers`+`incorporators`,
+  Python union-find over the `MIN_SHARED_PEOPLE`-filtered co-occurrence graph, address
+  corroboration via F11b's existing `crim.rce_addresses`/`rce_address_entities`) → four new tables
+  (`crim.rce_person`, `crim.rce_person_entities`, `crim.control_clusters`,
+  `crim.control_cluster_summary`, catalog+confidence stamped `proxy`); `python -m prism.crim
+  --clusters`/`--cluster-stats`; `prism/crim/registry.py`'s `owner_registry()` attaches a
+  `cluster` payload per matched entity (siblings, shared people, `spans_multiple_owners`,
+  `address_corroborated`), batched per owner rather than per-entity; new API schemas
+  (`ControlCluster`/`ClusterSibling`/`SharedPerson`); a "Shared officers" block on the `/parcels`
+  owner drawer's existing Corporate Registry section (silent when the lead entity is in no
+  cluster), copy reviewed against the `/ui-ux` skill — leads with consequence ("shares officers
+  with N other companies"), flags the cross-owner case in amber, and closes on an explicit
+  never-a-proof caveat. Live-verified end-to-end: 6,076 clusters, 14,738 entities clustered,
+  largest 13, 138 spanning >1 owner, 3,199 address-corroborated. 14 new tests (10 in
+  `test_control_clusters.py`, 4 in `test_rce_registry.py`); full pytest green; frontend `tsc` clean.
 
   **Address, revised 2026-07-25 (user pushback — accepted).** The original wording — "NOT shared
   address" — conflated two different uses and threw out the second. Rejecting address as a

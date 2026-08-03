@@ -39,17 +39,29 @@ Core F11 (mirror + matcher + drawer enrichment + OCPR footprint + measured feede
 Opus GO. These are the explicitly-not-done tails — real, recorded, not forgotten, just not worth
 building without a use case pulling on them yet.
 
-- **F11d — control-cluster merge.** Collapse shell LLCs into control clusters on shared officer
-  identity + `relatedentities`; a person→parcels reverse view is the natural fast-follow. The
-  prerequisite — an address entity with agent-office frequency-weighting
-  (`crim.rce_addresses`/`rce_address_entities`) — already shipped inside F11b, so this is scoped
-  and ready whenever it's picked up. Rides along: `address_key` fragmenting one street across two
-  zips (cosmetic until clustering depends on it).
 - **F11f residuals** — measured (not Voronoi-proxy) POWERS for point facilities; wiring the 22
   FEEDS-isolated source substations into the transmission graph; a refresh cron for the AEE
   shed-feed (blocked on a real decision, not a quick add — `data/raw` isn't bind-mounted into the
   `worker` container, so it needs either a new bind mount + `arq` cron or a host-side loop like
   the F11a mirror pull); a UI surface for the 486K-segment feeder network.
+
+## F11d follow-ups, parked 2026-08-03 (F11d itself shipped — Opus-gated on `feat/f11d`)
+
+Control clusters (registry entities sharing >=2 named officers/incorporators, surfaced on the
+owner drawer) are live. What's explicitly deferred, out of v1 per the original scoping:
+
+- **Person → parcels reverse view.** Today the cluster surfaces on the owner/entity drawer
+  (find the companies related to *this* owner). The natural fast-follow is the other direction —
+  land on a named individual (from `crim.rce_person`) and see every parcel their control clusters
+  touch, island-wide. Deliberately not v1: needs its own search surface and drawer, not just a
+  join.
+- **`address_key` zip fragmentation** (rides along from F11b) — one street under two zips splits
+  into two `address_key`s, undercounting `address_corroborated` on clusters that would otherwise
+  match. Conservative failure direction (a missed corroboration, not a false one), so non-blocking.
+- **Nickname/initial normalization on `person_key`.** A missed middle name or a nickname
+  ("Pepe" vs "José") currently splits one real person into two keys — the same conservative
+  failure direction as `normalize_owner`. Revisit if a real cluster is known to be missed because
+  of it.
 
 ---
 
