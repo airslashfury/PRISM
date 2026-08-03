@@ -169,6 +169,12 @@ def person_key(first: str | None, middle: str | None, last: str | None) -> str |
 
 # ── Build: person keys ───────────────────────────────────────────────────────
 
+# Individual officers/incorporators only. Organization-as-officer rows (62,542
+# of them), residentAgent (211,068 entities — a paid service relationship, the
+# person-side analogue of the agent-office addresses rce_match already
+# excludes), and publicBenefitExecutives (228, too rare to matter) are read
+# nowhere in this module — see
+# config/anomalies.yml:control_cluster_officer_source_scope.
 _PERSON_SQL = """
 SELECT e.registration_index, :role AS role,
        o->'individualName'->>'firstName'  AS fn,

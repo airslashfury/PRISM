@@ -1137,9 +1137,11 @@ export const en = {
       cluster: {
         title: "Shared officers",
         intro: (corpName: string, n: number): string =>
-          `${corpName} lists the same officer or incorporator as ${n} other registered ${n === 1 ? "company" : "companies"} — enough to be a real lead, not a coincidence.`,
+          `${corpName} shares at least two named officers or incorporators with ${n} other registered ${n === 1 ? "company" : "companies"} — directly, or through a chain of such links — enough to be a real lead, not a coincidence.`,
         spansMultipleOwners: (n: number): string =>
           `${n} of ${n === 1 ? "them is" : "them are"} owned, in CRIM's records, by a different owner than the one you're viewing — possibly the same operator working through a separate company.`,
+        unmatchedSiblings: (n: number): string =>
+          `${n} of ${n === 1 ? "them is" : "them are"} not linked to any CRIM property owner — PRISM could not match ${n === 1 ? "it" : "them"} to an owner of record, so ${n === 1 ? "it" : "they"} may still hold land under a name the match layer missed.`,
         sameOwnerOnly:
           "All of these trace back to the same CRIM owner you're viewing — one owner's own companies, not a new lead.",
         siblingOwner: (name: string): string => `Owned by ${name} in CRIM`,

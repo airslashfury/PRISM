@@ -1559,7 +1559,7 @@ Sub-chunks, each Opus-gated:
   Requiring **`MIN_SHARED_PEOPLE=2`** — two or more shared people before two entities link —
   collapsed the largest cluster to 13 entities and left **138** clusters that genuinely span more
   than one CRIM owner_key: coherent, legible groups (a Barreto-family construction/pharmacy/
-  hardware cluster spanning 3 owner_keys; an "MTPR WAREHOUSE ⋯" x6 cluster; an "OLV / OLIVE VILLA /
+  hardware cluster spanning 3 owner_keys; an "MTPR WAREHOUSE ⋯" x5 cluster; an "OLV / OLIVE VILLA /
   O:LIVE HOTEL" hospitality group x5) rather than name-collision noise. Registered as
   `config/anomalies.yml:control_cluster_single_officer_bridge` (+ a sibling entry for the
   frequent-filer exclusion) with the measured before/after, on the same never-guess discipline as
@@ -1578,8 +1578,24 @@ Sub-chunks, each Opus-gated:
   cluster), copy reviewed against the `/ui-ux` skill — leads with consequence ("shares officers
   with N other companies"), flags the cross-owner case in amber, and closes on an explicit
   never-a-proof caveat. Live-verified end-to-end: 6,076 clusters, 14,738 entities clustered,
-  largest 13, 138 spanning >1 owner, 3,199 address-corroborated. 14 new tests (10 in
-  `test_control_clusters.py`, 4 in `test_rce_registry.py`); full pytest green; frontend `tsc` clean.
+  largest 13, 138 spanning >1 owner, 3,199 address-corroborated. 14 new tests (11 in
+  `test_control_clusters.py`, 3 in `test_rce_registry.py`); full pytest green (851 passed,
+  2 skipped); frontend `tsc` clean. **Gate fix (2026-08-03):** first review was a NO-GO — the
+  owner-drawer's binary "spans multiple owners" vs. "all one owner" copy was provably false 100%
+  of the time it hit the second branch (833 of 971 reachable clusters have a sibling with **no**
+  CRIM owner match at all — F11b only resolves ~53% of corporate-suffixed owners — so "all one
+  owner, not a new lead" rendered directly above a sibling row reading "not linked to a CRIM
+  property owner"). Fixed with a third, correct state (unmatched siblings get their own honest
+  copy in both languages) plus four smaller fixes: the `intro` line now correctly says "at least
+  two" shared people rather than "the same officer" (singular; the link requires ≥2, and 108 of
+  971 reachable clusters are chain-linked rather than all-pairs-linked so the exact phrasing
+  matters); the `min_shared_people=1` measurement in `config/anomalies.yml` corrected 28,749→28,751
+  (independently re-derived); a new anomaly entry
+  (`control_cluster_officer_source_scope`) registers the previously-undocumented exclusion of
+  organization-as-officer rows (62,542), `residentAgent` (211,068 entities — a paid-service
+  relationship, the person-side analogue of the address-side agent-office exclusion), and
+  `publicBenefitExecutives` (228, too rare to matter) from clustering; the MTPR cluster count
+  corrected x6→x5 (5 MTPR-named entities among 9 total members).
 
   **Address, revised 2026-07-25 (user pushback — accepted).** The original wording — "NOT shared
   address" — conflated two different uses and threw out the second. Rejecting address as a

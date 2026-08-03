@@ -502,10 +502,50 @@ anomalies:
       - the owner-drawer "control cluster" section on /parcels
     magnitude:
       measured: >-
-        min_shared_people=1: 28,749 clusters, largest 2,317 entities, 1
+        min_shared_people=1: 28,751 clusters, largest 2,317 entities, 1
         cluster spanning 106 owner_keys. min_shared_people=2 (shipped):
         6,076 clusters, largest 13 entities, 138 clusters spanning >1 owner_key.
       probe: "SELECT max(cluster_size) FROM crim.control_clusters"
+    severity: low
+    remediation: null
+    status: active
+
+  - id: control_cluster_officer_source_scope
+    title: Control clusters only read individual officers and incorporators — not agents or organization-officers
+    dataset: crim.rce_person
+    source: PR Department of State — corporations registry
+    what: >-
+      Three sources of person/entity identity in the mirrored registry payload
+      are not used to form control clusters: 2,040 `officers` rows and 60,502
+      `incorporators` rows where `isIndividual` is false (the listed party is
+      another company, not a natural person); 211,068 entities' `residentAgent`
+      block, even when it names an individual; and 228 `publicBenefitExecutives`
+      rows (a rare public-benefit-corporation field). Only individual
+      officers/incorporators feed `crim.rce_person`.
+    why: >-
+      Organization-officers would require resolving a chain of companies before
+      any control cluster could be formed on them — a different, harder problem
+      than the person-identity clustering this item ships. A registered agent is
+      a paid service relationship, not a control signal: the same handful of
+      agent firms represent thousands of unrelated entities, which is exactly
+      the agent-office pattern `rce_agent_office_addresses` already excludes on
+      the address side — including agents as officers would reintroduce it on
+      the person side. `publicBenefitExecutives` is too rare to matter yet.
+    where: prism/crim/clusters.py:_PERSON_SQL
+    scope:
+      - control-cluster formation (F11d)
+      - the owner-drawer "Shared officers" section on /parcels
+    magnitude:
+      measured: >-
+        62,542 organization-as-officer/incorporator rows excluded (2,040
+        officers + 60,502 incorporators); 211,068 residentAgent blocks never
+        read as a person-identity source; 228 publicBenefitExecutives rows
+        never read.
+      probe: >-
+        SELECT count(*) FROM (SELECT registration_index, raw FROM crim.rce_entities
+        WHERE jsonb_typeof(raw->'incorporators')='array') e,
+        LATERAL jsonb_array_elements(e.raw->'incorporators') o
+        WHERE jsonb_typeof(o)='object' AND o->>'isIndividual'='false'
     severity: low
     remediation: null
     status: active

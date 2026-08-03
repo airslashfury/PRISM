@@ -1098,9 +1098,11 @@ export const esPR: Messages = {
       cluster: {
         title: "Oficiales en común",
         intro: (corpName, n) =>
-          `${corpName} tiene el mismo oficial o incorporador que ${n} ${n === 1 ? "otra empresa registrada" : "otras empresas registradas"} — suficiente para ser una pista real, no una coincidencia.`,
+          `${corpName} comparte al menos dos oficiales o incorporadores nombrados con ${n} ${n === 1 ? "otra empresa registrada" : "otras empresas registradas"} — directamente, o a través de una cadena de vínculos similares — suficiente para ser una pista real, no una coincidencia.`,
         spansMultipleOwners: (n) =>
           `${n} de ${n === 1 ? "ellas pertenece" : "ellas pertenecen"}, según los registros de CRIM, a un titular distinto al que usted está viendo — posiblemente el mismo operador trabajando a través de otra empresa.`,
+        unmatchedSiblings: (n) =>
+          `${n} de ${n === 1 ? "ellas no está vinculada" : "ellas no están vinculadas"} a ningún titular de CRIM — PRISM no pudo emparejar${n === 1 ? "la" : "las"} con un titular registrado, así que ${n === 1 ? "podría" : "podrían"} poseer terrenos bajo un nombre que la capa de emparejamiento no captó.`,
         sameOwnerOnly:
           "Todas estas se remontan al mismo titular de CRIM que usted está viendo — empresas propias de un solo titular, no una pista nueva.",
         siblingOwner: (name) => `Pertenece a ${name} en CRIM`,

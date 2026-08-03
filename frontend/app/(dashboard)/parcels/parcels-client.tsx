@@ -991,7 +991,18 @@ function ClusterNote({ entity }: { entity: RegistryEntity }) {
   const c = entity.cluster;
   if (!c) return null;
 
-  const otherOwners = c.siblings.filter((s) => !s.is_same_owner && s.owner_key);
+  // Three real states, not two: a sibling can belong to a DIFFERENT owner (the
+  // cross-owner finding this item exists to surface), belong to NO owner at all
+  // (F11b's match layer only resolves ~53% of corporate-suffixed owners, so this
+  // is common and must never read as "nothing to see here"), or — the only case
+  // where "these are all one owner's own companies" is actually true — match the
+  // SAME owner being viewed. Computed from the sibling list itself rather than
+  // trusted from `spans_multiple_owners` alone, so the copy can never claim a
+  // state a visibly-rendered sibling row contradicts (the exact bug class the
+  // F11d gate review caught: "all one owner" rendered directly above a sibling
+  // row reading "not linked to a CRIM property owner").
+  const differentOwners = c.siblings.filter((s) => !s.is_same_owner && s.owner_key);
+  const unmatchedSiblings = c.siblings.filter((s) => !s.owner_key);
   const uniquePeople = Array.from(
     new Map(c.shared_people.map((p) => [p.display_name, p])).values(),
   );
@@ -1005,9 +1016,13 @@ function ClusterNote({ entity }: { entity: RegistryEntity }) {
         {t.registry.cluster.intro(entity.corp_name ?? "—", c.siblings.length)}
       </p>
 
-      {c.spans_multiple_owners && otherOwners.length > 0 ? (
+      {differentOwners.length > 0 ? (
         <p className="pb-1 text-[12px] leading-snug text-amber-600 dark:text-amber-500">
-          {t.registry.cluster.spansMultipleOwners(otherOwners.length)}
+          {t.registry.cluster.spansMultipleOwners(differentOwners.length)}
+        </p>
+      ) : unmatchedSiblings.length > 0 ? (
+        <p className="pb-1 text-[12px] leading-snug text-muted-foreground">
+          {t.registry.cluster.unmatchedSiblings(unmatchedSiblings.length)}
         </p>
       ) : (
         <p className="pb-1 text-[11px] leading-snug text-muted-foreground">
