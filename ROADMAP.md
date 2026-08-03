@@ -1365,7 +1365,7 @@ and raise its confidence tier; public methods/API docs (still audience-gated).
 
 ---
 
-### Item F11 — Corporate owner intelligence: link CRIM owners → PR corporations registry  *(CORE COMPLETE 2026-07-25 — F11a mirror left running unattended; F11d + F11f follow-ups parked to `BACKLOG.md`)*
+### Item F11 — Corporate owner intelligence: link CRIM owners → PR corporations registry  *(COMPLETE 2026-08-03 — F11a mirror left running unattended; F11d shipped 2026-08-03; F11f follow-ups parked to `BACKLOG.md`)*
 
 Source: user ask 2026-07-16 — "link parcel owners that match this public registry
 (rcp.estado.pr.gov) with all attributes." Assessed + spiked live 2026-07-16/17 (Fable session).
@@ -1535,8 +1535,8 @@ Sub-chunks, each Opus-gated:
   stable permalink, and probing for one while the F11a mirror is mid-flight against the same
   operator risks a WAF cooldown that costs days of pulling — the UI links to the public search
   page instead. Revisit when the pull completes.
-- ✅ **F11d — Control-cluster merge** — **DONE 2026-08-03, Opus GO**, on `feat/f11d` (off
-  `feat/f12`). Collapse shell LLCs into control clusters on **shared officer identity**
+- ✅ **F11d — Control-cluster merge** — **DONE 2026-08-03, Opus GO after two fix rounds**, on
+  `feat/f11d` (off `feat/f12`). Collapse shell LLCs into control clusters on **shared officer identity**
   (person-name, own accent/case normalization). Person→parcels reverse view stayed the deliberate
   fast-follow, out of v1, as scoped. Docs/PDFs were never pulled — no use case needed them once the
   officer-identity signal alone proved out.
@@ -1595,7 +1595,13 @@ Sub-chunks, each Opus-gated:
   organization-as-officer rows (62,542), `residentAgent` (211,068 entities — a paid-service
   relationship, the person-side analogue of the address-side agent-office exclusion), and
   `publicBenefitExecutives` (228, too rare to matter) from clustering; the MTPR cluster count
-  corrected x6→x5 (5 MTPR-named entities among 9 total members).
+  corrected x6→x5 (5 MTPR-named entities among 9 total members). **Second gate round** caught one
+  more defect the fix itself introduced — the new `unmatchedSiblings` Spanish string read "3 otras
+  empresas" (numeral before *otro*); RAE's *Diccionario panhispánico de dudas* places *otro* before
+  a cardinal ("otros dos días", never "dos otros días"), fixed to "otras 3 empresas". Verified live
+  end-to-end through a rebuilt docker stack in both languages against the exact P AND M LLC example
+  the first round flagged (3 unmatched siblings, correct copy, no contradiction with the sibling
+  rows). Second gate GO.
 
   **Address, revised 2026-07-25 (user pushback — accepted).** The original wording — "NOT shared
   address" — conflated two different uses and threw out the second. Rejecting address as a
@@ -1631,7 +1637,8 @@ every copy-bearing chunk.
 running unattended** — a host nohup process (self-healing per the watchdog + DB-resilience work),
 at 315K/~560K entities and climbing at close, respecting the registry's own rate limit by design;
 nothing to fix, `rce_match.run()` is idempotent so re-running it later picks up more matches as
-the mirror grows. F11d is parked (above). See `BACKLOG.md` for the condensed pointer list.
+the mirror grows. **F11d shipped 2026-08-03** (above). See `BACKLOG.md` for the condensed pointer
+list of remaining F11f follow-ups.
 
 #### F11e — OCPR government-contracts supplement  *(✅ COMPLETE — Opus GO 2026-07-19)*
 
