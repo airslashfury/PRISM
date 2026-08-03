@@ -537,6 +537,30 @@ tables:
       would also let a registered address be tied to a barrio rather than only a
       municipio.
 
+  crim.control_cluster_summary:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11d control clusters: registry entities sharing 2 or more named
+      officers/incorporators (crim.rce_person), one further inferential step
+      past F11b's already-proxy name match. People appearing on more than 10
+      mirrored entities (crim.rce_person_entities.is_frequent_filer) are
+      excluded as a clustering signal — professional filers, not principals,
+      mirroring the address layer's agent-office threshold. The MIN_SHARED_PEOPLE
+      floor of 2 is load-bearing, not a tuning knob: requiring only 1 shared
+      person produced a 2,317-entity connected component and one cluster
+      spanning 106 CRIM owner_keys, because a single shared officer (an
+      accountant, a secondary officer on an unrelated board) bridges otherwise-
+      unrelated corporate families under naive transitive closure. Shared
+      officers is strong evidence of common control, never proof — the same two
+      people can legitimately co-found unrelated ventures, so `spans_multiple_owners`
+      is a lead worth checking, not an ownership claim.
+    upgrade_path: >-
+      A person-level normalization pass (nickname/initial expansion) would
+      catch same-person pairs the exact name key currently splits — the
+      conservative failure direction, so left as-is until there's a use case
+      pulling on it. Re-run as the F11a registry mirror grows.
+
   sync.aee_circuit:
     method: aggregate of sync.aee_feeders (one row per circuit)
     confidence_tier: authoritative

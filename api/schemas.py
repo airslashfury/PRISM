@@ -1447,6 +1447,42 @@ class OwnerContractFootprint(BaseModel):
     confidence_tier: str
 
 
+class ClusterSibling(BaseModel):
+    """Another registry entity in the same control cluster (F11d)."""
+    registration_index: str
+    corp_name: str | None = None
+    status_es: str | None = None
+    owner_key: str | None = None            # the CRIM owner this sibling matches, if any
+    owner_display_name: str | None = None
+    is_same_owner: bool                     # belongs to the SAME owner_key being viewed
+
+
+class SharedPerson(BaseModel):
+    """One named individual whose shared officer/incorporator role links >=2
+    entities in a control cluster (F11d)."""
+    person_key: str
+    display_name: str
+    role: str                               # officer | incorporator
+    entities_in_cluster: int
+
+
+class ControlCluster(BaseModel):
+    """Entities sharing >=2 named officers/incorporators with this one (F11d).
+
+    One inferential step past F11c's already-`proxy` name match: shared
+    officers is strong evidence of common control, not proof — the same two
+    people could legitimately co-found unrelated ventures.
+    """
+    cluster_id: str
+    entity_count: int
+    distinct_owner_count: int
+    spans_multiple_owners: bool             # the headline finding: >1 CRIM owner_key in one cluster
+    shared_people: list[SharedPerson] = Field(default_factory=list)
+    siblings: list[ClusterSibling] = Field(default_factory=list)
+    address_corroborated: bool              # >=2 members also share a non-agent-office address
+    confidence_tier: str
+
+
 class RegistryEntity(BaseModel):
     """One corporations-registry record linked to a CRIM owner (F11c)."""
     registration_index: str
@@ -1464,6 +1500,7 @@ class RegistryEntity(BaseModel):
     match_confidence: float | None = None
     municipio_corroborated: bool        # registered address sits where the parcels are
     as_of: str | None = None            # when PRISM last pulled this record
+    cluster: ControlCluster | None = None   # F11d — None when this entity is in no cluster
 
 
 class RegistryNearMiss(BaseModel):

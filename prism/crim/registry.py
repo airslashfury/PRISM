@@ -24,6 +24,14 @@ previous value first.
 record is the government's own; PRISM's *assignment* of it to a CRIM owner is a
 name-based inference (F11b, `proxy` tier). Copy must not let the authority of
 the former launder the uncertainty of the latter.
+
+**A matched entity may also belong to a control cluster (F11d).** When it
+shares two or more named officers/incorporators with other mirrored registry
+entities, `prism.crim.clusters` groups them; if any of those siblings resolve
+to a *different* CRIM owner, that owner may be the same operator working
+through a separate shell company — the finding CRIM's owner-of-record field
+structurally cannot show. One further inferential step past an already-`proxy`
+name match, so the cluster payload is attached per entity, not asserted as fact.
 """
 from __future__ import annotations
 
@@ -33,6 +41,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from prism.crim import clusters as control_clusters
 from prism.crim.query import _table_exists
 from prism.crim.rce_match import MATCH_TIER
 
@@ -166,6 +175,14 @@ def owner_registry(engine: Engine, owner_key: str) -> dict[str, Any]:
 
     out["looked"] = looked or bool(rows) or bool(unresolved)
     out["matched"] = bool(rows)
+
+    # F11d — control clusters: does this matched entity share >=2 named
+    # officers/incorporators with other registry entities, possibly matched to
+    # a *different* CRIM owner? One batched lookup for every matched entity
+    # this owner has, rather than one query per row.
+    cluster_map = control_clusters.get_clusters(
+        engine, [r["registration_index"] for r in rows])
+
     out["entities"] = [
         {
             "registration_index": r["registration_index"],
@@ -183,6 +200,7 @@ def owner_registry(engine: Engine, owner_key: str) -> dict[str, Any]:
             "match_confidence": float(r["confidence"]) if r["confidence"] is not None else None,
             "municipio_corroborated": bool(r["municipio_corroborated"]),
             "as_of": r["pulled_at"].isoformat() if r["pulled_at"] else None,
+            "cluster": _cluster_payload(cluster_map.get(r["registration_index"]), owner_key),
         }
         for r in rows
     ]
@@ -195,6 +213,19 @@ def owner_registry(engine: Engine, owner_key: str) -> dict[str, Any]:
         for r in unresolved
     ]
     return out
+
+
+def _cluster_payload(cluster: dict[str, Any] | None, owner_key: str) -> dict[str, Any] | None:
+    """Adapt `clusters.get_clusters()`'s raw entry for the API, marking each
+    sibling as belonging to this same owner or a different (possibly
+    previously-unrelated-looking) one — the finding this item exists to show."""
+    if cluster is None:
+        return None
+    siblings = [
+        {**s, "is_same_owner": s["owner_key"] == owner_key if s["owner_key"] else False}
+        for s in cluster["siblings"]
+    ]
+    return {**cluster, "siblings": siblings}
 
 
 def _clean(v: Any) -> str | None:
