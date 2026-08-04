@@ -181,7 +181,11 @@ export default function LabPage() {
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
-                    {result.confidence_label}
+                    {/* result.confidence_label is English-only backend prose (F12c
+                     * surface) — render by the `tables` signal instead: raw SQL
+                     * declares none at all (untiered), a curated query with every
+                     * source table unstamped still declares its tables (unstamped). */}
+                    {result.tables.length === 0 ? t.untieredBadge : t.unstampedBadge}
                   </span>
                 )}
                 <span className="text-xs text-muted-foreground">{t.rowCount(result.row_count)}</span>

@@ -1,11 +1,14 @@
 """Run a curated `QuerySpec` or an ad-hoc raw-SQL cell against `prism_ro`.
 
 Two layers of defense against a runaway or malicious cell, per F13a's "Done
-when": the `prism_ro` role itself (`docker/initdb/02_readonly_role.sql`) is
-the real enforcement — `default_transaction_read_only` + `statement_timeout`
-apply for the whole session regardless of what Python does. The string
-checks here (SELECT-only, single-statement, row cap) are fast-failure only,
-same posture as `prism.ask.tools.parcel_query`.
+when": the `prism_ro` role itself (`docker/initdb/02_readonly_role.sql`) —
+`default_transaction_read_only` + `statement_timeout` apply for the whole
+session regardless of what Python does — and `_execute`'s `fetchmany` row
+cap, which bounds what this process ever reads off the wire independent of
+the SQL text (a `LIMIT` can be buried in a CTE, subquery, or comment where
+it wouldn't bound the outer result). The SELECT-only / single-statement
+checks are fast-failure only, same posture as `prism.ask.tools.parcel_query`
+— real enforcement of those is the read-only role.
 
 Provenance: a result's confidence tier is the *weakest* tier among its
 declared source tables (`prism.provenance.catalog.get_table_provenance`),
@@ -74,13 +77,33 @@ def _weakest_tier(tables: list[str]) -> dict[str, Any]:
     }
 
 
-def _execute(engine: Engine, sql: str, params: dict[str, Any]) -> tuple[list[str], list[dict[str, Any]]]:
+def _execute(
+    engine: Engine, sql: str, params: dict[str, Any], row_cap: int,
+) -> tuple[list[str], list[dict[str, Any]], bool]:
+    """Fetch at most `row_cap` rows regardless of what the query text says.
+
+    A `LIMIT` in the SQL (spec-bound or user-typed) is an optimization, not
+    the guard — Postgres still has to plan/execute the full statement before
+    a `LIMIT` inside a CTE or subquery takes effect, and a `LIMIT` written
+    inside a comment or string literal doesn't apply at all. `stream_results`
+    forces a server-side cursor (psycopg3 supports named cursors), so
+    `fetchmany` bounds what actually crosses the wire, not just what gets
+    materialized into Python dicts after a client-side cursor already pulled
+    the whole result set — the gate round measured the difference: without
+    this, a suppressed-LIMIT full-table scan still finishes fast and returns
+    a bounded payload, but the API process's RSS balloons by ~2GB pulling the
+    complete result client-side first.
+    """
     try:
-        with engine.connect() as conn:
+        with engine.connect().execution_options(
+            stream_results=True, max_row_buffer=row_cap + 1,
+        ) as conn:
             result = conn.execute(text(sql), params)
             columns = list(result.keys())
-            rows = [dict(r) for r in result.mappings().all()]
-        return columns, rows
+            fetched = result.mappings().fetchmany(row_cap + 1)
+            truncated = len(fetched) > row_cap
+            rows = [dict(r) for r in fetched[:row_cap]]
+        return columns, rows, truncated
     except DBAPIError as exc:
         msg = str(exc.orig) if exc.orig else str(exc)
         if "statement timeout" in msg.lower():
@@ -120,13 +143,13 @@ def run_query(engine: Engine, spec_id: str, params: dict[str, Any]) -> LabResult
         else:
             bind[p.name] = raw
 
-    columns, rows = _execute(engine, spec.sql, bind)
+    columns, rows, truncated = _execute(engine, spec.sql, bind, DEFAULT_ROW_CAP)
     tier = _weakest_tier(list(spec.tables))
     return LabResult(
         columns=columns,
         rows=rows,
         row_count=len(rows),
-        truncated=False,
+        truncated=truncated,
         tables=list(spec.tables),
         **tier,
     )
@@ -148,13 +171,20 @@ def run_sql(engine: Engine, raw_sql: str, row_cap: int = RAW_SQL_ROW_CAP) -> Lab
         raise LabQueryError("Only a single statement is allowed — remove the extra `;`.")
 
     row_cap = max(1, min(row_cap, RAW_SQL_ROW_CAP))
-    truncated = False
+    # A LIMIT appended to the outer statement is a genuine optimization when
+    # it applies (lets the planner stop early) — but it's cosmetic, not the
+    # guard: a LIMIT already present in a comment, a CTE, or a subquery would
+    # satisfy this regex without bounding the outer result at all. _execute's
+    # fetchmany(row_cap) is what actually bounds what this process reads.
+    # Appended as row_cap + 1, not row_cap: appending exactly row_cap would
+    # make a query that legitimately has MORE rows come back looking
+    # identical to one that has EXACTLY row_cap — fetchmany would never see
+    # the overflow row, and `truncated` would false-negative on the most
+    # common raw-SQL shape (a plain unlimited SELECT).
     if not re.search(r"\bLIMIT\s+\d+\b", sql, re.IGNORECASE):
-        sql = f"{sql}\nLIMIT {row_cap}"
+        sql = f"{sql}\nLIMIT {row_cap + 1}"
 
-    columns, rows = _execute(engine, sql, {})
-    if len(rows) >= row_cap:
-        truncated = True
+    columns, rows, truncated = _execute(engine, sql, {}, row_cap)
 
     return LabResult(
         columns=columns,

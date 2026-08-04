@@ -455,6 +455,34 @@ tables:
       Cross-check inferred sales against the CRIM transaction registry for exact
       recording dates and market prices.
 
+  crim.owner_entities:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      F1 normalized owner roll-up over crim.parcelas_dedup: `normalize_owner()`
+      (prism/crim/normalize.py) uppercases, folds accents, strips punctuation,
+      and drops a trailing legal-form suffix (LLC/INC/CORP/...) to produce a
+      deterministic `owner_key`, then groups parcels by that key. No fuzzy
+      matching — two spellings that differ by more than case/accents/legal-form
+      punctuation land as separate owner entities even when they are the same
+      real-world owner. `display_name` is the most frequent raw spelling seen
+      for the key, not a canonical legal name.
+    upgrade_path: >-
+      A registry-backed identity join (F11's crim.owner_rce_match, corporate
+      owners only) resolves some of this; a name-similarity pass across
+      owner_key values would catch more but needs the same guard against
+      false merges that F11d's control-cluster work applied.
+
+  crim.parcel_owner:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      One row per parcel (num_catastro), the per-parcel join table underlying
+      crim.owner_entities — same `normalize_owner()` method and the same
+      caveats. Authoritative parcel/value fields from crim.parcelas_dedup;
+      `owner_key` is PRISM's modeled key.
+    upgrade_path: Same as crim.owner_entities.
+
   crim.geocode_cache:
     method: proxy
     confidence_tier: proxy
@@ -472,6 +500,22 @@ tables:
       If D2 (Census Proposed Address tiering) lands, promote the Tier-A
       Census-matched case toward authoritative for the address label itself
       (the point), while the parcel-assignment step stays proxy.
+
+  crim.rce_entities:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      F11a raw mirror of the PR Departamento de Estado corporations registry
+      (rcp.estado.pr.gov), one row per registered entity as published — name,
+      status, registration index, officers/incorporators. Authoritative at the
+      row level, same as any other government-source mirror; the ONLY caveat
+      here is completeness, which is a coverage gap tracked separately as
+      `rce_registry_mirror_incomplete` in config/anomalies.yml (the walk was
+      still in progress as of this table's last stamp), not a confidence-tier
+      question — the rows that ARE mirrored are the registry's own data.
+    upgrade_path: >-
+      Re-run once prism.sync.rcp finishes the full registry walk; see
+      rce_registry_mirror_incomplete for the measured completion state.
 
   crim.owner_rce_match:
     method: proxy

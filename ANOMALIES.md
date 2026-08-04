@@ -9,7 +9,7 @@ of the exclusion, and — where there is one — what the source institution wou
 have to fix.
 
 The exclusions are individually defensible. Together they are a data-quality
-report: 24 of the 42 entries below describe a defect in
+report: 25 of the 43 entries below describe a defect in
 published government data rather than a modelling choice, and each of those names
 the institution that could close it.
 
@@ -28,8 +28,8 @@ registry, not this file.
 |---|---|
 | High — materially affects conclusions PRISM draws | 7 |
 | Medium — narrows or biases a figure | 17 |
-| Low — cosmetic or well-bounded | 18 |
-| **Total active** | **42** |
+| Low — cosmetic or well-bounded | 19 |
+| **Total active** | **43** |
 
 | # | Exclusion | Dataset | Severity |
 |---|---|---|---|
@@ -68,13 +68,14 @@ registry, not this file.
 | 33 | [CRIM's unknown-owner placeholder is filtered out of owner intelligence](#crim-unknown-owner-sentinel) | `crim.owner_entities` | low |
 | 34 | [Fourteen substations have a bare number where a name should be](#hifld-unnamed-substations) | `graph.entities (kind='substation')` | low |
 | 35 | [The investment plan can only choose from the worst 200 substations and 100 barrios](#ilp-catalog-top-n-cap) | `optimize.portfolio_runs (via the intervention catalog)` | low |
-| 36 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
-| 37 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
-| 38 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
-| 39 | [People who sign for many companies are flagged as filers, not treated as shared control](#rce-frequent-filer-people) | `crim.rce_person_entities` | low |
-| 40 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
-| 41 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
-| 42 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
+| 36 | [Parcels with no municipio are dropped from the Data Lab's municipio rollup](#lab-municipio-rollup-null-municipio-dropped) | `crim.parcelas` | low |
+| 37 | [Public bodies are excluded from the contractor-owner ranking unless toggled on](#ocpr-government-excluded-by-default) | `ocpr.government_keys` | low |
+| 38 | [Reported generation capacity excludes PPOA renewables](#prepa-capacity-excludes-ppoa) | `sync.generation_status` | low |
+| 39 | [High-density addresses are flagged as agent offices, not treated as shared control](#rce-agent-office-addresses) | `crim.rce_address_entities` | low |
+| 40 | [People who sign for many companies are flagged as filers, not treated as shared control](#rce-frequent-filer-people) | `crim.rce_person_entities` | low |
+| 41 | [Registry rows named "UNKNOWN ENTITY" are excluded from owner matching](#rce-unknown-entity-sentinel) | `crim.rce_entities -> crim.owner_rce_match` | low |
+| 42 | [Fiber conduits are mirrored but excluded from every telecom view](#telecom-no-fiber-layer) | `g37_telecom_conductos_fibra_optica_act_2012` | low |
+| 43 | [Telecom assets carry zero cascade weight by design](#telecom-zero-cascade-criticality) | `graph.entities (telecom kinds)` | low |
 
 ## High — materially affects conclusions PRISM draws
 
@@ -1024,6 +1025,32 @@ SELECT count(*) FROM resilience.cascade_scores
 
 ---
 
+### Parcels with no municipio are dropped from the Data Lab's municipio rollup
+
+<a id="lab-municipio-rollup-null-municipio-dropped"></a>
+
+- **id** `lab_municipio_rollup_null_municipio_dropped`
+- **Dataset** `crim.parcelas`
+- **Source** CRIM
+- **Enforced at** `prism/lab/queries.py:crim_parcels_by_municipio`
+
+**What is excluded.** The F13a Data Lab's curated "Parcels and assessed value by municipio" query filters `WHERE municipio IS NOT NULL` before grouping, so parcel rows in the raw fabric that carry no municipio value are excluded from both the parcel count and the total assessed value shown per municipio.
+
+**Why.** A GROUP BY municipio has nowhere to put a NULL that isn't misleading — folding it into an unlabeled bucket would silently understate every real municipio's total by comparison, or invent a fake "(none)" row.
+
+**Affects.**
+- /lab curated query "Parcels and assessed value by municipio" only
+
+**How much.** 76,990 of 1,536,079 parcel rows (5.0%)
+
+```sql
+SELECT count(*) FROM crim.parcelas WHERE municipio IS NULL
+```
+
+**What would fix it** (CRIM — Centro de Recaudación de Ingresos Municipales). CRIM: ~77K parcel geometries in the published fabric carry no municipio value. Populating it (CRIM already assigns every parcel to a municipio for tax-collection purposes) would recover these rows for municipio-level rollups.
+
+---
+
 ### Public bodies are excluded from the contractor-owner ranking unless toggled on
 
 <a id="ocpr-government-excluded-by-default"></a>
@@ -1236,6 +1263,8 @@ tables whose root cause is a dataset another agency has never published.
   Departamento de Estado / CRIM: neither register carries the other's identifier, so a corporation must be matched to its property by name. A shared entity identifier — the registration index recorded on the deed, or an EIN on both sides — would make the join exact and retire the fuzzy tier entirely.
 - **CRIM's unknown-owner placeholder is filtered out of owner intelligence** — 78 of 887,708 owner entities (0.009%).
   CRIM: the parcels behind these entries have no owner of record. They are the cleanest possible worklist for a title-research pass — a small, bounded set whose ownership is formally unknown rather than merely misspelled.
+- **Parcels with no municipio are dropped from the Data Lab's municipio rollup** — 76,990 of 1,536,079 parcel rows (5.0%).
+  CRIM: ~77K parcel geometries in the published fabric carry no municipio value. Populating it (CRIM already assigns every parcel to a municipio for tax-collection purposes) would recover these rows for municipio-level rollups.
 
 ### DTOP — Departamento de Transportación y Obras Públicas
 

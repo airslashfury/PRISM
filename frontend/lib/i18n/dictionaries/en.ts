@@ -609,6 +609,13 @@ export const en = {
     truncated: "Result truncated — add a filter or lower the row limit for the full set.",
     unstampedTables: (tables: string): string => `No confidence stamp on: ${tables}`,
     selectAQuery: "Select a curated query above, or switch to Raw SQL, to get started.",
+    // Two distinct null-tier badges (backend distinguishes them via `tables`,
+    // not `confidence_label` — that field is English-only backend prose, an
+    // F12c surface, never rendered directly). Untiered: a raw-SQL cell, no
+    // declared source table at all. Unstamped: a curated query whose every
+    // declared table lacks a config/confidence.yml entry (e.g. crim.owner_entities).
+    untieredBadge: "Untiered — your own query",
+    unstampedBadge: "Unstamped",
   },
 
   playground: {

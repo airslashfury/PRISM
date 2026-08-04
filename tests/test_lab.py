@@ -85,12 +85,36 @@ def test_run_query_unknown_id_raises(engine):
         run_query(engine, "not_a_real_query", {})
 
 
-def test_run_query_surfaces_unstamped_source_table(engine):
-    # crim.owner_entities (F1) has no config/confidence.yml entry — the Lab
-    # must say so rather than silently assigning it a tier.
-    result = run_query(engine, "crim_owners_by_parcel_count", {})
-    assert result.confidence_tier is None
-    assert "crim.owner_entities" in result.unstamped_tables
+def test_weakest_tier_surfaces_a_table_with_no_confidence_entry():
+    # White-box: exercise the tier logic directly against a table name that's
+    # guaranteed to have no config/confidence.yml entry, rather than pinning
+    # this test to any one curated spec's current stamped/unstamped status
+    # (crim.owner_entities was unstamped when this test was written, then
+    # stamped `modeled` as a gate follow-up — the *mechanism* under test, not
+    # that specific table, is what must hold).
+    from prism.lab.execute import _weakest_tier
+
+    tier = _weakest_tier(["not.a.real.table"])
+    assert tier["confidence_tier"] is None
+    assert tier["unstamped_tables"] == ["not.a.real.table"]
+
+
+def test_weakest_tier_ignores_unstamped_when_another_table_is_stamped():
+    from prism.lab.execute import _weakest_tier
+
+    tier = _weakest_tier(["not.a.real.table", "graph.entities"])
+    assert tier["confidence_tier"] is not None
+    assert "not.a.real.table" in tier["unstamped_tables"]
+
+
+def test_every_curated_spec_resolves_a_tier(engine):
+    # All 12 declared source tables now carry a config/confidence.yml entry
+    # (the gate follow-up that stamped crim.owner_entities/parcel_owner/
+    # rce_entities) — a regression here means a future spec added a table
+    # nobody stamped.
+    for s in list_specs():
+        result = run_query(engine, s.id, {})
+        assert result.confidence_tier is not None, f"{s.id} resolved no tier: {result.unstamped_tables}"
 
 
 # ── run_sql ──────────────────────────────────────────────────────────────────
@@ -121,6 +145,40 @@ def test_run_sql_allows_select_only_cte(engine):
 def test_run_sql_auto_appends_limit_when_missing(engine):
     result = run_sql(engine, "SELECT * FROM sync.pull_health", row_cap=2)
     assert result.row_count <= 2
+
+
+def test_run_sql_row_cap_is_not_defeated_by_a_limit_inside_a_cte(engine):
+    # A LIMIT anywhere in the string used to satisfy the auto-append regex
+    # and skip capping entirely, even though it doesn't bound the outer
+    # SELECT. Gate-round fix: the cap comes from fetchmany, not the regex.
+    result = run_sql(
+        engine,
+        "WITH t AS (SELECT 1 AS n LIMIT 1) SELECT g FROM generate_series(1,5000) g, t",
+        row_cap=10,
+    )
+    assert result.row_count <= 10
+    assert result.truncated is True
+
+
+def test_run_sql_row_cap_is_not_defeated_by_a_limit_inside_a_comment(engine):
+    result = run_sql(engine, "SELECT * FROM generate_series(1, 5000) -- LIMIT 10", row_cap=10)
+    assert result.row_count <= 10
+    assert result.truncated is True
+
+
+def test_run_sql_truncated_is_false_when_the_full_result_fits(engine):
+    result = run_sql(engine, "SELECT 1 AS one", row_cap=500)
+    assert result.truncated is False
+
+
+def test_run_sql_truncated_is_true_when_the_appended_limit_would_hide_it(engine):
+    # Gate-round regression: appending exactly `LIMIT row_cap` made a result
+    # with MORE rows than the cap indistinguishable from one with exactly
+    # `row_cap` rows — fetchmany never saw an overflow row. The fix appends
+    # row_cap + 1 so the overflow is still visible to fetchmany.
+    result = run_sql(engine, "SELECT * FROM generate_series(1, 5000)", row_cap=500)
+    assert result.row_count == 500
+    assert result.truncated is True
 
 
 def test_run_sql_strips_code_fence(engine):

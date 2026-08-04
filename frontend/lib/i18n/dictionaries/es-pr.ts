@@ -582,6 +582,8 @@ export const esPR: Messages = {
     truncated: "Resultado truncado — agregue un filtro o reduzca el límite de filas para ver el conjunto completo.",
     unstampedTables: (tables: string): string => `Sin nivel de confianza en: ${tables}`,
     selectAQuery: "Seleccione una consulta arriba, o cambie a SQL directo, para comenzar.",
+    untieredBadge: "Sin nivel — su propia consulta",
+    unstampedBadge: "Sin nivel de confianza",
   },
 
   playground: {

@@ -181,6 +181,9 @@ const ES_PR_CHROME_ROUTES: { path: string; locator: (p: Page) => Locator }[] = [
   { path: "/portfolio", locator: (p) => p.getByText("Portafolio de inversión") },
   { path: "/playground", locator: (p) => p.getByPlaceholder(/escenario/i) },
   { path: "/assumptions", locator: (p) => p.getByText("Ajustar el modelo") },
+  // Same reasoning as /ask/methods above: "Laboratorio de datos" is also the
+  // nav label — use the heading role to disambiguate from the nav link.
+  { path: "/lab", locator: (p) => p.getByRole("heading", { name: "Laboratorio de datos", level: 1 }) },
   // Same reasoning as /ask above: the nav label is "Centro de confianza"
   // (lowercase c), a case-insensitive substring match of this page's own
   // "Centro de Confianza" H1 — use the heading role to disambiguate.
