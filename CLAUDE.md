@@ -559,3 +559,32 @@ count). Second round caught one more defect the fix itself introduced: the new S
 placed a numeral before *otro* ("3 otras empresas"), which RAE's DPD disallows (*otro* precedes
 cardinals: "otros dos días"); fixed and verified live through a rebuilt docker stack in both
 languages. Full detail in `ROADMAP.md` → Item F11 → F11d.
+
+**F13a — Data Lab, safe query substrate + single-cell lab (2026-08-03, `feat/f13` off `main`,
+Opus GO after one fix round) — first chunk of the F13 arc.** `prism_ro` — a read-only Postgres
+role (`docker/initdb/02_readonly_role.sql`, `statement_timeout=8s`, `default_transaction_read_only`,
+dynamic per-schema GRANTs so a new `prism.*` module's schema is covered without a hardcoded list)
+behind its own small connection pool (`api/deps.py::get_readonly_engine`) so a runaway Lab cell
+can't starve the main API. `prism/lab/` — `queries.py` (a single-place `QuerySpec` registry, 12
+curated queries across resilience/water/telecom/economy/crim/graph/ocpr/sync) + `execute.py`
+(`run_query` + a raw-SQL escape hatch `run_sql`, both stamped with the *weakest* confidence tier
+across their declared source tables, honestly reporting "unstamped" rather than guessing when a
+table carries no `config/confidence.yml` entry). `api/routers/lab.py` (`GET /lab/queries`,
+`POST /lab/run`, `POST /jobs/lab/run` for backgrounded cells) and `/lab` (nav group **Decide**,
+hand-rolled `result-table.tsx`/`result-chart.tsx`, no new frontend deps). **Gate history:** the
+first round was NO-GO on the safety mechanism itself — the row cap was a regex check for `LIMIT`
+in the SQL text, defeatable by a `LIMIT` buried in a CTE or a trailing comment, and the "Done
+when" query (`SELECT * FROM crim.parcelas`) was silently rescued by an unrelated auto-appended
+`LIMIT` rather than genuinely bounded. Fixed with a `fetchmany`-based cap plus a server-side
+cursor (`stream_results=True`) so the bound applies to what crosses the wire, not just what gets
+materialized after the fact — the gate had measured the unfixed path ballooning the API
+process's RSS by ~2GB on one query despite returning a small response. A follow-up sub-round
+caught the fix's own off-by-one (`LIMIT row_cap` vs. `LIMIT row_cap+1`), which made `truncated`
+false-negative on the single most common raw-SQL shape (an unlimited `SELECT`). Same round also:
+registered a new anomaly (parcels missing a municipio value silently dropped from the municipio
+rollup, 5.0%), stamped three previously-unstamped tables in `config/confidence.yml`
+(`crim.owner_entities`/`crim.parcel_owner`/`crim.rce_entities`), fixed an i18n leak (a null-tier
+badge was rendering raw English instead of a translated key), and dropped a non-load-bearing
+`POSTGRES_RO_PASSWORD` env var (the fresh-volume initdb script can't read env vars anyway, so the
+role's password was always hardcoded — the env var did nothing). Full detail in `ROADMAP.md` →
+Item F13 → F13a. **F13b (notebooks) and F13c (boards) are next, not yet started.**

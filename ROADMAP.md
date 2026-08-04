@@ -1072,7 +1072,7 @@ OG cards stay English-only until F12c is picked up separately.
 
 ---
 
-### Item F13 — Data Lab: notebooks + boards  *(QUEUED — evaluated 2026-07-25, sequence after F12)*
+### Item F13 — Data Lab: notebooks + boards  *(IN PROGRESS — F13a DONE 2026-08-03, Opus GO after one fix round; F13b/F13c queued next)*
 
 Source: user ask 2026-07-25 — a section shaped like Dynatrace Notebooks (cells that run a query
 and render a table/chart/map) with a way to compose saved cells into dashboards. Viability
@@ -1117,19 +1117,49 @@ pass.**
 
 Sub-chunks, each Opus-gated:
 
-- **F13a (L1) — Safe query substrate + single-cell lab.** `prism_ro` role
+- **F13a (L1) — Safe query substrate + single-cell lab — ✅ DONE (2026-08-03, `feat/f13` off
+  `main`, Opus GO after one fix round).** `prism_ro` role
   (`docker/initdb/02_readonly_role.sql` + an idempotent `make db-readonly-role`, since initdb
   only runs on a fresh volume) with `statement_timeout`, `default_transaction_read_only`, and a
   **separate small pool** via `get_readonly_engine()` so a runaway cell can't starve the API.
   New `prism/lab/`: `queries.py` (single-place `QuerySpec` registry — id, params, bind-param SQL,
-  declared `tables`, `result_kind`), ~12 seed specs across the real schemas, `execute.py`
+  declared `tables`, `result_kind`), 12 seed specs across the real schemas, `execute.py`
   (`run_query` with row cap + weakest-tier provenance; `run_sql` escape hatch whose *actual*
   enforcement is the role + timeout, string checks only for fast failure). `api/routers/lab.py`:
   `GET /lab/queries`, `POST /lab/run`, `POST /jobs/lab/run`. Frontend `/lab` (nav group
   **Decide**) with the first generic `result-table.tsx` and `result-chart.tsx` — hand-rolled,
-  **no new deps**. **Done when:** 12 curated queries run with correct tiers, a deliberate
-  `SELECT * FROM crim.parcelas` is killed by `statement_timeout` while the main API stays
-  responsive, and raw SQL renders a visible "untiered — your own query" stamp.
+  **no new deps**. **Gate history:** first round NO-GO on the "Done when" line itself — the
+  row cap was a regex check on the SQL text (`LIMIT` anywhere in the string, including inside a
+  CTE or a comment), so a query like `SELECT * FROM crim.parcelas -- LIMIT 10` skipped the cap
+  entirely and returned the full 1.5M-row table (65.8MB, 4s, `truncated` reported false even
+  though nothing was capped). Fixed with a `fetchmany(row_cap+1)`-based cap independent of the
+  SQL text, **plus** a server-side cursor (`stream_results=True`) so the cap bounds what crosses
+  the wire, not just what gets materialized after a client-side cursor already pulled everything
+  — the gate measured the uncapped path ballooning the API process by ~2GB RSS even though the
+  *response* was correctly bounded. Second sub-round (same review) caught the fetchmany fix's own
+  off-by-one: appending `LIMIT row_cap` (not `row_cap+1`) made an over-the-cap result
+  indistinguishable from an exactly-at-cap one, so `truncated` false-negatived on the single most
+  common raw-SQL shape (a plain unlimited `SELECT`). Also closed same-round: a real anomaly
+  registered (`lab_municipio_rollup_null_municipio_dropped`, 76,990/1,536,079 parcels = 5.0%
+  excluded from the municipio-rollup query — CRIM parcels missing a municipio value); three
+  previously-unstamped tables the gate surfaced now carry `config/confidence.yml` entries
+  (`crim.owner_entities`/`crim.parcel_owner` modeled, `crim.rce_entities` authoritative); an i18n
+  leak (the null-tier badge rendered raw English `confidence_label` instead of a translated key)
+  fixed + `/lab` added to the i18n chrome sweep; the `POSTGRES_RO_PASSWORD` env var was dropped
+  entirely (it wasn't actually load-bearing — the fresh-volume initdb script can't read env vars,
+  so the SQL hardcodes the password; `get_readonly_engine()` now matches). Non-blocking
+  carry-forward: F13b's new `lab` schema will need `make db-readonly-role` re-run (a brand-new
+  schema isn't covered by the existing dynamic per-schema grants — only new *tables* in an
+  existing schema are, via `ALTER DEFAULT PRIVILEGES`). **Done when:** 12 curated queries run
+  with correct tiers, a deliberate `SELECT * FROM crim.parcelas` is killed by `statement_timeout`
+  while the main API stays responsive, and raw SQL renders a visible "untiered — your own query"
+  stamp — **met, with one accepted deviation from the literal wording, judged and confirmed by
+  the gate:** the row cap now rescues that exact query (fast, bounded, never reaches the
+  timeout) rather than the timeout killing it, which is a *stronger* guarantee (bounded response
+  size + bounded API memory, not just bounded execution time) — the timeout's real job is
+  defense-in-depth against a bug in the cap itself, proven live with a query the cap can't
+  rescue (an aggregate that returns one row, e.g. a cross-join `count(*)`): killed at 8s,
+  `/health` and a real DB-backed endpoint stayed under 30ms throughout.
 - **F13b (L2) — Notebook: many cells, persisted, permalinked.** `lab.notebooks` + `lab.cells
   (kind: query|sql|markdown|ask, spec JSONB, viz JSONB)` modeled on `playground.scenarios`;
   CRUD mirroring `api/routers/playground.py`; reorder via up/down buttons (no `dnd-kit`);
