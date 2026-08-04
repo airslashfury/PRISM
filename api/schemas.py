@@ -1768,3 +1768,48 @@ class TelecomSourceDetail(BaseModel):
     rank: int | None = None
     headline: str
     confidence_tiers: dict[str, str] = Field(default_factory=dict)
+
+
+# --------------------------------------------------------------------------- #
+# F13a — Data Lab                                                              #
+# --------------------------------------------------------------------------- #
+class LabQueryParam(BaseModel):
+    name: str
+    label: str
+    kind: Literal["string", "number", "enum"]
+    default: Any = None
+    options: list[str] | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+
+
+class LabQuerySpec(BaseModel):
+    id: str
+    title: str
+    description: str
+    tables: list[str]
+    result_kind: Literal["table", "bar", "line"]
+    params: list[LabQueryParam] = Field(default_factory=list)
+    x_field: str | None = None
+    y_field: str | None = None
+
+
+class LabRunRequest(BaseModel):
+    query_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    sql: str | None = None
+
+
+class LabResultResponse(BaseModel):
+    columns: list[str]
+    rows: list[dict[str, Any]]
+    row_count: int
+    truncated: bool
+    tables: list[str]
+    confidence_tier: str | None = None
+    confidence_label: str
+    confidence_color: str | None = None
+    unstamped_tables: list[str] = Field(default_factory=list)
+    result_kind: Literal["table", "bar", "line"] = "table"
+    x_field: str | None = None
+    y_field: str | None = None

@@ -48,6 +48,10 @@ export const useSubstationsSlim = () =>
     staleTime: 60 * MIN,
   });
 
+/** F13a — the curated Data Lab query registry. */
+export const useLabQueries = () =>
+  useQuery({ queryKey: ["labQueries"], queryFn: api.labQueries, staleTime: 30 * MIN });
+
 export const useSpof = () =>
   useQuery({ queryKey: ["spof"], queryFn: api.spof, staleTime: 5 * MIN });
 

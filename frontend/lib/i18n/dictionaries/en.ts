@@ -126,6 +126,7 @@ export const en = {
     portfolio: { label: "Portfolio", desc: "The best combination of hardening investments within a fixed budget" },
     playground: { label: "Playground", desc: "Sketch infrastructure onto the live model and see cost, capacity, and resilience impact instantly" },
     assumptions: { label: "Assumptions", desc: "Push on the model's load-bearing assumptions — dial VOLL, hazard, or feeder confidence and see which rankings hold and which flip" },
+    lab: { label: "Data Lab", desc: "Run a curated query or your own SQL against the live model and see the result as a table or chart, tiered by confidence" },
     methods: { label: "Trust Center", desc: "Every model and data layer, with its method, confidence tier, and what would upgrade it" },
     corridor: { label: "Rail Corridor", desc: "Ranked routes balancing construction cost, terrain, and population served" },
   },
@@ -589,6 +590,25 @@ export const en = {
     baselinePrefix: "baseline ",
     canReorderRankings: "can reorder rankings",
     dollarsOnly: "dollars only",
+  },
+
+  lab: {
+    title: "Data Lab",
+    headerDesc: "Run a curated query against the live model, or write your own SQL. Every result is stamped with the confidence tier of its weakest source table — the same rule applied everywhere else in PRISM.",
+    curatedTab: "Curated queries",
+    sqlTab: "Raw SQL",
+    chooseQuery: "Choose a query",
+    tablesUsed: "Tables",
+    parameters: "Parameters",
+    run: "Run",
+    running: "Running…",
+    sqlPlaceholder: "SELECT …",
+    sqlHelp: "Read-only — connects as a role that can only SELECT, with a statement timeout. Only a single SELECT (or SELECT-only WITH) statement is allowed.",
+    noRows: "No rows returned",
+    rowCount: (n: number): string => `${n} row${n === 1 ? "" : "s"}`,
+    truncated: "Result truncated — add a filter or lower the row limit for the full set.",
+    unstampedTables: (tables: string): string => `No confidence stamp on: ${tables}`,
+    selectAQuery: "Select a curated query above, or switch to Raw SQL, to get started.",
   },
 
   playground: {

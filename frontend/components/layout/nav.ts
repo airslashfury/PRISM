@@ -15,6 +15,7 @@ import {
   CloudSun,
   Droplets,
   RadioTower,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,7 +33,7 @@ export interface NavItem {
 
 type NavId = "overview" | "ask" | "citizen" | "weather" | "resilience" | "economy" | "water"
   | "telecom" | "parcels" | "trends" | "sitefinder" | "portfolio" | "playground"
-  | "assumptions" | "methods" | "corridor";
+  | "assumptions" | "lab" | "methods" | "corridor";
 
 interface NavMeta {
   id: NavId;
@@ -62,6 +63,7 @@ const NAV_META: NavMeta[] = [
   { id: "portfolio", href: "/portfolio", icon: Wallet, group: "Decide" },
   { id: "playground", href: "/playground", icon: FlaskConical, group: "Decide" },
   { id: "assumptions", href: "/assumptions", icon: SlidersHorizontal, group: "Decide" },
+  { id: "lab", href: "/lab", icon: Database, group: "Decide" },
 
   { id: "methods", href: "/methods", icon: ShieldCheck, group: "Reference" },
   { id: "corridor", href: "/corridor", icon: Route, group: "Reference" },

@@ -52,6 +52,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-prism}
       POSTGRES_USER: ${POSTGRES_USER:-prism}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
+      POSTGRES_RO_PASSWORD: ${POSTGRES_RO_PASSWORD:-prism_ro}
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: "*"
       PRISM_LLM_BASE_URL: http://host.docker.internal:11434
@@ -88,6 +89,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-prism}
       POSTGRES_USER: ${POSTGRES_USER:-prism}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism}
+      POSTGRES_RO_PASSWORD: ${POSTGRES_RO_PASSWORD:-prism_ro}
       REDIS_URL: redis://redis:6379/0
       PRISM_LLM_BASE_URL: http://host.docker.internal:11434
       PRISM_LLM_API_KEY: ${PRISM_LLM_API_KEY:-}

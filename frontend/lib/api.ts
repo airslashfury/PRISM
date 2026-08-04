@@ -140,6 +140,50 @@ export interface AnomalyReport {
   anomalies: Anomaly[];
 }
 
+/** F13a — the Data Lab (api/routers/lab.py). Hand-written for the same reason
+ *  as `Anomaly` above (F10c item 4's `Schemas[...]` trap). */
+export interface LabQueryParam {
+  name: string;
+  label: string;
+  kind: "string" | "number" | "enum";
+  default: unknown;
+  options: string[] | null;
+  minimum: number | null;
+  maximum: number | null;
+}
+
+export interface LabQuerySpec {
+  id: string;
+  title: string;
+  description: string;
+  tables: string[];
+  result_kind: "table" | "bar" | "line";
+  params: LabQueryParam[];
+  x_field: string | null;
+  y_field: string | null;
+}
+
+export interface LabRunRequest {
+  query_id?: string;
+  params?: Record<string, unknown>;
+  sql?: string;
+}
+
+export interface LabResult {
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+  row_count: number;
+  truncated: boolean;
+  tables: string[];
+  confidence_tier: ConfidenceTierKey | null;
+  confidence_label: string;
+  confidence_color: string | null;
+  unstamped_tables: string[];
+  result_kind: "table" | "bar" | "line";
+  x_field: string | null;
+  y_field: string | null;
+}
+
 /** MVP3 Pillar 2 — not yet in the generated OpenAPI types (api/routers/validate.py),
  * typed by hand to match `api.schemas.BacktestResult`/`SensitivityResult`/`ModelCard`. */
 export interface BacktestHit {
@@ -1694,6 +1738,10 @@ export const api = {
     apiGet<TrendsMunicipioDetail>(`/crim/trends/municipio/${encodeURIComponent(name)}`, { months, since }),
   crimTrendsMatrix: (since = 2010) =>
     apiGet<TrendsMatrixResponse>("/crim/trends/matrix", { since }),
+
+  labQueries: () => apiGet<LabQuerySpec[]>("/lab/queries"),
+  labRun: (body: LabRunRequest) => apiSend<LabResult>("/lab/run", "POST", body),
+  labRunBackground: (body: LabRunRequest) => apiSend<JobEnqueued>("/jobs/lab/run", "POST", body),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

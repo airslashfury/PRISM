@@ -79,6 +79,43 @@ test("/parcels search restores from the URL (permalinks)", async ({ page }) => {
   expect(errors, `uncaught page errors on /parcels: ${errors.join("; ")}`).toEqual([]);
 });
 
+test("/lab runs a curated query and shows a tiered result table", async ({ page }) => {
+  test.slow(); // hits the live prism_ro role over the network
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/lab", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Data Lab", level: 1 })).toBeVisible();
+
+  await page.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: "Top substations by composite score" }).click();
+  await page.getByRole("button", { name: "Run" }).click();
+
+  await expect(page.getByText(/\d+ rows?/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("table")).toBeVisible();
+  // resilience.scenario_scores rests on the proxy feeder assignment (see
+  // config/confidence.yml) — a curated query over it is stamped Proxy, not raw.
+  await expect(page.getByText("Proxy", { exact: true })).toBeVisible();
+
+  expect(errors, `uncaught page errors on /lab: ${errors.join("; ")}`).toEqual([]);
+});
+
+test("/lab raw SQL escape hatch runs and renders an untiered stamp", async ({ page }) => {
+  test.slow();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+
+  await page.goto("/lab", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Raw SQL" }).click();
+  await page.getByPlaceholder("SELECT …").fill("SELECT 1 AS one");
+  await page.getByRole("button", { name: "Run" }).click();
+
+  await expect(page.getByText("Untiered — your own query")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("table")).toBeVisible();
+
+  expect(errors, `uncaught page errors on /lab: ${errors.join("; ")}`).toEqual([]);
+});
+
 test("/portfolio diff panel offers the AI explanation", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));

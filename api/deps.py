@@ -33,3 +33,28 @@ def get_engine() -> Engine:
 def engine_dep() -> Engine:
     """FastAPI dependency wrapper (kept separate so tests can override it)."""
     return get_engine()
+
+
+@lru_cache(maxsize=1)
+def get_readonly_engine() -> Engine:
+    """Separate small-pool engine connected as `prism_ro` (F13a — the Data Lab).
+
+    `prism_ro` (`docker/initdb/02_readonly_role.sql`) carries its own
+    `statement_timeout` + `default_transaction_read_only` at the role level, so
+    those apply regardless of what this engine does. The pool is deliberately
+    tiny and separate from `get_engine()`'s so a runaway Lab cell can't starve
+    connections the rest of the API needs.
+    """
+    url = os.getenv("READONLY_DATABASE_URL")
+    if not url:
+        host = os.getenv("POSTGRES_HOST", "localhost")
+        port = os.getenv("POSTGRES_PORT", "5432")
+        db = os.getenv("POSTGRES_DB", "prism")
+        password = os.getenv("POSTGRES_RO_PASSWORD", "prism_ro")
+        url = f"postgresql+psycopg://prism_ro:{password}@{host}:{port}/{db}"
+    return create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=2)
+
+
+def readonly_engine_dep() -> Engine:
+    """FastAPI dependency wrapper for the read-only engine (kept separate so tests can override it)."""
+    return get_readonly_engine()

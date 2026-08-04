@@ -112,6 +112,7 @@ export const esPR: Messages = {
     portfolio: { label: "Portafolio", desc: "La mejor combinación de inversiones de mitigación dentro de un presupuesto fijo" },
     playground: { label: "Zona de pruebas", desc: "Dibuje infraestructura sobre el modelo en vivo y vea el impacto en costo, capacidad y resiliencia al instante" },
     assumptions: { label: "Supuestos", desc: "Ajuste los supuestos fundamentales del modelo — VOLL, riesgo o confianza del alimentador — y vea qué clasificaciones se mantienen y cuáles cambian" },
+    lab: { label: "Laboratorio de datos", desc: "Ejecute una consulta seleccionada o su propio SQL contra el modelo en vivo y vea el resultado como tabla o gráfico, clasificado por nivel de confianza" },
     methods: { label: "Centro de confianza", desc: "Cada modelo y capa de datos, con su método, nivel de confianza y qué lo mejoraría" },
     corridor: { label: "Corredor ferroviario", desc: "Rutas clasificadas balanceando costo de construcción, terreno y población servida" },
   },
@@ -562,6 +563,25 @@ export const esPR: Messages = {
     baselinePrefix: "línea base ",
     canReorderRankings: "puede reordenar clasificaciones",
     dollarsOnly: "solo dólares",
+  },
+
+  lab: {
+    title: "Laboratorio de datos",
+    headerDesc: "Ejecute una consulta seleccionada contra el modelo en vivo, o escriba su propio SQL. Cada resultado se clasifica con el nivel de confianza de su tabla fuente más débil — la misma regla aplicada en el resto de PRISM.",
+    curatedTab: "Consultas seleccionadas",
+    sqlTab: "SQL directo",
+    chooseQuery: "Elija una consulta",
+    tablesUsed: "Tablas",
+    parameters: "Parámetros",
+    run: "Ejecutar",
+    running: "Ejecutando…",
+    sqlPlaceholder: "SELECT …",
+    sqlHelp: "Solo lectura — se conecta con un rol que solo puede hacer SELECT, con un límite de tiempo. Solo se permite una instrucción SELECT (o WITH de solo SELECT).",
+    noRows: "No se devolvieron filas",
+    rowCount: (n: number): string => `${n} fila${n === 1 ? "" : "s"}`,
+    truncated: "Resultado truncado — agregue un filtro o reduzca el límite de filas para ver el conjunto completo.",
+    unstampedTables: (tables: string): string => `Sin nivel de confianza en: ${tables}`,
+    selectAQuery: "Seleccione una consulta arriba, o cambie a SQL directo, para comenzar.",
   },
 
   playground: {
