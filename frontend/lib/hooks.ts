@@ -52,6 +52,18 @@ export const useSubstationsSlim = () =>
 export const useLabQueries = () =>
   useQuery({ queryKey: ["labQueries"], queryFn: api.labQueries, staleTime: 30 * MIN });
 
+/** F13b — persisted, multi-cell Data Lab notebooks. */
+export const useLabNotebooks = () =>
+  useQuery({ queryKey: ["labNotebooks"], queryFn: api.labNotebooks, staleTime: 0 });
+
+export const useLabNotebook = (id: number | null) =>
+  useQuery({
+    queryKey: ["labNotebook", id],
+    queryFn: () => api.labNotebook(id as number),
+    enabled: id != null,
+    staleTime: 0,
+  });
+
 export const useSpof = () =>
   useQuery({ queryKey: ["spof"], queryFn: api.spof, staleTime: 5 * MIN });
 

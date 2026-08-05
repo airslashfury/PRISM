@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,63 @@ import { ConfidenceChip } from "@/components/provenance-badge";
 import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { ResultTable } from "@/components/lab/result-table";
 import { ResultChart } from "@/components/lab/result-chart";
+import { NotebooksPanel } from "@/components/lab/notebooks-panel";
 import { useLabQueries } from "@/lib/hooks";
 import { api, type LabResult } from "@/lib/api";
+import { readParam, patchUrl } from "@/lib/url-state";
 import { useMessages } from "@/lib/i18n/context";
 
+type View = "quick" | "notebooks";
 type Mode = "curated" | "sql";
 
 export default function LabPage() {
+  const t = useMessages().lab;
+
+  // Land straight on Notebooks when the URL already carries a permalink
+  // (?nb=<id>) — e.g. a shared link — rather than the Quick Query default.
+  const [view, setView] = useState<View>("quick");
+  const hydrated = useRef(false);
+  useEffect(() => {
+    hydrated.current = true;
+    if (readParam("nb")) setView("notebooks");
+  }, []);
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 p-6">
+      <div>
+        {/* The topbar (frontend/components/layout/topbar.tsx) already renders
+         * an <h1> with this page's nav label — an h2 here avoids a duplicate
+         * level-1 heading (getByRole('heading', {level:1}) must resolve to
+         * exactly one element) while keeping the fuller in-page description
+         * topbar's shorter nav.desc doesn't have room for. Same latent
+         * duplicate-h1 also exists (unfixed, out of scope here) on /ask,
+         * /citizen, /methods, /methods/validation, and the landing page —
+         * every one of them has its own page-level <h1> too. */}
+        <h2 className="text-xl font-semibold text-foreground">{t.title}</h2>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t.headerDesc}</p>
+      </div>
+
+      <Segmented
+        options={[
+          { value: "quick" as View, label: t.quickQueryTab },
+          { value: "notebooks" as View, label: t.notebooksTab },
+        ]}
+        value={view}
+        onChange={(v) => {
+          setView(v);
+          // Leaving Notebooks without clearing ?nb= would bounce a reload
+          // straight back into it — the permalink should only survive while
+          // actually viewing a notebook.
+          if (v === "quick") patchUrl({ nb: null });
+        }}
+      />
+
+      {view === "quick" ? <QuickQueryPanel /> : <NotebooksPanel />}
+    </div>
+  );
+}
+
+function QuickQueryPanel() {
   const t = useMessages().lab;
   const { data: specs, isLoading, error } = useLabQueries();
 
@@ -51,14 +101,8 @@ export default function LabPage() {
   const canRun = running ? false : mode === "curated" ? !!specId : sql.trim().length > 0;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">{t.title}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t.headerDesc}</p>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
-        <Card className="h-fit">
+    <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
+      <Card className="h-fit">
           <CardHeader className="space-y-3">
             <Segmented
               options={[
@@ -212,6 +256,5 @@ export default function LabPage() {
           )}
         </div>
       </div>
-    </div>
   );
 }

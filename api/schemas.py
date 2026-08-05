@@ -1813,3 +1813,55 @@ class LabResultResponse(BaseModel):
     result_kind: Literal["table", "bar", "line"] = "table"
     x_field: str | None = None
     y_field: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# F13b — Data Lab notebooks (many cells, persisted, permalinked)              #
+# --------------------------------------------------------------------------- #
+LabCellKind = Literal["query", "sql", "markdown", "ask"]
+
+
+class LabCellCreate(BaseModel):
+    kind: LabCellKind
+    spec: dict[str, Any] = Field(default_factory=dict)
+    viz: dict[str, Any] = Field(default_factory=dict)
+
+
+class LabCellUpdate(BaseModel):
+    spec: dict[str, Any] | None = None
+    viz: dict[str, Any] | None = None
+
+
+class LabCell(BaseModel):
+    cell_id: int
+    notebook_id: int
+    kind: LabCellKind
+    position: int
+    spec: dict[str, Any]
+    viz: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+
+class LabCellMove(BaseModel):
+    direction: Literal["up", "down"]
+
+
+class LabNotebookCreate(BaseModel):
+    name: str
+    description: str | None = None
+    author: str | None = None
+
+
+class LabNotebook(BaseModel):
+    notebook_id: int
+    name: str
+    description: str | None
+    author: str | None
+    cell_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class LabNotebookDetail(LabNotebook):
+    cells: list[LabCell] = Field(default_factory=list)

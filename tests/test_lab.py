@@ -12,15 +12,25 @@ engine — `run_query`/`run_sql` never write regardless of which role runs them.
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import text
 
 from prism.lab.execute import LabQueryError, run_query, run_sql
 from prism.lab.queries import list_specs
+from prism.lab.schema import create_schema
 
 
 @pytest.fixture(scope="module")
 def engine():
     from prism.load.db import get_engine
     return get_engine()
+
+
+@pytest.fixture(scope="module")
+def pg_lab_schema(engine):
+    create_schema(engine)
+    yield
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM lab.notebooks WHERE name LIKE '\\_e2e\\_%' OR name LIKE '\\_test\\_%'"))
 
 
 # ── registry ─────────────────────────────────────────────────────────────────
@@ -227,3 +237,166 @@ def test_api_lab_run_rejects_write(client):
 def test_api_lab_run_requires_query_id_or_sql(client):
     r = client.post("/lab/run", json={})
     assert r.status_code == 422
+
+
+# ── F13b: notebooks (lab.notebooks / lab.cells) ─────────────────────────────
+
+
+def test_create_lab_schema_idempotent(engine, pg_lab_schema):
+    create_schema(engine)
+
+
+@pytest.mark.parametrize("table", ["notebooks", "cells"])
+def test_lab_tables_exist(engine, pg_lab_schema, table):
+    with engine.connect() as conn:
+        exists = conn.execute(text("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'lab' AND table_name = :t
+            )
+        """), {"t": table}).scalar_one()
+    assert exists
+
+
+def _new_notebook(client, name: str) -> dict:
+    r = client.post("/lab/notebooks", json={"name": name})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def test_api_create_and_list_notebook(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_basic")
+    assert nb["cell_count"] == 0
+
+    r = client.get("/lab/notebooks")
+    assert r.status_code == 200
+    ids = [n["notebook_id"] for n in r.json()]
+    assert nb["notebook_id"] in ids
+
+
+def test_api_get_notebook_not_found(client, pg_lab_schema):
+    r = client.get("/lab/notebooks/999999999")
+    assert r.status_code == 404
+
+
+def test_api_add_query_cell_validates_known_query_id(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_query_cell")
+    r = client.post(f"/lab/notebooks/{nb['notebook_id']}/cells", json={
+        "kind": "query", "spec": {"query_id": "not_a_real_query"},
+    })
+    assert r.status_code == 422
+
+
+def test_api_add_sql_cell_allows_blank_sql_as_unconfigured(client, pg_lab_schema):
+    # A freshly added cell is a legitimate "not filled in yet" state — the
+    # UI adds one blank, then the user types into it. Rejecting the blank
+    # POST would make "+ SQL" impossible to click without a pre-filled body.
+    nb = _new_notebook(client, "_test_notebook_sql_cell")
+    r = client.post(f"/lab/notebooks/{nb['notebook_id']}/cells", json={"kind": "sql", "spec": {"sql": "  "}})
+    assert r.status_code == 201
+
+
+def test_api_add_ask_cell_allows_empty_question_as_unconfigured(client, pg_lab_schema):
+    # Regression: the frontend's "+ Ask PRISM" button posts spec={"question": ""}
+    # for a brand-new cell — this must succeed (browser-verified live at build
+    # time: it 422'd before this fix, so the button silently did nothing).
+    nb = _new_notebook(client, "_test_notebook_ask_cell")
+    r = client.post(f"/lab/notebooks/{nb['notebook_id']}/cells", json={"kind": "ask", "spec": {}})
+    assert r.status_code == 201
+
+
+def test_api_add_cell_rejects_non_string_spec_value(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_bad_type")
+    r = client.post(f"/lab/notebooks/{nb['notebook_id']}/cells", json={"kind": "sql", "spec": {"sql": 123}})
+    assert r.status_code == 422
+
+
+def test_api_markdown_cell_allows_empty_string(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_markdown_cell")
+    r = client.post(f"/lab/notebooks/{nb['notebook_id']}/cells", json={"kind": "markdown", "spec": {"markdown": ""}})
+    assert r.status_code == 201
+
+
+def test_api_five_cell_notebook_persists_ordered(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_five_cells")
+    nid = nb["notebook_id"]
+    kinds = ["query", "query", "sql", "markdown", "ask"]
+    specs = [
+        {"query_id": "resilience_scenario_summary"},
+        {"query_id": "downstream_summary_top"},
+        {"sql": "SELECT 1 AS one"},
+        {"markdown": "# notes"},
+        {"question": "how many substations are scored"},
+    ]
+    created = []
+    for kind, spec in zip(kinds, specs):
+        r = client.post(f"/lab/notebooks/{nid}/cells", json={"kind": kind, "spec": spec})
+        assert r.status_code == 201, r.text
+        created.append(r.json())
+
+    positions = [c["position"] for c in created]
+    assert positions == sorted(positions)
+    assert len(set(positions)) == 5
+
+    detail = client.get(f"/lab/notebooks/{nid}").json()
+    assert detail["cell_count"] == 5
+    assert [c["kind"] for c in detail["cells"]] == kinds
+    assert [c["cell_id"] for c in detail["cells"]] == [c["cell_id"] for c in created]
+
+
+def test_api_move_cell_swaps_position_with_neighbor(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_move")
+    nid = nb["notebook_id"]
+    c1 = client.post(f"/lab/notebooks/{nid}/cells", json={"kind": "sql", "spec": {"sql": "SELECT 1"}}).json()
+    c2 = client.post(f"/lab/notebooks/{nid}/cells", json={"kind": "sql", "spec": {"sql": "SELECT 2"}}).json()
+    assert c1["position"] < c2["position"]
+
+    r = client.post(f"/lab/notebooks/{nid}/cells/{c1['cell_id']}/move", json={"direction": "down"})
+    assert r.status_code == 200
+    ordered = r.json()
+    assert [c["cell_id"] for c in ordered] == [c2["cell_id"], c1["cell_id"]]
+
+
+def test_api_move_cell_up_at_top_is_a_noop(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_move_noop")
+    nid = nb["notebook_id"]
+    c1 = client.post(f"/lab/notebooks/{nid}/cells", json={"kind": "sql", "spec": {"sql": "SELECT 1"}}).json()
+    r = client.post(f"/lab/notebooks/{nid}/cells/{c1['cell_id']}/move", json={"direction": "up"})
+    assert r.status_code == 200
+    assert [c["cell_id"] for c in r.json()] == [c1["cell_id"]]
+
+
+def test_api_update_cell_spec(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_update")
+    nid = nb["notebook_id"]
+    cell = client.post(f"/lab/notebooks/{nid}/cells", json={"kind": "sql", "spec": {"sql": "SELECT 1"}}).json()
+
+    r = client.put(f"/lab/notebooks/{nid}/cells/{cell['cell_id']}", json={"spec": {"sql": "SELECT 2"}})
+    assert r.status_code == 200
+    assert r.json()["spec"] == {"sql": "SELECT 2"}
+
+
+def test_api_delete_cell(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_delete_cell")
+    nid = nb["notebook_id"]
+    cell = client.post(f"/lab/notebooks/{nid}/cells", json={"kind": "sql", "spec": {"sql": "SELECT 1"}}).json()
+
+    r = client.delete(f"/lab/notebooks/{nid}/cells/{cell['cell_id']}")
+    assert r.status_code == 204
+    assert client.get(f"/lab/notebooks/{nid}").json()["cell_count"] == 0
+
+    r = client.delete(f"/lab/notebooks/{nid}/cells/{cell['cell_id']}")
+    assert r.status_code == 404
+
+
+def test_api_delete_notebook_cascades_cells(client, pg_lab_schema):
+    nb = _new_notebook(client, "_test_notebook_cascade_delete")
+    nid = nb["notebook_id"]
+    client.post(f"/lab/notebooks/{nid}/cells", json={"kind": "sql", "spec": {"sql": "SELECT 1"}})
+
+    r = client.delete(f"/lab/notebooks/{nid}")
+    assert r.status_code == 204
+    assert client.get(f"/lab/notebooks/{nid}").status_code == 404
+
+    r = client.delete(f"/lab/notebooks/{nid}")
+    assert r.status_code == 404

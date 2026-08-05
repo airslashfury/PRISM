@@ -184,6 +184,35 @@ export interface LabResult {
   y_field: string | null;
 }
 
+/** F13b — persisted, multi-cell Data Lab notebooks. Hand-written for the same
+ *  reason as `LabResult` above (F10c item 4's `Schemas[...]` trap). */
+export type LabCellKind = "query" | "sql" | "markdown" | "ask";
+
+export interface LabCell {
+  cell_id: number;
+  notebook_id: number;
+  kind: LabCellKind;
+  position: number;
+  spec: Record<string, unknown>;
+  viz: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LabNotebook {
+  notebook_id: number;
+  name: string;
+  description: string | null;
+  author: string | null;
+  cell_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LabNotebookDetail extends LabNotebook {
+  cells: LabCell[];
+}
+
 /** MVP3 Pillar 2 — not yet in the generated OpenAPI types (api/routers/validate.py),
  * typed by hand to match `api.schemas.BacktestResult`/`SensitivityResult`/`ModelCard`. */
 export interface BacktestHit {
@@ -1557,7 +1586,7 @@ async function apiGet<T>(path: string, params?: Record<string, unknown>): Promis
   return res.json() as Promise<T>;
 }
 
-async function apiSend<T>(path: string, method: "POST" | "DELETE", body?: unknown): Promise<T> {
+async function apiSend<T>(path: string, method: "POST" | "PUT" | "DELETE", body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
@@ -1742,6 +1771,20 @@ export const api = {
   labQueries: () => apiGet<LabQuerySpec[]>("/lab/queries"),
   labRun: (body: LabRunRequest) => apiSend<LabResult>("/lab/run", "POST", body),
   labRunBackground: (body: LabRunRequest) => apiSend<JobEnqueued>("/jobs/lab/run", "POST", body),
+
+  labNotebooks: () => apiGet<LabNotebook[]>("/lab/notebooks"),
+  labNotebook: (id: number) => apiGet<LabNotebookDetail>(`/lab/notebooks/${id}`),
+  createLabNotebook: (body: { name: string; description?: string; author?: string }) =>
+    apiSend<LabNotebook>("/lab/notebooks", "POST", body),
+  deleteLabNotebook: (id: number) => apiSend<void>(`/lab/notebooks/${id}`, "DELETE"),
+  addLabCell: (notebookId: number, body: { kind: LabCellKind; spec?: Record<string, unknown>; viz?: Record<string, unknown> }) =>
+    apiSend<LabCell>(`/lab/notebooks/${notebookId}/cells`, "POST", body),
+  updateLabCell: (notebookId: number, cellId: number, body: { spec?: Record<string, unknown>; viz?: Record<string, unknown> }) =>
+    apiSend<LabCell>(`/lab/notebooks/${notebookId}/cells/${cellId}`, "PUT", body),
+  deleteLabCell: (notebookId: number, cellId: number) =>
+    apiSend<void>(`/lab/notebooks/${notebookId}/cells/${cellId}`, "DELETE"),
+  moveLabCell: (notebookId: number, cellId: number, direction: "up" | "down") =>
+    apiSend<LabCell[]>(`/lab/notebooks/${notebookId}/cells/${cellId}/move`, "POST", { direction }),
 };
 
 /** Poll a background job until it completes or fails. Resolves with the job result. */

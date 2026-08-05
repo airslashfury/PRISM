@@ -616,6 +616,32 @@ export const en = {
     // declared table lacks a config/confidence.yml entry (e.g. crim.owner_entities).
     untieredBadge: "Untiered — your own query",
     unstampedBadge: "Unstamped",
+
+    // F13b — persisted, multi-cell notebooks.
+    quickQueryTab: "Quick query",
+    notebooksTab: "Notebooks",
+    newNotebook: "New notebook",
+    newNotebookPlaceholder: "Notebook name…",
+    noNotebooks: "No notebooks yet — create one above to start pinning cells together.",
+    cellCount: (n: number): string => `${n} cell${n === 1 ? "" : "s"}`,
+    deleteNotebook: "Delete",
+    backToNotebooks: "← Notebooks",
+    addQueryCell: "+ Query",
+    addSqlCell: "+ SQL",
+    addMarkdownCell: "+ Markdown",
+    addAskCell: "+ Ask PRISM",
+    queryCellLabel: "Query",
+    sqlCellLabel: "SQL",
+    markdownCellLabel: "Markdown",
+    askCellLabel: "Ask PRISM",
+    moveCellUp: "Move up",
+    moveCellDown: "Move down",
+    deleteCell: "Delete cell",
+    markdownPlaceholder: "Write notes in Markdown…",
+    askPlaceholder: "Ask a question about the model…",
+    ask: "Ask",
+    asking: "Asking…",
+    saveAndRun: "Save & run",
   },
 
   playground: {

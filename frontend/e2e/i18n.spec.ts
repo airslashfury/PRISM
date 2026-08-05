@@ -209,6 +209,21 @@ test.describe("F12b chrome translation (es-PR)", () => {
 });
 
 /**
+ * F13b gate follow-up: the ES_PR_CHROME_ROUTES sweep above only ever loads
+ * /lab's default Quick Query view — its Notebooks sub-view (a client-side
+ * tab, not a separate route) has zero i18n coverage otherwise. Given F12b's
+ * own six-round history of exactly this class of miss (a page-level view a
+ * static per-route sweep never actually opens), one assertion here is cheap
+ * insurance against the Notebooks chrome silently regressing to English.
+ */
+test("/lab Notebooks sub-view renders its es-PR chrome", async ({ page }) => {
+  await page.goto("/lab?lang=es-PR", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Cuadernos" }).click();
+  await expect(page.getByPlaceholder("Nombre del cuaderno…")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Nuevo cuaderno" })).toBeVisible();
+});
+
+/**
  * F12b gate follow-up: closed backend key sets (criteria/knobs/asset-types/
  * change-types) are translated client-side by key, same pattern as
  * confidenceTiers — but the page-chrome-heading assertions above would pass
