@@ -1072,7 +1072,7 @@ OG cards stay English-only until F12c is picked up separately.
 
 ---
 
-### Item F13 — Data Lab: notebooks + boards  *(IN PROGRESS — F13a DONE 2026-08-03, Opus GO after one fix round; F13b/F13c queued next)*
+### Item F13 — Data Lab: notebooks + boards  *(IN PROGRESS — F13a DONE 2026-08-03, F13b DONE 2026-08-04 (Opus GO after two fix rounds); F13c queued next)*
 
 Source: user ask 2026-07-25 — a section shaped like Dynatrace Notebooks (cells that run a query
 and render a table/chart/map) with a way to compose saved cells into dashboards. Viability
@@ -1160,12 +1160,54 @@ Sub-chunks, each Opus-gated:
   defense-in-depth against a bug in the cap itself, proven live with a query the cap can't
   rescue (an aggregate that returns one row, e.g. a cross-join `count(*)`): killed at 8s,
   `/health` and a real DB-backed endpoint stayed under 30ms throughout.
-- **F13b (L2) — Notebook: many cells, persisted, permalinked.** `lab.notebooks` + `lab.cells
-  (kind: query|sql|markdown|ask, spec JSONB, viz JSONB)` modeled on `playground.scenarios`;
-  CRUD mirroring `api/routers/playground.py`; reorder via up/down buttons (no `dnd-kit`);
-  markdown through the existing `react-markdown`; an **`ask` cell kind wrapping `POST /ask`** so
-  the NL surface becomes a cell type rather than a rival page; permalink `?nb=<id>`.
-  **Done when:** a 5-cell notebook survives reload, re-runs, and permalinks.
+- **F13b (L2) — Notebook: many cells, persisted, permalinked — ✅ DONE (2026-08-04,
+  `feat/f13`, Opus GO after two fix rounds).** `lab.notebooks` + `lab.cells (kind:
+  query|sql|markdown|ask, spec JSONB, viz JSONB)` (`prism/lab/schema.py` + alembic `0014`)
+  modeled on `playground.scenarios`; CRUD mirroring `api/routers/playground.py` appended to
+  `api/routers/lab.py`; reorder via up/down buttons (no `dnd-kit`, position resequenced to
+  0..n-1 on every move); markdown through the existing `react-markdown`/`NarrativePanel`; an
+  **`ask` cell kind wrapping `POST /ask`** so the NL surface is a cell type, not a rival page —
+  no new execution endpoint at all: query/sql cells re-run through F13a's own `/lab/run`, ask
+  cells through the existing `/ask`, both called directly by the frontend
+  (`frontend/components/lab/notebook-cell.tsx` + `notebooks-panel.tsx`), one execution path
+  either way; permalink `?nb=<id>` via `frontend/lib/url-state.ts`, cleared when leaving the
+  Notebooks tab so a reload doesn't bounce back into the last-viewed notebook. `/lab` gained a
+  "Quick query" / "Notebooks" top-level toggle; the F13a single-query UI is now the
+  `QuickQueryPanel` function, behavior unchanged. **Done when:** a 5-cell notebook survives
+  reload, re-runs, and permalinks — **met**, verified live (2 query + 1 sql + 1 markdown + 1 ask
+  cell; the ask cell round-tripped through the real `/ask` → Ollama pipeline and rendered a real
+  answer) and by a rewritten e2e test that switches one query cell to a *non-default* spec and
+  asserts a column unique to that query survives reload (the first draft picked the
+  already-default spec, silently proving nothing about persistence — caught at gate). **Gate
+  history — two rounds, four blocking findings total, all fixed same session:** round 1 caught
+  (1) a real concurrency bug — `add_cell`/`move_cell` read-then-wrote `max(position)+1` with no
+  lock, reproduced live as two cells landing at the same position under concurrent POSTs; fixed
+  with `SELECT … FOR UPDATE` on the parent notebook row; (2) the e2e's "change the query"
+  step was a no-op (selected the value that was already the default); (3) a build-note claim
+  that only `/methods` shares `/lab`'s pre-existing (not introduced by F13b) duplicate-`<h1>`
+  bug, when the reviewer measured five routes (`/ask`, `/citizen`, `/methods`,
+  `/methods/validation`, the landing page) — corrected in-code rather than fixing the other
+  four (out of scope); (4) a validation relaxation (see below) whose own claimed UI parity
+  didn't exist — a blank sql/query cell could still 422 itself via the button or on every
+  reload. Round 2 caught a regression in round 1's own fix for (4): gating the once-on-load
+  auto-run effect on live `canRun` (derived from edit-state) re-armed it on every
+  false→true flip, so typing the *first character* into a fresh Ask cell fired a real
+  `POST /ask` mid-keystroke (worse for `sql`: `run_sql("S")` → 400). Fixed by keying the
+  mount-only effect off the *persisted* `cell.spec` instead of live edit state, with a new e2e
+  regression guard (type one character into a fresh Ask cell, assert zero `/api/ask` calls in
+  2s). **Judgment call, reviewed and upheld both rounds:** `lab.notebooks`/`lab.cells` were
+  deliberately **not** stamped in `config/confidence.yml`/`catalog/metadata.json` despite this
+  item's own "traps to pre-empt" line above saying to — they hold user-authored cell
+  definitions (SQL text, markdown, a chosen query id), not model output, exactly like
+  `playground.scenarios` (verified: `playground\.` appears nowhere in either file), which this
+  same bullet already names as F13b's structural precedent. `test_api_inventory`'s hardcoded
+  204 correctly untouched. **Also fixed:** a cell-creation validation bug (independent of the
+  above) that made "+ Ask PRISM" 422 every time — its default spec `{"question": ""}` tripped a
+  "must be non-empty" check; relaxed to allow a freshly-added, not-yet-filled-in cell to persist
+  blank (only rejecting wrong types and an unresolvable non-empty `query_id`). **Forward notes
+  for F13c:** `POST /lab/run` is capped 30/min per IP (`api/limiter.py`) — boards re-executing
+  many tiles on load will pressure it; the duplicate-`<h1>` bug remains latent (unfixed) on the
+  five routes above.
 - **F13c (L3) — Boards.** `lab.boards` + `lab.board_tiles`; "Pin to board" on any cell; the board
   re-executes tiles on load through L1's cached `POST /lab/run`; fixed 12-column grid with S/M/L
   presets — add `react-grid-layout` only if free-form dragging proves necessary in use.

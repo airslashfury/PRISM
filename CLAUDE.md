@@ -587,4 +587,33 @@ rollup, 5.0%), stamped three previously-unstamped tables in `config/confidence.y
 badge was rendering raw English instead of a translated key), and dropped a non-load-bearing
 `POSTGRES_RO_PASSWORD` env var (the fresh-volume initdb script can't read env vars anyway, so the
 role's password was always hardcoded — the env var did nothing). Full detail in `ROADMAP.md` →
-Item F13 → F13a. **F13b (notebooks) and F13c (boards) are next, not yet started.**
+Item F13 → F13a.
+
+**F13b — Notebook: many cells, persisted, permalinked (2026-08-04, `feat/f13`, Opus GO after two
+fix rounds).** `lab.notebooks` + `lab.cells` (kind: query|sql|markdown|ask, `spec`/`viz` JSONB —
+`prism/lab/schema.py` + alembic `0014`) modeled on `playground.scenarios`; CRUD appended to
+`api/routers/lab.py`, mirroring `api/routers/playground.py`; reorder via up/down buttons (no
+`dnd-kit`); an **`ask` cell kind wraps `POST /ask`** — no new execution endpoint at all, query/sql
+cells re-run through F13a's own `/lab/run` and ask cells through the existing `/ask`, both called
+directly by the frontend (`frontend/components/lab/notebook-cell.tsx` + `notebooks-panel.tsx`);
+permalink `?nb=<id>`; `/lab` gained a "Quick query"/"Notebooks" toggle, F13a's UI now the
+`QuickQueryPanel` function underneath it. **Gate history — two rounds, four blocking findings:**
+round 1 caught a real concurrency bug (`add_cell`/`move_cell` read-then-wrote `max(position)+1`
+with no lock — reproduced live as two cells landing at the same position under concurrent POSTs;
+fixed with `SELECT … FOR UPDATE` on the parent notebook row), a no-op e2e assertion (the "change
+the query" step selected the value that was already the default, so it proved nothing about
+persistence), an inaccurate build-note claim (said only `/methods` shares `/lab`'s pre-existing
+duplicate-`<h1>` bug; the reviewer measured five routes), and a cell-validation relaxation whose
+own claimed UI parity didn't exist. Round 2 caught a regression in round 1's own fix: gating the
+once-on-load auto-run effect on live (edit-state-derived) `canRun` re-armed it on every
+false→true flip, so typing the first character into a fresh Ask cell fired a real `POST /ask`
+mid-keystroke; fixed by keying the mount-only effect off the *persisted* `cell.spec` instead, with
+a new e2e regression guard. **Judgment call, upheld both rounds:** `lab.notebooks`/`lab.cells`
+were deliberately **not** stamped in `config/confidence.yml`/`catalog/metadata.json` despite this
+item's own "traps to pre-empt" note — they hold user-authored cell definitions, not model output,
+exactly like `playground.scenarios` (unstamped, and this bullet's own named precedent).
+`test_api_inventory`'s hardcoded 204 correctly untouched. Full detail in `ROADMAP.md` → Item F13
+→ F13b. **F13c (boards) is next, not yet started** — forward notes it inherits: `POST /lab/run`
+is capped 30/min per IP (boards re-executing many tiles on load will pressure it), and the
+duplicate-`<h1>` bug remains latent on `/ask`, `/citizen`, `/methods`, `/methods/validation`, and
+the landing page.
