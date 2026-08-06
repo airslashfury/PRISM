@@ -1,4 +1,4 @@
-.PHONY: help init up down logs install wfs-list mirror load graph resilience optimize report test lint fmt clean db-readonly-role
+.PHONY: help init up down logs install wfs-list mirror load graph resilience optimize report test lint fmt clean
 
 WFS_URL ?= http://geoserver2.pr.gov/geoserver/pr_geodata/wfs
 POSTGRES_DB ?= prism
@@ -52,9 +52,6 @@ anomalies: ## regenerate ANOMALIES.md from config/anomalies.yml
 
 anomalies-check: ## fail if ANOMALIES.md is stale or the registry is invalid
 	python -m prism.provenance --anomalies --check
-
-db-readonly-role: ## F13a - create/refresh the prism_ro read-only role (idempotent; initdb only runs on a fresh volume)
-	docker exec -i -e PGPASSWORD=$(POSTGRES_PASSWORD) prism-postgis psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f - < docker/initdb/02_readonly_role.sql
 
 test: ## run tests
 	pytest -q

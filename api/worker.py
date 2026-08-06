@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from arq import cron
 from arq.connections import RedisSettings
 
-from api.deps import get_engine, get_readonly_engine
+from api.deps import get_engine
 
 log = logging.getLogger(__name__)
 
@@ -309,38 +309,6 @@ async def build_monthly_change_report(ctx: dict, month: str | None = None) -> di
         return {"status": "error", "error": str(exc)}
 
 
-async def run_lab_query(
-    ctx: dict, query_id: str | None, params: dict, sql: str | None,
-) -> dict:
-    """Background variant of `POST /lab/run` (F13a) — for a cell a user
-    explicitly wants to run without holding the tab open. Same `prism_ro`
-    engine, same statement_timeout, just off the request/response cycle."""
-    from prism.lab.execute import run_query, run_sql
-    from prism.lab.queries import get_spec
-
-    engine = get_readonly_engine()
-    if sql:
-        result = run_sql(engine, sql)
-        spec = None
-    else:
-        result = run_query(engine, query_id, params or {})
-        spec = get_spec(query_id)
-    return {
-        "columns": result.columns,
-        "rows": result.rows,
-        "row_count": result.row_count,
-        "truncated": result.truncated,
-        "tables": result.tables,
-        "confidence_tier": result.confidence_tier,
-        "confidence_label": result.confidence_label,
-        "confidence_color": result.confidence_color,
-        "unstamped_tables": result.unstamped_tables,
-        "result_kind": spec.result_kind if spec else "table",
-        "x_field": spec.x_field if spec else None,
-        "y_field": spec.y_field if spec else None,
-    }
-
-
 async def sync_prepa_generation(ctx: dict) -> dict:
     """Scheduled pull of the PREPA/Genera live generation feed.
 
@@ -414,7 +382,6 @@ class WorkerSettings:
         check_stale_feeds,
         check_stalled_pulls,
         build_monthly_change_report,
-        run_lab_query,
     ]
     cron_jobs = [
         # Track the live PREPA (supply) + LUMA (delivery) feeds every

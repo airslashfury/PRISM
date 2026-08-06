@@ -116,33 +116,6 @@ anomalies:
       Assigning (or exposing) the catastro for these rows would recover them.
     status: active
 
-  - id: lab_municipio_rollup_null_municipio_dropped
-    title: Parcels with no municipio are dropped from the Data Lab's municipio rollup
-    dataset: crim.parcelas
-    source: CRIM
-    what: >-
-      The F13a Data Lab's curated "Parcels and assessed value by municipio" query
-      filters `WHERE municipio IS NOT NULL` before grouping, so parcel rows in the
-      raw fabric that carry no municipio value are excluded from both the parcel
-      count and the total assessed value shown per municipio.
-    why: >-
-      A GROUP BY municipio has nowhere to put a NULL that isn't misleading —
-      folding it into an unlabeled bucket would silently understate every real
-      municipio's total by comparison, or invent a fake "(none)" row.
-    where: prism/lab/queries.py:crim_parcels_by_municipio
-    scope:
-      - "/lab curated query \"Parcels and assessed value by municipio\" only"
-    magnitude:
-      measured: 76,990 of 1,536,079 parcel rows (5.0%)
-      probe: "SELECT count(*) FROM crim.parcelas WHERE municipio IS NULL"
-    severity: low
-    remediation_owner: [crim]
-    remediation: >-
-      CRIM: ~77K parcel geometries in the published fabric carry no municipio
-      value. Populating it (CRIM already assigns every parcel to a municipio for
-      tax-collection purposes) would recover these rows for municipio-level rollups.
-    status: active
-
   - id: crim_parcel_dedup_collapse
     title: 196,132 duplicate parcel rows are collapsed by "highest objectid wins"
     dataset: crim.parcelas -> crim.parcelas_dedup
