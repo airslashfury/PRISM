@@ -275,7 +275,7 @@ def swap_powers(engine: Engine | None = None) -> dict[str, Any]:
         # 2. The measured edges to attach: primary always, secondaries only above
         #    threshold, and only for barrios whose PRIMARY sub is FEEDS-connected.
         conn.execute(text("DROP TABLE IF EXISTS _measured_edges"))
-        conn.execute(text(f"""
+        conn.execute(text("""
             CREATE TEMP TABLE _measured_edges ON COMMIT DROP AS
             WITH feeds_connected AS (
                 SELECT src_entity AS eid FROM graph.relationships WHERE rel_type='FEEDS'
@@ -316,7 +316,7 @@ def swap_powers(engine: Engine | None = None) -> dict[str, Any]:
 
         # 3. Drop only the Voronoi barrio edges we're superseding (eligible
         #    barrios). Non-eligible barrios + all point facilities keep theirs.
-        removed = conn.execute(text(f"""
+        removed = conn.execute(text("""
             DELETE FROM graph.relationships
             WHERE rel_type = 'POWERS'
               AND method IN :vmethods
@@ -337,7 +337,7 @@ def swap_powers(engine: Engine | None = None) -> dict[str, Any]:
                 weight = EXCLUDED.weight
         """))
 
-        kept_proxy = conn.execute(text(f"""
+        kept_proxy = conn.execute(text("""
             SELECT count(DISTINCT dst_entity) FROM graph.relationships r
             JOIN graph.entities b ON b.entity_id = r.dst_entity AND b.kind='barrio'
             WHERE r.rel_type='POWERS' AND r.method IN :vmethods

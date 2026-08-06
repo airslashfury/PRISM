@@ -99,7 +99,8 @@ def snapshot_loop(interval: int = 1800, max_iters: int = 96) -> None:
                 le = _last_edit(client)
             except Exception as e:  # noqa: BLE001
                 print(f"{datetime.now(timezone.utc).isoformat()} meta error {e}", flush=True)
-                time.sleep(interval); continue
+                time.sleep(interval)
+                continue
             if le != last_seen:
                 m = snapshot_load_shedding(client)
                 last_seen = le
