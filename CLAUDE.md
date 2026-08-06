@@ -560,60 +560,34 @@ placed a numeral before *otro* ("3 otras empresas"), which RAE's DPD disallows (
 cardinals: "otros dos días"); fixed and verified live through a rebuilt docker stack in both
 languages. Full detail in `ROADMAP.md` → Item F11 → F11d.
 
-**F13a — Data Lab, safe query substrate + single-cell lab (2026-08-03, `feat/f13` off `main`,
-Opus GO after one fix round) — first chunk of the F13 arc.** `prism_ro` — a read-only Postgres
-role (`docker/initdb/02_readonly_role.sql`, `statement_timeout=8s`, `default_transaction_read_only`,
-dynamic per-schema GRANTs so a new `prism.*` module's schema is covered without a hardcoded list)
-behind its own small connection pool (`api/deps.py::get_readonly_engine`) so a runaway Lab cell
-can't starve the main API. `prism/lab/` — `queries.py` (a single-place `QuerySpec` registry, 12
-curated queries across resilience/water/telecom/economy/crim/graph/ocpr/sync) + `execute.py`
-(`run_query` + a raw-SQL escape hatch `run_sql`, both stamped with the *weakest* confidence tier
-across their declared source tables, honestly reporting "unstamped" rather than guessing when a
-table carries no `config/confidence.yml` entry). `api/routers/lab.py` (`GET /lab/queries`,
-`POST /lab/run`, `POST /jobs/lab/run` for backgrounded cells) and `/lab` (nav group **Decide**,
-hand-rolled `result-table.tsx`/`result-chart.tsx`, no new frontend deps). **Gate history:** the
-first round was NO-GO on the safety mechanism itself — the row cap was a regex check for `LIMIT`
-in the SQL text, defeatable by a `LIMIT` buried in a CTE or a trailing comment, and the "Done
-when" query (`SELECT * FROM crim.parcelas`) was silently rescued by an unrelated auto-appended
-`LIMIT` rather than genuinely bounded. Fixed with a `fetchmany`-based cap plus a server-side
-cursor (`stream_results=True`) so the bound applies to what crosses the wire, not just what gets
-materialized after the fact — the gate had measured the unfixed path ballooning the API
-process's RSS by ~2GB on one query despite returning a small response. A follow-up sub-round
-caught the fix's own off-by-one (`LIMIT row_cap` vs. `LIMIT row_cap+1`), which made `truncated`
-false-negative on the single most common raw-SQL shape (an unlimited `SELECT`). Same round also:
-registered a new anomaly (parcels missing a municipio value silently dropped from the municipio
-rollup, 5.0%), stamped three previously-unstamped tables in `config/confidence.yml`
-(`crim.owner_entities`/`crim.parcel_owner`/`crim.rce_entities`), fixed an i18n leak (a null-tier
-badge was rendering raw English instead of a translated key), and dropped a non-load-bearing
-`POSTGRES_RO_PASSWORD` env var (the fresh-volume initdb script can't read env vars anyway, so the
-role's password was always hardcoded — the env var did nothing). Full detail in `ROADMAP.md` →
-Item F13 → F13a.
+**F13 — Data Lab: built, then REMOVED (2026-08-06).** F13a (safe query substrate + single-cell
+lab) and F13b (persisted multi-cell notebooks) both shipped with an Opus GO, then the whole
+feature was removed: the ask was a Dynatrace-Notebooks-shaped surface and what shipped read as a
+SQL box. Gone with it — `prism/lab/`, `api/routers/lab.py`, the `prism_ro` role +
+`get_readonly_engine`, `/lab`, and the `lab.*` schema (`0015_drop_lab`; `0014_lab_notebooks` is
+kept and **frozen** with its DDL inlined, so databases already stamped at that revision still
+resolve). The removal record and the two forward notes that outlived it — the duplicate-`<h1>`
+bug on five routes, and what a second attempt at notebooks would have to get right — are in
+`ROADMAP.md` → Item F13 and `BACKLOG.md`.
 
-**F13b — Notebook: many cells, persisted, permalinked (2026-08-04, `feat/f13`, Opus GO after two
-fix rounds).** `lab.notebooks` + `lab.cells` (kind: query|sql|markdown|ask, `spec`/`viz` JSONB —
-`prism/lab/schema.py` + alembic `0014`) modeled on `playground.scenarios`; CRUD appended to
-`api/routers/lab.py`, mirroring `api/routers/playground.py`; reorder via up/down buttons (no
-`dnd-kit`); an **`ask` cell kind wraps `POST /ask`** — no new execution endpoint at all, query/sql
-cells re-run through F13a's own `/lab/run` and ask cells through the existing `/ask`, both called
-directly by the frontend (`frontend/components/lab/notebook-cell.tsx` + `notebooks-panel.tsx`);
-permalink `?nb=<id>`; `/lab` gained a "Quick query"/"Notebooks" toggle, F13a's UI now the
-`QuickQueryPanel` function underneath it. **Gate history — two rounds, four blocking findings:**
-round 1 caught a real concurrency bug (`add_cell`/`move_cell` read-then-wrote `max(position)+1`
-with no lock — reproduced live as two cells landing at the same position under concurrent POSTs;
-fixed with `SELECT … FOR UPDATE` on the parent notebook row), a no-op e2e assertion (the "change
-the query" step selected the value that was already the default, so it proved nothing about
-persistence), an inaccurate build-note claim (said only `/methods` shares `/lab`'s pre-existing
-duplicate-`<h1>` bug; the reviewer measured five routes), and a cell-validation relaxation whose
-own claimed UI parity didn't exist. Round 2 caught a regression in round 1's own fix: gating the
-once-on-load auto-run effect on live (edit-state-derived) `canRun` re-armed it on every
-false→true flip, so typing the first character into a fresh Ask cell fired a real `POST /ask`
-mid-keystroke; fixed by keying the mount-only effect off the *persisted* `cell.spec` instead, with
-a new e2e regression guard. **Judgment call, upheld both rounds:** `lab.notebooks`/`lab.cells`
-were deliberately **not** stamped in `config/confidence.yml`/`catalog/metadata.json` despite this
-item's own "traps to pre-empt" note — they hold user-authored cell definitions, not model output,
-exactly like `playground.scenarios` (unstamped, and this bullet's own named precedent).
-`test_api_inventory`'s hardcoded 204 correctly untouched. Full detail in `ROADMAP.md` → Item F13
-→ F13b. **F13c (boards) is next, not yet started** — forward notes it inherits: `POST /lab/run`
-is capped 30/min per IP (boards re-executing many tiles on load will pressure it), and the
-duplicate-`<h1>` bug remains latent on `/ask`, `/citizen`, `/methods`, `/methods/validation`, and
-the landing page.
+**The active item is F15 — Real grid data: the sources PRISM missed** (`ROADMAP.md` → Item F15,
+scheduled 2026-08-06 from the user's comparison against opengridworks.com; not started). Four
+Opus-gated chunks. The premise, all measured live before scoping: PRISM's transmission layer is
+44,713 fragments of the 2014 WFS with **no voltage attribute at all**; there is **no generation-plant
+geometry source whatsoever**; HIFLD's 141 PR transmission routes — which carry `VOLTAGE`,
+`VOLT_CLASS` and the **named endpoint substations** `SUB_1`/`SUB_2` — have been mirrored since June
+and never loaded; the PR OSM extract on disk holds 1,172 power-line ways (738 with voltage, 794 with
+`operator`) and 8,706 towers that have never been read; and PeeringDB (11 PR data centers, PR-IX
+with 30 networks) plus TeleGeography's 6 PR cable landings are absent entirely. **F15a** lands OSM
+power + HIFLD and fixes a real provenance error — `config/confidence.yml` (three places),
+`prism/graph/feeders.py:18` and `ANOMALIES.md` all credit HIFLD for substation/transmission geometry
+that actually comes from the WFS. **F15b** transfers voltage onto the incumbent geometry and
+recolors `/resilience` by class — **attribute, never replace**: swapping geometry would move
+`comp_id` → `CONNECTS_TO` → `FEEDS` → every resilience score and ILP pick in one unreviewable
+commit, so the better HIFLD topology is *measured* beside the incumbent (the `compare_to_voronoi()`
+precedent) and any swap is deferred to F16. **F15c** gives PRISM its first generation geometry —
+63 EIA plants, keyless, with `Plant_Code` as the join key. **F15d** executes the user's mesh
+framing: PeeringDB facilities joined through the existing `normalize_owner()`/`match_key()`
+machinery to CRIM owners, the corporations registry, OCPR contracts, and the parcels they sit on.
+EIA's JSON API v2 needs a free registered key and is explicitly out of scope (F16 candidate — it
+carries EIA-861 SAIDI/SAIFI, a real calibration target).

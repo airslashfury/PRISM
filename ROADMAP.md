@@ -1072,184 +1072,30 @@ OG cards stay English-only until F12c is picked up separately.
 
 ---
 
-### Item F13 — Data Lab: notebooks + boards  *(IN PROGRESS — F13a DONE 2026-08-03, F13b DONE 2026-08-04 (Opus GO after two fix rounds); F13c queued next)*
+### Item F13 — Data Lab  *(REMOVED 2026-08-06)*
 
-Source: user ask 2026-07-25 — a section shaped like Dynatrace Notebooks (cells that run a query
-and render a table/chart/map) with a way to compose saved cells into dashboards. Viability
-assessed the same day: **viable, ~60% of the machinery already exists.**
+**Built, shipped, and then removed.** F13a (2026-08-03, Opus GO after one fix round) landed a
+`prism_ro` read-only Postgres role behind its own small pool, `prism/lab/` (a 12-entry curated
+`QuerySpec` registry plus a raw-SQL escape hatch, both stamped with the weakest confidence tier
+across their source tables), `api/routers/lab.py` and a `/lab` page. F13b (2026-08-04, Opus GO
+after two fix rounds) added `lab.notebooks` / `lab.cells` — many cells, persisted, permalinked,
+with an `ask` cell kind that wrapped the existing `POST /ask` rather than adding an execution
+endpoint.
 
-**Why this is not the parked Report Studio.** The 2026-07-01 parking of "scenario library /
-Report Studio / provenance-stamped exports" (below, and `BACKLOG.md`) rested on one judgment:
-*output-shaped features for an audience that doesn't exist yet.* Those items package existing
-answers for external stakeholders. A Data Lab is **input**-shaped — it serves the one user who
-does exist, and it lowers the cost of finding the next roadmap item. Different bar, and it
-clears it. Exports stay parked regardless.
+**Why it was removed.** The ask was a Dynatrace-Notebooks-shaped query surface. What shipped
+read as a SQL box with a curated dropdown bolted on — the raw-SQL panel in particular was the
+wrong interaction for this product, and iterating on it would have meant defending a shape
+nobody wanted. Removed in full on 2026-08-06 rather than left to rot behind the nav: `prism/lab/`,
+`api/routers/lab.py`, the `prism_ro` role and its initdb script, `api/deps.py::get_readonly_engine`,
+the `/lab` route and its components, the `lab_municipio_rollup_null_municipio_dropped` anomaly, and
+all tests. `alembic/versions/0014_lab_notebooks.py` is **kept and frozen** (its DDL inlined, since
+the module it wrapped is gone) so every database already stamped at that revision still resolves;
+`0015_drop_lab` drops the schema.
 
-**Decisions taken at evaluation (user, 2026-07-25):** internal-only audience (no auth work — the
-M6 trigger is untouched); a **curated parameterized-query registry plus a raw-SQL escape hatch**,
-not raw SQL alone and not a no-code builder alone; **boards built by pinning cells**; sequence
-after F12 so F12b's "17 pages" doesn't grow to cover an internal English-only tool.
-
-**Reuse (already built and proven):** `arq` + `POST /jobs/*` → `GET /jobs/{id}` → `pollJob<T>()`
-for slow cells; `playground.scenarios` as the precedent for a **global, unowned, `author TEXT`,
-JSONB-payload** saved object that doesn't trip M6 auth; `KnobSlider` (`/assumptions`) and
-`ParamForm` (`/playground`) as the backend-schema-driven form pattern; `TOOL_SPECS`/`_TOOL_FUNCS`
-(`prism/ask/agent.py`) as the registry shape — but fixing its two-place manual registration;
-`parcel_query()` (`prism/ask/tools.py:409`) as the text-to-SQL precedent; `MapWorkspace` +
-`lib/colors.ts` for a geo cell; `components/charts.tsx` theme constants; `cached_response`;
-`nav.ts`; `url-state.ts`.
-
-**The differentiator — provenance inheritance.** `get_table_provenance("schema.table")`
-(`prism/provenance/catalog.py:70`) merges `config/confidence.yml` (56 stamped tables) with
-`catalog/metadata.json`, and that file's own rule is exactly the cell-level semantics needed:
-*a figure's tier is the tier of its weakest required input.* A query spec that declares its
-source tables gets a confidence tier for free. This is what keeps the Lab inside the
-"grounded, not vibes" spine instead of undermining it.
-
-**The one real gap — there is no read-only DB role.** `get_engine()` (`api/deps.py:20`) connects
-as `prism`, the role that owns every schema and runs DDL, on a shared `pool_size=5` pool. A grep
-across `api/`, `prism/`, `alembic/`, `docker/` for `statement_timeout|GRANT|CREATE ROLE|
-read_only` returns **zero hits**; `docker/initdb/01_extensions.sql` creates extensions only. The
-only SQL guard today is prompt text plus a `startswith("SELECT")` check
-(`prism/ask/tools.py:511`). Internal-only or not, one unbounded scan over `crim.parcelas` (1.53M)
-or `sync.aee_feeders` (486K) starves the API. **This is L1's first task, not a later hardening
-pass.**
-
-Sub-chunks, each Opus-gated:
-
-- **F13a (L1) — Safe query substrate + single-cell lab — ✅ DONE (2026-08-03, `feat/f13` off
-  `main`, Opus GO after one fix round).** `prism_ro` role
-  (`docker/initdb/02_readonly_role.sql` + an idempotent `make db-readonly-role`, since initdb
-  only runs on a fresh volume) with `statement_timeout`, `default_transaction_read_only`, and a
-  **separate small pool** via `get_readonly_engine()` so a runaway cell can't starve the API.
-  New `prism/lab/`: `queries.py` (single-place `QuerySpec` registry — id, params, bind-param SQL,
-  declared `tables`, `result_kind`), 12 seed specs across the real schemas, `execute.py`
-  (`run_query` with row cap + weakest-tier provenance; `run_sql` escape hatch whose *actual*
-  enforcement is the role + timeout, string checks only for fast failure). `api/routers/lab.py`:
-  `GET /lab/queries`, `POST /lab/run`, `POST /jobs/lab/run`. Frontend `/lab` (nav group
-  **Decide**) with the first generic `result-table.tsx` and `result-chart.tsx` — hand-rolled,
-  **no new deps**. **Gate history:** first round NO-GO on the "Done when" line itself — the
-  row cap was a regex check on the SQL text (`LIMIT` anywhere in the string, including inside a
-  CTE or a comment), so a query like `SELECT * FROM crim.parcelas -- LIMIT 10` skipped the cap
-  entirely and returned the full 1.5M-row table (65.8MB, 4s, `truncated` reported false even
-  though nothing was capped). Fixed with a `fetchmany(row_cap+1)`-based cap independent of the
-  SQL text, **plus** a server-side cursor (`stream_results=True`) so the cap bounds what crosses
-  the wire, not just what gets materialized after a client-side cursor already pulled everything
-  — the gate measured the uncapped path ballooning the API process by ~2GB RSS even though the
-  *response* was correctly bounded. Second sub-round (same review) caught the fetchmany fix's own
-  off-by-one: appending `LIMIT row_cap` (not `row_cap+1`) made an over-the-cap result
-  indistinguishable from an exactly-at-cap one, so `truncated` false-negatived on the single most
-  common raw-SQL shape (a plain unlimited `SELECT`). Also closed same-round: a real anomaly
-  registered (`lab_municipio_rollup_null_municipio_dropped`, 76,990/1,536,079 parcels = 5.0%
-  excluded from the municipio-rollup query — CRIM parcels missing a municipio value); three
-  previously-unstamped tables the gate surfaced now carry `config/confidence.yml` entries
-  (`crim.owner_entities`/`crim.parcel_owner` modeled, `crim.rce_entities` authoritative); an i18n
-  leak (the null-tier badge rendered raw English `confidence_label` instead of a translated key)
-  fixed + `/lab` added to the i18n chrome sweep; the `POSTGRES_RO_PASSWORD` env var was dropped
-  entirely (it wasn't actually load-bearing — the fresh-volume initdb script can't read env vars,
-  so the SQL hardcodes the password; `get_readonly_engine()` now matches). Non-blocking
-  carry-forward: F13b's new `lab` schema will need `make db-readonly-role` re-run (a brand-new
-  schema isn't covered by the existing dynamic per-schema grants — only new *tables* in an
-  existing schema are, via `ALTER DEFAULT PRIVILEGES`). **Done when:** 12 curated queries run
-  with correct tiers, a deliberate `SELECT * FROM crim.parcelas` is killed by `statement_timeout`
-  while the main API stays responsive, and raw SQL renders a visible "untiered — your own query"
-  stamp — **met, with one accepted deviation from the literal wording, judged and confirmed by
-  the gate:** the row cap now rescues that exact query (fast, bounded, never reaches the
-  timeout) rather than the timeout killing it, which is a *stronger* guarantee (bounded response
-  size + bounded API memory, not just bounded execution time) — the timeout's real job is
-  defense-in-depth against a bug in the cap itself, proven live with a query the cap can't
-  rescue (an aggregate that returns one row, e.g. a cross-join `count(*)`): killed at 8s,
-  `/health` and a real DB-backed endpoint stayed under 30ms throughout.
-- **F13b (L2) — Notebook: many cells, persisted, permalinked — ✅ DONE (2026-08-04,
-  `feat/f13`, Opus GO after two fix rounds).** `lab.notebooks` + `lab.cells (kind:
-  query|sql|markdown|ask, spec JSONB, viz JSONB)` (`prism/lab/schema.py` + alembic `0014`)
-  modeled on `playground.scenarios`; CRUD mirroring `api/routers/playground.py` appended to
-  `api/routers/lab.py`; reorder via up/down buttons (no `dnd-kit`, position resequenced to
-  0..n-1 on every move); markdown through the existing `react-markdown`/`NarrativePanel`; an
-  **`ask` cell kind wrapping `POST /ask`** so the NL surface is a cell type, not a rival page —
-  no new execution endpoint at all: query/sql cells re-run through F13a's own `/lab/run`, ask
-  cells through the existing `/ask`, both called directly by the frontend
-  (`frontend/components/lab/notebook-cell.tsx` + `notebooks-panel.tsx`), one execution path
-  either way; permalink `?nb=<id>` via `frontend/lib/url-state.ts`, cleared when leaving the
-  Notebooks tab so a reload doesn't bounce back into the last-viewed notebook. `/lab` gained a
-  "Quick query" / "Notebooks" top-level toggle; the F13a single-query UI is now the
-  `QuickQueryPanel` function, behavior unchanged. **Done when:** a 5-cell notebook survives
-  reload, re-runs, and permalinks — **met**, verified live (2 query + 1 sql + 1 markdown + 1 ask
-  cell; the ask cell round-tripped through the real `/ask` → Ollama pipeline and rendered a real
-  answer) and by a rewritten e2e test that switches one query cell to a *non-default* spec and
-  asserts a column unique to that query survives reload (the first draft picked the
-  already-default spec, silently proving nothing about persistence — caught at gate). **Gate
-  history — two rounds, four blocking findings total, all fixed same session:** round 1 caught
-  (1) a real concurrency bug — `add_cell`/`move_cell` read-then-wrote `max(position)+1` with no
-  lock, reproduced live as two cells landing at the same position under concurrent POSTs; fixed
-  with `SELECT … FOR UPDATE` on the parent notebook row; (2) the e2e's "change the query"
-  step was a no-op (selected the value that was already the default); (3) a build-note claim
-  that only `/methods` shares `/lab`'s pre-existing (not introduced by F13b) duplicate-`<h1>`
-  bug, when the reviewer measured five routes (`/ask`, `/citizen`, `/methods`,
-  `/methods/validation`, the landing page) — corrected in-code rather than fixing the other
-  four (out of scope); (4) a validation relaxation (see below) whose own claimed UI parity
-  didn't exist — a blank sql/query cell could still 422 itself via the button or on every
-  reload. Round 2 caught a regression in round 1's own fix for (4): gating the once-on-load
-  auto-run effect on live `canRun` (derived from edit-state) re-armed it on every
-  false→true flip, so typing the *first character* into a fresh Ask cell fired a real
-  `POST /ask` mid-keystroke (worse for `sql`: `run_sql("S")` → 400). Fixed by keying the
-  mount-only effect off the *persisted* `cell.spec` instead of live edit state, with a new e2e
-  regression guard (type one character into a fresh Ask cell, assert zero `/api/ask` calls in
-  2s). **Judgment call, reviewed and upheld both rounds:** `lab.notebooks`/`lab.cells` were
-  deliberately **not** stamped in `config/confidence.yml`/`catalog/metadata.json` despite this
-  item's own "traps to pre-empt" line above saying to — they hold user-authored cell
-  definitions (SQL text, markdown, a chosen query id), not model output, exactly like
-  `playground.scenarios` (verified: `playground\.` appears nowhere in either file), which this
-  same bullet already names as F13b's structural precedent. `test_api_inventory`'s hardcoded
-  204 correctly untouched. **Also fixed:** a cell-creation validation bug (independent of the
-  above) that made "+ Ask PRISM" 422 every time — its default spec `{"question": ""}` tripped a
-  "must be non-empty" check; relaxed to allow a freshly-added, not-yet-filled-in cell to persist
-  blank (only rejecting wrong types and an unresolvable non-empty `query_id`). **Forward notes
-  for F13c:** `POST /lab/run` is capped 30/min per IP (`api/limiter.py`) — boards re-executing
-  many tiles on load will pressure it; the duplicate-`<h1>` bug remains latent (unfixed) on the
-  five routes above.
-- **F13c (L3) — Boards.** `lab.boards` + `lab.board_tiles`; "Pin to board" on any cell; the board
-  re-executes tiles on load through L1's cached `POST /lab/run`; fixed 12-column grid with S/M/L
-  presets — add `react-grid-layout` only if free-form dragging proves necessary in use.
-  **Done when:** a 6-tile board loads within a stated budget and every tile shows its tier chip.
-
-**Effort sizing + spike-first (assessed 2026-07-25).** Measured against this repo's own unit for a
-feature slice — ~50-line router + ~200-line `prism/` module + ~400-line page (weather, sitefinder,
-validate all land there):
-
-| Option | What it proves | Effort | Survives into F13a |
-|---|---|---|---|
-| Static mock (fake data) | Layout only | ~2 hours | Little — **skip it** |
-| **Real-data spike** — `/lab`, 4 hardcoded queries on live PostGIS, table + one chart, no persistence/tests/gate | Whether the curated-query surface is *interesting*, and whether a generic Recharts renderer reads as PRISM or as generic BI | **~1 session** | **~75%** — page shell + both renderers carry over unchanged |
-| Full F13a (L1) | — | **3–4× the spike** (F6/F10a scope) | — |
-
-Skip the static mock: PRISM's proposition is real numbers, and a Lab mocked with fake ones can't
-answer the only question a plan can't settle on paper — *are the queries I'd curate interesting
-enough that I'd reach for this?*
-
-**A spike is cheap without being reckless.** Inside a transaction, `SET LOCAL statement_timeout`
-and `SET TRANSACTION READ ONLY` both work as the existing `prism` user — no `GRANT`, no DDL, no
-role. Three lines buy most of the protection. What the dedicated `prism_ro` role adds on top is
-defense-in-depth against a bug in our own guard code, plus a separate connection pool so a runaway
-cell can't starve the API. F13a still owns the role; the spike doesn't need it.
-
-**Therefore:** when F13 starts, do the real-data spike **as F13a's first commit**, not a throwaway
-branch. If the seed queries come out boring, that's one session spent instead of an arc.
-
-**Zero-cost probe available before then:** `/ask`'s `parcel_query` already does text-to-SQL over
-CRIM. Ten real questions through it is evidence about whether ad-hoc querying is something we
-actually reach for — narrower than the Lab, but free today.
-
-**Out of scope:** CSV/GeoPackage exports (stay parked pending external demand); per-user
-notebooks (M6 auth); a DQL-like language of our own; migrating existing pages onto boards.
-
-**Traps to pre-empt:** add `COPY prism/lab ./prism/lab` to `docker/Dockerfile.api` (this has
-bitten three times — `prism/weather` at F10a, `prism/ocpr` at F11e); hand-write the Lab response
-types in `frontend/lib/api.ts` rather than reopening the F10c item-4 `Schemas[...]` migration;
-stamp the new `lab.*` tables in `confidence.yml` + `catalog/metadata.json` and bump
-`tests/test_provenance.py::test_api_inventory`; add `/lab` to `frontend/e2e/interactive.spec.ts`.
-
----
+Two forward notes from F13b that outlived the feature and were **migrated to `BACKLOG.md`**: the
+duplicate-`<h1>` bug still latent on `/ask`, `/citizen`, `/methods`, `/methods/validation` and the
+landing page; and F13c (boards) as an unstarted concept, should the notebook idea ever be revisited
+with a better interaction model.
 
 ### Item F14 — Workspace control, data-exclusion honesty, monthly change reporting, pull resilience  *(COMPLETE 2026-07-26 — all four sub-items Opus GO, branch `feat/f14` off `main`)*
 
@@ -1799,6 +1645,416 @@ gated item. Contains:
 - **Stale-copy sweep** — footer "Phases 0–10 complete" replaced with non-phase-pinned copy; the
   `/sync` InfoPanel's rescore-coverage claim corrected to reflect the `quake` scenario trigger that
   already exists; other phase-pinned strings checked for staleness.
+
+---
+
+### Item F15 — Real grid data: the sources PRISM missed  *(NEXT — scheduled 2026-08-06, not started)*
+
+**Source: user, 2026-08-06** — *"Frankly disappointed that we missed all the sources that
+OpenGridWorks uses for data. EIA, HIFLD, PeeringDB, etc. Their power lines look a lot better."*
+Followed by, on the telecom half: *"PeeringDB also has datacenters and companies and stuff hosted
+out of there. We should join that to contracts and business registries we have. I think we should
+mesh data where possible."*
+
+The complaint is correct and the gap is larger than a missing feed. What PRISM actually has today:
+
+- **Transmission** — 44,713 fragments of the 2014-vintage WFS layer
+  `g37_electric_lineas_transmision_2014`, carrying **no voltage attribute at all**, `ST_Node`d at
+  25 m into 74 disconnected components (`prism/graph/topology.py`). Nothing to style by, which is
+  precisely why the map reads as line soup next to a voltage-classed one.
+- **Generation** — **no plant geometry source whatsoever.** The one candidate WFS layer
+  (`g11_proteccion_generadores_electricidad_2012`, 8,739 features) is mirrored, loaded, and
+  referenced by zero Python. Generation exists only as the live PREPA feed's per-plant MW, joined
+  to the graph by a name-prefix fuzzy match.
+- **HIFLD** — *already mirrored* by `prism/mirror/complements/hifld.py` (141 PR transmission
+  features, `data/raw/hifld_next/2026-06-03/transmission_lines.geojson`) and **never loaded into
+  PostGIS**. Worse, `config/confidence.yml:93-95,137,623`, `prism/graph/feeders.py:18` and
+  `ANOMALIES.md`'s `substations_without_distribution_capability` all **credit HIFLD** for
+  substation and transmission geometry that actually comes from the WFS `g37_electric_*_2014`
+  layers. A live provenance error in the project whose whole premise is honest provenance.
+- **OSM power** — the PR extract has been on disk since 2026-06-03
+  (`data/raw/osm/2026-06-03/puerto-rico-latest.osm.pbf`) and only its road and bridge tags have
+  ever been read.
+- **Digital infrastructure** — no PeeringDB, no IXP, no data-center, no submarine-cable layer
+  anywhere in the repo.
+
+**Everything below was verified live against Puerto Rico on 2026-08-06 before scoping.** These are
+measured counts from the actual endpoints, not estimates — the build reproduces them or it is
+NO-GO.
+
+| Source | Access | Verified PR result |
+|---|---|---|
+| OSM PBF (already mirrored, **ODbL**) | local file | 1,172 `power=line/minor_line/cable` ways, **738 with `voltage`** (38 kV x421, 115 kV x201, 230 kV x94, plus multi-value `"115000;230000"` x18), 794 with `operator` (PREPA x792, LUMA x2), 555 with `cables`; 8,706 `power=tower` + 14,553 `power=pole` points; 33 `power=plant` + 4 `power=substation` polygons |
+| HIFLD `Electric_Power_Transmission_Lines` (`services1.arcgis.com/Hp6G80Pky0om7QvQ`) | keyless | 141 PR features with `VOLTAGE`, `VOLT_CLASS`, `OWNER=PREPA`, `STATUS`, `TYPE`, and **`SUB_1`/`SUB_2` — the named endpoint substations** (`COMPLEJO DE AGUIRRE 230` to `AGUAS BUENAS GIS TC`) |
+| EIA `Power_Plants_in_the_US` (`services2.arcgis.com/FiaPA4ga0iQKduv3`) | keyless | 63 plants, `where=State='Puerto Rico'`, period `202502`, fields `Plant_Code` (the EIA plant id), `Total_MW`/`Install_MW` + per-fuel MW, `PrimSource`, `tech_desc`, lat/lon. Aguirre 1461.2, Costa Sur 966.5, Central San Juan 783.9, EcoEléctrica 580, Palo Seco 479.4, AES PR 454.4, Cambalache 241.5, Mayagüez 220, Pattern Santa Isabel 75 (wind), Oriana 66.8 (solar+battery) |
+| PeeringDB (`api.peeringdb.com`) | keyless | 11 PR facilities with lat/lon, address, org name, `net_count`/`ix_count`; 2 IXs — **PR-IX** (San Juan, 30 networks, 15 facilities) and IXP-PR (Carolina) |
+| TeleGeography (`submarinecablemap.com/api/v3`) | keyless | 6 PR landing points (San Juan, Condado Beach, Isla Verde, Punta Salinas, Miramar, Ponce) + cable route geometry |
+| HIFLD substations / power plants | **gone** | All 526 services in the HIFLD ArcGIS org enumerated — only transmission lines and a planned-lines layer survive. HIFLD Open died Aug 2025 (already a standing note in `CLAUDE.md`) |
+| EIA JSON API v2 (`api.eia.gov/v2`) | **needs a free key** | Out of scope for F15. EIA-923 monthly generation and EIA-861 utility reliability (SAIDI/SAIFI for PREPA/LUMA — a real calibration target) become reachable once someone registers a key. F16 candidate |
+
+---
+
+#### The load-bearing decision: ATTRIBUTE, never REPLACE
+
+`graph.tx_network` is three columns wide (`seg_id, comp_id, geom`) with no attributes. Its
+`comp_id` drives `relationships.build_connects_to` → `build_feeds` → `graph.downstream_summary` →
+`resilience.scenario_scores` → `economy.substation_exposure` → the ILP portfolio.
+
+**Swapping the geometry for OSM's would silently move every resilience score and every ILP pick in
+one unreviewable commit.** OSM's PR power coverage is volunteer-contributed and unmeasured against
+the WFS layer; the two row counts (1,172 ways vs 44,713 noded fragments) are not even comparable.
+
+So F15 transfers *attributes* onto the incumbent geometry — writing only into nullable columns and
+JSONB, never a relationship row, never a geometry — and **measures** the better topology beside the
+incumbent without adopting it. This is exactly what `prism/graph/feeders.py` did with
+`compare_to_voronoi()` before F11f's separately-gated POWERS swap, and that precedent governs here.
+
+Two corollaries, both non-negotiable:
+- **OSM lines are not added as `graph.entities` rows.** That would double the `transmission_line`
+  kind and move the 48,801-node headline for zero analytical gain — the value is the attribute,
+  not a second copy of the geometry.
+- **HIFLD's `SUB_1`/`SUB_2` is not swapped in.** 141 named endpoint pairs are a *measured*
+  substation adjacency list, categorically better than "same `ST_Node` component within 10 km" —
+  which makes it a real replacement candidate for `CONNECTS_TO`, and therefore an **F16 item with
+  its own gate**. F15b builds it, measures agreement, publishes the rate, and stops.
+
+---
+
+#### F15a — Land the sources; fix the HIFLD provenance error
+
+**Deliverable.** The already-mirrored OSM PBF and the already-mirrored-never-loaded HIFLD
+transmission GeoJSON become queryable PostGIS tables with full provenance. Nothing in `graph.*`
+changes. Separately, the four places that misattribute WFS geometry to HIFLD are corrected.
+
+**Files.** New `prism/sync/osm_power.py` + `prism/sync/hifld_tx.py` on the canonical
+`prism/sync/nwis.py` fetch/parse/mirror_raw/persist/sync shape, through `prism/sync/http.py`.
+Touch `prism/sync/schema.py`, `prism/sync/__main__.py` (CLI verbs), `config/sources.yml`
+(`complements.osm` gains a power layer list; `complements.hifld_next` gains `loads:`),
+`catalog/metadata.json`, `config/confidence.yml`, `config/anomalies.yml` + `make anomalies`,
+`tests/test_provenance.py` (bump the inventory count), new `tests/test_osm_power.py`. Reuse
+`prism/mirror/arcgis.py::query_layer` for HIFLD paging — it already handles
+`resultOffset`/`exceededTransferLimit`. Alembic `0016_osm_hifld_power.py` is a thin
+`prism.sync.schema.create_schema` wrapper. **No new top-level package → no `Dockerfile.api` change.**
+
+**Contract.**
+```sql
+sync.osm_power_lines(osm_id BIGINT PK, power_kind TEXT,          -- line|minor_line|cable
+  voltage_raw TEXT,                                              -- verbatim "115000;230000"
+  voltage_v INTEGER, voltage_all INTEGER[],                      -- max, and every circuit
+  operator_raw TEXT, operator_key TEXT,                          -- normalize_owner(operator_raw)
+  cables INTEGER, circuits INTEGER, name TEXT,
+  tags JSONB, geom geometry(LineString,32161), pulled_at TIMESTAMPTZ)
+sync.osm_power_supports(osm_id BIGINT PK, support_kind TEXT,     -- tower|pole
+  tags JSONB, geom geometry(Point,32161), pulled_at)
+sync.osm_power_sites(osm_id BIGINT PK, site_kind TEXT,           -- plant|substation
+  name, operator_raw, plant_source, plant_output_mw,
+  tags JSONB, geom geometry(MultiPolygon,32161), pulled_at)
+sync.hifld_tx_lines(hifld_id TEXT PK, voltage_kv DOUBLE PRECISION, volt_class TEXT,
+  owner TEXT, status TEXT, line_type TEXT,
+  sub_1 TEXT, sub_2 TEXT, sub_1_key TEXT, sub_2_key TEXT,        -- the endpoint prize
+  attrs JSONB, geom geometry(MultiLineString,32161), pulled_at)
+```
+```python
+prism/sync/osm_power.py:
+  parse_pbf(pbf: Path) -> dict[str, list[dict]]        # keys: lines, supports, sites
+  parse_voltage(raw: str | None) -> tuple[int | None, list[int]]
+  sync_osm_power(engine, *, pbf: Path | None = None, mirror: bool = False) -> dict
+prism/sync/hifld_tx.py:
+  fetch_hifld_tx(*, timeout: float = 60.0) -> str
+  parse_tx(raw: str) -> list[dict]
+  sync_hifld_tx(engine, *, mirror: bool = True) -> dict
+```
+
+**Done when.** The loader reproduces the measured counts in the table above — 1,172 / 738 / 794 /
+555 lines, 8,706 towers + 14,553 poles, 33 plants + 4 substations, 141 HIFLD features with
+`SUB_1`/`SUB_2` populated. Every new table stamped in **both** `config/confidence.yml` and
+`catalog/metadata.json`; `test_api_inventory`'s hardcoded count bumped by exactly the number of new
+catalog entries. `git grep -i hifld config/ prism/graph/ ANOMALIES.md` returns only genuinely-HIFLD
+rows. Full pytest green. The PBF read and any re-mirror ran **from the host venv**.
+
+**Traps to pre-empt.**
+- **The GDAL OSM driver is the big one.** Layers are `points`/`lines`/`multilinestrings`/
+  `multipolygons`/`other_relations`, and `power`/`voltage`/`operator`/`cables` are **not** attribute
+  columns — they arrive inside GDAL's `other_tags` as an hstore-ish string
+  (`"voltage"=>"115000","operator"=>"PREPA"`) that must be parsed, or configured in via
+  `osmconf.ini` / `OSM_CONFIG_FILE`. `pyogrio` is installed and reads the PBF; `osmium`, `pyrosm`
+  and `osgeo` are **not** installed. Budget real time here.
+- **ODbL is a licence decision, not a footnote.** Attribution is required and share-alike attaches
+  to derived data. Put `© OpenStreetMap contributors, ODbL` in `catalog/metadata.json`, on
+  `/methods`, and in the map attribution of any view drawing OSM-derived geometry — and decide *in
+  writing* whether F15b's derived `voltage_v` sitting on WFS geometry is an ODbL derivative,
+  because that constrains how PRISM's grid layer can ever be published.
+- The PBF is a `2026-06-03` snapshot, not a live feed. Register it; set a refresh cadence.
+- **Exclusion protocol** — anomalies to register: 434 of 1,172 OSM lines carry no voltage;
+  multi-value voltage collapsed to a max; `power=cable` (underground) lumped with overhead;
+  the PBF snapshot date; any HIFLD `STATUS` value that is not in-service.
+
+---
+
+#### F15b — Voltage reaches the model and the map, without moving a single number
+
+**Deliverable.** Every transmission segment PRISM can honestly attribute carries a voltage;
+`/resilience` draws the grid by voltage class with an explicit **"unknown (n)"** legend entry. The
+HIFLD named-endpoint adjacency is built and measured against `CONNECTS_TO`, not swapped in.
+
+**Files.** New `prism/graph/tx_attribution.py`, `tests/test_tx_attribution.py`. Touch
+`prism/graph/schema.py`, `prism/graph/__main__.py`, `api/routers/network.py`, `api/routers/tiles.py`,
+`api/schemas.py`, `frontend/app/(dashboard)/resilience/*`, both i18n dictionaries,
+`frontend/e2e/maps.spec.ts` + `i18n.spec.ts`, `config/confidence.yml`, `config/anomalies.yml` +
+`make anomalies`. Alembic `0017_tx_voltage.py`, thin wrapper on `prism.graph.schema.create_schema`.
+
+**Contract.** Two hops, each with its own confidence:
+- **Hop 1 (cross-dataset, modeled).** HIFLD first, then OSM → `graph.entities` rows where
+  `kind='transmission_line'`. Nearest within **30 m** in EPSG:32161 **plus bearing agreement within
+  ~25°** (mod-180; direction is arbitrary), writing `voltage_v` / `voltage_source` / `operator_key`
+  into the existing `attrs` JSONB. **Zero DDL, zero row-count change.** HIFLD wins ties — one named
+  authority carrying `VOLT_CLASS` and `OWNER`; OSM fills the rest. No confident match → `voltage_v`
+  stays absent, never guessed.
+- **Hop 2 (same-dataset, near-exact).** WFS entity → its own noded `graph.tx_network` segments.
+  Tolerance `TX_SNAP_M * 1.5`, **not** 1 m — `ST_SnapToGrid(25)` displaces vertices up to ~17 m.
+  Nearest parent wins; a tie leaves NULL.
+
+```sql
+ALTER TABLE graph.tx_network ADD COLUMN IF NOT EXISTS voltage_v      INTEGER;
+ALTER TABLE graph.tx_network ADD COLUMN IF NOT EXISTS voltage_source TEXT;   -- 'hifld'|'osm'
+ALTER TABLE graph.tx_network ADD COLUMN IF NOT EXISTS operator_key   TEXT;
+ALTER TABLE graph.tx_network ADD COLUMN IF NOT EXISTS attr_match_m   REAL;
+CREATE INDEX IF NOT EXISTS idx_tx_network_voltage ON graph.tx_network (voltage_v);
+
+CREATE TABLE IF NOT EXISTS graph.tx_line_endpoints (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  hifld_id TEXT NOT NULL, voltage_kv DOUBLE PRECISION,
+  sub_1_raw TEXT NOT NULL, sub_2_raw TEXT NOT NULL,
+  sub_1_entity BIGINT REFERENCES graph.entities(entity_id) ON DELETE SET NULL,
+  sub_2_entity BIGINT REFERENCES graph.entities(entity_id) ON DELETE SET NULL,
+  match_method TEXT NOT NULL,          -- exact_name|sorted_key|fuzzy|unmatched
+  match_confidence REAL,
+  agrees_with_connects_to BOOLEAN,     -- the measurement. NOT a swap.
+  computed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_tx_line_endpoints UNIQUE (hifld_id));
+```
+`ADD COLUMN IF NOT EXISTS` is mandatory — a bare `CREATE TABLE IF NOT EXISTS` will not add columns
+to an existing table (the `prism/economy/schema.py:34-37` and `prism/sitefinder/schema.py:79-88`
+precedent).
+
+**UI placement.** `/resilience`'s existing transmission layer, recolored by class (230 / 115 / 38 kV
+/ unknown) with width scaling. The legend carries live counts **including unknown** — that count is
+the honesty surface and must be visible, not hidden behind a toggle.
+
+**Done when.** The attributed-segment count is measured and published, not predicted.
+`graph.tx_line_endpoints` populated for all 141 lines with `agrees_with_connects_to` computed and
+the agreement rate on `/methods`. Both languages. **And the gate that matters — the F10b invariant
+holds byte-identically:** `graph.relationships` row count, `graph.downstream_summary`,
+`resilience.scenario_scores` top-10, and the $200M/$500M ILP picks all unchanged before and after.
+Nothing in this chunk is supposed to be able to move them; if one moves, it is NO-GO.
+
+**Traps to pre-empt.**
+- **`build_tx_network` opens with `TRUNCATE graph.tx_network`** (`prism/graph/topology.py:28`), so
+  every re-node silently blanks `voltage_v`. `prism/graph/__main__.py` must call
+  `attribute_tx_network` immediately after `build_tx_network`, **with a test asserting that
+  ordering.** This is the single most likely way F15b silently regresses six months from now.
+- Bearing agreement matters more than distance: two 115 kV lines running parallel through the same
+  corridor 20 m apart will cross-attribute on distance alone. Use
+  `ST_Azimuth(ST_StartPoint, ST_EndPoint)`.
+- HIFLD `SUB_1` values like `'COMPLEJO DE AGUIRRE 230'` carry the voltage *inside the name*. Strip
+  the trailing kV token before matching and use it as corroboration rather than discarding it.
+  `sorted_match_key()` (`prism/crim/rce_match.py`) is the right tool for word-order variance.
+- Anomalies to register: the 30 m cap; the bearing tolerance; the count left unattributed; the
+  tie-goes-to-NULL rule; and HIFLD-vs-OSM disagreements where the two sources give different
+  voltages for the same segment (record which won, and how many).
+- i18n leak classes 3 and 4 (F12b): legend labels, layer-toggle `title` attributes, **and** the
+  deck.gl hover tooltip — that last one is invisible to any visible-text sweep. `voltage_source` is
+  a closed backend enum → client-side override by key, the `confidenceTiers` pattern.
+
+---
+
+#### F15c — Generation geometry, PRISM's first
+
+**Deliverable.** 63 EIA plants with real capacity, footprinted by OSM `power=plant` polygons where a
+confident match exists, as `graph.entities` rows. PRISM can for the first time reconcile its own
+graph against the live PREPA generation feed on an authoritative plant identity.
+
+**Files.** New `prism/sync/eia_plants.py`, `tests/test_eia_plants.py`. Touch `prism/sync/schema.py`,
+`prism/sync/__main__.py`, `prism/graph/entities.py` (a new `_EntitySpec` sourced from
+`sync.eia_power_plants` — the existing specs all read raw WFS tables, so this is the first
+sync-sourced spec; confirm `_load_spec` tolerates a schema-qualified `src_table`),
+`prism/graph/relationships.py` (plant→substation `CONNECTS_TO` **only**), `config/sources.yml`,
+`catalog/metadata.json`, `config/confidence.yml`, `config/anomalies.yml` + `make anomalies`,
+`api/routers/network.py`, the `/resilience` generation lens, both dictionaries. Alembic
+`0018_eia_plants.py`.
+
+**Contract.**
+```sql
+sync.eia_power_plants(plant_code INTEGER PK, plant_name TEXT, utility_name TEXT,
+  prim_source TEXT, tech_desc TEXT,
+  total_mw DOUBLE PRECISION, install_mw DOUBLE PRECISION,
+  fuel_mw JSONB,                          -- per-fuel columns kept whole, never summed away
+  period TEXT,                            -- '202502'
+  lon, lat, geom geometry(Point,32161),
+  osm_site_id BIGINT, osm_match_m REAL,   -- NULL when no confident match
+  pulled_at TIMESTAMPTZ)
+```
+```python
+prism/sync/eia_plants.py:
+  fetch_plants(*, timeout: float = 60.0) -> str    # arcgis.query_layer, where="State='Puerto Rico'"
+  parse_plants(raw: str) -> list[dict]
+  match_osm_footprints(engine, *, max_m: float = 500.0) -> dict   # F9d D1's spatial pattern
+  sync_eia_plants(engine, *, mirror: bool = True) -> dict
+```
+`graph.entities`: `domain='power'`, `kind='power_plant'`, `src_table='sync.eia_power_plants'`,
+`src_gid=plant_code`, `attrs={total_mw, install_mw, prim_source, tech_desc, utility_name,
+has_osm_footprint}`, `geom` = the OSM polygon when matched else the EIA point (the column is
+`geometry(Geometry, 32161)`, mixed types allowed).
+
+**UI placement.** A generation lens on `/resilience`'s existing domain switcher (the F9b symmetric-
+switcher pattern) — plants sized by MW, colored by `prim_source`, opening the existing
+`EntityDrawer`. Zero shell files touched, the F7 precedent.
+
+**Done when.** 63 rows; the ten named plants match the verified MW figures exactly; 63
+`power_plant` entities; OSM-footprint match count published; the cross-check against
+`sync.generation_status` reconciled and its residual explained. **A test asserting zero
+`FEEDS`/`POWERS` edges from any `power_plant` entity.** Same byte-identical
+`downstream_summary`/resilience/portfolio invariant check as F15b.
+
+**Traps to pre-empt.**
+- **Adding entities is not neutral.** `graph.entities` is a headline number (48,801) and several
+  aggregates key off `kind` — sweep for kind-based queries before shipping.
+- **Wire `CONNECTS_TO` only.** No `FEEDS`, no `POWERS` from plants in F15c — plants as cascade
+  sources is a real modeling change deserving its own gate (the F7 telecom-firewall precedent,
+  where telecom kinds carry cascade `CRITICALITY=0`). Enforce with the test above, not a comment.
+- `Total_MW` vs `Install_MW`: pick one for `attrs.total_mw`, say which and why in
+  `config/assumption_rationale.yml`, keep both columns. Per-fuel columns may not sum to the total —
+  keep them whole in `fuel_mw` rather than reconciling them away.
+- Period `202502` is a snapshot, not a live feed, and must not be presented as one. Decide and
+  register whether retired/planned plants are inside the 63.
+- **This is the keyless ArcGIS FeatureServer, NOT the key-requiring EIA JSON API v2.** Write that
+  distinction into the module docstring so a future session doesn't "helpfully" add a key.
+
+---
+
+#### F15d — Digital infrastructure, meshed into what PRISM already knows
+
+**Deliverable.** The user's own framing executed: 11 data centers, 2 IXs and 6 cable landings,
+joined to CRIM owners, the PR corporations registry, government contracts, and the parcels they
+physically sit on. PRISM already owns every piece of this machinery —
+`prism/crim/normalize.py::normalize_owner()`, `prism/crim/rce_match.py::match_key()` /
+`sorted_match_key()` / `is_corporate()`, `crim.owner_entities`, `crim.rce_entities`,
+`prism/ocpr/footprint.py::owner_contract_footprint()`, and F9d D1's `ST_DWithin` nearest-parcel
+pattern. The PeeringDB org names carry corporate suffixes ("Critical Hub Networks, Inc.", "HUB
+Advanced Networks, LLC", "Netwave Equipment Corporation") and run straight through `match_key()`.
+
+**Files.** New `prism/sync/peeringdb.py` + `prism/sync/subcables.py`; **new package
+`prism/digital/`** (`__init__.py`, `schema.py`, `match.py`, `query.py`, `__main__.py`); fold the
+endpoints into the existing `api/routers/telecom.py` rather than adding a router; new
+`tests/test_digital.py`. Touch `prism/sync/schema.py`, `config/sources.yml`,
+`catalog/metadata.json`, `config/confidence.yml`, `config/anomalies.yml` + `make anomalies`,
+`api/schemas.py`, `frontend/app/(dashboard)/telecom/*`, `frontend/app/(dashboard)/parcels/parcels-client.tsx`,
+`frontend/lib/api.ts` + `hooks.ts`, both dictionaries, `frontend/e2e/`. Alembic `0019_digital.py`
+calls **two** `create_schema`s (`prism.sync.schema` + `prism.digital.schema`) — the
+`0010_water_f6.py` precedent.
+
+**`docker/Dockerfile.api` MUST gain `COPY prism/digital ./prism/digital`.** This is the only F15
+chunk adding a top-level package. F10a's `/weather` was silently down in dev for an entire item
+because this was missed, and F11e's `prism/ocpr` was the third occurrence. **Verify by rebuilding
+the image and hitting the endpoint inside the container**, not on the host dev server.
+
+**Contract.**
+```sql
+sync.pdb_facilities(fac_id INTEGER PK, name TEXT, org_id INTEGER, org_name TEXT,
+  org_key TEXT,        -- normalize_owner(org_name)
+  org_match_key TEXT,  -- rce_match.match_key(org_name), suffix-preserving
+  address1, city, zipcode, net_count INTEGER, ix_count INTEGER,
+  lon, lat, geom geometry(Point,32161), pulled_at)
+sync.pdb_ix(ix_id INTEGER PK, name, city, net_count, fac_count, pulled_at)
+sync.pdb_ixfac(ix_id INTEGER, fac_id INTEGER, PRIMARY KEY (ix_id, fac_id))
+sync.cable_landings(landing_id TEXT PK, name, geom geometry(Point,32161), pulled_at)
+sync.submarine_cables(cable_id TEXT PK, name, owners TEXT,
+  geom geometry(MultiLineString,32161),   -- PR-bbox clipped
+  pulled_at)
+sync.cable_landing_cables(landing_id TEXT, cable_id TEXT, PRIMARY KEY (landing_id, cable_id))
+
+-- ONE generic link table, not four: 11 facilities across four link kinds would
+-- otherwise produce four near-empty tables.
+digital.facility_links(
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  fac_id INTEGER NOT NULL,
+  link_kind TEXT NOT NULL CHECK (link_kind IN
+      ('crim_owner','rce_entity','ocpr_contractor','parcel')),
+  target_key TEXT, target_label TEXT,
+  method TEXT NOT NULL,        -- exact_owner_key|sorted_match_key|nearest_parcel
+  confidence REAL NOT NULL,
+  distance_m REAL,             -- parcel links only
+  detail JSONB NOT NULL DEFAULT '{}'::jsonb,
+  computed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_digital_link UNIQUE (fac_id, link_kind, target_key));
+```
+```python
+prism/digital/match.py:  link_facilities(engine, *, parcel_max_m: float = 100.0) -> dict[str, int]
+prism/digital/query.py:  facility_detail(engine, fac_id: int) -> dict[str, Any]
+                         parcel_digital_context(engine, num_catastro: str) -> dict | None
+                         owner_digital_footprint(engine, owner_key: str) -> dict | None
+```
+
+**Endpoints + UI.** `GET /telecom/digital/facilities` (FeatureCollection),
+`GET /telecom/digital/facility/{fac_id}`, `GET /telecom/digital/landings`. For parcel-360 and the
+owner drawer, **fold a nullable `digital` block into the existing payloads** rather than adding
+endpoints — the F11e government-contracts precedent, silent for everyone with no record.
+`/telecom` gains two toggleable layers (data centers, cable landings) and an `EntityDrawer`
+section — zero shell files touched, the F7 precedent.
+
+**Done when.** 11 facilities, 2 IXs, 6 landings loaded; every facility that resolves carries a
+`digital.facility_links` row with an explicit `method` and `confidence`; both languages; the
+Dockerfile COPY verified inside the rebuilt container. **And the standing finding is stated
+plainly, whatever it turns out to be** — e.g. "N of 11 PR data centers sit on parcels whose CRIM
+owner is also a government contractor." If the honest answer is zero, ship zero; a measured zero is
+a shippable result and PRISM already says so in three other places.
+
+**Traps to pre-empt.**
+- **PeeringDB rate-limits unauthenticated clients hard** (429s). Use `prism/sync/http.py` — per-host
+  rate limit, `Retry-After` honored, `sync.pull_health`. F14d built it for exactly this; do not
+  hand-roll a transport.
+- **PeeringDB is self-reported by facility operators, not an authority** → tier `proxy`.
+  `net_count`/`ix_count` are *claimed* connectivity.
+- **TeleGeography's cable routes are schematic, not survey-accurate** — their own documentation says
+  so → tier `estimated`, and say it **on the map**, not only in the catalog. Drawing a schematic
+  route as though it were a surveyed cable is precisely the unearned precision PRISM's confidence
+  spine exists to prevent.
+- `cable-geo.json` is worldwide and large, and duplicates segments across the antimeridian. Filter
+  to PR landing points → the cables touching them → clip to a PR bbox. The landing→cable join goes
+  through the cable's own `landing_points` array (`/api/v3/cable/{id}.json`), **not** geometry
+  proximity.
+- **Name matching is name matching.** `org_name` → `owner_key` is a string join with no shared
+  identifier: a match is a **lead, not a resolution**, and gets F11b/F11d's copy discipline.
+  `sorted_match_key()` returns `None` for names under two content tokens — respect that rather than
+  falling back to something looser.
+- The nearest-parcel step inherits F9d D1's honesty rule. **Use a building-scale cap (50–100 m), not
+  D1's 500 m address cap** — a facility whose nearest parcel is 480 m away is not on that parcel.
+  Register whichever value is chosen.
+- Anomalies to register: the parcel cap; PeeringDB self-reporting; schematic cable geometry;
+  facilities with no confident owner match; and the deliberate exclusion of PeeringDB's `/net` and
+  `/org` endpoints (11 facilities is the scope — don't quietly pull the whole network graph).
+- i18n: `link_kind` and `method` are closed backend enums → client-side override by key. Plus the
+  map legend, layer-toggle attributes, and drawer tooltips (F12b leak classes 1, 3, 4).
+
+---
+
+#### Sequencing and cross-cutting rules
+
+**F15a → F15b is a hard dependency** (b attributes from a's tables). F15c depends on F15a only for
+the OSM plant polygons. **F15d is fully independent** and could run first — it is also the chunk
+most likely to produce a headline finding. **F15b is the riskiest and gets gated hardest.**
+
+Restated for every chunk, because each has bitten before:
+- Mirrors are written **from the host venv, never inside a container** (F10a's gate fix).
+- Anything filtered, capped, or dropped registers in `config/anomalies.yml` in the **same session**,
+  and `make anomalies` regenerates `ANOMALIES.md` (F14b's exclusion protocol; two tests enforce it).
+- Any new UI is bilingual, watching F12b's six leak classes.
+- After each GO: `ROADMAP.md` + `CLAUDE.md` + `memory/project_state.md` in the same session.
+
+**One simplification worth banking:** because `sync.*` is already PRISM's home for pulled source
+tables (`sync.aee_feeders`, `sync.nwis_gauges`, `sync.climate_normals`), F15a/b/c need **no new
+top-level package and no Dockerfile change** — every migration stays a thin `create_schema`
+wrapper, fully in-convention. Only F15d breaks that, and it breaks it knowingly.
 
 ---
 

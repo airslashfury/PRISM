@@ -139,6 +139,23 @@ feedback would supply.
 
 ---
 
+## Carried out of the removed Data Lab (F13), 2026-08-06
+
+The Lab itself is gone (`ROADMAP.md` item F13 has the removal record). These two notes were
+written during its build, outlived it, and would otherwise have been deleted with the section.
+
+- **Duplicate `<h1>` on five routes** — `/ask`, `/citizen`, `/methods`, `/methods/validation` and
+  the landing page each render two level-1 headings. A real accessibility defect (screen readers
+  and document-outline tooling both key off a single `<h1>`), pre-existing and unrelated to the
+  Lab; it was simply measured during an F13b gate round. Nothing blocks fixing it.
+- **Notebook-shaped exploration, take two** — the original ask was a surface shaped like Dynatrace
+  Notebooks: cells that run a query and render a table/chart/map, composable into boards. F13a/b
+  answered it with a SQL box and was removed for it. If this is revisited, the interaction model is
+  the whole problem — start from what a cell *is* for a non-SQL user, not from the query substrate.
+  Roughly 60% of the machinery still exists in `/playground`, `/assumptions` and `/ask`.
+
+---
+
 ## Standing data notes (constraints, not work items)
 
 - **CRIM valuation official export** — valuation/sales loaded and trusted; the token-secured
