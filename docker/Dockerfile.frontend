@@ -28,6 +28,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
+# /og/[view]'s route handler reads these at request time via fs (F10c-5) —
+# not part of the Next.js build output, so needs its own copy into `run`.
+COPY --from=build /app/assets ./assets
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/next.config.mjs ./next.config.mjs

@@ -245,6 +245,75 @@ def _storm_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
     ]
 
 
+def _registry_changes(engine: Engine, limit: int) -> list[dict[str, Any]]:
+    """Corporate-registry signals about property owners (F11c).
+
+    CRIM cannot emit either of these: its owner record stays perfectly current
+    while the legal person behind it dissolves. Two headlines — the transitions
+    banked since the last registry poll, and the standing count of already-dead
+    companies that still hold property, which is real from the first run rather
+    than only after a change is observed.
+    """
+    from prism.crim.registry import TERMINAL_STATUSES, available, status_transitions
+
+    # The standing-count query joins rce_match_key and rce_entities as well, so
+    # guarding on owner_rce_match alone would 500 /whatsnew on a half-built layer.
+    if not available(engine) or not _exists(engine, "crim.rce_entities"):
+        return []
+
+    out: list[dict[str, Any]] = []
+    for t in status_transitions(engine, limit=limit):
+        if not t["became_terminal"]:
+            continue
+        holds = (f"still holds {t['parcels']:,} parcel{'s' if t['parcels'] != 1 else ''}"
+                 if t["parcels"] else "is still listed as a CRIM owner")
+        out.append({
+            "kind": "registry",
+            "headline": f"{t['corp_name']} is now {t['to_status'].lower()} — it {holds}",
+            "detail": f"registry status changed from {t['from_status'].lower()}",
+            "at": t["at"],
+            "href": "/parcels",
+        })
+
+    with engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT COUNT(DISTINCT m.owner_key) AS owners,
+                   COALESCE(SUM(o.parcel_count), 0) AS parcels,
+                   MAX(e.pulled_at) AS as_of
+            FROM crim.owner_rce_match m
+            JOIN crim.rce_match_key r ON r.registration_index = m.registration_index
+            JOIN crim.rce_entities  e ON e.registration_index = m.registration_index
+            LEFT JOIN crim.owner_match_key o
+                   ON o.owner_key = m.owner_key AND o.match_key = m.match_key
+            WHERE r.status_es = ANY(:terminal)
+        """), {"terminal": sorted(TERMINAL_STATUSES)}).mappings().fetchone()
+
+    if row and row["owners"]:
+        out.append({
+            "kind": "registry",
+            # "No longer exists" was wrong for most of these: CANCELADA is an
+            # administrative cancellation the company can be revived from, and a
+            # FUSIONADA company does exist — inside the survivor. The register
+            # says "not active", which is all we can say. This headline is also
+            # the only render path with no tier chip beside it, so the
+            # name-inference caveat has to travel in the text itself.
+            "headline": (f"{int(row['owners']):,} dissolved, cancelled or merged companies "
+                         f"still hold {int(row['parcels']):,} parcels"),
+            "detail": ("CRIM lists them as current owners; the Departamento de Estado "
+                       "register lists the company as no longer active. Companies are "
+                       "matched to owners by name, not by an official identifier"),
+            # The registry pull time is the real "as of" for this claim.
+            "at": row["as_of"].isoformat() if row["as_of"] else None,
+            "href": "/parcels",
+            # A standing fact, not news — once the mirror pull finishes, this
+            # timestamp stops advancing and would otherwise sink out of the
+            # newest-first cut as other events accumulate. `whatsnew()` exempts
+            # pinned items from truncation instead of dropping them.
+            "pinned": True,
+        })
+    return out
+
+
 def _crim_changes(engine: Engine) -> list[dict[str, Any]]:
     """One headline per change type in the most recent CRIM delta month."""
     if not _exists(engine, "crim.parcel_deltas"):
@@ -302,6 +371,49 @@ def _crim_baseline(engine: Engine) -> dict[str, Any]:
     return out
 
 
+def _pull_failures(engine: Engine) -> list[dict[str, Any]]:
+    """Pulls that are currently failing (F14d).
+
+    Freshness chips answer "how old is this data"; they cannot answer "is the
+    pull that refreshes it broken". A source whose last success was recent still
+    looks healthy while every attempt since has failed — which is exactly the
+    silent-death mode `sync.pull_health` exists to end.
+    """
+    if not _exists(engine, "sync.pull_health"):
+        return []
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT source, consecutive_failures, last_error, last_attempt_at,
+                   last_success_at, last_status
+            FROM sync.pull_health
+            WHERE consecutive_failures > 0 OR last_status = 'partial'
+            ORDER BY consecutive_failures DESC, last_attempt_at DESC
+            LIMIT 6
+        """)).mappings().fetchall()
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        n = int(r["consecutive_failures"] or 0)
+        if r["last_status"] == "partial" and n == 0:
+            headline = f"{r['source']} pull completed only partially"
+            detail = "Some of the source was retrieved; the rest was not persisted."
+        else:
+            times = "once" if n == 1 else f"{n} times in a row"
+            headline = f"{r['source']} pull is failing — {times}"
+            last_ok = r["last_success_at"]
+            detail = (r["last_error"] or "no error recorded")
+            if last_ok:
+                detail = f"{detail} · last succeeded {last_ok:%Y-%m-%d %H:%M} UTC"
+        out.append({
+            "kind": "pull",
+            "headline": headline,
+            "detail": detail,
+            "at": r["last_attempt_at"].isoformat() if r["last_attempt_at"] else None,
+            "href": "/sync",
+        })
+    return out
+
+
 def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
     """Feed freshness + a newest-first typed change stream for the overview."""
     changes = (
@@ -310,14 +422,39 @@ def whatsnew(engine: Engine, *, change_limit: int = 12) -> dict[str, Any]:
         + _rank_changes(engine)
         + _storm_changes(engine, change_limit)
         + _crim_changes(engine)
+        + _registry_changes(engine, change_limit)
+        + _pull_failures(engine)
     )
     # Newest first; None timestamps sink to the bottom.
     changes.sort(key=lambda c: c["at"] or "", reverse=True)
+    # Pinned items (standing facts, not news) are exempt from the newest-first
+    # cut — otherwise an unchanging timestamp eventually sinks a still-true
+    # signal below the fold as other events accumulate around it. They keep
+    # their sorted position; only the truncation count excludes them.
+    pinned = [c for c in changes if c.get("pinned")]
+    unpinned = [c for c in changes if not c.get("pinned")]
+    kept = (pinned + unpinned[:max(0, change_limit - len(pinned))])
+    kept.sort(key=lambda c: c["at"] or "", reverse=True)
     # Live operational feeds first (most time-sensitive), then the WFS registry.
     feeds = _live_feeds(engine) + _feeds(engine)
     return {
         "feeds": feeds,
         "stale_count": sum(1 for f in feeds if f["stale"]),
-        "changes": changes[:change_limit],
+        "changes": kept,
         "crim_baseline": _crim_baseline(engine),
+        "pull_health": _pull_health_summary(engine),
     }
+
+
+def _pull_health_summary(engine: Engine) -> dict[str, Any]:
+    """Counts for the freshness strip's pull-health badge (F14d)."""
+    if not _exists(engine, "sync.pull_health"):
+        return {"tracked": 0, "failing": 0, "partial": 0}
+    with engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT count(*) AS tracked,
+                   count(*) FILTER (WHERE consecutive_failures > 0) AS failing,
+                   count(*) FILTER (WHERE last_status = 'partial')  AS partial
+            FROM sync.pull_health
+        """)).mappings().fetchone()
+    return {k: int(v or 0) for k, v in dict(row or {}).items()}

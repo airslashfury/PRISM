@@ -100,6 +100,23 @@ def source_detail(entity_id: int, engine: Engine = Depends(engine_dep)) -> dict:
         entity_id=entity_id,
     )
 
+    # Full (uncapped — max observed is 13) barrio set with centroids, for the
+    # F8 map-theatre cascade arcs (F10c-2). Kept separate from sample_barrios
+    # above so the drawer's truncated name list is untouched.
+    barrio_points = fetch_all(
+        engine,
+        """
+        SELECT b.entity_id, b.name,
+               ST_X(ST_Centroid(ST_Transform(b.geom,4326))) AS lon,
+               ST_Y(ST_Centroid(ST_Transform(b.geom,4326))) AS lat
+        FROM graph.relationships r
+        JOIN graph.entities b ON b.entity_id = r.dst_entity
+        WHERE r.src_entity = :entity_id AND r.rel_type = 'COVERS'
+        ORDER BY b.name
+        """,
+        entity_id=entity_id,
+    )
+
     powering_name = None
     if score_row["powering_substation_id"]:
         sub = fetch_one(
@@ -123,6 +140,7 @@ def source_detail(entity_id: int, engine: Engine = Depends(engine_dep)) -> dict:
         "serves": {
             "barrios_covered": score_row["barrios_covered"],
             "sample_barrios": [b["name"] for b in sample_barrios if b["name"]],
+            "barrio_points": barrio_points,
         },
         "hazards": {
             "hazard_score": score_row["hazard_score"],

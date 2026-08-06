@@ -5,6 +5,10 @@ services:
       dockerfile: Dockerfile.postgis
     image: prism-postgis:16-3.4
     container_name: prism-postgis
+    # Without this the DB stays down after anything that recycles the Docker/WSL
+    # VM (Windows Update did exactly that at 2026-07-25 04:22, turning a ~15s
+    # blip into a 5h outage while every other service auto-recovered).
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-prism}
       POSTGRES_USER: ${POSTGRES_USER:-prism}
@@ -88,6 +92,12 @@ services:
       PRISM_LLM_BASE_URL: http://host.docker.internal:11434
       PRISM_LLM_API_KEY: ${PRISM_LLM_API_KEY:-}
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+    volumes:
+      # The monthly change report (F14c) is a durable artifact, so the cron that
+      # generates it must write to the host, not to an ephemeral container layer
+      # — the data-sovereignty trap F10a's gate caught with the NOAA mirror.
+      # Scoped to the reports directory alone; `data/raw` stays unmounted.
+      - ./data/derived/reports:/app/data/derived/reports
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -102,6 +112,7 @@ services:
       dockerfile: docker/Dockerfile.frontend
     image: prism-frontend:0.1.0
     container_name: prism-frontend
+    restart: unless-stopped
     environment:
       API_PROXY_TARGET: http://api:8000
       NEXT_PUBLIC_API_BASE: /api

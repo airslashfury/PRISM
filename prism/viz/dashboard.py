@@ -49,7 +49,7 @@ def _panel_phases(ax: plt.Axes) -> None:
         ("2 — Knowledge Graph",       "COMPLETE", "48,801 nodes · 68,272 edges · 6 rel types"),
         ("3 — Resilience Modeling",   "COMPLETE", "315 substations scored · 3 scenarios · top composite=84.10"),
         ("4 — Optimization / Power",  "COMPLETE", "ILP portfolio · $500M budget · 105 interventions"),
-        ("5 — Economy / Property",    "COMPLETE", "VOLL model · 294 substations · $2,389/person 30yr"),
+        ("5 — Economy / Property",    "COMPLETE", "VOLL model · 294 substations · $2,707/person 30yr"),
         ("6 — Human Simulation",      "COMPLETE", "SVI · community resilience · equity portfolio"),
         ("7 — Decision Intelligence", "COMPLETE", "AI narratives · scenario comparison · equity_flag"),
         ("8 — Transportation",        "COMPLETE", "pgRouting · 892/901 barrios reachable · 3,168 bridges"),

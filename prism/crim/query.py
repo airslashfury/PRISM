@@ -333,14 +333,20 @@ def _community(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
 def _road_access(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
     with engine.connect() as conn:
         row = conn.execute(text("""
-            SELECT nearest_hosp_name, travel_time_min
+            SELECT nearest_hosp_name, travel_time_min,
+                   nearest_clinic_name, clinic_travel_time_min
             FROM transport.road_access_cost WHERE barrio_entity_id = :bid
         """), {"bid": barrio_id}).mappings().fetchone()
-    if row is None or row["nearest_hosp_name"] is None:
+    if row is None or (row["nearest_hosp_name"] is None and row["nearest_clinic_name"] is None):
         return None
+    # F10c-7: fall back to the nearest community clinic when no true hospital
+    # is road-reachable (disconnected road-graph component) — primary care,
+    # never shown as a hospital substitute.
     return {
         "nearest_hospital": row["nearest_hosp_name"],
-        "travel_time_min": float(row["travel_time_min"]),
+        "travel_time_min": float(row["travel_time_min"]) if row["travel_time_min"] is not None else None,
+        "nearest_clinic": row["nearest_clinic_name"],
+        "clinic_travel_time_min": float(row["clinic_travel_time_min"]) if row["clinic_travel_time_min"] is not None else None,
         "confidence_tier": _tier("transport.road_access_cost"),
     }
 
@@ -565,6 +571,7 @@ def get_parcel_detail(engine: Engine, num_catastro: str) -> dict[str, Any] | Non
         "lon": float(rep["lon"]) if rep["lon"] is not None else None,
         "lat": float(rep["lat"]) if rep["lat"] is not None else None,
         "crim": crim,
+        "registry": _registry(engine, rep["contact"]),
         "sale_history": _sale_history(engine, num_catastro),
         "power": _power(engine, barrio_id) if barrio_id is not None else None,
         "flood": _flood(engine, num_catastro),
@@ -581,6 +588,44 @@ def _proposed_address(engine: Engine, num_catastro: str) -> dict[str, Any] | Non
     """Tiered Census Proposed Address (F9d D2) — lazy, cache-first."""
     from prism.crim.proposed_address import get_or_compute
     return get_or_compute(engine, num_catastro)
+
+
+def _registry(engine: Engine, owner_raw: Any) -> dict[str, Any] | None:
+    """Corporate-registry status of this parcel's owner (F11c), or None.
+
+    Returns None — so the card renders nothing at all — whenever the owner is a
+    person or the registry layer is not built. The one-liner only earns space on
+    the card when there is something to say, and the thing most worth saying is
+    that the owner company has been dissolved while the deed has not moved.
+    """
+    from prism.crim.normalize import normalize_owner
+    from prism.crim.registry import available, owner_registry
+
+    owner_key = normalize_owner(owner_raw)
+    if not owner_key or not available(engine):
+        return None
+    reg = owner_registry(engine, owner_key)
+    if not reg["matched"]:
+        return None
+    # An owner name can link to both a live and a dead registration (companies
+    # get re-registered). Lead with the live one: we cannot tell which of them
+    # holds the deed, so asserting the parcel belongs to a dissolved company
+    # while a same-named live one exists would be the wrong way to be wrong.
+    # `entity_count` tells the card there is more than one. The owner drawer
+    # applies the same rule.
+    ent = next((e for e in reg["entities"] if not e["is_terminal"]), reg["entities"][0])
+    return {
+        "registration_index": ent["registration_index"],
+        "corp_name": ent["corp_name"],
+        "status_es": ent["status_es"],
+        "status_gloss": ent["status_gloss"],
+        "is_terminal": ent["is_terminal"],
+        "class_es": ent["class_es"],
+        "date_formed": ent["date_formed"],
+        "termination_date": ent["termination_date"],
+        "entity_count": len(reg["entities"]),
+        "confidence_tier": reg["confidence_tier"],
+    }
 
 
 def _f(v: Any) -> float | None:

@@ -23,7 +23,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma", "usgs", "nhc", "nwis"], default=None,
+        "--source", choices=["wfs", "osm", "noaa", "prepa", "luma", "usgs", "nhc", "nwis", "climate"], default=None,
         help="Limit sync to one source type (default: all)",
     )
     parser.add_argument(
@@ -123,6 +123,13 @@ def main() -> None:
             f"params: {summary.get('params')}\n"
             f"  latest: {summary.get('latest')}"
         )
+        return
+
+    if args.source == "climate":
+        from prism.sync.climate import sync_climate
+        print("Fetching NOAA NCEI climate normals (PR) ...")
+        summary = sync_climate(engine, mirror=not args.dry_run)
+        print(f"  stations: {summary['stations']}  rows: {summary['rows']}")
         return
 
     if args.source == "nhc":

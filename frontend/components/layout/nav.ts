@@ -12,11 +12,13 @@ import {
   LandPlot,
   TrendingUp,
   SlidersHorizontal,
-  Wind,
+  CloudSun,
   Droplets,
   RadioTower,
   type LucideIcon,
 } from "lucide-react";
+
+import { useMessages } from "@/lib/i18n/context";
 
 export type NavGroup = "Live" | "Explore" | "Decide" | "Reference";
 
@@ -28,33 +30,60 @@ export interface NavItem {
   group: NavGroup;
 }
 
+type NavId = "overview" | "ask" | "citizen" | "weather" | "resilience" | "economy" | "water"
+  | "telecom" | "parcels" | "trends" | "sitefinder" | "portfolio" | "playground"
+  | "assumptions" | "methods" | "corridor";
+
+interface NavMeta {
+  id: NavId;
+  href: string;
+  icon: LucideIcon;
+  group: NavGroup;
+}
+
 // Ordered by group: Live, Explore, Decide, Reference. Keep this flat + ordered —
-// other consumers (overview module grid, mobile nav, topbar activeNav) rely on it.
-export const NAV: NavItem[] = [
-  { href: "/", label: "Overview", icon: LayoutDashboard, desc: "What's at stake across Puerto Rico's infrastructure", group: "Live" },
-  { href: "/ask", label: "Ask PRISM", icon: Sparkles, desc: "Ask a question in plain language and get an answer with confidence tiers, drawn from PRISM's models", group: "Live" },
-  { href: "/citizen", label: "My Area", icon: Home, desc: "Pick your barrio for a plain-language card on power, flood risk, and emergency access", group: "Live" },
-  { href: "/storm", label: "Storm", icon: Wind, desc: "When a storm approaches: the live NHC forecast cone over PRISM's grid — which substations, hospitals, and people are in its path", group: "Live" },
+// other consumers (overview module grid, mobile nav, topbar activeNav, ⌘K
+// palette) rely on it. Label/desc are translated at read time via `useNav()`
+// (F12a) — `id` is the key into each locale's `nav.<id>` dictionary entry.
+const NAV_META: NavMeta[] = [
+  { id: "overview", href: "/", icon: LayoutDashboard, group: "Live" },
+  { id: "ask", href: "/ask", icon: Sparkles, group: "Live" },
+  { id: "citizen", href: "/citizen", icon: Home, group: "Live" },
+  { id: "weather", href: "/weather", icon: CloudSun, group: "Live" },
 
-  { href: "/resilience", label: "Resilience", icon: Zap, desc: "Which substations cut power to the most hospitals and people when they fail", group: "Explore" },
-  { href: "/economy", label: "Economy", icon: Users, desc: "Who's most vulnerable and how much it costs when the lights go out", group: "Explore" },
-  { href: "/water", label: "Water", icon: Droplets, desc: "Which water plants and pumps fail — and which barrios lose supply — when the power grid goes down", group: "Explore" },
-  { href: "/telecom", label: "Telecom", icon: RadioTower, desc: "Which cell towers go dark — and which barrios lose coverage — when the power grid fails", group: "Explore" },
-  { href: "/parcels", label: "Parcels", icon: LandPlot, desc: "Search any of Puerto Rico's 1.5M parcels by catastro, owner, or address — see ownership footprints and the full CRIM record plus what PRISM knows about that ground", group: "Explore" },
-  { href: "/trends", label: "Market Trends", icon: TrendingUp, desc: "Where Puerto Rico's property market is moving: hot-spot municipios by sales, the island-wide price trend, and month-over-month parcel changes", group: "Explore" },
-  { href: "/sitefinder", label: "Site Finder", icon: Factory, desc: "Where to build: rank industrial-zoned parcels by access to cargo ports, the grid, water, and flood safety", group: "Explore" },
+  { id: "resilience", href: "/resilience", icon: Zap, group: "Explore" },
+  { id: "economy", href: "/economy", icon: Users, group: "Explore" },
+  { id: "water", href: "/water", icon: Droplets, group: "Explore" },
+  { id: "telecom", href: "/telecom", icon: RadioTower, group: "Explore" },
+  { id: "parcels", href: "/parcels", icon: LandPlot, group: "Explore" },
+  { id: "trends", href: "/trends", icon: TrendingUp, group: "Explore" },
+  { id: "sitefinder", href: "/sitefinder", icon: Factory, group: "Explore" },
 
-  { href: "/portfolio", label: "Portfolio", icon: Wallet, desc: "The best combination of hardening investments within a fixed budget", group: "Decide" },
-  { href: "/playground", label: "Playground", icon: FlaskConical, desc: "Sketch infrastructure onto the live model and see cost, capacity, and resilience impact instantly", group: "Decide" },
-  { href: "/assumptions", label: "Assumptions", icon: SlidersHorizontal, desc: "Push on the model's load-bearing assumptions — dial VOLL, hazard, or feeder confidence and see which rankings hold and which flip", group: "Decide" },
+  { id: "portfolio", href: "/portfolio", icon: Wallet, group: "Decide" },
+  { id: "playground", href: "/playground", icon: FlaskConical, group: "Decide" },
+  { id: "assumptions", href: "/assumptions", icon: SlidersHorizontal, group: "Decide" },
 
-  { href: "/methods", label: "Trust Center", icon: ShieldCheck, desc: "Every model and data layer, with its method, confidence tier, and what would upgrade it", group: "Reference" },
-  { href: "/corridor", label: "Rail Corridor", icon: Route, desc: "Ranked routes balancing construction cost, terrain, and population served", group: "Reference" },
+  { id: "methods", href: "/methods", icon: ShieldCheck, group: "Reference" },
+  { id: "corridor", href: "/corridor", icon: Route, group: "Reference" },
 ];
 
-export function activeNav(pathname: string): NavItem {
-  // Longest matching prefix wins; "/" only matches exactly.
-  const match = NAV.filter((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))
+/** The nav array, translated for the active locale. */
+export function useNav(): NavItem[] {
+  const t = useMessages().nav;
+  return NAV_META.map((m) => ({
+    href: m.href,
+    icon: m.icon,
+    group: m.group,
+    label: t[m.id].label,
+    desc: t[m.id].desc,
+  }));
+}
+
+/** Longest matching prefix wins; "/" only matches exactly. Takes the
+ * already-resolved (translated) array so it doesn't need its own locale. */
+export function activeNav(nav: NavItem[], pathname: string): NavItem {
+  const match = nav
+    .filter((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))
     .sort((a, b) => b.href.length - a.href.length)[0];
-  return match ?? NAV[0];
+  return match ?? nav[0];
 }

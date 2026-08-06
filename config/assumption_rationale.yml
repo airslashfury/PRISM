@@ -9,7 +9,7 @@
 assumptions:
   - key: voll_per_person_30yr
     label: Value of Lost Load (30-yr, per person)
-    value: "$2,389"
+    value: "$2,707"
     why_chosen: >-
       Standard outage-cost economics: monetize lost service as average load x
       price x expected outage hours, then NPV it over a 30-year horizon so
@@ -17,11 +17,13 @@ assumptions:
     source: >-
       0.822 kW/person (PR average per-capita load) x $5/kWh (national VOLL
       literature default) x 33.6 hr/yr (post-Maria Cat-3 distribution-outage
-      default, 336 hr / 10-yr return period) x 17.29 (30yr NPV factor @
-      4%/yr) = $2,389/person 30yr. prism/economy/exposure.py. Note: this NPV
-      factor uses 4%/yr, while config/confidence.yml's global discount_rate
-      (used by the optimizer and /corridor) is 3%/yr — a known inconsistency
-      between the two models, not yet reconciled.
+      default, 336 hr / 10-yr return period) x 19.60 (30yr NPV factor @
+      3%/yr) = $2,707/person 30yr. prism/economy/exposure.py. F10b
+      (2026-07-10): reconciled to config/confidence.yml's global
+      discount_rate (3%/yr, also used by the optimizer and /corridor) —
+      previously used its own 4%/yr NPV factor ($2,389/person), a documented
+      inconsistency between the two models with no reason found to keep them
+      apart.
     what_would_change_it: >-
       A PR-specific VOLL study using PREB/LUMA outage-cost data would replace
       the national $5/kWh default with a local figure.
@@ -86,6 +88,21 @@ assumptions:
     what_would_change_it: >-
       Verified generator capacity / fuel-autonomy data per site would
       replace the flat 0.3 discount with a site-specific one.
+
+  - key: workable_days_formula
+    label: Expected workable construction days
+    value: "days_in_month x (1 - rain_day_frac) x heat_derate, summed over 12 months"
+    why_chosen: >-
+      A rain day (>=0.10in precip, NOAA's own AVGNDS-GE010HI threshold) is
+      treated as lost outdoor-work time; average monthly temperature above
+      80F/85F applies a 0.85x/0.70x productivity derate. Both are coarse,
+      easy-to-audit proxies for "can crews work outside today," not a
+      calibrated OSHA heat-stress or productivity-loss model.
+    source: "prism/weather/municipios.py — _heat_derate() + _annual_from_monthly(). Inputs: sync.climate_normals (NOAA NCEI 1991-2020)."
+    what_would_change_it: >-
+      A validated construction-productivity study (heat index + precipitation
+      intensity, not just monthly averages) would replace the flat
+      derate/threshold heuristic.
 
   - key: cat3_hazard_weights
     label: Category 3 hazard scenario

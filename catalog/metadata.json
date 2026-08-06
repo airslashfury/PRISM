@@ -1988,7 +1988,7 @@
     "derived:economy.substation_exposure": {
       "source": "derived",
       "title": "economy.substation_exposure",
-      "description": "VOLL-based 30yr NPV exposure per substation. Population: recursive FEEDS+POWERS->barrio graph, centroid-tract join. Benefit: 0.822 kW/person x 5 USD/kWh x 33.6 hr/yr x NPV 17.29 = 2389 USD/person. 315 substations, 294 with population.",
+      "description": "VOLL-based 30yr NPV exposure per substation. Population: recursive FEEDS+POWERS->barrio graph, centroid-tract join, deduplicated per barrio (F10b). Benefit: 0.822 kW/person x 5 USD/kWh x 33.6 hr/yr x NPV 19.60 (3%/yr, F10b-reconciled) = 2707 USD/person. 315 substations, 294 with population.",
       "schema": "economy",
       "table": "substation_exposure",
       "row_count": 315,
@@ -2459,6 +2459,19 @@
       "compute_date": "2026-07-02",
       "license": "derived"
     },
+    "derived:sync.climate_normals": {
+      "source": "derived",
+      "title": "sync.climate_normals",
+      "schema": "sync",
+      "table": "climate_normals",
+      "description": "NOAA NCEI 1991-2020 monthly climate normals (avg/max/min temperature, precipitation, rain-day counts) for 19 curated Puerto Rico GHCN stations. Static 30-year baseline, refreshed monthly. Keyless, no auth. Authoritative — NOAA is the climate-normals authority.",
+      "inputs": [
+        "ncei.noaa.gov/access/services/data/v1 (normals-monthly-1991-2020)",
+        "prism/sync/climate.py"
+      ],
+      "compute_date": "2026-07-10",
+      "license": "derived"
+    },
     "derived:resilience.telecom_scores": {
       "source": "derived",
       "title": "resilience.telecom_scores",
@@ -2474,6 +2487,209 @@
       ],
       "compute_date": "2026-07-03",
       "license": "derived"
+    },
+    "derived:ocpr.contracts": {
+      "source": "derived",
+      "title": "ocpr.contracts",
+      "schema": "ocpr",
+      "table": "contracts",
+      "description": "F11e mirror of Puerto Rico's official government-contract register (Oficina del Contralor, consultacontratos.ocpr.gov.pr): 1,141,257 contracts 2012→today — awarding agency, dates, amounts, service class, and document GUIDs. Contractor names live in ocpr.contract_contractors, keyed with normalize_owner() for the CRIM owner join. A multi-contractor contract carries its FULL amount against each contractor in the source; summing by contractor over-counts and PRISM marks those rows shared.",
+      "inputs": [
+        "POST consultacontratos.ocpr.gov.pr/contract/search",
+        "data/raw/contralor_contratos (2012-2023 CSVs, Latin-1)",
+        "prism/sync/ocpr.py"
+      ],
+      "compute_date": "2026-07-18",
+      "license": "PR government (public register)"
+    },
+    "derived:ocpr.government_keys": {
+      "source": "derived",
+      "title": "ocpr.government_keys",
+      "schema": "ocpr",
+      "table": "government_keys",
+      "description": "F11e set of owner keys that are public bodies (1,172), used to default the contractor ranking to private landowners. Data-driven core: every distinct OCPR contracting entity_name through normalize_owner(). Prefix sweep on top (DEPARTAMENTO/AUTORIDAD/MUNICIPIO/ADMINISTRACION/...) for public bodies that only appear as contractors — that part is heuristic.",
+      "inputs": [
+        "ocpr.contracts",
+        "ocpr.contract_contractors",
+        "prism/crim/normalize.py",
+        "prism/ocpr/footprint.py"
+      ],
+      "compute_date": "2026-07-18",
+      "license": "derived"
+    },
+    "derived:sync.aee_shed_feeders": {
+      "source": "derived",
+      "title": "sync.aee_shed_feeders",
+      "schema": "sync",
+      "table": "aee_shed_feeders",
+      "description": "PREPA/AEE manual load-shedding plan, mirrored from the operator's public ArcGIS FeatureServer: 792 distribution feeders across 75 municipios (1,063,427 customers) with service-area polygons in EPSG:32161, shed stage/block, transfer-to circuit, and live shed status. CLIENTS is the solid consequence metric; MW is unreliable per the dashboard's own labeling. Loaded off the data/raw snapshots, never straight from the network.",
+      "inputs": [
+        "services3.arcgis.com/0n3sEGhALDkUSwc5 Manual_Load_Shedding/0",
+        "data/raw/aee_load_shedding/<utc>/load_shedding.geojson",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-19",
+      "license": "PR government (public dashboard)"
+    },
+    "derived:sync.aee_shed_history": {
+      "source": "derived",
+      "title": "sync.aee_shed_history",
+      "schema": "sync",
+      "table": "aee_shed_history",
+      "description": "Per-snapshot shed state for every feeder — the only record of a load-shedding EVENT over time, since PREPA publishes current state and overwrites it. First banked episode: 2026-07-18/19, ramping 40 feeders/45,738 customers at 22:03Z to a peak of 128 feeders/146,138 customers at 01:04Z, back to zero by 04:08Z. Coverage begins 2026-07-18; a missing interval means 'not observed', never 'no shedding'.",
+      "inputs": [
+        "data/raw/aee_load_shedding/*",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-19",
+      "license": "PR government (public dashboard)"
+    },
+    "derived:sync.aee_feeders": {
+      "source": "derived",
+      "title": "sync.aee_feeders",
+      "schema": "sync",
+      "table": "aee_feeders",
+      "description": "PREPA/AEE distribution feeder network from the operator's GE Smallworld GIS, mirrored from the public ArcGIS FeatureServer: 486,725 conductor segments (LineString, EPSG:32161) with NODE1_ID/NODE2_ID topology, distribution voltage (2.4-13.2 kV), overhead/underground, conductor size/material, and circuit id joining sync.aee_shed_feeders. The measured geometry behind PRISM's Voronoi feeder proxy; keyed on the Smallworld G3E_FID.",
+      "inputs": [
+        "services3.arcgis.com/0n3sEGhALDkUSwc5 Manual_Load_Shedding_Base_Data/0",
+        "data/raw/aee_feeders/chunk_*.geojson",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "PR government (public dashboard)"
+    },
+    "derived:sync.aee_circuit": {
+      "source": "derived",
+      "title": "sync.aee_circuit",
+      "schema": "sync",
+      "table": "aee_circuit",
+      "description": "Per-feeder-circuit rollup of sync.aee_feeders (1,340 circuits): collected conductor geometry, total length, voltage. A coarser helper for substation/barrio assignment; rebuilt on every feeders-load.",
+      "inputs": [
+        "sync.aee_feeders",
+        "prism/sync/aee.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
+    },
+    "derived:graph.feeder_substation": {
+      "source": "derived",
+      "title": "graph.feeder_substation",
+      "schema": "graph",
+      "table": "feeder_substation",
+      "description": "Feeder circuit -> source substation via spatial join (conductors touch their substation at ~0m; substations carry no circuit code). 1,297 of 1,340 circuits assigned within 50m; 43 left unassigned. Cross-dataset (HIFLD substations x PREPA conductors), so Modeled. Per-row confidence 0.6-0.9 by touch distance.",
+      "inputs": [
+        "sync.aee_feeders",
+        "graph.entities (substation)",
+        "prism/graph/feeders.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
+    },
+    "derived:graph.feeder_barrio": {
+      "source": "derived",
+      "title": "graph.feeder_barrio",
+      "schema": "graph",
+      "table": "feeder_barrio",
+      "description": "Feeder circuit -> barrio weighted by conductor length physically inside each barrio (ST_Intersection of feeder segments with Census barrio polygons), 4,388 circuit-barrio pairs. The measured service footprint behind the Voronoi proxy.",
+      "inputs": [
+        "sync.aee_feeders",
+        "graph.entities (barrio)",
+        "prism/graph/feeders.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
+    },
+    "derived:graph.feeder_service": {
+      "source": "derived",
+      "title": "graph.feeder_service",
+      "schema": "graph",
+      "table": "feeder_service",
+      "description": "Substation -> barrio measured POWERS analogue (2,860 pairs, 900 of 901 barrios): a substation powers a barrio when its circuits' conductors run through it, weighted by conductor length. Agrees with the Voronoi POWERS proxy on the primary substation for only ~49% of barrios; kept separate from POWERS pending a gated swap.",
+      "inputs": [
+        "graph.feeder_substation",
+        "graph.feeder_barrio",
+        "prism/graph/feeders.py"
+      ],
+      "compute_date": "2026-07-20",
+      "license": "derived"
+    },
+    "derived:crim.owner_rce_match": {
+      "title": "crim.owner_rce_match — CRIM owner ↔ corporations-registry link",
+      "description": "F11b offline match between normalized CRIM owners (crim.owner_match_key) and the mirrored PR corporations registry (crim.rce_match_key). Grained on (owner_key, match_key) with a SUFFIX-PRESERVING key, because F1's owner_key strips LLC/INC/CORP — the exact token that distinguishes two registry entities. Three passes: exact key equality, token-sorted (CRIM stores some owner strings rotated), and a trigram tail that is accepted only when the registry entity's registered address municipio is one where the owner actually holds parcels. Confidence tier 'proxy': the registry record is authoritative, but binding it to a CRIM owner by name is inference — a name collision, a merged company, or an unmirrored entity all produce a wrong or missing link. Multiple candidates are recorded as ambiguous and never guessed between; a withdrawn approximate match keeps its near-miss for audit.",
+      "source": "derived",
+      "schema": "crim",
+      "table": "owner_rce_match",
+      "inputs": [
+        "crim.rce_entities (prism/sync/rcp.py registry mirror)",
+        "crim.parcel_owner (prism/crim/normalize.py)",
+        "prism/crim/rce_match.py"
+      ],
+      "domain": "territorio",
+      "priority": "P2",
+      "license": "PR government (public register) + CRIM",
+      "compute_date": "2026-07-25",
+      "computed_by": "prism.crim.rce_match.run"
+    },
+    "derived:crim.rce_addresses": {
+      "title": "crim.rce_addresses — registry address entity layer",
+      "description": "F11b normalization of every address block the corporations registry publishes per entity (corporate street, mailing, resident agent, officers, domicile) into a keyed, countable table, with the registry's city resolved to a canonical PR municipio where it names one. Companion rollup crim.rce_address_entities counts distinct entities per address and flags agent/law offices (>10 entities). Confidence tier 'proxy': a shared address is EVIDENCE, never an identity claim — agent offices host hundreds of unrelated entities, so callers must weigh a shared address by its frequency. Used to corroborate approximate name matches and as the join surface for auditing and re-linking owners that did not match.",
+      "source": "derived",
+      "schema": "crim",
+      "table": "rce_addresses",
+      "inputs": [
+        "crim.rce_entities (prism/sync/rcp.py registry mirror)",
+        "public.municipios",
+        "prism/crim/rce_match.py"
+      ],
+      "domain": "territorio",
+      "priority": "P2",
+      "license": "PR government (public register)",
+      "compute_date": "2026-07-25",
+      "computed_by": "prism.crim.rce_match.build_addresses"
+    },
+    "derived:crim.rce_status_history": {
+      "title": "crim.rce_status_history — registry status, banked over time",
+      "description": "F11c slowly-changing dimension over the corporate-registry status of every CRIM owner matched in F11b. The registry publishes CURRENT state and overwrites it, so a status change is unrecoverable unless PRISM banked the previous value first — this table is that bank. One open row per entity (is_current), closed and superseded when a later registry pull disagrees; a closed row plus its successor is a transition, which feeds the what-changed stream. Confidence tier 'proxy': the status values are the government's own, but which owner they are attached to is F11b's name-based inference, and the observation *window* is only as good as PRISM's polling cadence — an absence of transitions means 'not observed between polls', never 'nothing changed'.",
+      "source": "derived",
+      "schema": "crim",
+      "table": "rce_status_history",
+      "inputs": [
+        "crim.rce_match_key",
+        "crim.owner_rce_match",
+        "prism/crim/registry.py"
+      ],
+      "domain": "territorio",
+      "priority": "P2",
+      "license": "PR government (public register)",
+      "compute_date": "2026-07-25",
+      "computed_by": "prism.crim.registry.record_status_snapshot"
+    },
+    "derived:sync.pull_health": {
+      "title": "Pull health (per-source resilience telemetry)",
+      "source": "derived",
+      "description": "One row per tracked pull: last attempt, last success, consecutive failures, last error, and whether the last run was partial. Written by the shared resilient HTTP layer (prism/sync/http.py, F14d) so a pull that dies stops dying silently.",
+      "inputs": [
+        "prism/sync/http.py"
+      ],
+      "license": "internal"
+    },
+    "derived:crim.control_cluster_summary": {
+      "title": "crim.control_cluster_summary — shell companies grouped by shared officer identity",
+      "description": "F11d control clusters over the mirrored PR corporations registry: two entities are grouped only when they share 2 or more named individual officers/incorporators (crim.rce_person, excluding people appearing on more than 10 mirrored entities — professional filers, not principals). Measured live 2026-08: requiring 1 shared person produced a 2,317-entity blob and a single cluster spanning 106 CRIM owner_keys via single-officer bridging (an accountant or secondary officer connecting unrelated boards); requiring 2 collapsed the largest cluster to 13 entities and left 138 clusters that genuinely span more than one CRIM owner_key. `spans_multiple_owners` is the headline signal — a cluster confined to one owner_key is a single owner's own shells (already visible on their own drawer); a cluster touching two or more owner_keys means two seemingly-unrelated CRIM owners may be the same operator. Confidence tier 'proxy', one further inferential step past F11b's already-proxy name match: shared officers is strong evidence of common control, not proof.",
+      "source": "derived",
+      "schema": "crim",
+      "table": "control_cluster_summary",
+      "inputs": [
+        "crim.rce_entities (prism/sync/rcp.py registry mirror)",
+        "crim.owner_rce_match",
+        "crim.rce_addresses / crim.rce_address_entities",
+        "prism/crim/clusters.py"
+      ],
+      "domain": "territorio",
+      "priority": "P2",
+      "license": "PR government (public register)",
+      "compute_date": "2026-08-03",
+      "computed_by": "prism.crim.clusters.run"
     }
   }
 }

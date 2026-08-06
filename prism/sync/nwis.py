@@ -22,7 +22,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -31,6 +30,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from prism.sync.schema import create_schema
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +40,6 @@ NWIS_URL = (
 )
 _NO_DATA = "-999999"
 _RAW_DIR = Path("data/raw/nwis")
-_UA = "Mozilla/5.0 (PRISM infrastructure simulation; data-sovereignty mirror)"
 
 _PARAM_LABELS = {
     "00065": "Gage height",
@@ -50,9 +49,11 @@ _PARAM_LABELS = {
 
 def fetch_nwis(*, timeout: float = 30.0) -> str:
     """Fetch the raw WaterML-JSON text for active PR gauge sites."""
-    req = urllib.request.Request(NWIS_URL, headers={"User-Agent": _UA, "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read().decode("utf-8", "replace")
+    return prism_http.fetch_text(
+        NWIS_URL, source="nwis_gauges",
+        headers={"Accept": "application/json"},
+        policy=prism_http.RetryPolicy(read_timeout=timeout),
+    )
 
 
 def _to_float(raw: Any) -> float | None:

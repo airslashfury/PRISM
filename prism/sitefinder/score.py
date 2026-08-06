@@ -38,6 +38,7 @@ DEFAULT_WEIGHTS: dict[str, float] = {
     "bulk_port_access": 0.00,
     "air_access": 0.00,
     "dev_impact": 0.00,
+    "workable_days": 0.00,
 }
 
 # subscore column ⇄ weight key
@@ -52,6 +53,7 @@ _SUBSCORES = {
     "bulk_port_access": "s_bulk_port_access",
     "air_access": "s_air_access",
     "dev_impact": "s_dev_impact",
+    "workable_days": "s_workable_days",
 }
 
 # Detect whether crim.parcelas is available so land_value join is optional.
@@ -71,6 +73,7 @@ INSERT INTO sitefinder.site_scores (
     dist_bulk_port_m, bulk_port_name, dist_airport_m,
     barrio_id, road_access_min, community_resil, svi,
     land_value, land_per_m2, crim_owner, crim_totalval,
+    workable_days_per_year,
     weights
 )
 WITH sub AS (
@@ -83,6 +86,12 @@ WITH sub AS (
 wat AS (
     SELECT name, geom FROM graph.entities
     WHERE kind IN ('water_plant', 'water_pump_station')
+),
+wthr_stations AS (
+    SELECT DISTINCT ON (station_id) station_id, geom
+    FROM sync.climate_normals
+    WHERE geom IS NOT NULL
+    ORDER BY station_id
 )
 SELECT
     p.parcel_id,
@@ -102,6 +111,7 @@ SELECT
     cr.resilience_score                          AS community_resil,
     be.svi_score                                 AS svi,
     {land_cols}
+    (CAST(:workable_days_by_station AS JSONB) ->> wthr.station_id)::DOUBLE PRECISION AS workable_days_per_year,
     CAST(:weights AS JSONB)                      AS weights
 FROM sitefinder.candidate_parcels p
 LEFT JOIN LATERAL (
@@ -137,6 +147,10 @@ LEFT JOIN LATERAL (
     SELECT be.svi_score FROM economy.barrio_economics be
     WHERE ST_Contains(be.geom, p.centroid) LIMIT 1
 ) be ON TRUE
+LEFT JOIN LATERAL (
+    SELECT ws.station_id
+    FROM wthr_stations ws ORDER BY p.centroid <-> ws.geom LIMIT 1
+) wthr ON TRUE
 {crim_join}
 """
 
@@ -178,7 +192,9 @@ WITH r AS (
         CASE WHEN svi IS NULL THEN NULL
              ELSE percent_rank() OVER (ORDER BY svi) END                   AS s_dev_impact,
         CASE WHEN land_per_m2 IS NULL THEN NULL
-             ELSE 1 - percent_rank() OVER (ORDER BY land_per_m2) END       AS s_land_value
+             ELSE 1 - percent_rank() OVER (ORDER BY land_per_m2) END       AS s_land_value,
+        CASE WHEN workable_days_per_year IS NULL THEN NULL
+             ELSE percent_rank() OVER (ORDER BY workable_days_per_year) END AS s_workable_days
     FROM sitefinder.site_scores
 )
 UPDATE sitefinder.site_scores t SET
@@ -191,7 +207,8 @@ UPDATE sitefinder.site_scores t SET
     s_bulk_port_access = r.s_bulk_port_access,
     s_air_access = r.s_air_access,
     s_dev_impact = r.s_dev_impact,
-    s_land_value = r.s_land_value
+    s_land_value = r.s_land_value,
+    s_workable_days = r.s_workable_days
 FROM r WHERE t.parcel_id = r.parcel_id
 """
 
@@ -261,13 +278,19 @@ def score_sites(engine: Engine, weights: dict[str, float] | None = None) -> int:
     with engine.begin() as conn:
         _ensure_flood_frac(conn)
 
+    from prism.weather.municipios import station_annual_workable_days
+    workable_days_by_station = station_annual_workable_days(engine)
+
     # Phase 2: score using the cached flood_frac — fast subsequent runs
     with engine.begin() as conn:
         conn.execute(text("SET max_parallel_workers_per_gather = 16"))
         conn.execute(text("SET parallel_setup_cost = 10"))
         crim_available = conn.execute(text(_CRIM_EXISTS_SQL)).scalar()
         conn.execute(text("TRUNCATE sitefinder.site_scores"))
-        conn.execute(text(_build_raw_sql(bool(crim_available))), {"weights": json.dumps(w)})
+        conn.execute(text(_build_raw_sql(bool(crim_available))), {
+            "weights": json.dumps(w),
+            "workable_days_by_station": json.dumps(workable_days_by_station),
+        })
         conn.execute(text(_NORM_SQL))
         conn.execute(text(_composite_sql(w)))
         n = conn.execute(text("SELECT count(*) FROM sitefinder.site_scores")).scalar()

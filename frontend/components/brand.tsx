@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 /** PRISM mark: a beam entering a prism and refracting into a spectrum. */
 export function PrismMark({ className }: { className?: string }) {
@@ -24,6 +27,7 @@ export function PrismMark({ className }: { className?: string }) {
 }
 
 export function BrandWordmark({ collapsed }: { collapsed?: boolean }) {
+  const t = useMessages().common;
   return (
     <div className="flex items-center gap-2.5">
       <PrismMark />
@@ -31,7 +35,7 @@ export function BrandWordmark({ collapsed }: { collapsed?: boolean }) {
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-[0.2em] text-foreground">PRISM</div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Infrastructure Intelligence
+            {t.wordmarkTagline}
           </div>
         </div>
       )}

@@ -35,13 +35,15 @@ import { cn, fmtInt, fmtIntTiered, fmtNum, fmtUsdTiered } from "@/lib/utils";
 import { tileUrl } from "@/lib/api";
 import { usePulse, useStagedTimeline, usePrefersReducedMotion, kindDomain, CASCADE_WAVES } from "@/lib/map-motion";
 import { useCountUp } from "@/lib/use-count-up";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
-const MODES = [
-  { value: "current", label: "Current state" },
-  { value: "cat3", label: "Cat-3" },
-  { value: "slr2ft", label: "SLR 2ft" },
-  { value: "combined", label: "Combined" },
-] as const;
+const MODE_KEYS = ["current", "cat3", "slr2ft", "combined"] as const;
+
+function modeList(t: Messages["resilience"]["modes"]): { value: (typeof MODE_KEYS)[number]; label: string }[] {
+  return MODE_KEYS.map((value) => ({ value, label: t[value] }));
+}
 
 const RISK_STOPS: RGB[] = [
   [34, 197, 158],
@@ -90,6 +92,10 @@ type MapPoint = {
 };
 
 export default function ResiliencePage() {
+  const t = useMessages().resilience;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
+  const MODES = useMemo(() => modeList(t.modes), [t.modes]);
   const [mode, setMode] = useState<string>("current");
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -663,13 +669,13 @@ export default function ResiliencePage() {
     if (!d || info.layer?.id !== "substations") return null;
     return tip(
       [
-        [isCurrent ? "Consequence" : "Composite", fmtNum(d.value, 1)],
+        [isCurrent ? t.tooltipConsequence : t.tooltipComposite, fmtNum(d.value, 1, tag)],
         ...(d.is_offline
-          ? ([["", `⛔ Offline now${d.plant_name ? ` · ${d.plant_name}` : ""}`]] as [string, string][])
+          ? ([["", `⛔ ${t.offlineNowTooltip(d.plant_name)}`]] as [string, string][])
           : []),
-        ...(d.is_articulation ? ([["", "⚠ Single point of failure"]] as [string, string][]) : []),
+        ...(d.is_articulation ? ([["", `⚠ ${t.singlePointFailure}`]] as [string, string][]) : []),
       ],
-      d.name ?? `Substation ${d.entity_id}`,
+      d.name ?? t.substationFallback(d.entity_id),
     );
   };
 
@@ -712,7 +718,7 @@ export default function ResiliencePage() {
               onClick={exitPresentation}
               className="pointer-events-auto flex items-center gap-1.5 rounded-md border border-border/60 bg-card/70 px-2.5 py-1 text-[11px] text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
             >
-              <X className="h-3 w-3" /> Presentation · Esc to exit
+              <X className="h-3 w-3" /> {t.presentationExit}
             </button>
           </div>
 
@@ -723,6 +729,7 @@ export default function ResiliencePage() {
               mode={mode}
               isCurrent={isCurrent}
               cascade={cascade}
+              tag={tag}
             />
           )}
         </MapCanvas>
@@ -733,6 +740,8 @@ export default function ResiliencePage() {
   return (
     <MapWorkspace
       layers={layers}
+      paneKey="resilience"
+      paneLabel={t.panelLabel}
       getTooltip={getTooltip}
       onClick={onClick}
       onHover={onHover}
@@ -753,7 +762,7 @@ export default function ResiliencePage() {
             {isCurrent ? (
               <>
                 <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Grid state now
+                  {t.gridStateNow}
                   {current.data && current.data.plants_offline > 0 && (
                     <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                   )}
@@ -765,26 +774,26 @@ export default function ResiliencePage() {
                         {current.data.plants_offline}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        plant{current.data.plants_offline === 1 ? "" : "s"} offline
+                        {t.plantsOffline(current.data.plants_offline)}
                       </span>
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      ≈{fmtInt(current.data.population_affected_now)} people downstream
+                      {t.peopleDownstream(fmtInt(current.data.population_affected_now, tag))}
                     </div>
                   </>
                 ) : (
                   <div className="mt-0.5 text-lg font-semibold text-emerald-400">
-                    All generation online
+                    {t.allGenerationOnline}
                   </div>
                 )}
               </>
             ) : (
               <>
                 <div className="text-[10px] font-medium uppercase tracking-wider text-amber-400">
-                  Predicted · {MODES.find((m) => m.value === mode)?.label}
+                  {t.predicted(MODES.find((m) => m.value === mode)?.label ?? mode)}
                 </div>
-                <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(points.length)}</div>
-                <div className="text-[11px] text-muted-foreground">substations at risk</div>
+                <div className="mt-0.5 text-2xl font-semibold tnum">{fmtInt(points.length, tag)}</div>
+                <div className="text-[11px] text-muted-foreground">{t.substationsAtRisk}</div>
               </>
             )}
           </div>
@@ -793,7 +802,7 @@ export default function ResiliencePage() {
           {hovered != null && consequence?.headline && (
             <div className="pointer-events-auto absolute bottom-6 left-1/2 max-w-md -translate-x-1/2 rounded-lg border border-amber-400/40 bg-card/90 px-4 py-2.5 text-center shadow-lg backdrop-blur">
               <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                {consequence.name ?? "Substation"} fails
+                {consequence.name ?? t.substationFallback(hovered)} {t.fails}
                 <ProvenanceBadge table="graph.downstream_summary" />
               </div>
               <div className="mt-0.5 text-sm font-medium text-foreground">{consequence.headline}</div>
@@ -803,24 +812,24 @@ export default function ResiliencePage() {
           {/* Layer control */}
           <div className="absolute right-4 top-4 w-52 rounded-lg border border-border/70 bg-card/90 p-3 shadow-lg backdrop-blur">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Layers
+              {t.layers}
             </div>
             <Segmented
               className="mb-2 w-full"
               options={[
-                { value: "points", label: "Points" },
-                { value: "heatmap", label: "Heatmap" },
+                { value: "points", label: t.vizPoints },
+                { value: "heatmap", label: t.vizHeatmap },
               ]}
               value={viz}
               onChange={setViz}
             />
-            <LayerToggle label="Transmission grid" color={GRID_RGB} on={showGrid} onToggle={() => setShowGrid((v) => !v)} />
-            <LayerToggle label="Flood zones (1%)" color={FLOOD_RGB} on={showFlood} onToggle={() => setShowFlood((v) => !v)} />
-            <LayerToggle label="Fault lines" color={FAULT_RGB} on={showFaults} onToggle={() => setShowFaults((v) => !v)} />
+            <LayerToggle label={t.transmissionGrid} color={GRID_RGB} on={showGrid} onToggle={() => setShowGrid((v) => !v)} />
+            <LayerToggle label={t.floodZones} color={FLOOD_RGB} on={showFlood} onToggle={() => setShowFlood((v) => !v)} />
+            <LayerToggle label={t.faultLines} color={FAULT_RGB} on={showFaults} onToggle={() => setShowFaults((v) => !v)} />
             {isCurrent && offlinePoints.length > 0 && (
               <div className="mt-2 flex items-center gap-2 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
                 <span className="h-2.5 w-2.5 rounded-full ring-2 ring-red-500" />
-                Offline now (live)
+                {t.offlineNowLive}
               </div>
             )}
           </div>
@@ -828,10 +837,10 @@ export default function ResiliencePage() {
           <div className="absolute bottom-6 left-4 space-y-2">
             <MapKey />
             <GradientLegend
-              title={isCurrent ? "Consequence if it fails today" : "Predicted consequence score"}
+              title={isCurrent ? t.consequenceToday : t.predictedConsequence}
               stops={RISK_STOPS}
-              minLabel={fmtNum(min, 0)}
-              maxLabel={fmtNum(max, 0)}
+              minLabel={fmtNum(min, 0, tag)}
+              maxLabel={fmtNum(max, 0, tag)}
             />
           </div>
         </>
@@ -846,24 +855,17 @@ export default function ResiliencePage() {
               </div>
               <button
                 onClick={enterPresentation}
-                title="Presentation mode"
+                title={t.presentationMode}
                 className="flex shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/40 p-2 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
               >
                 <Presentation className="h-3.5 w-3.5" />
               </button>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              {mode === "current" && (
-                <>
-                  Live electricity posture. Every substation is sized and colored by its inherent
-                  consequence — how much breaks if it fails today, regardless of weather. Red ring =
-                  its generation is offline right now (live PREPA/Genera feed). Toggle a scenario to
-                  overlay a hazard prediction on top.
-                </>
-              )}
-              {mode === "cat3" && "Category 3 hurricane — sustained 111–129 mph winds, storm surge up to 9 ft. Predicted on top of today's grid."}
-              {mode === "slr2ft" && "2 ft of sea-level rise — permanent inundation of low-lying coastal infrastructure by mid-century."}
-              {mode === "combined" && "Worst-case overlay — sea-level rise plus hurricane surge, the expected future baseline."}
+              {mode === "current" && t.modeDesc.current}
+              {mode === "cat3" && t.modeDesc.cat3}
+              {mode === "slr2ft" && t.modeDesc.slr2ft}
+              {mode === "combined" && t.modeDesc.combined}
             </p>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -872,9 +874,7 @@ export default function ResiliencePage() {
             {selected == null && !isLoading && !error && (
               <div className="border-b border-border/50 px-4 py-3">
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  {isCurrent
-                    ? "Consequence = cascade impact × network centrality — what's downstream and whether there's a backup path. A substation feeding hospitals with no alternate route ranks highest. Switch to a scenario to see how a hazard reshapes the ranking."
-                    : "Score = hazard probability × cascade impact × network centrality. A substation with hospitals downstream and no backup path scores highest — failure there is both likely under this scenario and catastrophic. Ring = single point of failure."}
+                  {isCurrent ? t.noSelectionCurrent : t.noSelectionScenario}
                 </p>
               </div>
             )}
@@ -941,34 +941,27 @@ function LayerToggle({
  *  order, and the honest caveat that arcs land on area centers (the model
  *  doesn't draw service boundaries). Hidden on very narrow screens where it
  *  would collide with the risk legend. */
-const WAVE_LABEL: Record<string, string> = {
-  power: "power",
-  telecom: "telecom",
-  water: "water",
-  hazard: "health",
-  economy: "barrios",
-};
-
 function MapKey() {
+  const t = useMessages().resilience;
   return (
     <div className="pointer-events-none hidden rounded-lg border border-border/70 bg-card/85 p-3 text-xs shadow-lg backdrop-blur sm:block">
-      <div className="mb-1.5 font-medium text-foreground/90">Map key</div>
+      <div className="mb-1.5 font-medium text-foreground/90">{t.mapKey}</div>
       <div className="space-y-1">
-        <KeyRow color={CONSEQUENCE_RGB} label="Downstream consequence (hover)" />
-        <KeyRow color={SELECTED_RGB} label="Selected substation" />
+        <KeyRow color={CONSEQUENCE_RGB} label={t.downstreamConsequenceHover} />
+        <KeyRow color={SELECTED_RGB} label={t.selectedSubstation} />
       </div>
       <div className="mt-1.5 flex max-w-[13.5rem] flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground">
-        <span>Cascade order:</span>
+        <span>{t.cascadeOrder}</span>
         {CASCADE_WAVES.map((d, i) => (
           <span key={d} className="inline-flex items-center gap-1">
             <span className="h-2 w-2 rounded-full" style={{ background: rgbCss(DOMAIN_RGB[d]) }} />
-            {WAVE_LABEL[d] ?? d}
+            {t.waves[d as keyof typeof t.waves] ?? d}
             {i < CASCADE_WAVES.length - 1 && <span className="text-muted-foreground/50">→</span>}
           </span>
         ))}
       </div>
       <div className="mt-1.5 max-w-[13.5rem] text-[10px] leading-snug text-muted-foreground">
-        Arcs land on the center of an affected area, not its exact boundary.
+        {t.arcsLandOnCenter}
       </div>
     </div>
   );
@@ -992,12 +985,16 @@ function PresentationLowerThird({
   mode,
   isCurrent,
   cascade,
+  tag,
 }: {
   point: MapPoint;
   mode: string;
   isCurrent: boolean;
   cascade: ConsequenceSummary | undefined;
+  tag: string;
 }) {
+  const t = useMessages().resilience;
+  const MODES = useMemo(() => modeList(t.modes), [t.modes]);
   const people = useCountUp(cascade?.population_affected ?? null);
   const hospitals = useCountUp(cascade?.hospitals ?? null);
   const waterPlants = useCountUp(cascade?.water_plants ?? null);
@@ -1013,23 +1010,23 @@ function PresentationLowerThird({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-64 bg-gradient-to-t from-background/85 via-background/40 to-transparent" />
       <div className="pointer-events-none absolute bottom-10 left-10 z-10 max-w-xl">
         <h2 className="text-display-lg font-semibold text-foreground drop-shadow-lg">
-          {point.name ?? `Substation ${point.entity_id}`}
+          {point.name ?? t.substationFallback(point.entity_id)}
         </h2>
         <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{isCurrent ? "Current state" : scenarioLabel}</span>
+          <span>{isCurrent ? t.modes.current : scenarioLabel}</span>
           <span className="text-muted-foreground/50">·</span>
           <span className="tnum font-medium text-foreground/90">
-            {isCurrent ? "Consequence" : "Composite"} {fmtNum(point.value, 1)}
+            {isCurrent ? t.tooltipConsequence : t.tooltipComposite} {fmtNum(point.value, 1, tag)}
           </span>
         </div>
         {cascade && (
           <div className="mt-5 flex gap-8">
             {cascade.population_affected > 0 && (
-              <PresentationStat label="People" value={fmtIntTiered(people, "proxy")} />
+              <PresentationStat label={t.people} value={fmtIntTiered(people, "proxy", tag)} />
             )}
-            {cascade.hospitals > 0 && <PresentationStat label="Hospitals" value={fmtInt(hospitals)} />}
+            {cascade.hospitals > 0 && <PresentationStat label={t.hospitals} value={fmtInt(hospitals, tag)} />}
             {cascade.water_plants > 0 && (
-              <PresentationStat label="Water plants" value={fmtInt(waterPlants)} />
+              <PresentationStat label={t.waterPlants} value={fmtInt(waterPlants, tag)} />
             )}
           </div>
         )}
@@ -1058,10 +1055,13 @@ function TopList({
   onSelect: (id: number) => void;
   isCurrent: boolean;
 }) {
+  const t = useMessages().resilience;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   return (
     <div>
       <div className="flex items-center gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {isCurrent ? "Highest-consequence substations" : "Highest predicted risk"} · top {rows.length}
+        {isCurrent ? t.highestConsequence : t.highestPredictedRisk} · {t.topN(rows.length)}
         <ProvenanceBadge table={isCurrent ? "sync.generation_status" : "resilience.scenario_scores"} />
       </div>
       <ul>
@@ -1081,13 +1081,13 @@ function TopList({
               <span className="w-5 shrink-0 text-xs tnum text-muted-foreground/60">{i + 1}</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 truncate text-sm font-medium">
-                  {r.name ?? `Substation ${r.entity_id}`}
+                  {r.name ?? t.substationFallback(r.entity_id)}
                   {r.is_offline && <PowerOff className="h-3 w-3 shrink-0 text-red-400" />}
                   {r.is_articulation && <TriangleAlert className="h-3 w-3 shrink-0 text-amber-400" />}
                 </span>
                 <SeverityLabel score={r.value} />
               </span>
-              <span className="shrink-0 text-sm font-semibold tnum">{fmtNum(r.value, 1)}</span>
+              <span className="shrink-0 text-sm font-semibold tnum">{fmtNum(r.value, 1, tag)}</span>
             </button>
           </li>
         ))}
@@ -1138,13 +1138,16 @@ function DetailPanel({
   onReplay: () => void;
   reducedMotion: boolean;
 }) {
+  const t = useMessages().resilience;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading, error } = useSubstation(id, scenario);
   // Cross-domain (F9b B4): the same POWERS edges that drive the cascade above,
   // read through the water/telecom join instead of graph.downstream_summary.
   const { data: water } = useWaterConsequence(id);
   const { data: telecom } = useTelecomConsequence(id);
 
-  if (isLoading) return <div className="p-4"><LoadingBlock label="Loading detail" /></div>;
+  if (isLoading) return <div className="p-4"><LoadingBlock label={t.loadingDetail} /></div>;
   if (error) return <div className="p-4"><ErrorBlock error={error} /></div>;
   if (!data) return null;
 
@@ -1162,30 +1165,30 @@ function DetailPanel({
   const sections: DrawerSection[] = [
     {
       id: "what",
-      title: "Metrics",
+      title: t.sections.metrics,
       body: (
         <div className="grid grid-cols-3 gap-2">
           <ScoreExplainer
             className="rounded-lg border border-border/60 bg-background/40 p-2.5"
-            label="Composite"
-            value={fmtNum(data.composite_score, 1)}
-            what="How much is at stake if this substation fails, weighted by how likely this scenario is to knock it out."
-            formula="hazard probability × cascade impact × (1 + network centrality)"
-            context={percentileContext(data.composite_score, distribution, "scored substations")}
+            label={t.sections.composite}
+            value={fmtNum(data.composite_score, 1, tag)}
+            what={t.sections.compositeWhat}
+            formula={t.sections.compositeFormula}
+            context={percentileContext(data.composite_score, distribution, t.scoredSubstationsNoun, locale)}
           />
           <ScoreExplainer
             className="rounded-lg border border-border/60 bg-background/40 p-2.5"
-            label="Hazard P"
-            value={fmtNum(data.hazard_score, 2)}
-            what="The chance this site itself goes down in this scenario — 0 is safe, 1 is near-certain."
-            formula="flood, surge, sea-level-rise, slope and fault exposure measured at this location"
+            label={t.sections.hazardP}
+            value={fmtNum(data.hazard_score, 2, tag)}
+            what={t.sections.hazardWhat}
+            formula={t.sections.hazardFormula}
           />
           <ScoreExplainer
             className="rounded-lg border border-border/60 bg-background/40 p-2.5"
-            label="Cascade"
-            value={fmtNum(data.cascade_impact, 1)}
-            what="How much fails downstream when this does — the hospitals, water plants and barrios that lose power with it."
-            formula="downstream assets reached through the grid, weighted by what they are (hospitals weigh most)"
+            label={t.sections.cascade}
+            value={fmtNum(data.cascade_impact, 1, tag)}
+            what={t.sections.cascadeWhat}
+            formula={t.sections.cascadeFormula}
           />
         </div>
       ),
@@ -1193,62 +1196,62 @@ function DetailPanel({
     {
       id: "where",
       hidden: true,
-      title: "Where",
+      title: t.sections.where,
     },
     {
       id: "depends",
-      title: "What fails when this substation goes down",
+      title: t.sections.whatFailsWhen,
       badge: <ProvenanceBadge table="graph.downstream_summary" />,
       rows: cascadePlaying
         ? [
             {
-              label: "Hospitals",
-              value: <StagedValue target={cascade!.hospitals} startProgress={progressFor("hazard")} format={fmtInt} />,
+              label: t.hospitals,
+              value: <StagedValue target={cascade!.hospitals} startProgress={progressFor("hazard")} format={(v) => fmtInt(v, tag)} />,
             },
             {
-              label: "Water plants",
-              value: <StagedValue target={cascade!.water_plants} startProgress={progressFor("water")} format={fmtInt} />,
+              label: t.waterPlants,
+              value: <StagedValue target={cascade!.water_plants} startProgress={progressFor("water")} format={(v) => fmtInt(v, tag)} />,
             },
             {
-              label: "Health centers",
+              label: t.healthCenters,
               value: (
-                <StagedValue target={cascade!.health_centers} startProgress={progressFor("hazard")} format={fmtInt} />
+                <StagedValue target={cascade!.health_centers} startProgress={progressFor("hazard")} format={(v) => fmtInt(v, tag)} />
               ),
             },
             {
-              label: "Barrios",
-              value: <StagedValue target={cascade!.barrios} startProgress={lastProgress} format={fmtInt} />,
+              label: t.barrios,
+              value: <StagedValue target={cascade!.barrios} startProgress={lastProgress} format={(v) => fmtInt(v, tag)} />,
             },
             {
-              label: "People affected",
+              label: t.peopleAffected,
               value: (
                 <StagedValue
                   target={cascade!.population_affected}
                   startProgress={lastProgress}
-                  format={(v) => fmtIntTiered(v, "proxy")}
+                  format={(v) => fmtIntTiered(v, "proxy", tag)}
                 />
               ),
             },
           ]
         : [
-            { label: "Hospitals", value: fmtInt(data.downstream_hospitals) },
-            { label: "Water plants", value: fmtInt(data.downstream_water_plants) },
-            { label: "Health centers", value: fmtInt(data.downstream_health_centers) },
-            { label: "Barrios", value: fmtInt(data.downstream_barrios) },
-            { label: "People affected", value: fmtIntTiered(data.population_affected, "proxy") },
+            { label: t.hospitals, value: fmtInt(data.downstream_hospitals, tag) },
+            { label: t.waterPlants, value: fmtInt(data.downstream_water_plants, tag) },
+            { label: t.healthCenters, value: fmtInt(data.downstream_health_centers, tag) },
+            { label: t.barrios, value: fmtInt(data.downstream_barrios, tag) },
+            { label: t.peopleAffected, value: fmtIntTiered(data.population_affected, "proxy", tag) },
           ],
       body: !reducedMotion && waveCount > 0 && (
         <button
           onClick={onReplay}
           className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
         >
-          <RotateCcw className="h-3 w-3" /> Replay cascade
+          <RotateCcw className="h-3 w-3" /> {t.replayCascade}
         </button>
       ),
     },
     {
       id: "cross-domain",
-      title: "Cross-domain",
+      title: t.sections.crossDomain,
       hidden: !water && !telecom,
       body: (
         <div className="space-y-3">
@@ -1257,10 +1260,10 @@ function DetailPanel({
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-domain-water">
                   <Droplets className="h-3 w-3" />
-                  {fmtInt(water.pump_stations + water.wells + water.water_plants)} water sources
+                  {t.waterSources(fmtInt(water.pump_stations + water.wells + water.water_plants, tag))}
                 </span>
                 <a href="/water" className="text-[11px] text-primary hover:underline">
-                  View on Water cascade →
+                  {t.viewOnWaterCascade}
                 </a>
               </div>
               {water.top_names.length > 0 && (
@@ -1273,10 +1276,10 @@ function DetailPanel({
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-domain-telecom">
                   <RadioTower className="h-3 w-3" />
-                  {fmtInt(telecom.towers + telecom.cell_sites)} telecom sites
+                  {t.telecomSites(fmtInt(telecom.towers + telecom.cell_sites, tag))}
                 </span>
                 <a href="/telecom" className="text-[11px] text-primary hover:underline">
-                  View on Telecom cascade →
+                  {t.viewOnTelecomCascade}
                 </a>
               </div>
               {telecom.top_names.length > 0 && (
@@ -1289,31 +1292,31 @@ function DetailPanel({
     },
     {
       id: "hazards",
-      title: "Economic exposure (VOLL — 30yr NPV)",
+      title: t.economicExposure,
       badge: <ProvenanceBadge table="economy.substation_exposure" />,
       rows: [
-        { label: "Population benefit", value: fmtUsdTiered(data.population_benefit_usd, "proxy") },
-        { label: "Economic benefit", value: fmtUsdTiered(data.economic_benefit_usd, "proxy") },
+        { label: t.populationBenefit, value: fmtUsdTiered(data.population_benefit_usd, "proxy") },
+        { label: t.economicBenefit, value: fmtUsdTiered(data.economic_benefit_usd, "proxy") },
       ],
     },
     {
       id: "data",
-      title: "Network centrality",
+      title: t.networkCentrality,
       hidden: data.spof_betweenness == null,
       rows: [
-        { label: "Betweenness", value: fmtNum(data.spof_betweenness, 4) },
-        { label: "Articulation point", value: data.is_articulation ? "Yes" : "No" },
+        { label: t.betweenness, value: fmtNum(data.spof_betweenness, 4, tag) },
+        { label: t.articulationPoint, value: data.is_articulation ? t.yes : t.no },
       ],
     },
     {
       id: "changed",
       hidden: true,
-      title: "Changed",
+      title: t.sections.changed,
     },
     {
       id: "actions",
       hidden: true,
-      title: "Actions",
+      title: t.sections.actions,
     },
   ];
 
@@ -1323,8 +1326,8 @@ function DetailPanel({
       header={
         <div>
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-lg font-semibold leading-tight">{data.name ?? `Substation ${data.entity_id}`}</h3>
-            {data.is_articulation && <Badge variant="warning">SPOF</Badge>}
+            <h3 className="text-lg font-semibold leading-tight">{data.name ?? t.substationFallback(data.entity_id)}</h3>
+            {data.is_articulation && <Badge variant="warning">{t.spofBadge}</Badge>}
           </div>
           <div className="mt-1"><SeverityLabel score={data.composite_score} /></div>
         </div>

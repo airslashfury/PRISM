@@ -227,22 +227,27 @@ def svi_lookup(engine: Engine, *, barrio_name: str) -> dict[str, Any]:
     }
 
 
-def address_lookup(engine: Engine, *, query: str) -> dict[str, Any]:
-    """The full citizen civic card (P3-cit) for a barrio or municipio — power, flood, access, plans."""
+def barrio_lookup(engine: Engine, *, query: str) -> dict[str, Any]:
+    """The full citizen civic card (P3-cit) for a barrio or municipio — power, flood, access, plans.
+
+    Resolves a barrio/municipio *name*, not a street address (F10c rename — the prior
+    `address_lookup` name was a misnomer surfaced at the F9d D1 gate; street-address search
+    is `prism.crim.geocode.geocode_address` via /parcels, a separate path).
+    """
     q = query.strip().lower()
     if not q:
-        return {"tool": "address_lookup", "error": "empty query"}
+        return {"tool": "barrio_lookup", "error": "empty query"}
 
     match = next(
         (b for b in list_barrios(engine) if q in b["name"].lower() or (b["municipio"] and q in b["municipio"].lower())),
         None,
     )
     if match is None:
-        return {"tool": "address_lookup", "error": f"no barrio or municipio matching '{query}'"}
+        return {"tool": "barrio_lookup", "error": f"no barrio or municipio matching '{query}'"}
 
     card = get_civic_card(engine, match["entity_id"])
     if card is None:
-        return {"tool": "address_lookup", "error": f"no civic card for '{match['name']}'"}
+        return {"tool": "barrio_lookup", "error": f"no civic card for '{match['name']}'"}
 
     with engine.connect() as conn:
         loc = conn.execute(text(f"""
@@ -256,7 +261,7 @@ def address_lookup(engine: Engine, *, query: str) -> dict[str, Any]:
             tiers[key] = section["confidence_tier"]
 
     return {
-        "tool": "address_lookup",
+        "tool": "barrio_lookup",
         "barrio": match,
         "civic_card": card,
         "map_points": [{"entity_id": match["entity_id"], "name": match["name"], "kind": "barrio", "lon": loc["lon"], "lat": loc["lat"]}] if loc else [],

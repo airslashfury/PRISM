@@ -118,15 +118,22 @@ def _community_resilience(engine: Engine, barrio_id: int) -> dict[str, Any] | No
 def _road_access(engine: Engine, barrio_id: int) -> dict[str, Any] | None:
     with engine.connect() as conn:
         row = conn.execute(text("""
-            SELECT nearest_hosp_name, travel_time_min
+            SELECT nearest_hosp_name, travel_time_min,
+                   nearest_clinic_name, clinic_travel_time_min
             FROM transport.road_access_cost
             WHERE barrio_entity_id = :bid
         """), {"bid": barrio_id}).mappings().fetchone()
-    if row is None or row["nearest_hosp_name"] is None:
+    if row is None or (row["nearest_hosp_name"] is None and row["nearest_clinic_name"] is None):
         return None
+    # F10c-7: a barrio can have no reachable true hospital (disconnected
+    # road-graph component) but still reach a community clinic — surface
+    # that instead of omitting Emergency access entirely. Never conflate the
+    # two: nearest_clinic is primary care, not emergency/ER capacity.
     return {
         "nearest_hospital": row["nearest_hosp_name"],
-        "travel_time_min": float(row["travel_time_min"]),
+        "travel_time_min": float(row["travel_time_min"]) if row["travel_time_min"] is not None else None,
+        "nearest_clinic": row["nearest_clinic_name"],
+        "clinic_travel_time_min": float(row["clinic_travel_time_min"]) if row["clinic_travel_time_min"] is not None else None,
         "confidence_tier": _tier("transport.road_access_cost"),
     }
 

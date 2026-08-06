@@ -233,7 +233,9 @@ def water_downstream_of(engine: Engine, substation_entity_id: int) -> dict:
         """), {"sid": substation_entity_id}).mappings().fetchall()
 
         barrios = conn.execute(text("""
-            SELECT DISTINCT b.entity_id, b.name
+            SELECT DISTINCT b.entity_id, b.name,
+                   ST_X(ST_Centroid(ST_Transform(b.geom,4326))) AS lon,
+                   ST_Y(ST_Centroid(ST_Transform(b.geom,4326))) AS lat
             FROM graph.relationships p
             JOIN graph.relationships ws
               ON ws.src_entity = p.dst_entity AND ws.rel_type = 'WATER_SERVES'
@@ -245,7 +247,10 @@ def water_downstream_of(engine: Engine, substation_entity_id: int) -> dict:
     pumps = sum(1 for w in water_nodes if w["kind"] == "water_pump_station")
     wells = sum(1 for w in water_nodes if w["kind"] == "water_well")
     plants = sum(1 for w in water_nodes if w["kind"] == "water_plant")
-    barrio_list = [{"entity_id": b["entity_id"], "name": b["name"]} for b in barrios]
+    barrio_list = [
+        {"entity_id": b["entity_id"], "name": b["name"], "lon": b["lon"], "lat": b["lat"]}
+        for b in barrios
+    ]
     # De-dupe (order-preserving): sources can share a name; a top-5 repeating one
     # name is noise, not signal.
     top_names = list(dict.fromkeys(w["name"] for w in water_nodes if w["name"]))[:5]

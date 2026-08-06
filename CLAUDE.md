@@ -105,6 +105,25 @@ After every phase "Done when" gate that receives a GO verdict, you **must** upda
 
 Do this in the same session as the gate review, before the user asks. If a session ends without a gate, no update needed.
 
+## Exclusion protocol (F14b — follow whenever code sets data aside)
+
+**If you write code that excludes, filters, caps, or drops source data before it reaches a view
+or a calculation, you register it in `config/anomalies.yml` in the same session.** Sentinel-value
+filters, noise floors, plausibility bounds, capped radii, dropped NULLs, default-off toggles,
+silent `continue`s — all of it. The test is *would the source institution want to know?*
+
+- The registry is the source of truth; **`ANOMALIES.md` is generated** — run `make anomalies`
+  (or `python -m prism.provenance --anomalies`) and commit the regenerated doc.
+  `tests/test_anomalies.py` fails if it drifts, and a second test fails if an entry's `where:`
+  points at a file or symbol that no longer exists.
+- Each entry names its blast radius (`scope`), its measured size (`magnitude`, with the SQL that
+  measured it), and — the point of the whole exercise — what the **source institution** would
+  have to fix (`remediation: null` when it's PRISM's own modelling choice).
+- Pure presentation limits (a `LIMIT` on a UI list, a map zoom threshold) are out of scope.
+
+The registry is surfaced at `GET /provenance/anomalies` and on `/methods` ("Excluded data"), and
+is the basis for the eventual printed data-quality report to CRIM / AEE / the Contralor / JP.
+
 ## Phase log
 | Phase | Status | Gate date | Notes |
 |---|---|---|---|
@@ -141,6 +160,9 @@ Do this in the same session as the gate review, before the user asks. If a sessi
 | F9b — Municipio-first structure | **COMPLETE** | 2026-07-09 | Opus GO |
 | F9c — Grounded, not vibes | **COMPLETE** | 2026-07-09 | Opus GO x3 (C1/C2/C3) |
 | F9d — Find your parcel by address (D1+D2) | **COMPLETE** | 2026-07-10 | Opus GO x2 |
+| F10a — Weather domain, absorbing /storm | **COMPLETE** | 2026-07-10 | Opus GO (one fix at gate) |
+| F10b — Economy model correctness | **COMPLETE** | 2026-07-10 | Opus GO |
+| F10c — Consistency & polish sweep | **COMPLETE** | 2026-07-10 | Opus GO (item 4 carved out) |
 
 > **Full per-phase build narrative** (what was built, gate history, live verification for
 > every phase 0–10 / M1–M5a / MVP3 P1–P3) lived here previously. It is preserved in git
@@ -220,7 +242,7 @@ de-navved (route stays live, linked from WhatsNew + Trust Center instead of prim
 - **Data layer:** 3.6 GB mirrored; 460 WFS layers classified; PostGIS at EPSG:32161; ~166 catalog entries
 - **Knowledge graph:** 48,801 nodes, 68,272+ edges; `graph.downstream_summary` (961 substations, M5a)
 - **Resilience:** 315 substations scored across 3 scenarios; top composite 84.10 (PALO SECO SP TC)
-- **Economy:** VOLL model ($2,389/person 30yr); 981 tracts with real per-tract ACS; 5-component SVI
+- **Economy:** VOLL model ($2,707/person 30yr); 981 tracts with real per-tract ACS; 5-component SVI
 - **Optimization:** ILP portfolio — $200M: 40 items; $500M: 46 items (equity-aware); budget allocator live on `/portfolio` (budget + equity sliders → job-queue ILP re-run + A/B diff panel, since 2026-06-15)
 - **Transport:** pgRouting road-access (892/901 barrios reachable); 3,168 bridges, NBI spans for ~67%
 - **Digital Twin / live feeds:** WFS re-sync spine; auto rescore on hazard-layer change; PREPA generation + LUMA outage feeds
@@ -327,25 +349,245 @@ match rate against CRIM's address format is unmeasured — both live rows this s
 Tier B; revisit `display_address()` normalization if Tier A proves near-zero yield once D1 traffic
 accumulates. **F9d (D1+D2) is now COMPLETE — and with it the whole F9 arc.**
 
-**Active item: F10 — weather domain + model correctness + consistency sweep** (scheduled
-2026-07-10 from the post-F9 backlog audit; full chunk specs in ROADMAP.md Item F10 — read them
-there before dispatching). Three Opus-gated chunks on `feat/f10-weather` off `main` (after
-`feat/f9b-structure` merges): **F10a** — weather/climate domain (NOAA NCEI normals →
-`sync.climate_normals` copying the nwis.py pattern; per-municipio aggregates copying
-`economy/municipios.py`; `/weather` MapWorkspace choropleth **absorbing `/storm` as a lens**
-(`/storm` → redirect, nav + OG + Playwright updated); Site Finder `workable_days` criterion at
-default weight 0; workable-days formula documented in `assumption_rationale.yml`). **F10b** —
-economy model correctness: reconcile the VOLL 4%-vs-3% discount rate (task_f389670d) + fix the
-exposure barrio double-count vs the deduped `graph.downstream_summary` (task_b6170436), with a
-before/after validation pass (numbers change once, honestly). **F10c** — consistency sweep:
-`address_lookup`→`barrio_lookup` rename, water/telecom cascade-arc barrio centroids (lights up
-the F8 map theatre on both pages), `/sitefinder` permalinks, api.ts hybrid cleanup (~110
-hand-typed interfaces vs regenerated `api-types.ts`), OG font embedding, F9d Tier A yield
-measurement (measure-only), nearest-clinic second field for the 15 NULL-hospital barrios.
+**F10c-6 measurement (2026-07-10):** of `crim.geocode_cache`'s 33 rows, 26 are pytest fixture
+noise; of the 7 real queries, the 2 that hit Tier A `match` were both the same clean, standard-
+format Old San Juan address ("101/Calle Fortaleza" in either word order) — every rural/barrio-
+style query (Mayaguez urbanización, Utuado/Isabela barrio, a Santurce house-number address) fell
+to `no_match`/Tier B. Low but non-zero yield, too small a sample to justify a
+`display_address()` rebuild now; background task filed (`task_9173b44b`) to revisit once organic
+`/parcels` traffic accumulates past fixture noise.
+
+**F10 — weather domain + model correctness + consistency sweep** (scheduled 2026-07-10 from the
+post-F9 backlog audit; full chunk specs in ROADMAP.md Item F10). Three Opus-gated chunks on
+`feat/f10-weather` off `main` (branched after `feat/f9b-structure` merged 2026-07-10).
+
+**F10a (2026-07-10, Opus GO) — weather domain, absorbing /storm:** `prism/sync/climate.py` — 19
+curated PR GHCN stations (hand-verified live against NOAA NCEI's keyless Access Data Service;
+there's no PR-wide station-list endpoint, only per-station queries) → `sync.climate_normals` (228
+rows), copying the `nwis.py` fetch/parse/mirror_raw/persist/sync shape. `prism/weather/
+municipios.py` mirrors `economy/municipios.py`'s aggregation shape (nearest-station join by
+centroid distance, all 78 municipios always return) + a workable-days heuristic (days_in_month ×
+(1 − rain-day fraction) × heat derate 0.70/0.85/1.0, documented in
+`assumption_rationale.yml:workable_days_formula`). Site Finder's `workable_days` criterion (weight
+0.00, like `dev_impact`) reuses the same Python formula via a JSONB param rather than duplicating
+it in SQL. `/weather` (MapWorkspace choropleth, metric switcher, ScoreExplainer) **absorbs
+`/storm` as a lens** — `storm-client.tsx` imported unmodified so all prior tested storm behavior
+survives untouched; `/storm` is now a pure redirect to `/weather?lens=storm`; nav/OG/Playwright
+updated. Full pytest green (631 passed). Gate fix: the NOAA mirror was first written inside the
+`prism-api` container (ephemeral, not the host bind mount) — violates the data-sovereignty rule;
+re-ran from the host venv to land the durable mirror before GO. Residual (non-blocking, filed as
+a background task): `mirror_raw()`'s text-mode write vs. byte-mode checksum computation mismatches
+on Windows (CRLF translation) across climate.py + its NWIS/USGS-quakes/PREPA/LUMA siblings —
+content is provably intact, one-line `write_bytes` fix per module, tracked separately.
+
+**F10b batch (2026-07-10, Opus GO) — closes task_f389670d + task_b6170436:**
+`prism/economy/exposure.py`'s VOLL NPV factor reconciled from its own 4%/yr (17.29) onto
+`config/confidence.yml`'s global 3%/yr `discount_rate` (19.60) — VOLL benefit is now
+$2,707/person 30yr (was $2,389); `assumption_rationale.yml`/`confidence.yml` rewritten to state
+the reconciliation. Exposure's recursive FEEDS-closure SQL wasn't deduped by entity_id (a diamond
+in the substation graph double-counted barrios reached via two path lengths); fixed with a
+`powered_barrios AS (SELECT DISTINCT …)` CTE, matching `graph/downstream_summary.py`'s existing
+per-barrio Python dedup. Verified live: all 354 `substation_exposure` rows now match
+`downstream_summary` exactly (SABANA LLANA 511K→311,216). Validation pass: resilience top-10
+byte-identical before/after (doesn't depend on VOLL); ILP portfolio picks at $200M/$500M
+identical (40/46 items, same spend/uplift) — confirms VOLL is a uniform multiplier on live
+portfolio runs, not just the sensitivity-sweep's synthetic check. Full pytest 631/1-skipped/990s.
+Gate-adjacent fix: rebuilding `prism-api` to pick up the config change (baked in at build time,
+not bind-mounted) surfaced that F10a never added `COPY prism/weather ./prism/weather` to
+`docker/Dockerfile.api` — `/weather`+`/storm` had been silently down in this dev env since F10a
+shipped; fixed same session.
+
+**F11e (2026-07-19, Opus GO) — OCPR government-contract footprint.** The Contralor's full
+contract register (1,141,257 contracts 2012→today, `ocpr.contracts` + `contract_contractors`,
+pulled by `prism/sync/ocpr.py`) joined to CRIM owners on `normalize_owner()` — 21,699 of 345,488
+distinct contractors (6.3%) are also property owners. New read layer `prism/ocpr/footprint.py`
+(+ `python -m prism.ocpr --gov-keys|--rank`): `ocpr.government_keys` (1,172 public-body keys),
+per-owner footprint, and a contractor-owner ranking that **excludes government by default** (public
+bodies are both the biggest landowners and the biggest counterparties). Surfaced on `/parcels` —
+a "Government contracts" drawer section (silent for the ~94% with none) and a ranking panel with
+the government toggle. Shared contracts are **flagged, never divided**: the register bills the full
+amount to every co-contractor, so those rows carry an amber `*` + tooltip and name their
+co-contractors. Gate caught a second, silent double-count (duplicate contractor *spellings* under
+one key) — fixed by deduping every aggregate on `(contract_id, contractor_key)`. Built while the
+F11a registry mirror walks in the background (~102K entities so far).
+
+**F10c batch (2026-07-10, Opus GO on 6/7 items) — closes the F10 arc:**
+`address_lookup`→`barrio_lookup` rename (verified live via an `/ask` round-trip); water/telecom
+cascade-arc barrio centroids (single-wave ArcLayer + ripple lighting up the F8 map theatre on
+both `/water` and `/telecom`, verified live — 25-barrio fan from a water plant, 9-barrio fan from
+a cell tower); `/sitefinder` permalinks (+ a net-new municipio filter input); OG font embedding
+(3 Inter TTFs mirrored into `frontend/assets/og-fonts/`, gate-adjacent fix: `Dockerfile.frontend`'s
+`run` stage never copied `assets/`; couldn't verify visually via the Windows dev server — same
+pre-existing Windows-path `next/og` crash documented at F10a, reproduces identically on the
+untouched `/og/storm` — verified instead via the real Linux Docker container); F9d Tier A yield
+measurement (7 real queries, 2 match/5 no_match, too small to trigger a rebuild, follow-up filed
+as background task `task_9173b44b`); nearest-clinic second field (`prism/transport/access.py`'s
+shared `_nearest_destination()` helper now also routes to `kind='health_center'` — PRISM's actual
+community-clinic source, since the literal CSC/CSF/C MED PRIMARIA clasif values are only 3
+miscategorized outliers — 6 of 15 NULL-hospital barrios, all Culebra, now get an honest clinic
+fallback labeled "primary care, not emergency capacity"). **Item 4 (api.ts hybrid cleanup) carved
+out, not completed** — the ~110-interface migration to `Schemas[...]` re-exports broke 100+ call
+sites because `openapi-typescript` renders Pydantic-defaulted fields as TS-optional rather than
+required-nullable; reverted to a safe additive-only state (regenerated `api-types.ts` kept, tsc
+clean) and re-scoped to `BACKLOG.md` with two documented fix paths. Full pytest 631/1
+skipped/1316s (up from ~16min — item 7 doubled the pgRouting cost across transport tests).
 Preferences/admin portal was offered (incl. localStorage stopgap) and **declined** — stays parked
 on M6 auth. F11 candidates recorded in ROADMAP: fiber/callsign polygons, multi-hazard overlays,
 distribution geometry, public API docs.
 
-Gate protocol unchanged: at each item's "Done when", hand off to the Opus
-`phase-gate-reviewer` for GO/NO-GO before the next; after a GO, update `ROADMAP.md` +
-`memory/project_state.md` in the same session.
+**The F10 arc (weather domain + model correctness + consistency sweep) is now COMPLETE.**
+
+**F11 batch (2026-07-17→25) — corporate owner intelligence, core complete.** `prism/sync/rcp.py`
+mirrors the PR corporations registry (`crim.rce_entities`, a rate-limited host nohup pull that
+respects the registry's own WAF — still walking, 315K/~560K entities at close, self-healing via
+the same-session watchdog + DB-resilience work, left running unattended by design).
+`prism/crim/rce_match.py` joins it to CRIM owners: suffix-preserving match key, exact then
+address-corroborated fuzzy (52.9% of corporate-suffixed owners matched), writing
+`crim.owner_rce_match` + an address layer (`crim.rce_addresses`, 1.28M rows, agent-office
+frequency-flagged). `prism/crim/registry.py` surfaces it — a "Corporate registry" section on the
+F1 owner drawer + a parcel-360 one-liner, silent for the ~98% with no record; status modeled as a
+slowly-changing dimension (`crim.rce_status_history`) feeding WhatsNew as a typed `registry` kind.
+**The standing signal is real from day one:** 748 dissolved/cancelled/merged companies still hold
+1,562 CRIM parcels — precisely what CRIM's own current-state deed record can't say. Both F11b and
+F11c Opus GO 2026-07-25 (six gate follow-ups, five fixed same-session). AEE/PREPA load-shedding
+(F11f) landed the measured 486K-segment feeder network and swapped it into POWERS for barrio
+population, Opus GO-conditional 2026-07-21; OCPR government-contracts (F11e) landed a
+contractor-owner footprint on `/parcels`, Opus GO 2026-07-19.
+
+**F11 close-up (2026-07-25):** fixed one real latent bug found while closing out — the WhatsNew
+registry standing-headline's `at` timestamp was going to freeze once the mirror pull finishes and
+get silently truncated out of the feed by newer events; `whatsnew()` now exempts `pinned` items
+from the newest-first cut (`prism/sync/changes.py`, regression test in `test_whatsnew.py`).
+**Explicitly parked to `BACKLOG.md`, not built:** F11d control-cluster merge (stretch — the
+prerequisite address layer already shipped inside F11b, so it's scoped for whenever it's picked
+up); F11f's remaining follow-ups (measured facility-level POWERS, wiring the 22 FEEDS-isolated
+substations, a shed-feed refresh cron — checked and it's a real architecture decision since
+`data/raw` isn't bind-mounted into the `worker` container, not a quick wire-up — and a
+feeder-network UI layer). **The F11 arc is now CORE COMPLETE.**
+
+**F14 batch (2026-07-26, `feat/f14` off `main`) — workspace panes, anomalies registry, monthly
+change report, pull resilience, all four Opus GO.** Requested out of the queued F12/F13 order,
+built and closed in one session. **F14a** — hideable + resizable global sidebar (56px icon rail)
+and map-route right pane (`frontend/components/ui/resizable-pane.tsx` + `frontend/lib/
+pane-state.ts`, `WorkspaceAside` shared across all eleven map routes), `[`/`]` shortcuts,
+localStorage-persisted, mobile untouched. **F14b** — `config/anomalies.yml`, the exclusion
+registry (39 active entries: sentinel filters, noise floors, capped radii, dropped NULLs) that
+*generates* `ANOMALIES.md` (`make anomalies` / `prism/provenance/anomalies.py`, stale-doc test),
+surfaced at `GET /provenance/anomalies` and on `/methods`; the going-forward rule ("any new
+exclusion registers here in the same session") is now this file's own Exclusion protocol section
+above. **F14c** — `prism/report/monthly.py`: parcel-ownership + corporate-status + contracts-added
+sections, CSV + self-contained HTML (inline SVG, print-to-PDF), wired through `api/routers/
+reports.py` and an arq monthly cron. **F14d** — `prism/sync/http.py`, one resilient fetch (retry +
+backoff + jitter, transient-vs-permanent classification, per-host rate limit, `Retry-After`
+honored, `sync.pull_health` + `track_pull`) retrofitted across every HTTP pull in `prism/` except
+the documented push/local carve-outs (`alerts.py`, `llm.py`) and the three sources that keep their
+own proven transports (`aee.py`, `rcp.py`, `ocpr.py` — health-reporting only); `sync.pull_health`
+failures surface as a red WhatsNew chip distinct from the amber staleness chips. F14b/c/d each hit
+one NO-GO round (count corrections, a sentinel-churn double-count, a CRIM-download checkpoint that
+could disagree with itself after a kill) before GO; F14d's re-review caught a live regression its
+own fix had introduced — `prism/crim/geocode.py`'s Census-outage fallback caught `requests.
+RequestException`, but the retrofitted `_query_census` now raises `prism_http.PullError` instead,
+so the `except` had gone silently unreachable and a Census outage would 500 the parcel-360 card
+instead of degrading to Tier B as designed. Fixed and verified live before the closing GO. Full
+detail and residuals in `ROADMAP.md` → Item F14.
+
+**F12a batch (2026-07-26, `feat/f12` off `feat/f14`) — es-PR language toggle infrastructure, Opus
+GO after two NO-GO rounds.** Scope set with the user at intake: F12a (this batch) + F12b (translate
+all chrome) ship; F12c (AI narratives, `/methods`/`/corridor` long-form, OG cards — the only chunk
+touching the Python side) parked to `BACKLOG.md`. Hand-rolled dictionary + context
+(`frontend/lib/i18n/`), not `next-intl` — the roadmap's cookie+URL permalink pattern doesn't need
+next-intl's path-prefix `[locale]/` routing, which would have restructured all ~18 existing routes.
+`/citizen` is the "one page fully bilingual" proof. `frontend/middleware.ts` promotes a valid
+`?lang=` into the request cookie before any Server Component renders, so a shared link SSRs in the
+right language on first paint — better than the "Done when" strictly required. Toggle lives in
+both the desktop sidebar footer (no theme control exists in this codebase for it to sit "next to,"
+contrary to the item's original wording) and the mobile drawer. Round 1 NO-GO caught three dropped
+bold `<span>`s (JSX styling flattened by an over-simplified template-string dictionary function),
+an RAE grammar error hitting ~53% of barrios, a `municipio` word-order bug, and a Spanish honesty
+sentence contradicting the still-English confidence chip; round 2 NO-GO caught that the toggle
+only existed on desktop, leaving phones with no way to change language. Full e2e green on both
+projects except two pre-existing Windows-only `next/og` failures (F10a/F10c, unrelated). Full
+detail in `ROADMAP.md` → Item F12.
+
+**F12b batch (2026-07-31, `feat/f12`) — translate the chrome, Opus GO after six NO-GO rounds.**
+Every remaining page + shared component translated; closed backend-key-set overrides added for
+`/sitefinder` criteria, `/assumptions` knobs, `/playground` asset-types/params/intervention-options,
+`/trends` change-types, `/methods` tier descriptions + anomaly severity, `/portfolio`/`/sync`
+enums — same client-side-override pattern F12a used for `confidenceTiers`. `frontend/e2e/
+i18n.spec.ts` grew from 5 to 33 tests (17-route chrome sweep + backend-schema-label block +
+attribute/hover-tooltip "global chrome" block). **Six rounds, each catching a different bug
+class**, is the residual worth remembering for the next i18n pass: (1) page-level closed enums
+untranslated; (2) a shadowed `useMessages()` variable + two global formatter calls (`fmtRelative`/
+`fmtDateTime`) missing the locale arg, invisible on every page's topbar; (3) attribute-level leaks
+(title/tooltip strings) a visible-text sweep can't see, incl. a dictionary key that already
+existed and simply wasn't wired up; (4) hover-gated Recharts/deck.gl tooltip content, invisible
+until a mouse hovers the chart; (5)+(6) the same raw-enum-next-to-its-translated-sibling pattern
+recurring on three different pages once it was named. A stale Docker image produced one false
+pass mid-chain — rebuild-then-verify-against-the-served-bundle is now the checked step before
+trusting any e2e run. Closed via a final self-directed sweep rather than a seventh full review
+round, per explicit direction to converge. F12c (AI narratives, `/methods`/`/corridor` long-form,
+OG cards, plus a widened list of backend-prose surfaces the gate rounds surfaced — storm/WhatsNew
+headlines, water/telecom score-reason sentences, the anomalies registry) stays parked to
+`BACKLOG.md`. Full detail in `ROADMAP.md` → Item F12.
+
+**The F12 arc (F12a + F12b) is now COMPLETE.** F12c remains parked. Gate protocol unchanged: at
+each item's "Done when", hand off to the Opus `phase-gate-reviewer` for GO/NO-GO before the next;
+after a GO, update `ROADMAP.md` + `memory/project_state.md` in the same session.
+
+**F11d — control-cluster merge (2026-08-03, `feat/f11d` off `feat/f12`, Opus GO after two fix
+rounds) — closes the last open F11 tail.** Registry entities sharing 2+ named
+officers/incorporators (`prism/crim/clusters.py`) are grouped into control clusters, surfaced on
+the `/parcels` owner drawer as a "Shared officers" block — the finding CRIM's owner-of-record field
+cannot show: two seemingly-unrelated CRIM owners may be the same operator working through separate
+shell companies. Two things the build measured rather than assumed before shipping: (1) **there is
+no `relatedEntities` field** anywhere in the mirrored registry JSON (a full-key sweep of
+`crim.rce_entities.raw` confirms it) — officer/incorporator identity is the only structured control
+signal available, not merely the "primary" one as originally scoped; (2) **naive one-shared-officer
+transitive clustering does not work** — run live, it produced a 2,317-entity blob and one cluster
+spanning 106 CRIM owner_keys, because a single shared officer (an accountant, a secondary officer on
+one unrelated board) bridges unrelated corporate families under transitive closure. Requiring
+`MIN_SHARED_PEOPLE=2` collapsed the largest cluster to 13 entities and left 138 clusters that
+genuinely span more than one owner_key (a Barreto-family construction/pharmacy/hardware group; an
+"MTPR WAREHOUSE" x5 group). Both findings registered in `config/anomalies.yml`. **Gate history:**
+first round NO-GO — the owner-drawer copy was binary ("spans multiple owners" vs. "all one owner"),
+but 833 of 971 reachable clusters have a sibling with no CRIM owner match at all (F11b resolves only
+~53% of corporate-suffixed owners), so "all one owner, not a new lead" rendered directly above a
+sibling row reading "not linked to a CRIM property owner" — fixed with a third, correct copy state
+computed from the actual sibling list, plus four smaller fixes (mechanism-accuracy copy, a
+measurement off-by-2, a newly-registered anomaly for the officer-source exclusion scope, a doc
+count). Second round caught one more defect the fix itself introduced: the new Spanish string
+placed a numeral before *otro* ("3 otras empresas"), which RAE's DPD disallows (*otro* precedes
+cardinals: "otros dos días"); fixed and verified live through a rebuilt docker stack in both
+languages. Full detail in `ROADMAP.md` → Item F11 → F11d.
+
+**F13 — Data Lab: built, then REMOVED (2026-08-06).** F13a (safe query substrate + single-cell
+lab) and F13b (persisted multi-cell notebooks) both shipped with an Opus GO, then the whole
+feature was removed: the ask was a Dynatrace-Notebooks-shaped surface and what shipped read as a
+SQL box. Gone with it — `prism/lab/`, `api/routers/lab.py`, the `prism_ro` role +
+`get_readonly_engine`, `/lab`, and the `lab.*` schema (`0015_drop_lab`; `0014_lab_notebooks` is
+kept and **frozen** with its DDL inlined, so databases already stamped at that revision still
+resolve). The removal record and the two forward notes that outlived it — the duplicate-`<h1>`
+bug on five routes, and what a second attempt at notebooks would have to get right — are in
+`ROADMAP.md` → Item F13 and `BACKLOG.md`.
+
+**The active item is F15 — Real grid data: the sources PRISM missed** (`ROADMAP.md` → Item F15,
+scheduled 2026-08-06 from the user's comparison against opengridworks.com; not started). Four
+Opus-gated chunks. The premise, all measured live before scoping: PRISM's transmission layer is
+44,713 fragments of the 2014 WFS with **no voltage attribute at all**; there is **no generation-plant
+geometry source whatsoever**; HIFLD's 141 PR transmission routes — which carry `VOLTAGE`,
+`VOLT_CLASS` and the **named endpoint substations** `SUB_1`/`SUB_2` — have been mirrored since June
+and never loaded; the PR OSM extract on disk holds 1,172 power-line ways (738 with voltage, 794 with
+`operator`) and 8,706 towers that have never been read; and PeeringDB (11 PR data centers, PR-IX
+with 30 networks) plus TeleGeography's 6 PR cable landings are absent entirely. **F15a** lands OSM
+power + HIFLD and fixes a real provenance error — `config/confidence.yml` (three places),
+`prism/graph/feeders.py:18` and `ANOMALIES.md` all credit HIFLD for substation/transmission geometry
+that actually comes from the WFS. **F15b** transfers voltage onto the incumbent geometry and
+recolors `/resilience` by class — **attribute, never replace**: swapping geometry would move
+`comp_id` → `CONNECTS_TO` → `FEEDS` → every resilience score and ILP pick in one unreviewable
+commit, so the better HIFLD topology is *measured* beside the incumbent (the `compare_to_voronoi()`
+precedent) and any swap is deferred to F16. **F15c** gives PRISM its first generation geometry —
+63 EIA plants, keyless, with `Plant_Code` as the join key. **F15d** executes the user's mesh
+framing: PeeringDB facilities joined through the existing `normalize_owner()`/`match_key()`
+machinery to CRIM owners, the corporations registry, OCPR contracts, and the parcels they sit on.
+EIA's JSON API v2 needs a free registered key and is explicitly out of scope (F16 candidate — it
+carries EIA-861 SAIDI/SAIFI, a real calibration target).

@@ -1,15 +1,20 @@
+"use client";
+
 import { AlertTriangle, Loader2, Inbox, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 export function Spinner({ className }: { className?: string }) {
   return <Loader2 className={cn("h-4 w-4 animate-spin text-muted-foreground", className)} />;
 }
 
-export function LoadingBlock({ label = "Loading", className }: { label?: string; className?: string }) {
+export function LoadingBlock({ label, className }: { label?: string; className?: string }) {
+  const t = useMessages().common;
+  const resolvedLabel = label ?? t.loading;
   return (
     <div className={cn("flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground", className)}>
-      <Spinner /> {label}…
+      <Spinner /> {resolvedLabel}…
     </div>
   );
 }

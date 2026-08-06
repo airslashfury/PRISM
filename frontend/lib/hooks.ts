@@ -155,6 +155,18 @@ export const useEconomyMunicipioDetail = (name: string | null) =>
     staleTime: 10 * MIN,
   });
 
+/** Municipio-first climate rollup (F10a): 78-feature choropleth + per-municipio panel. */
+export const useWeatherMunicipios = () =>
+  useQuery({ queryKey: ["weatherMunicipios"], queryFn: api.weatherMunicipios, staleTime: 30 * MIN });
+
+export const useWeatherMunicipioDetail = (name: string | null) =>
+  useQuery({
+    queryKey: ["weatherMunicipioDetail", name],
+    queryFn: () => api.weatherMunicipioDetail(name as string),
+    enabled: name != null,
+    staleTime: 10 * MIN,
+  });
+
 export const useCorridorRoutes = () =>
   useQuery({ queryKey: ["corridorRoutes"], queryFn: api.corridorRoutes, staleTime: 30 * MIN });
 
@@ -222,6 +234,10 @@ export const useAssumptionRationale = () =>
 /** F9c C3 — /corridor's "Cost basis" popover citation source. */
 export const useCorridorCostReferences = () =>
   useQuery({ queryKey: ["corridorCostReferences"], queryFn: api.corridorCostReferences, staleTime: 60 * MIN });
+
+/** F14b — the Trust Center's "Excluded data" section. */
+export const useProvenanceAnomalies = () =>
+  useQuery({ queryKey: ["provenanceAnomalies"], queryFn: api.provenanceAnomalies, staleTime: 60 * MIN });
 
 export const useProvenanceInventory = () =>
   useQuery({ queryKey: ["provenanceInventory"], queryFn: api.provenanceInventory, staleTime: 60 * MIN });
@@ -328,6 +344,32 @@ export const useOwnerDetail = (ownerKey: string | null) =>
     queryFn: () => api.ownerDetail(ownerKey as string),
     enabled: ownerKey != null,
     staleTime: 10 * MIN,
+  });
+
+/** F11e: one owner's OCPR government-contract footprint (no-match is a result). */
+export const useOwnerContracts = (ownerKey: string | null) =>
+  useQuery({
+    queryKey: ["ownerContracts", ownerKey],
+    queryFn: () => api.ownerContracts(ownerKey as string),
+    enabled: ownerKey != null,
+    staleTime: 10 * MIN,
+  });
+
+/** F11c: one owner's PR corporations-registry record (no-match is a result). */
+export const useOwnerRegistry = (ownerKey: string | null) =>
+  useQuery({
+    queryKey: ["ownerRegistry", ownerKey],
+    queryFn: () => api.ownerRegistry(ownerKey as string),
+    enabled: ownerKey != null,
+    staleTime: 10 * MIN,
+  });
+
+/** F11e: property owners ranked by contract value; public bodies off by default. */
+export const useContractorOwners = (includeGovernment: boolean, limit = 25) =>
+  useQuery({
+    queryKey: ["contractorOwners", includeGovernment, limit],
+    queryFn: () => api.contractorOwners(includeGovernment, limit),
+    staleTime: 30 * MIN,
   });
 
 export const useCrimTrends = (months = 12, since = 2010, top = 25) =>

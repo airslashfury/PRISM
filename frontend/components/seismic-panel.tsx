@@ -8,11 +8,16 @@ import { SkeletonStats, SkeletonRows } from "@/components/query-state";
 import { useSeismic } from "@/lib/hooks";
 import { cn, fmtInt, fmtNum, fmtRelative } from "@/lib/utils";
 import type { SeismicEvent } from "@/lib/api";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 /** Live USGS earthquakes for the PR / USVI region (last 30 days). PR's SW
  *  (Guánica) zone has aftershocked since the 2020 sequence — this is the live
  *  seismic pulse. Authoritative (USGS), no key. */
 export function SeismicPanel() {
+  const t = useMessages().seismicPanel;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data, isLoading } = useSeismic(30);
 
   // Nothing synced yet — render nothing rather than an empty shell.
@@ -32,11 +37,11 @@ export function SeismicPanel() {
               max >= 4 ? "bg-amber-400" : "bg-sky-400")} />
             <span className={cn("relative inline-flex h-2 w-2 rounded-full", max >= 4 ? "bg-amber-400" : "bg-sky-400")} />
           </span>
-          <h2 className="text-sm font-semibold">Seismic activity</h2>
+          <h2 className="text-sm font-semibold">{t.title}</h2>
           <ConfidenceChip tier={data?.confidence_tier ?? "authoritative"} />
         </div>
         <span className="text-xs text-muted-foreground">
-          USGS · last {data?.window_days ?? 30}d{data?.latest ? ` · ${fmtRelative(data.latest)}` : ""}
+          USGS · {t.lastNDays(data?.window_days ?? 30)}{data?.latest ? ` · ${fmtRelative(data.latest, tag)}` : ""}
         </span>
       </div>
 
@@ -48,20 +53,20 @@ export function SeismicPanel() {
       ) : (
         <div className="space-y-5 p-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Kpi icon={Activity} label="Quakes (30d)" value={fmtInt(data.count)} sub="PR / USVI region" />
+            <Kpi icon={Activity} label={t.quakes30d} value={fmtInt(data.count, tag)} sub={t.prUsviRegion} />
             <Kpi
               icon={Activity}
-              label="Largest"
-              value={`M${fmtNum(max, 1)}`}
+              label={t.largest}
+              value={`M${fmtNum(max, 1, tag)}`}
               accent={max >= 5 ? "text-red-400" : max >= 4 ? "text-amber-400" : undefined}
             />
-            <Kpi icon={Activity} label="M4+" value={fmtInt(strong)} sub="felt widely" />
-            <Kpi icon={Waves} label="Felt reports" value={fmtInt(felt)} sub="events with reports" />
+            <Kpi icon={Activity} label={t.m4plus} value={fmtInt(strong, tag)} sub={t.feltWidely} />
+            <Kpi icon={Waves} label={t.feltReports} value={fmtInt(felt, tag)} sub={t.eventsWithReports} />
           </div>
 
           <div>
             <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Most recent
+              {t.mostRecent}
             </div>
             <div className="space-y-1">
               {recent.slice(0, 8).map((e) => (
@@ -73,8 +78,7 @@ export function SeismicPanel() {
       )}
 
       <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
-        Live USGS earthquake feed for the Puerto Rico / Virgin Islands region. A magnitude-4.5+ event
-        automatically re-scores grid resilience under the seismic scenario.
+        {t.footnote}
       </p>
     </Card>
   );
@@ -88,17 +92,19 @@ function magColor(mag: number): string {
 }
 
 function EventRow({ e }: { e: SeismicEvent }) {
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const mag = e.mag ?? 0;
   return (
     <div className="flex items-center gap-3 text-xs">
       <span
         className={cn("flex h-7 w-10 shrink-0 items-center justify-center rounded text-[11px] font-semibold tnum text-black", magColor(mag))}
       >
-        {fmtNum(mag, 1)}
+        {fmtNum(mag, 1, tag)}
       </span>
       <span className="min-w-0 flex-1 truncate text-muted-foreground">{e.place ?? "—"}</span>
-      <span className="shrink-0 tnum text-muted-foreground/70">{e.depth_km != null ? `${fmtNum(e.depth_km, 0)} km` : ""}</span>
-      <span className="w-16 shrink-0 text-right text-[11px] text-muted-foreground/70">{fmtRelative(e.event_time)}</span>
+      <span className="shrink-0 tnum text-muted-foreground/70">{e.depth_km != null ? `${fmtNum(e.depth_km, 0, tag)} km` : ""}</span>
+      <span className="w-16 shrink-0 text-right text-[11px] text-muted-foreground/70">{fmtRelative(e.event_time, tag)}</span>
     </div>
   );
 }

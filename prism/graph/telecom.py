@@ -191,7 +191,9 @@ def telecom_downstream_of(engine: Engine, substation_entity_id: int) -> dict:
         """), {"sid": substation_entity_id}).mappings().fetchall()
 
         barrios = conn.execute(text("""
-            SELECT DISTINCT b.entity_id, b.name
+            SELECT DISTINCT b.entity_id, b.name,
+                   ST_X(ST_Centroid(ST_Transform(b.geom,4326))) AS lon,
+                   ST_Y(ST_Centroid(ST_Transform(b.geom,4326))) AS lat
             FROM graph.relationships p
             JOIN graph.relationships cv
               ON cv.src_entity = p.dst_entity AND cv.rel_type = 'COVERS'
@@ -202,7 +204,10 @@ def telecom_downstream_of(engine: Engine, substation_entity_id: int) -> dict:
 
     towers = sum(1 for t in telecom_nodes if t["kind"] == "telecom_tower")
     cell_sites = sum(1 for t in telecom_nodes if t["kind"] == "cell_site")
-    barrio_list = [{"entity_id": b["entity_id"], "name": b["name"]} for b in barrios]
+    barrio_list = [
+        {"entity_id": b["entity_id"], "name": b["name"], "lon": b["lon"], "lat": b["lat"]}
+        for b in barrios
+    ]
     # De-dupe (order-preserving): many towers share one licensee call-sign, and a
     # top-5 that reads the same name five times is noise, not signal.
     top_names = list(dict.fromkeys(t["name"] for t in telecom_nodes if t["name"]))[:5]

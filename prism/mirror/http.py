@@ -6,10 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
-
-_SESSION = requests.Session()
-_SESSION.headers["User-Agent"] = "PRISM-mirror/0.1 (data sovereignty; contact rtechpr@gmail.com)"
+from prism.sync import http as prism_http
 
 
 def download_file(
@@ -17,25 +14,41 @@ def download_file(
     dest: Path,
     timeout: int = 300,
     chunk_size: int = 1024 * 1024,
-    session: requests.Session | None = None,
+    source: str = "file_mirror",
 ) -> dict[str, Any]:
-    """Stream-download url → dest; return provenance dict. Skips if dest exists."""
+    """Stream-download url → dest; return provenance dict. Skips if dest exists.
+
+    Writes to a `.part` file and renames on completion, so an interrupted
+    download can never be mistaken for a finished mirror — `dest.exists()` is
+    what makes this idempotent, and a truncated file passing that check would
+    poison the mirror permanently (F14d).
+    """
     if dest.exists():
         return {"skipped": True, "file": str(dest), "url": url}
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    sess = session or _SESSION
     pulled_at = datetime.now(timezone.utc).isoformat()
 
-    r = sess.get(url, stream=True, timeout=timeout)
-    r.raise_for_status()
+    # Retried at the request level, not mid-stream: resuming a byte range needs
+    # server support PRISM's sources don't reliably offer, and a re-download of
+    # a mirror file is cheap next to a silently corrupt one.
+    r = prism_http.fetch(
+        url, source=source, stream=True,
+        policy=prism_http.RetryPolicy(attempts=3, read_timeout=float(timeout)),
+    )
 
+    part = dest.with_suffix(dest.suffix + ".part")
     h = hashlib.sha256()
-    with dest.open("wb") as fh:
-        for chunk in r.iter_content(chunk_size=chunk_size):
-            if chunk:
-                fh.write(chunk)
-                h.update(chunk)
+    try:
+        with part.open("wb") as fh:
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    fh.write(chunk)
+                    h.update(chunk)
+        part.replace(dest)
+    except BaseException:
+        part.unlink(missing_ok=True)
+        raise
 
     size = dest.stat().st_size
     return {

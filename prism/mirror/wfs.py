@@ -8,10 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
-
-_SESSION = requests.Session()
-_SESSION.headers["Accept-Encoding"] = "gzip"
+from prism.sync import http as prism_http
 
 
 class DownloadError(RuntimeError):
@@ -50,9 +47,11 @@ def download_layer(
             "count": page_size,
         }
         try:
-            r = _SESSION.get(url, params=params, timeout=timeout)
-            r.raise_for_status()
-            data = r.json()
+            # Page N failing used to lose pages 1..N-1 as well (F14d).
+            data = prism_http.fetch_json(
+                url, source="wfs_mirror", params=params,
+                policy=prism_http.RetryPolicy(attempts=4, read_timeout=float(timeout)),
+            )
         except Exception as exc:
             raise DownloadError(f"{typename}: {exc}") from exc
 

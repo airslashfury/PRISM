@@ -5,6 +5,7 @@ Merges `catalog/metadata.json` (what data, where from, when pulled) with
 so every figure in the UI can answer "what source, how fresh, how confident"
 from one place.
 """
+from prism.provenance.anomalies import list_anomalies, measured_on
 from prism.provenance.catalog import (
     get_layer_provenance,
     get_table_provenance,
@@ -18,9 +19,11 @@ from prism.provenance.catalog import (
 __all__ = [
     "get_layer_provenance",
     "get_table_provenance",
+    "list_anomalies",
     "list_assumption_rationale",
     "list_assumptions",
     "list_cost_references",
     "list_inventory",
     "list_tiers",
+    "measured_on",
 ]

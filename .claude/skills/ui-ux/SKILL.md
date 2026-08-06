@@ -33,7 +33,7 @@ Required glosses on first use:
 | Term | Plain-language gloss |
 |------|----------------------|
 | SVI | Social Vulnerability Index — a composite of poverty rate, elderly share, disability rate, flood exposure, and terrain slope |
-| VOLL | Value of Lost Load — estimated economic cost per person per year of power outage ($2,389/person over 30yr NPV) |
+| VOLL | Value of Lost Load — estimated economic cost per person per year of power outage ($2,707/person over 30yr NPV) |
 | Composite score | Risk score = hazard probability × cascade impact × (1 + network centrality) |
 | Betweenness | How many shortest paths in the grid pass through this node — high = critical connector |
 | Articulation point / SPOF | A node whose removal disconnects the grid — removing it isolates downstream facilities with no alternate path |

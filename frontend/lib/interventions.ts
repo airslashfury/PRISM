@@ -7,8 +7,10 @@
  *
  * Deliberately dependency-free — imported by /citizen today and by /portfolio
  * (F9c chunk C1). Keep entries in sync with the intervention types produced in
- * prism/optimize/catalog.py.
+ * prism/optimize/catalog.py. Locale-aware since F12a; `es-PR` entries use
+ * `usted` register per ROADMAP.md item F12's dialect policy.
  */
+import type { Locale } from "@/lib/i18n/locales";
 
 export interface InterventionCopy {
   /** Plain action phrase, e.g. "Raise equipment above flood level". */
@@ -19,7 +21,7 @@ export interface InterventionCopy {
   why: string;
 }
 
-export const INTERVENTION_COPY: Record<string, InterventionCopy> = {
+const EN: Record<string, InterventionCopy> = {
   elevation: {
     title: "Raise equipment above flood level",
     what: "Lifts transformers and control gear onto raised platforms so floodwater passes underneath.",
@@ -52,15 +54,52 @@ export const INTERVENTION_COPY: Record<string, InterventionCopy> = {
   },
 };
 
+const ES_PR: Record<string, InterventionCopy> = {
+  elevation: {
+    title: "Elevar el equipo sobre el nivel de inundación",
+    what: "Levanta los transformadores y el equipo de control sobre plataformas elevadas para que el agua de inundación pase por debajo.",
+    why: "Es menos probable que su área pierda energía cuando se inunde el sitio de la subestación.",
+  },
+  relocation: {
+    title: "Trasladar el equipo a terreno más seguro",
+    what: "Reconstruye la subestación en un nuevo sitio fuera de la zona inundable.",
+    why: "Elimina el riesgo de inundación en su origen — reservado para los sitios más expuestos.",
+  },
+  hardening: {
+    title: "Reforzar contra daños de tormenta e inundación",
+    what: "Añade barreras contra inundaciones y refuerzo estructural alrededor del equipo existente.",
+    why: "Es más probable que la subestación resista un huracán sin una interrupción del servicio.",
+  },
+  road_hardening: {
+    title: "Proteger la vía de acceso contra inundaciones",
+    what: "Mejora el tramo crítico de la vía para que se mantenga transitable durante una inundación.",
+    why: "Las ambulancias y las cuadrillas de reparación aún pueden llegar a su área durante y después de una tormenta.",
+  },
+  redundant_feed: {
+    title: "Añadir un alimentador de respaldo",
+    what: "Conecta la subestación a una segunda línea de transmisión para que una sola falla no corte el servicio.",
+    why: "Si el alimentador principal falla en una tormenta, su área puede cambiar al respaldo en lugar de quedarse sin energía.",
+  },
+  new_access_road: {
+    title: "Construir una nueva vía de acceso",
+    what: "Añade una conexión vial a un sitio actualmente accesible solo por una ruta gravemente deteriorada.",
+    why: "Las cuadrillas de reparación y los vehículos de emergencia ganan una entrada cuando la ruta existente se inunda o falla.",
+  },
+};
+
+function tableFor(locale: Locale): Record<string, InterventionCopy> {
+  return locale === "es-PR" ? ES_PR : EN;
+}
+
 /** Full copy entry for an intervention type, or null for unknown types. */
-export function interventionCopy(type: string): InterventionCopy | null {
-  return INTERVENTION_COPY[type] ?? null;
+export function interventionCopy(type: string, locale: Locale = "en"): InterventionCopy | null {
+  return tableFor(locale)[type] ?? null;
 }
 
 /** Plain-language title for an intervention type. Unknown types fall back to
  * title-casing the token ("new_access_road" → "New Access Road"). */
-export function humanizeIntervention(type: string): string {
-  const copy = INTERVENTION_COPY[type];
+export function humanizeIntervention(type: string, locale: Locale = "en"): string {
+  const copy = tableFor(locale)[type];
   if (copy) return copy.title;
   return type
     .split("_")

@@ -1,7 +1,10 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { ChevronDown, Info } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 interface InfoPanelSection {
   title: string;
@@ -16,7 +19,9 @@ interface InfoPanelProps {
 }
 
 /** Collapsible "About this data" panel: what it is, how it's calculated, sources & accuracy. */
-export function InfoPanel({ title = "About this data", sections, className, defaultOpen = false }: InfoPanelProps) {
+export function InfoPanel({ title, sections, className, defaultOpen = false }: InfoPanelProps) {
+  const t = useMessages().common;
+  const resolvedTitle = title ?? t.aboutThisData;
   return (
     <details
       className={cn("group rounded-lg border border-border/60 bg-background/30", className)}
@@ -24,7 +29,7 @@ export function InfoPanel({ title = "About this data", sections, className, defa
     >
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Info className="h-3.5 w-3.5" />
-        {title}
+        {resolvedTitle}
         <ChevronDown className="ml-auto h-3.5 w-3.5 transition-transform group-open:rotate-180" />
       </summary>
       <div className="space-y-3 border-t border-border/60 p-3 text-xs text-muted-foreground">

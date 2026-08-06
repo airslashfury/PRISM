@@ -1785,6 +1785,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/weather/municipios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Municipios
+         * @description Municipio-first climate choropleth: all 78 municipios, each feature
+         *     carrying its nearest-station climate rollup as properties.
+         */
+        get: operations["municipios_weather_municipios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/weather/municipio/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Municipio
+         * @description One municipio's climate rollup plus its nearest station's monthly series.
+         */
+        get: operations["municipio_weather_municipio__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2046,9 +2087,13 @@ export interface components {
         /** CivicRoadAccess */
         CivicRoadAccess: {
             /** Nearest Hospital */
-            nearest_hospital: string;
+            nearest_hospital?: string | null;
             /** Travel Time Min */
-            travel_time_min: number;
+            travel_time_min?: number | null;
+            /** Nearest Clinic */
+            nearest_clinic?: string | null;
+            /** Clinic Travel Time Min */
+            clinic_travel_time_min?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
         };
@@ -3062,9 +3107,13 @@ export interface components {
         /** ParcelRoadAccess */
         ParcelRoadAccess: {
             /** Nearest Hospital */
-            nearest_hospital: string;
+            nearest_hospital?: string | null;
             /** Travel Time Min */
-            travel_time_min: number;
+            travel_time_min?: number | null;
+            /** Nearest Clinic */
+            nearest_clinic?: string | null;
+            /** Clinic Travel Time Min */
+            clinic_travel_time_min?: number | null;
             /** Confidence Tier */
             confidence_tier: string;
         };
@@ -4020,6 +4069,10 @@ export interface components {
             entity_id: number;
             /** Name */
             name: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
         };
         /** TelecomConsequence */
         TelecomConsequence: {
@@ -4105,6 +4158,8 @@ export interface components {
             barrios_covered: number;
             /** Sample Barrios */
             sample_barrios?: string[];
+            /** Barrio Points */
+            barrio_points?: components["schemas"]["TelecomBarrio"][];
         };
         /** TelecomSourceWhat */
         TelecomSourceWhat: {
@@ -4240,6 +4295,10 @@ export interface components {
             entity_id: number;
             /** Name */
             name: string | null;
+            /** Lon */
+            lon?: number | null;
+            /** Lat */
+            lat?: number | null;
         };
         /** WaterConsequence */
         WaterConsequence: {
@@ -4355,6 +4414,8 @@ export interface components {
             barrios_served: number;
             /** Sample Barrios */
             sample_barrios?: string[];
+            /** Barrio Points */
+            barrio_points?: components["schemas"]["WaterBarrio"][];
         };
         /** WaterSourceWhat */
         WaterSourceWhat: {
@@ -4379,6 +4440,44 @@ export interface components {
             scenario: string;
             /** Confidence Tier */
             confidence_tier: string;
+        };
+        /** WeatherMonthlyNormal */
+        WeatherMonthlyNormal: {
+            /** Month */
+            month: number;
+            /** Tavg Normal F */
+            tavg_normal_f?: number | null;
+            /** Prcp Normal In */
+            prcp_normal_in?: number | null;
+            /** Rain Days */
+            rain_days?: number | null;
+        };
+        /** WeatherMunicipioDetail */
+        WeatherMunicipioDetail: {
+            /** Name */
+            name: string;
+            /** Geoid */
+            geoid: string;
+            /** Station Id */
+            station_id?: string | null;
+            /** Station Name */
+            station_name?: string | null;
+            /** Station Dist Km */
+            station_dist_km?: number | null;
+            /** Workable Days Per Year */
+            workable_days_per_year?: number | null;
+            /** Rain Days Per Year */
+            rain_days_per_year?: number | null;
+            /** Tavg Normal F */
+            tavg_normal_f?: number | null;
+            /** Prcp Normal In Per Year */
+            prcp_normal_in_per_year?: number | null;
+            /** Monthly */
+            monthly?: components["schemas"]["WeatherMonthlyNormal"][];
+            /** Confidence Tiers */
+            confidence_tiers?: {
+                [key: string]: string;
+            };
         };
         /** WhatsNewResponse */
         WhatsNewResponse: {
@@ -6865,6 +6964,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TelecomSourceDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    municipios_weather_municipios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureCollection"];
+                };
+            };
+        };
+    };
+    municipio_weather_municipio__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherMunicipioDetail"];
                 };
             };
             /** @description Validation Error */

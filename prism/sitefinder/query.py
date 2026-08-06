@@ -49,6 +49,9 @@ CRITERIA: list[dict] = [
     {"key": "dev_impact", "label": "Development impact", "tier": "proxy",
      "description": "Community vulnerability (SVI) — siting where it helps most.",
      "unit": "barrio SVI, 0-1 (higher = more vulnerable)"},
+    {"key": "workable_days", "label": "Workable construction days", "tier": "modeled",
+     "description": "Estimated outdoor-work days per year at the nearest weather station (rain-day and heat-derate heuristic — see Trust Center).",
+     "unit": "workable days per year"},
 ]
 _TIER = {c["key"]: c["tier"] for c in CRITERIA}
 
@@ -119,6 +122,7 @@ def score(engine: Engine, weights: dict[str, float] | None = None,
                {comp} AS composite_score,
                s.s_power_access, s.s_grid_reliability, s.s_flood_safety, s.s_water_access,
                s.s_road_access, s.s_port_access, s.s_land_value, s.s_bulk_port_access, s.s_air_access, s.s_dev_impact,
+               s.s_workable_days,
                s.dist_substation_m, s.flood_frac, s.dist_port_m, s.port_name
         FROM sitefinder.site_scores s
         JOIN sitefinder.candidate_parcels p USING (parcel_id)
@@ -144,11 +148,13 @@ def scorecard(engine: Engine, parcel_id: int,
                {comp} AS composite_score,
                s.s_power_access, s.s_grid_reliability, s.s_flood_safety, s.s_water_access,
                s.s_road_access, s.s_port_access, s.s_land_value, s.s_bulk_port_access, s.s_air_access, s.s_dev_impact,
+               s.s_workable_days,
                s.dist_substation_m, s.substation_name, s.substation_risk, s.flood_frac,
                s.dist_water_m, s.water_name, s.dist_port_m, s.port_name,
                s.dist_bulk_port_m, s.bulk_port_name,
                s.dist_airport_m, s.road_access_min, s.community_resil, s.svi,
-               s.crim_owner, s.crim_totalval, s.land_value, s.land_per_m2
+               s.crim_owner, s.crim_totalval, s.land_value, s.land_per_m2,
+               s.workable_days_per_year
         FROM sitefinder.site_scores s
         JOIN sitefinder.candidate_parcels p USING (parcel_id)
         WHERE p.parcel_id = :pid

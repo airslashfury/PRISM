@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n/context";
 
 export type Severity = "low" | "moderate" | "high" | "severe";
 
@@ -31,11 +34,12 @@ export function SeverityDot({ severity, className }: { severity: Severity; class
 }
 
 export function SeverityLabel({ score }: { score: number }) {
+  const t = useMessages().common.severity;
   const sev = scoreSeverity(score);
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", TEXT[sev])}>
       <SeverityDot severity={sev} />
-      {sev[0].toUpperCase() + sev.slice(1)}
+      {t[sev]}
     </span>
   );
 }

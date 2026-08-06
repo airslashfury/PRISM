@@ -14,13 +14,12 @@ from __future__ import annotations
 import argparse
 import logging
 import urllib.parse
-import urllib.request
-import json
 
 from sqlalchemy import text
 
 from prism.load.db import get_engine
 from prism.transport.schema import create_schema
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -31,19 +30,18 @@ OVERPASS_QUERY = (
     '(way["bridge"="yes"](area.pr);way["bridge"="viaduct"](area.pr););'
     'out center tags;'
 )
-USER_AGENT = "PRISM/1.0 prism-research (rtechpr@gmail.com)"
 
 
 def fetch_bridges() -> list[dict]:
     """Pull bridge ways from Overpass. Returns list of OSM element dicts."""
-    req = urllib.request.Request(
-        OVERPASS_URL,
+    # Overpass rate-limits aggressively and 504s under load; it is the endpoint
+    # most likely to need a retry, and had none (F14d).
+    result = prism_http.fetch_json(
+        OVERPASS_URL, source="overpass_bridges", method="POST",
         data=urllib.parse.urlencode({"data": OVERPASS_QUERY}).encode("utf-8"),
-        headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": USER_AGENT},
-        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        policy=prism_http.RetryPolicy(attempts=5, read_timeout=180.0, max_delay=90.0),
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        result = json.loads(resp.read())
     elements = result.get("elements", [])
     log.info("Overpass returned %d bridge ways", len(elements))
     return elements

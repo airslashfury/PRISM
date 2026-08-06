@@ -1,6 +1,9 @@
 .PHONY: help init up down logs install wfs-list mirror load graph resilience optimize report test lint fmt clean
 
 WFS_URL ?= http://geoserver2.pr.gov/geoserver/pr_geodata/wfs
+POSTGRES_DB ?= prism
+POSTGRES_USER ?= prism
+POSTGRES_PASSWORD ?= prism
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -40,6 +43,15 @@ optimize: ## Phase 4/5 - corridor optimization
 
 report: ## Phase 7 - AI tradeoff narrative
 	python -m prism.report
+
+monthly-report: ## F14c - monthly change report (CSVs + HTML) for the current month
+	python -m prism.report --monthly
+
+anomalies: ## regenerate ANOMALIES.md from config/anomalies.yml
+	python -m prism.provenance --anomalies
+
+anomalies-check: ## fail if ANOMALIES.md is stale or the registry is invalid
+	python -m prism.provenance --anomalies --check
 
 test: ## run tests
 	pytest -q

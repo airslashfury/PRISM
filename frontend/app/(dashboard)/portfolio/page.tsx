@@ -31,6 +31,8 @@ import { usePortfolioRun, usePortfolioRuns } from "@/lib/hooks";
 import { api, pollJob, type PortfolioCompare, type PortfolioCompareItem, type PortfolioItem, type PortfolioOptimizeResult } from "@/lib/api";
 import { fmtInt, fmtNum, fmtUsd, fmtUsdTiered } from "@/lib/utils";
 import { humanizeIntervention, interventionCopy } from "@/lib/interventions";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const TYPE_COLOR: Record<string, string> = {
   elevation: "#22d3ee",
@@ -40,6 +42,9 @@ const TYPE_COLOR: Record<string, string> = {
 const typeColor = (t: string) => TYPE_COLOR[t] ?? "#60a5fa";
 
 export default function PortfolioPage() {
+  const t = useMessages().portfolio;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { push: toast } = useToast();
   const { data: runs, isLoading: runsLoading, error: runsErr } = usePortfolioRuns(100);
   const [picked, setPicked] = useState<number | null>(null);
@@ -78,9 +83,9 @@ export default function PortfolioPage() {
         timeoutMs: 180_000,
       });
       if (!result?.narrative_id) {
-        const msg = "Narrative generation failed (no LLM backend available).";
+        const msg = t.narrativeFailedNoBackend;
         setExplainError(msg);
-        toast({ title: "Diff narrative failed", description: msg, variant: "destructive" });
+        toast({ title: t.diffNarrativeFailed, description: msg, variant: "destructive" });
         return;
       }
       const narratives = await api.narratives(50);
@@ -92,15 +97,15 @@ export default function PortfolioPage() {
           generatedAt: match.generated_at ?? null,
           status: match.status ?? null,
         });
-        toast({ title: "Diff narrative complete" });
+        toast({ title: t.diffNarrativeComplete });
       } else {
-        const msg = "Narrative was generated but could not be loaded.";
+        const msg = t.narrativeLoadFailed;
         setExplainError(msg);
-        toast({ title: "Diff narrative failed", description: msg, variant: "destructive" });
+        toast({ title: t.diffNarrativeFailed, description: msg, variant: "destructive" });
       }
     } catch (e) {
       setExplainError((e as Error).message);
-      toast({ title: "Diff narrative failed", description: (e as Error).message, variant: "destructive" });
+      toast({ title: t.diffNarrativeFailed, description: (e as Error).message, variant: "destructive" });
     } finally {
       setExplaining(false);
     }
@@ -130,14 +135,14 @@ export default function PortfolioPage() {
         equityWeight,
       );
       const result = await pollJob<PortfolioOptimizeResult>(job_id, { timeoutMs: 180_000 });
-      if (result?.run_id == null) throw new Error("Optimization returned no run id");
+      if (result?.run_id == null) throw new Error(t.optimizationNoRunId);
       await queryClient.invalidateQueries({ queryKey: ["portfolioRuns"] });
       setPicked(result.run_id);
       setCompare(await api.portfolioCompare(priorRunId, result.run_id));
-      toast({ title: "Portfolio optimization complete" });
+      toast({ title: t.optimizationComplete });
     } catch (e) {
       setOptimizeError(e as Error);
-      toast({ title: "Portfolio optimization failed", description: (e as Error).message, variant: "destructive" });
+      toast({ title: t.optimizationFailed, description: (e as Error).message, variant: "destructive" });
     } finally {
       setOptimizing(false);
     }
@@ -177,27 +182,23 @@ export default function PortfolioPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            Investment portfolio
+            {t.investmentPortfolio}
             <ProvenanceBadge table="optimize.portfolio.ilp" />
           </h2>
           <p className="text-xs text-muted-foreground">
-            A portfolio is one optimizer run: given a budget and hazard scenario, it picks which
-            substations to upgrade and how, to get the most resilience and population benefit per
-            dollar. Elevation raises equipment above flood level ($5M–$15M); hardening adds flood
-            barriers and structural reinforcement ($3M–$8M); relocation moves a substation to
-            safer ground ($20M+, chosen only for the highest-vulnerability sites).
+            {t.headerDesc}
           </p>
         </div>
         <div className="w-full sm:w-[320px]">
           {runs && runs.length > 0 && (
             <Select value={String(runId)} onValueChange={(v) => setPicked(Number(v))}>
               <SelectTrigger>
-                <SelectValue placeholder="Select run" />
+                <SelectValue placeholder={t.selectRun} />
               </SelectTrigger>
               <SelectContent>
                 {runs.map((r) => (
                   <SelectItem key={r.run_id} value={String(r.run_id)}>
-                    Run #{r.run_id} · {fmtUsd(r.budget_usd, 0)} · {r.algorithm} · {fmtInt(r.n_interventions)} items
+                    {t.runOption(r.run_id, fmtUsd(r.budget_usd, 0), r.algorithm ?? "", fmtInt(r.n_interventions, tag))}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -208,18 +209,9 @@ export default function PortfolioPage() {
 
       <InfoPanel
         sections={[
-          {
-            title: "What this is",
-            body: "Each run picks a set of substation interventions for a fixed budget and hazard scenario. “Resilience uplift” is the reduction in each substation’s composite risk score (hazard probability × cascading impact × network criticality — see Resilience). “Per $1M” is the marginal efficiency used to rank candidates: how much uplift (or equity-adjusted benefit) one million dollars buys at that site.",
-          },
-          {
-            title: "How it's calculated",
-            body: "An Integer Linear Program (scipy.optimize.milp) searches all 800 candidate interventions (200 substations × 4 types: elevation, hardening, relocation, none) and finds the exact combination — not a heuristic — that maximizes total net benefit (population + economic benefit, minus cost) without exceeding the budget. Optionally, benefits are equity-weighted by each substation’s downstream Social Vulnerability Index (see Economy), so high-SVI areas are prioritized at the margin.",
-          },
-          {
-            title: "Data sources & accuracy",
-            body: "Costs are parametric model costs per intervention type, not site-specific engineering estimates. Population and economic benefit come from the VOLL (Value of Lost Load) exposure model. Treat this as a prioritization and trade-off tool — useful for comparing where a dollar does the most good — not a procurement-ready cost estimate.",
-          },
+          t.infoSections.whatThisIs,
+          t.infoSections.howCalculated,
+          t.infoSections.accuracy,
         ]}
       />
 
@@ -227,9 +219,9 @@ export default function PortfolioPage() {
       <Card>
         <div className="flex items-center gap-2 border-b border-border/60 p-4">
           <SlidersHorizontal className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Budget allocator</h3>
+          <h3 className="text-sm font-semibold">{t.budgetAllocator}</h3>
           <span className="text-xs text-muted-foreground">
-            Set a capital budget and re-run the optimizer to see where the next dollar does the most good.
+            {t.budgetAllocatorDesc}
           </span>
         </div>
         <div className="space-y-5 p-4">
@@ -237,8 +229,8 @@ export default function PortfolioPage() {
             {/* Budget slider */}
             <div>
               <div className="mb-1.5 flex items-baseline justify-between">
-                <label className="text-xs font-medium text-muted-foreground">Capital budget</label>
-                <span className="tnum text-lg font-semibold">${fmtInt(budgetM)}M</span>
+                <label className="text-xs font-medium text-muted-foreground">{t.capitalBudget}</label>
+                <span className="tnum text-lg font-semibold">${fmtInt(budgetM, tag)}M</span>
               </div>
               <input
                 type="range"
@@ -259,9 +251,9 @@ export default function PortfolioPage() {
             <div>
               <div className="mb-1.5 flex items-baseline justify-between">
                 <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <Scale className="h-3 w-3" /> Equity weight
+                  <Scale className="h-3 w-3" /> {t.equityWeight}
                 </label>
-                <span className="tnum text-lg font-semibold">{fmtNum(equityWeight, 1)}</span>
+                <span className="tnum text-lg font-semibold">{fmtNum(equityWeight, 1, tag)}</span>
               </div>
               <input
                 type="range"
@@ -274,8 +266,8 @@ export default function PortfolioPage() {
                 className="h-1.5 w-full cursor-pointer accent-violet-400"
               />
               <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                <span>0 · pure cost-benefit</span>
-                <span>1 · full SVI boost</span>
+                <span>{t.pureCostBenefit}</span>
+                <span>{t.fullSviBoost}</span>
               </div>
             </div>
           </div>
@@ -283,15 +275,14 @@ export default function PortfolioPage() {
             <Button onClick={rerunAllocation} disabled={optimizing || runId == null}>
               {optimizing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Optimizing…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t.optimizing}
                 </>
               ) : (
-                <>Re-run allocation at ${fmtInt(budgetM)}M</>
+                <>{t.rerunAt(`$${fmtInt(budgetM, tag)}M`)}</>
               )}
             </Button>
             <span className="text-xs text-muted-foreground">
-              Runs the exact ILP on the {run?.scenario_name ?? "cat3"} scenario via the job queue
-              (~5–30s). Result is saved as a new run and diffed against the one shown now.
+              {t.runsExactIlp(run?.scenario_name ?? "cat3")}
             </span>
           </div>
           {optimizeError && <ErrorBlock error={optimizeError} />}
@@ -300,22 +291,22 @@ export default function PortfolioPage() {
           {compare && (
             <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <span className="tnum text-muted-foreground">Run #{compare.run_a.run_id}</span>
+                <span className="tnum text-muted-foreground">{t.runHash(compare.run_a.run_id)}</span>
                 <ArrowRight className="h-4 w-4 text-primary" />
-                <span className="tnum">Run #{compare.run_b.run_id}</span>
+                <span className="tnum">{t.runHash(compare.run_b.run_id)}</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  ${fmtInt(Math.round(compare.run_a.budget_usd / 1e6))}M → ${fmtInt(Math.round(compare.run_b.budget_usd / 1e6))}M
+                  ${fmtInt(Math.round(compare.run_a.budget_usd / 1e6), tag)}M → ${fmtInt(Math.round(compare.run_b.budget_usd / 1e6), tag)}M
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <DeltaStat label="Capital deployed" value={fmtUsd(compare.run_b.total_cost_usd, 0)} delta={compare.delta_cost_usd} fmt={(v) => fmtUsd(v, 0)} />
-                <DeltaStat label="Resilience uplift" value={fmtNum(compare.run_b.total_uplift, 1)} delta={compare.delta_uplift} fmt={(v) => fmtNum(v, 1)} />
-                <DeltaStat label="Interventions" value={fmtInt(compare.run_b.n_interventions)} delta={compare.delta_n_interventions} fmt={(v) => fmtInt(v)} />
-                <DeltaStat label="People protected" value={fmtInt(compare.delta_population)} delta={compare.delta_population} fmt={(v) => fmtInt(v)} valueIsDelta />
+                <DeltaStat label={t.capitalDeployed} value={fmtUsd(compare.run_b.total_cost_usd, 0)} delta={compare.delta_cost_usd} fmt={(v) => fmtUsd(v, 0)} />
+                <DeltaStat label={t.resilienceUplift} value={fmtNum(compare.run_b.total_uplift, 1, tag)} delta={compare.delta_uplift} fmt={(v) => fmtNum(v, 1, tag)} />
+                <DeltaStat label={t.interventions} value={fmtInt(compare.run_b.n_interventions, tag)} delta={compare.delta_n_interventions} fmt={(v) => fmtInt(v, tag)} />
+                <DeltaStat label={t.peopleProtected} value={fmtInt(compare.delta_population, tag)} delta={compare.delta_population} fmt={(v) => fmtInt(v, tag)} valueIsDelta />
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <DiffList title={`Newly funded (${compare.items_only_in_b.length})`} accent="emerald" items={compare.items_only_in_b} />
-                <DiffList title={`Dropped (${compare.items_only_in_a.length})`} accent="rose" items={compare.items_only_in_a} />
+                <DiffList title={t.newlyFunded(compare.items_only_in_b.length)} accent="emerald" items={compare.items_only_in_b} />
+                <DiffList title={t.dropped(compare.items_only_in_a.length)} accent="rose" items={compare.items_only_in_a} />
               </div>
 
               {/* AI narrative on the diff (F4): what the marginal dollars buy, for whom. */}
@@ -325,14 +316,14 @@ export default function PortfolioPage() {
                     <Button size="sm" variant="outline" onClick={explainDiff} disabled={explaining}>
                       {explaining ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Explaining…
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t.explaining}
                         </>
                       ) : (
-                        <>Explain this diff</>
+                        <>{t.explainThisDiff}</>
                       )}
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                      AI summary of who gains or loses protection between these runs (~10–30s).
+                      {t.aiSummaryDesc}
                     </span>
                   </div>
                 )}
@@ -358,32 +349,36 @@ export default function PortfolioPage() {
       {!runsLoading && !runsErr && (!runs || runs.length === 0) && (
         <EmptyState
           icon={Layers}
-          title="No optimizer runs yet"
-          hint="Set a capital budget above and re-run the allocation to generate the first portfolio."
+          title={t.noOptimizerRuns}
+          hint={t.noOptimizerRunsHint}
         />
       )}
 
       {run && (
         <>
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Budget" value={fmtUsd(run.budget_usd, 0)} sub={run.scenario_name} icon={Banknote} accent="primary" />
+            <StatCard label={t.budget} value={fmtUsd(run.budget_usd, 0)} sub={run.scenario_name} icon={Banknote} accent="primary" />
             <StatCard
-              label="Capital deployed"
+              label={t.capitalDeployed}
               value={fmtUsdTiered(run.total_cost_usd, "proxy")}
-              sub={`${fmtNum(utilization * 100, 1)}% utilization`}
+              sub={t.utilization(fmtNum(utilization * 100, 1, tag))}
               icon={Gauge}
               accent="emerald"
             />
-            <StatCard label="Resilience uplift" value={fmtNum(run.total_uplift, 1)} sub="composite points" icon={TrendingUp} accent="violet" />
-            <StatCard label="Interventions" value={fmtInt(run.n_interventions)} sub={run.algorithm ?? ""} icon={Layers} accent="amber" />
+            <StatCard label={t.resilienceUplift} value={fmtNum(run.total_uplift, 1, tag)} sub={t.compositePoints} icon={TrendingUp} accent="violet" />
+            <StatCard label={t.interventions} value={fmtInt(run.n_interventions, tag)} sub={run.algorithm ?? ""} icon={Layers} accent="amber" />
           </section>
 
           <p className="text-xs text-muted-foreground">
-            {fmtUsd(run.total_cost_usd, 0)} of {fmtUsd(run.budget_usd, 0)} deployed
-            ({fmtNum(utilization * 100, 1)}%) — {fmtUsd(leftoverUsd, 0)} left over,{" "}
-            {smallestItemCost != null && leftoverUsd >= smallestItemCost
-              ? "enough headroom for another item at this budget."
-              : "too little to fund another intervention at this budget."}
+            {t.deployedOfBudget(
+              fmtUsd(run.total_cost_usd, 0),
+              fmtUsd(run.budget_usd, 0),
+              fmtNum(utilization * 100, 1, tag),
+              fmtUsd(leftoverUsd, 0),
+              smallestItemCost != null && leftoverUsd >= smallestItemCost
+                ? t.enoughHeadroom
+                : t.tooLittleHeadroom,
+            )}
           </p>
 
           <GlossaryStrip />
@@ -392,16 +387,22 @@ export default function PortfolioPage() {
             {/* Allocation by type */}
             <Card>
               <div className="border-b border-border/60 p-4">
-                <h3 className="text-sm font-semibold">Capital by intervention type</h3>
+                <h3 className="text-sm font-semibold">{t.capitalByType}</h3>
               </div>
               <div className="p-4">
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={run.allocation_by_type} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                  <BarChart
+                    data={run.allocation_by_type.map((a) => ({
+                      ...a,
+                      intervention_label: humanizeIntervention(a.intervention_type, locale),
+                    }))}
+                    margin={{ top: 8, right: 8, left: 8, bottom: 0 }}
+                  >
                     <CartesianGrid {...GRID_PROPS} />
-                    <XAxis dataKey="intervention_type" {...AXIS_PROPS} />
+                    <XAxis dataKey="intervention_label" {...AXIS_PROPS} />
                     <YAxis {...AXIS_PROPS} tickFormatter={(v) => fmtUsd(v, 0)} width={52} />
                     <Tooltip cursor={{ fill: "hsl(215 28% 16% / 0.4)" }} content={<ChartTooltip format={(v) => fmtUsd(v)} />} />
-                    <Bar dataKey="total_cost_usd" name="Capital" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey="total_cost_usd" name={t.capitalLegend} radius={[4, 4, 0, 0]}>
                       {run.allocation_by_type.map((a) => (
                         <Cell key={a.intervention_type} fill={typeColor(a.intervention_type)} />
                       ))}
@@ -414,10 +415,9 @@ export default function PortfolioPage() {
             {/* Efficiency frontier */}
             <Card>
               <div className="border-b border-border/60 p-4">
-                <h3 className="text-sm font-semibold">Cumulative efficiency frontier</h3>
+                <h3 className="text-sm font-semibold">{t.efficiencyFrontier}</h3>
                 <p className="text-xs text-muted-foreground">
-                  Each point = one more intervention added in priority order. Steep slope = high
-                  return; flat tail = diminishing returns as budget is exhausted.
+                  {t.efficiencyFrontierDesc}
                 </p>
               </div>
               <div className="p-4">
@@ -434,11 +434,11 @@ export default function PortfolioPage() {
                     <YAxis {...AXIS_PROPS} width={40} />
                     <Tooltip
                       content={
-                        <ChartTooltip format={(v) => fmtNum(v, 1)} />
+                        <ChartTooltip format={(v) => fmtNum(v, 1, tag)} />
                       }
-                      labelFormatter={(v) => `$${fmtNum(Number(v), 0)}M deployed`}
+                      labelFormatter={(v) => t.deployedTooltip(fmtNum(Number(v), 0, tag))}
                     />
-                    <Area type="monotone" dataKey="uplift" name="Cumulative uplift" stroke="#22d3ee" strokeWidth={2} fill="url(#upliftFill)" />
+                    <Area type="monotone" dataKey="uplift" name={t.cumulativeUpliftLegend} stroke="#22d3ee" strokeWidth={2} fill="url(#upliftFill)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -448,8 +448,8 @@ export default function PortfolioPage() {
           {/* Investment plan — each pick explained, not just listed (F9c C1) */}
           <Card>
             <div className="flex items-center justify-between border-b border-border/60 p-4">
-              <h3 className="text-sm font-semibold">The investment plan</h3>
-              <span className="text-xs text-muted-foreground">{fmtInt(run.items.length)} items, in net-benefit order</span>
+              <h3 className="text-sm font-semibold">{t.theInvestmentPlan}</h3>
+              <span className="text-xs text-muted-foreground">{t.itemsInOrder(fmtInt(run.items.length, tag))}</span>
             </div>
             <div className="max-h-[600px] divide-y divide-border/40 overflow-y-auto">
               {run.items.map((it) => (
@@ -472,14 +472,16 @@ function PlanItemRow({
   rank: number | null;
   totalItems: number;
 }) {
-  const copy = interventionCopy(item.intervention_type);
+  const t = useMessages().portfolio;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
+  const copy = interventionCopy(item.intervention_type, locale);
   const who =
     item.population_affected != null && item.population_affected > 0
-      ? `protects ~${fmtInt(item.population_affected)} people${
-          item.hospitals ? `, ${fmtInt(item.hospitals)} hospital${item.hospitals === 1 ? "" : "s"}` : ""
-        }`
+      ? t.protectsApprox(fmtInt(item.population_affected, tag)) +
+        (item.hospitals ? t.hospitalsClause(fmtInt(item.hospitals, tag), item.hospitals) : "")
       : null;
-  const rankText = rank != null ? `ranked #${rank} of ${totalItems} on protection per dollar in this budget` : null;
+  const rankText = rank != null ? t.rankedText(rank, totalItems) : null;
   const why = [who, rankText].filter(Boolean).join("; ");
 
   return (
@@ -492,19 +494,19 @@ function PlanItemRow({
             className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs"
             style={{ background: `${typeColor(item.intervention_type)}1a`, color: typeColor(item.intervention_type) }}
           >
-            {humanizeIntervention(item.intervention_type)}
+            {humanizeIntervention(item.intervention_type, locale)}
           </span>
         </div>
         <div className="flex items-center gap-4 text-xs">
           <span className="tnum">{fmtUsdTiered(item.cost_usd, "proxy")}</span>
-          <span className="tnum text-muted-foreground">+{fmtNum(item.resilience_uplift, 1)} uplift</span>
-          <span className="tnum text-muted-foreground">{fmtNum(item.uplift_per_million, 2)}/$1M</span>
+          <span className="tnum text-muted-foreground">{t.upliftUnit(fmtNum(item.resilience_uplift, 1, tag))}</span>
+          <span className="tnum text-muted-foreground">{t.perMillionUnit(fmtNum(item.uplift_per_million, 2, tag))}</span>
         </div>
       </div>
       {(why || copy) && (
         <p className="mt-1 pl-8 text-xs text-muted-foreground">
           {copy ? `${copy.what} ` : ""}
-          {who ? `This ${why}.` : rankText ? `${rankText.charAt(0).toUpperCase()}${rankText.slice(1)}.` : ""}
+          {who ? t.thisWhy(why) : rankText ? `${rankText.charAt(0).toUpperCase()}${rankText.slice(1)}.` : ""}
         </p>
       )}
     </div>
@@ -512,10 +514,11 @@ function PlanItemRow({
 }
 
 function GlossaryStrip() {
+  const t = useMessages().portfolio;
   const terms: { term: string; def: string }[] = [
-    { term: "Uplift", def: "reduction in the substation's composite risk score this intervention buys" },
-    { term: "Per $1M", def: "marginal efficiency — how much uplift one million dollars buys at that site" },
-    { term: "Equity weight", def: "how much the optimizer boosts benefit for high-SVI (socially vulnerable) areas" },
+    t.glossary.uplift,
+    t.glossary.perMillion,
+    t.glossary.equityWeight,
   ];
   return (
     <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
@@ -541,6 +544,7 @@ function DeltaStat({
   fmt: (v: number) => string;
   valueIsDelta?: boolean;
 }) {
+  const t = useMessages().portfolio;
   const up = delta > 0;
   const flat = delta === 0;
   const color = flat ? "text-muted-foreground" : up ? "text-emerald-400" : "text-rose-400";
@@ -549,7 +553,7 @@ function DeltaStat({
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="tnum text-sm font-semibold">{valueIsDelta ? "" : value}</div>
       <div className={`tnum text-xs ${color}`}>
-        {flat ? "no change" : `${up ? "+" : "−"}${fmt(Math.abs(delta))}`}
+        {flat ? t.noChange : `${up ? "+" : "−"}${fmt(Math.abs(delta))}`}
       </div>
     </div>
   );
@@ -564,6 +568,8 @@ function DiffList({
   accent: "emerald" | "rose";
   items: PortfolioCompareItem[];
 }) {
+  const t = useMessages().portfolio;
+  const { locale } = useLocale();
   const dot = accent === "emerald" ? "bg-emerald-400" : "bg-rose-400";
   return (
     <div>
@@ -572,14 +578,14 @@ function DiffList({
         {title}
       </div>
       {items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">None.</p>
+        <p className="text-xs text-muted-foreground">{t.none}</p>
       ) : (
         <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
           {items.slice(0, 25).map((it) => (
             <li key={`${it.entity_id}-${it.intervention_type}`} className="flex items-center justify-between gap-2 text-xs">
               <span className="truncate">{it.entity_name ?? `#${it.entity_id}`}</span>
               <span className="shrink-0 text-muted-foreground">
-                {it.intervention_type} · {fmtUsd(it.cost_usd, 0)}
+                {humanizeIntervention(it.intervention_type, locale)} · {fmtUsd(it.cost_usd, 0)}
               </span>
             </li>
           ))}

@@ -158,7 +158,7 @@ def test_complete_validated_returns_ok_on_first_try(monkeypatch):
     from prism.report.narrative import _complete_validated
     from prism.llm import Completion
 
-    good = Completion(text="x" * 250, tier="sonnet", model="claude-sonnet-4-6", backend="anthropic")
+    good = Completion(text="x" * 250, tier="sonnet", model="claude-sonnet-5", backend="anthropic")
     monkeypatch.setattr("prism.llm.complete", lambda **kwargs: good)
 
     completion, status = _complete_validated("planning_report", "prompt", system="sys", max_tokens=100)

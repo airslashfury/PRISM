@@ -17,12 +17,12 @@ import hashlib
 import json
 import logging
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 import geopandas as gpd
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from prism.sync import http as prism_http
 
 log = logging.getLogger(__name__)
 
@@ -66,8 +66,10 @@ def _fetch_geojson(layer: str, *, timeout: float = 90.0) -> str:
         "outputFormat": "application/json",
         "srsName": "urn:ogc:def:crs:EPSG::4326",
     })
-    with urllib.request.urlopen(f"{WFS_URL}?{params}", timeout=timeout) as r:  # noqa: S310
-        return r.read().decode("utf-8", "replace")
+    return prism_http.fetch_text(
+        f"{WFS_URL}?{params}", source="wfs_faults",
+        policy=prism_http.RetryPolicy(attempts=3, read_timeout=float(timeout)),
+    )
 
 
 def _mirror(layer: str, raw: str) -> None:

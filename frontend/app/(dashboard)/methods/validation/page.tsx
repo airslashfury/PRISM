@@ -10,6 +10,8 @@ import { LoadingBlock, ErrorBlock } from "@/components/query-state";
 import { useModelCards, useValidationBacktests, useValidationSensitivity } from "@/lib/hooks";
 import { fmtDateTime, fmtPct } from "@/lib/utils";
 import type { BacktestResult, ModelCard, SensitivityResult, SensitivityStability } from "@/lib/api";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
 
 const STABILITY_STYLE: Record<SensitivityStability, string> = {
   robust: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600",
@@ -18,11 +20,14 @@ const STABILITY_STYLE: Record<SensitivityStability, string> = {
 };
 
 export default function ValidationPage() {
+  const t = useMessages().validation;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const { data: backtests, isLoading: btLoading, error: btError } = useValidationBacktests();
   const { data: sensitivity, isLoading: senLoading, error: senError } = useValidationSensitivity();
   const { data: cards, isLoading: cardsLoading, error: cardsError } = useModelCards();
 
-  if (btLoading || senLoading || cardsLoading) return <LoadingBlock label="Loading validation report" className="p-10" />;
+  if (btLoading || senLoading || cardsLoading) return <LoadingBlock label={t.loadingReport} className="p-10" />;
   if (btError) return <ErrorBlock error={btError} className="m-6" />;
   if (senError) return <ErrorBlock error={senError} className="m-6" />;
   if (cardsError) return <ErrorBlock error={cardsError} className="m-6" />;
@@ -32,37 +37,23 @@ export default function ValidationPage() {
       <div>
         <div className="text-xs text-muted-foreground">
           <Link href="/methods" className="hover:underline">
-            Trust Center
-          </Link>{" "}
-          / Calibration &amp; Validation
+            {t.trustCenter}
+          </Link>
+          {t.breadcrumbSuffix}
         </div>
-        <h1 className="mt-1 text-xl font-semibold text-foreground">Calibration &amp; Validation</h1>
+        <h1 className="mt-1 text-xl font-semibold text-foreground">{t.title}</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          How well do PRISM&apos;s rankings line up with what actually happened, and how much do the
-          rankings move if the underlying assumptions are wrong? Misses are reported alongside hits —
-          a model that only shows its wins isn&apos;t trustworthy.
+          {t.headerDesc}
         </p>
       </div>
 
       <InfoPanel
-        title="About this report"
+        title={t.aboutThisReport}
         defaultOpen
         sections={[
-          {
-            title: "What this is",
-            body:
-              "Two kinds of check: event backtests replay a real storm/outage against PRISM's resilience rankings and report precision/recall against a hand-curated, cited list of severely-affected municipios. Sensitivity sweeps perturb each load-bearing assumption (VOLL, discount rate, outage hours, feeder-assignment confidence, hazard probability curve) by ±50% and check whether substation rankings hold.",
-          },
-          {
-            title: "How it's calculated",
-            body:
-              "python -m prism.validate runs both passes and persists results to validation.backtest_results / validation.sensitivity_results (prism/validate/backtest.py, prism/validate/sensitivity.py). A sweep is \"robust\" if Spearman's rho ≥ 0.9 and the top-10 overlap ≥ 0.8 against the baseline ranking; otherwise it's flagged \"sensitive\".",
-          },
-          {
-            title: "Sources & accuracy",
-            body:
-              "Event ground truth (config/validation_events.yml) is a deliberately scrappy first pass: 2–3 cited news/academic sources per event, at municipio granularity — not a per-substation outage GIS. Treat precision/recall as directional, not exact.",
-          },
+          t.infoSections.whatThisIs,
+          t.infoSections.howCalculated,
+          t.infoSections.accuracy,
         ]}
       />
 
@@ -74,11 +65,14 @@ export default function ValidationPage() {
 }
 
 function BacktestsSection({ results }: { results: BacktestResult[] }) {
+  const t = useMessages().validation;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-foreground">Event backtests ({results.length})</h2>
+      <h2 className="text-sm font-semibold text-foreground">{t.eventBacktests(results.length)}</h2>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {results.map((r) => (
           <Card key={r.event_key}>
@@ -86,20 +80,20 @@ function BacktestsSection({ results }: { results: BacktestResult[] }) {
               <CardTitle className="flex items-center justify-between text-sm">
                 <span>{r.event_name}</span>
                 <span className="text-[10px] font-normal text-muted-foreground">
-                  {r.event_date ? fmtDateTime(r.event_date).split(",")[0] : "—"}
+                  {r.event_date ? fmtDateTime(r.event_date, tag).split(",")[0] : "—"}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
               <div className="grid grid-cols-2 gap-2">
-                <Stat label="Precision" value={fmtPct(r.precision_at_n)} />
-                <Stat label="Recall" value={fmtPct(r.recall)} />
+                <Stat label={t.precision} value={fmtPct(r.precision_at_n)} />
+                <Stat label={t.recall} value={fmtPct(r.recall)} />
               </div>
               <p className="text-[11px] leading-relaxed text-muted-foreground">{r.notes}</p>
               {r.misses.length > 0 && (
                 <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
                   <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-600">
-                    Missed ({r.misses.length})
+                    {t.missed(r.misses.length)}
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground">{r.misses.join(", ")}</div>
                 </div>
@@ -109,7 +103,7 @@ function BacktestsSection({ results }: { results: BacktestResult[] }) {
                 onClick={() => setExpanded((e) => (e === r.event_key ? null : r.event_key))}
                 className="text-[11px] text-primary hover:underline"
               >
-                {expanded === r.event_key ? "Hide hits/misses map" : "Show hits/misses map"}
+                {expanded === r.event_key ? t.hideHitsMisses : t.showHitsMisses}
               </button>
               {expanded === r.event_key && <HitsMissesTable result={r} />}
             </CardContent>
@@ -130,17 +124,18 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function HitsMissesTable({ result }: { result: BacktestResult }) {
+  const t = useMessages().validation;
   return (
     <div className="max-h-64 overflow-auto rounded-md border border-border/60">
       <table className="w-full text-left text-[11px]">
         <thead className="sticky top-0 bg-muted/30 text-muted-foreground">
           <tr>
-            <th className="px-2 py-1 font-medium">Rank</th>
-            <th className="px-2 py-1 font-medium">Substation</th>
+            <th className="px-2 py-1 font-medium">{t.rank}</th>
+            <th className="px-2 py-1 font-medium">{t.substation}</th>
             <th className="px-2 py-1 font-medium">
-              {result.validation_type === "spof_corridor" ? "Municipio" : "Municipios"}
+              {result.validation_type === "spof_corridor" ? t.municipio : t.municipios}
             </th>
-            <th className="px-2 py-1 font-medium">Hit?</th>
+            <th className="px-2 py-1 font-medium">{t.hitQuestion}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border/50">
@@ -157,7 +152,7 @@ function HitsMissesTable({ result }: { result: BacktestResult }) {
               </td>
               <td className="px-2 py-1">
                 {h.is_hit ? (
-                  <span className="text-emerald-600">Hit</span>
+                  <span className="text-emerald-600">{t.hit}</span>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
@@ -171,6 +166,7 @@ function HitsMissesTable({ result }: { result: BacktestResult }) {
 }
 
 function SensitivitySection({ results }: { results: SensitivityResult[] }) {
+  const t = useMessages().validation;
   const grouped = useMemo(() => {
     const out = new Map<string, SensitivityResult[]>();
     for (const r of results) {
@@ -183,17 +179,17 @@ function SensitivitySection({ results }: { results: SensitivityResult[] }) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-foreground">Sensitivity sweeps ({results.length})</h2>
+      <h2 className="text-sm font-semibold text-foreground">{t.sensitivitySweeps(results.length)}</h2>
       <div className="overflow-x-auto rounded-lg border border-border/70">
         <table className="w-full text-left text-xs">
           <thead className="bg-muted/30 text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 font-medium">Assumption</th>
-              <th className="px-3 py-2 font-medium">Perturbation</th>
-              <th className="px-3 py-2 font-medium">Spearman ρ</th>
-              <th className="px-3 py-2 font-medium">Top-10 overlap</th>
-              <th className="px-3 py-2 font-medium">Stability</th>
-              <th className="px-3 py-2 font-medium">Notes</th>
+              <th className="px-3 py-2 font-medium">{t.assumption}</th>
+              <th className="px-3 py-2 font-medium">{t.perturbation}</th>
+              <th className="px-3 py-2 font-medium">{t.spearmanRho}</th>
+              <th className="px-3 py-2 font-medium">{t.top10Overlap}</th>
+              <th className="px-3 py-2 font-medium">{t.stability}</th>
+              <th className="px-3 py-2 font-medium">{t.notes}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
@@ -216,7 +212,7 @@ function SensitivitySection({ results }: { results: SensitivityResult[] }) {
                     <span
                       className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STABILITY_STYLE[r.stability]}`}
                     >
-                      {r.stability}
+                      {t.stabilityValue[r.stability] ?? r.stability}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{r.notes}</td>
@@ -231,9 +227,10 @@ function SensitivitySection({ results }: { results: SensitivityResult[] }) {
 }
 
 function ModelCardsSection({ cards }: { cards: ModelCard[] }) {
+  const t = useMessages().validation;
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-foreground">Model cards ({cards.length})</h2>
+      <h2 className="text-sm font-semibold text-foreground">{t.modelCards(cards.length)}</h2>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {cards.map((c) => (
           <Card key={c.id}>
@@ -248,7 +245,7 @@ function ModelCardsSection({ cards }: { cards: ModelCard[] }) {
 
               {c.inputs.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Inputs</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.inputs}</div>
                   <ul className="mt-0.5 list-inside list-disc text-[11px] text-muted-foreground">
                     {c.inputs.map((inp) => (
                       <li key={inp}>{inp}</li>
@@ -259,7 +256,7 @@ function ModelCardsSection({ cards }: { cards: ModelCard[] }) {
 
               {c.known_limitations.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Known limitations</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.knownLimitations}</div>
                   <ul className="mt-0.5 list-inside list-disc text-[11px] text-muted-foreground">
                     {c.known_limitations.map((l) => (
                       <li key={l}>{l}</li>
@@ -270,11 +267,11 @@ function ModelCardsSection({ cards }: { cards: ModelCard[] }) {
 
               {c.backtests.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Backtests</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.backtests}</div>
                   <ul className="mt-0.5 space-y-0.5 text-[11px] text-muted-foreground">
                     {c.backtests.map((b) => (
                       <li key={b.event_key}>
-                        {b.event_name}: precision {fmtPct(b.precision_at_n)}, recall {fmtPct(b.recall)}
+                        {t.backtestLine(b.event_name, fmtPct(b.precision_at_n), fmtPct(b.recall))}
                       </li>
                     ))}
                   </ul>
@@ -283,7 +280,7 @@ function ModelCardsSection({ cards }: { cards: ModelCard[] }) {
 
               {c.sensitivity.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Sensitivity</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.sensitivity}</div>
                   <div className="mt-0.5 flex flex-wrap gap-1">
                     {c.sensitivity.flatMap((s) =>
                       s.results.map((r) => (
@@ -292,7 +289,7 @@ function ModelCardsSection({ cards }: { cards: ModelCard[] }) {
                           className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${STABILITY_STYLE[r.stability]}`}
                           title={r.notes ?? undefined}
                         >
-                          {s.assumption_key} {r.perturbation}: {r.stability}
+                          {s.assumption_key} {r.perturbation}: {t.stabilityValue[r.stability] ?? r.stability}
                         </span>
                       )),
                     )}

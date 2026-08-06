@@ -29,8 +29,10 @@ def test_list_assumptions_have_required_fields():
 def test_get_table_provenance_known_table():
     prov = provenance.get_table_provenance("graph.relationships")
     assert prov is not None
+    # Tier stays proxy on the weakest-input rule (facility POWERS + FEEDS are
+    # still proxy) even after the substation→barrio POWERS swap to measured feeders.
     assert prov["confidence_tier"] == "proxy"
-    assert prov["method"] == "proxy"
+    assert "proxy" in prov["method"]
     assert "FEEDS" in prov["assumptions"]
     assert prov["upgrade_path"]
     assert prov["row_count"] == 68272
@@ -96,7 +98,7 @@ def test_api_inventory(client):
     r = client.get("/provenance/inventory")
     assert r.status_code == 200
     body = r.json()
-    assert len(body) == 189
+    assert len(body) == 204
     assert all("confidence_tier" in e for e in body)
 
 

@@ -78,7 +78,7 @@ class FeedFreshness(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    kind: str                           # sync | rescore | rank | quake | crim | storm
+    kind: str                           # sync | rescore | rank | quake | crim | storm | registry | pull
     headline: str
     detail: str | None = None
     at: str | None = None               # ISO timestamp (or month for CRIM deltas)
@@ -92,11 +92,20 @@ class CrimBaseline(BaseModel):
     latest_delta_month: str | None = None
 
 
+class PullHealthSummary(BaseModel):
+    """How many tracked pulls are currently broken (F14d) — distinct from feed
+    staleness, which only says how old the data is."""
+    tracked: int = 0
+    failing: int = 0
+    partial: int = 0
+
+
 class WhatsNewResponse(BaseModel):
     feeds: list[FeedFreshness] = Field(default_factory=list)
     stale_count: int
     changes: list[ChangeEvent] = Field(default_factory=list)
     crim_baseline: CrimBaseline
+    pull_health: PullHealthSummary = Field(default_factory=PullHealthSummary)
 
 
 # --------------------------------------------------------------------------- #
@@ -190,6 +199,8 @@ class ConsequenceSummary(BaseModel):
 class WaterBarrio(BaseModel):
     entity_id: int
     name: str | None
+    lon: float | None = None
+    lat: float | None = None
 
 
 class WaterConsequence(BaseModel):
@@ -206,6 +217,8 @@ class WaterConsequence(BaseModel):
 class TelecomBarrio(BaseModel):
     entity_id: int
     name: str | None
+    lon: float | None = None
+    lat: float | None = None
 
 
 class TelecomConsequence(BaseModel):
@@ -505,6 +518,35 @@ class MunicipioDetail(MunicipioRollup):
 
 
 # --------------------------------------------------------------------------- #
+# Weather / climate (F10a)                                                     #
+# --------------------------------------------------------------------------- #
+class WeatherMunicipioRollup(BaseModel):
+    """One municipio's climate rollup — per-feature properties of
+    GET /weather/municipios (prism.weather.municipios.municipio_rollup)."""
+    name: str
+    geoid: str
+    station_id: str | None = None
+    station_name: str | None = None
+    station_dist_km: float | None = None
+    workable_days_per_year: float | None = None
+    rain_days_per_year: float | None = None
+    tavg_normal_f: float | None = None
+    prcp_normal_in_per_year: float | None = None
+
+
+class WeatherMonthlyNormal(BaseModel):
+    month: int
+    tavg_normal_f: float | None = None
+    prcp_normal_in: float | None = None
+    rain_days: float | None = None
+
+
+class WeatherMunicipioDetail(WeatherMunicipioRollup):
+    monthly: list[WeatherMonthlyNormal] = Field(default_factory=list)
+    confidence_tiers: dict[str, str] = Field(default_factory=dict)
+
+
+# --------------------------------------------------------------------------- #
 # Corridor                                                                     #
 # --------------------------------------------------------------------------- #
 class CorridorRoute(BaseModel):
@@ -753,6 +795,71 @@ class AssumptionRationale(BaseModel):
     what_would_change_it: str
 
 
+class AnomalyMagnitude(BaseModel):
+    """How big the exclusion is, and the SQL that measured it (documentation —
+    the API does not execute it)."""
+    measured: str
+    probe: str | None = None
+
+
+class Anomaly(BaseModel):
+    """One registered data exclusion (F14b) — see config/anomalies.yml."""
+    id: str
+    title: str
+    dataset: str
+    source: str
+    what: str
+    why: str
+    where: str
+    scope: list[str] = Field(default_factory=list)
+    magnitude: AnomalyMagnitude
+    severity: str
+    remediation: str | None = None
+    # Institution keys (config/anomalies.yml `institutions:`) that could fix it,
+    # plus their display names. Empty when nothing upstream can.
+    remediation_owner: list[str] = Field(default_factory=list)
+    remediation_owner_names: list[str] = Field(default_factory=list)
+    status: str
+
+
+class AnomalyReport(BaseModel):
+    """The Trust Center's "Excluded data" payload."""
+    measured_on: str | None = None
+    total: int
+    by_severity: dict[str, int]
+    # Source institutions at least one remediation is addressed to.
+    institutions: list[str] = Field(default_factory=list)
+    anomalies: list[Anomaly] = Field(default_factory=list)
+
+
+class MonthlyReportSection(BaseModel):
+    key: str
+    title: str
+    available: bool
+    reason: str | None = None
+    source_tables: list[str] = Field(default_factory=list)
+    #: When the source register was last synced — several of PRISM's lag.
+    vintage: str | None = None
+    #: The window this section covers. The three sections do NOT align: parcel
+    #: ownership is snapshot-scoped, the other two are calendar-scoped.
+    period: str | None = None
+
+
+class MonthlyReport(BaseModel):
+    """Monthly change report summary (F14c). The full detail lives in the CSVs
+    and the HTML artifact — this is the index over them."""
+    month: str
+    month_label: str
+    generated_at: str
+    empty: bool
+    sections: list[MonthlyReportSection] = Field(default_factory=list)
+    parcel_totals: dict[str, int] = Field(default_factory=dict)
+    transfer_classes: dict[str, int] = Field(default_factory=dict)
+    registry_standing: dict[str, Any] = Field(default_factory=dict)
+    contract_totals: dict[str, Any] = Field(default_factory=dict)
+    files: list[str] = Field(default_factory=list)
+
+
 class CostReference(BaseModel):
     key: str
     label: str
@@ -860,8 +967,13 @@ class CivicCommunityResilience(BaseModel):
 
 
 class CivicRoadAccess(BaseModel):
-    nearest_hospital: str
-    travel_time_min: float
+    nearest_hospital: str | None = None
+    travel_time_min: float | None = None
+    # F10c-7 — a barrio can lack a road-graph-reachable hospital but still
+    # reach a community clinic (primary care, not ER capacity — never shown
+    # as a hospital substitute).
+    nearest_clinic: str | None = None
+    clinic_travel_time_min: float | None = None
     confidence_tier: str
 
 
@@ -1134,8 +1246,12 @@ class ParcelCommunity(BaseModel):
 
 
 class ParcelRoadAccess(BaseModel):
-    nearest_hospital: str
-    travel_time_min: float
+    nearest_hospital: str | None = None
+    travel_time_min: float | None = None
+    # F10c-7 — see CivicRoadAccess: a fallback for barrios with no
+    # road-reachable hospital (primary care, never a hospital substitute).
+    nearest_clinic: str | None = None
+    clinic_travel_time_min: float | None = None
     confidence_tier: str
 
 
@@ -1192,6 +1308,21 @@ class ParcelProposedAddress(BaseModel):
     confidence_tier: str
 
 
+class ParcelRegistry(BaseModel):
+    """Corporate-registry status of the parcel's owner (F11c). Absent entirely
+    when the owner is a person — most parcels."""
+    registration_index: str
+    corp_name: str | None = None
+    status_es: str | None = None
+    status_gloss: str | None = None
+    is_terminal: bool
+    class_es: str | None = None
+    date_formed: str | None = None
+    termination_date: str | None = None
+    entity_count: int                   # >1 when the owner name links to several registrations
+    confidence_tier: str
+
+
 class ParcelDetail(BaseModel):
     num_catastro: str
     catastro: str | None = None
@@ -1203,6 +1334,7 @@ class ParcelDetail(BaseModel):
     lon: float | None = None
     lat: float | None = None
     crim: ParcelCrimRecord
+    registry: ParcelRegistry | None = None
     sale_history: list[ParcelSale] = Field(default_factory=list)
     power: ParcelPower | None = None
     flood: ParcelFlood
@@ -1273,6 +1405,139 @@ class OwnerDetail(BaseModel):
     by_municipio: list[OwnerMunicipio] = Field(default_factory=list)
     timeline: list[OwnerTimelinePoint] = Field(default_factory=list)
     top_parcels: list[OwnerPortfolioParcel] = Field(default_factory=list)
+
+
+# ── OCPR government-contract footprint (F11e) ────────────────────────────────
+
+
+class ContractAgency(BaseModel):
+    entity_name: str | None = None      # the government body that awarded
+    contract_count: int
+    total_amount: float | None = None
+
+
+class ContractSummaryRow(BaseModel):
+    contract_id: int
+    contract_number: str | None = None
+    entity_name: str | None = None
+    service: str | None = None
+    amount: float | None = None
+    date_of_grant: str | None = None
+    cancelled: bool = False
+    contractor_count: int = 1
+    shared: bool = False                # >1 contractor: `amount` is the FULL contract
+    co_contractors: list[str] = Field(default_factory=list)
+    doc_id: str | None = None           # OCPR document GUID (lazy-fetchable PDF)
+
+
+class OwnerContractFootprint(BaseModel):
+    owner_key: str
+    available: bool                     # False until the OCPR mirror is loaded
+    matched: bool                       # False = no contracts (an answer, not an error)
+    is_government: bool
+    contract_count: int
+    total_amount: float | None = None
+    agency_count: int
+    shared_count: int                   # contracts whose amount is over-counted
+    shared_amount: float | None = None
+    first_grant: str | None = None
+    last_grant: str | None = None
+    agencies: list[ContractAgency] = Field(default_factory=list)
+    top_contracts: list[ContractSummaryRow] = Field(default_factory=list)
+    confidence_tier: str
+
+
+class ClusterSibling(BaseModel):
+    """Another registry entity in the same control cluster (F11d)."""
+    registration_index: str
+    corp_name: str | None = None
+    status_es: str | None = None
+    owner_key: str | None = None            # the CRIM owner this sibling matches, if any
+    owner_display_name: str | None = None
+    is_same_owner: bool                     # belongs to the SAME owner_key being viewed
+
+
+class SharedPerson(BaseModel):
+    """One named individual whose shared officer/incorporator role links >=2
+    entities in a control cluster (F11d)."""
+    person_key: str
+    display_name: str
+    role: str                               # officer | incorporator
+    entities_in_cluster: int
+
+
+class ControlCluster(BaseModel):
+    """Entities sharing >=2 named officers/incorporators with this one (F11d).
+
+    One inferential step past F11c's already-`proxy` name match: shared
+    officers is strong evidence of common control, not proof — the same two
+    people could legitimately co-found unrelated ventures.
+    """
+    cluster_id: str
+    entity_count: int
+    distinct_owner_count: int
+    spans_multiple_owners: bool             # the headline finding: >1 CRIM owner_key in one cluster
+    shared_people: list[SharedPerson] = Field(default_factory=list)
+    siblings: list[ClusterSibling] = Field(default_factory=list)
+    address_corroborated: bool              # >=2 members also share a non-agent-office address
+    confidence_tier: str
+
+
+class RegistryEntity(BaseModel):
+    """One corporations-registry record linked to a CRIM owner (F11c)."""
+    registration_index: str
+    corp_name: str | None = None
+    status_es: str | None = None
+    status_gloss: str | None = None     # plain-English gloss of the Spanish status
+    is_terminal: bool                   # no longer active (NOT necessarily dissolved)
+    class_es: str | None = None
+    date_formed: str | None = None
+    termination_date: str | None = None
+    jurisdiction_es: str | None = None
+    resident_agent: str | None = None
+    registered_address: str | None = None
+    match_method: str                   # exact | token_sorted | fuzzy
+    match_confidence: float | None = None
+    municipio_corroborated: bool        # registered address sits where the parcels are
+    as_of: str | None = None            # when PRISM last pulled this record
+    cluster: ControlCluster | None = None   # F11d — None when this entity is in no cluster
+
+
+class RegistryNearMiss(BaseModel):
+    """A name that almost matched — surfaced rather than hidden, so the layer
+    never looks more complete than it is."""
+    match_key: str
+    method: str                         # ambiguous | fuzzy_unconfirmed
+    candidates: list[dict] = Field(default_factory=list)
+
+
+class OwnerRegistry(BaseModel):
+    owner_key: str
+    available: bool                     # False until the F11b match has been built
+    matched: bool                       # False = no registry record (an answer, not an error)
+    looked: bool                        # True only when the name looked corporate
+    entities: list[RegistryEntity] = Field(default_factory=list)
+    unresolved: list[RegistryNearMiss] = Field(default_factory=list)
+    confidence_tier: str
+    registry_url: str
+
+
+class ContractorOwner(BaseModel):
+    owner_key: str
+    display_name: str | None = None
+    parcel_count: int
+    total_val: float | None = None
+    contract_count: int
+    total_amount: float | None = None
+    is_government: bool
+
+
+class ContractorOwnerRanking(BaseModel):
+    include_government: bool
+    count: int
+    owners: list[ContractorOwner] = Field(default_factory=list)
+    available: bool
+    confidence_tier: str
 
 
 # ── CRIM sales trends (item 6 — monthly snapshots + deltas) ──────────────────
@@ -1394,6 +1659,7 @@ class WaterSourceWhat(BaseModel):
 class WaterSourceServes(BaseModel):
     barrios_served: int
     sample_barrios: list[str] = Field(default_factory=list)
+    barrio_points: list[WaterBarrio] = Field(default_factory=list)
 
 
 class WaterSourceHazards(BaseModel):
@@ -1477,6 +1743,7 @@ class TelecomSourceWhat(BaseModel):
 class TelecomSourceServes(BaseModel):
     barrios_covered: int
     sample_barrios: list[str] = Field(default_factory=list)
+    barrio_points: list[TelecomBarrio] = Field(default_factory=list)
 
 
 class TelecomSourceHazards(BaseModel):

@@ -97,18 +97,27 @@ tables:
     upgrade_path: null
 
   graph.relationships:
-    method: proxy
+    method: mixed (measured geometry · measured feeders · Voronoi proxy)
     confidence_tier: proxy
     assumptions: >-
       LOCATED_IN, CONNECTS_TO, SERVES and CROSSES are geometric joins on measured
-      geometry (confidence ~1.0). FEEDS and POWERS — which substation feeds which
-      facility — are NOT public; they are approximated by a spatial Voronoi /
-      voltage-hierarchy proxy at confidence 0.4-0.7 (per-edge `confidence` column).
-      Every downstream consequence figure inherits this tier.
+      geometry (confidence ~1.0). POWERS is now SPLIT by `method`: substation→barrio
+      edges for 799 of 901 barrios are `feeder_topology` — MEASURED from PREPA's
+      actual distribution conductors (`graph.feeder_service`), confidence 0.8-0.9,
+      tier Modeled. The remaining POWERS edges stay the Voronoi/voltage-hierarchy
+      proxy at 0.4-0.7: all point facilities (hospital/health_center/water_plant/
+      pump/well/telecom), and the 102 barrios whose measured source substation is
+      FEEDS-isolated (kept on proxy so they never drop from upstream cascades).
+      FEEDS (substation→substation) is still the Voronoi voltage-hierarchy proxy.
+      The table's tier stays Proxy because its weakest edges are still Proxy —
+      read the per-edge `method`/`confidence`, not the table tier. The pre-swap
+      Voronoi POWERS is preserved in graph.relationships_powers_voronoi_bak.
     upgrade_path: >-
-      A LUMA feeder-topology data-sharing agreement would replace FEEDS/POWERS
-      with measured assignments, raising this — and everything built on it — to
-      Authoritative.
+      Extend the measured feeder assignment to point facilities (facility →
+      containing barrio → that barrio's measured substation) and wire the 22
+      FEEDS-isolated source substations into the transmission graph, which would
+      move the rest of POWERS off the proxy. A LUMA feeder + FEEDS-topology
+      agreement would make it fully Authoritative.
 
   graph.road_edges:
     method: measured
@@ -129,13 +138,18 @@ tables:
     upgrade_path: null
 
   graph.downstream_summary:
-    method: proxy
+    method: mixed (measured-feeder population · proxy facilities)
     confidence_tier: proxy
     assumptions: >-
-      Per-substation downstream population/facility counts walk the FEEDS/POWERS
-      proxy relationships — inherits graph.relationships' Proxy tier. Headline
-      population figures should render rounded (≈) rather than exact.
-    upgrade_path: Same as graph.relationships — a feeder data-sharing agreement.
+      Per-substation downstream population/facility counts walk FEEDS then POWERS.
+      Since the feeder swap, the POPULATION term is largely MEASURED — it follows
+      the `feeder_topology` substation→barrio edges (real conductors) for 799 of
+      901 barrios; only 102 FEEDS-isolated barrios still contribute via the
+      Voronoi proxy. The FACILITY counts (hospitals/water plants/health centers)
+      still walk the Voronoi proxy POWERS edges, so a consequence figure that
+      leans on facilities stays Proxy. Table tier stays Proxy on the weakest-input
+      rule; population figures are now materially better grounded than pre-swap.
+    upgrade_path: Same as graph.relationships — measured facility POWERS + FEEDS repair.
 
   graph.water_service_area:
     method: modeled
@@ -258,7 +272,7 @@ tables:
     confidence_tier: proxy
     assumptions: >-
       VOLL-based 30-yr NPV exposure = downstream population (via Proxy
-      FEEDS/POWERS) × VOLL ($2,389/person, an Estimated national constant — see
+      FEEDS/POWERS) × VOLL ($2,707/person, an Estimated national constant — see
       `assumptions` below). Both factors are below Authoritative, so exposure
       dollar figures should render rounded with ≈.
     upgrade_path: Same as graph.relationships, plus a PR-specific VOLL study.
@@ -323,6 +337,17 @@ tables:
     method: measured
     confidence_tier: authoritative
     assumptions: Append-only audit log of sync runs.
+    upgrade_path: null
+
+  sync.pull_health:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Per-source pull outcome written by prism/sync/http.py (F14d) — last
+      attempt, last success, consecutive failures, last error. Measured
+      operational telemetry, not a model. `last_partial` records that a
+      multi-part pull retrieved only some of its source, which is the state that
+      used to be indistinguishable from success.
     upgrade_path: null
 
   corridor.routes:
@@ -430,6 +455,34 @@ tables:
       Cross-check inferred sales against the CRIM transaction registry for exact
       recording dates and market prices.
 
+  crim.owner_entities:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      F1 normalized owner roll-up over crim.parcelas_dedup: `normalize_owner()`
+      (prism/crim/normalize.py) uppercases, folds accents, strips punctuation,
+      and drops a trailing legal-form suffix (LLC/INC/CORP/...) to produce a
+      deterministic `owner_key`, then groups parcels by that key. No fuzzy
+      matching — two spellings that differ by more than case/accents/legal-form
+      punctuation land as separate owner entities even when they are the same
+      real-world owner. `display_name` is the most frequent raw spelling seen
+      for the key, not a canonical legal name.
+    upgrade_path: >-
+      A registry-backed identity join (F11's crim.owner_rce_match, corporate
+      owners only) resolves some of this; a name-similarity pass across
+      owner_key values would catch more but needs the same guard against
+      false merges that F11d's control-cluster work applied.
+
+  crim.parcel_owner:
+    method: modeled
+    confidence_tier: modeled
+    assumptions: >-
+      One row per parcel (num_catastro), the per-parcel join table underlying
+      crim.owner_entities — same `normalize_owner()` method and the same
+      caveats. Authoritative parcel/value fields from crim.parcelas_dedup;
+      `owner_key` is PRISM's modeled key.
+    upgrade_path: Same as crim.owner_entities.
+
   crim.geocode_cache:
     method: proxy
     confidence_tier: proxy
@@ -447,6 +500,260 @@ tables:
       If D2 (Census Proposed Address tiering) lands, promote the Tier-A
       Census-matched case toward authoritative for the address label itself
       (the point), while the parcel-assignment step stays proxy.
+
+  crim.rce_entities:
+    method: authoritative
+    confidence_tier: authoritative
+    assumptions: >-
+      F11a raw mirror of the PR Departamento de Estado corporations registry
+      (rcp.estado.pr.gov), one row per registered entity as published — name,
+      status, registration index, officers/incorporators. Authoritative at the
+      row level, same as any other government-source mirror; the ONLY caveat
+      here is completeness, which is a coverage gap tracked separately as
+      `rce_registry_mirror_incomplete` in config/anomalies.yml (the walk was
+      still in progress as of this table's last stamp), not a confidence-tier
+      question — the rows that ARE mirrored are the registry's own data.
+    upgrade_path: >-
+      Re-run once prism.sync.rcp finishes the full registry walk; see
+      rce_registry_mirror_incomplete for the measured completion state.
+
+  crim.owner_rce_match:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11b link between a normalized CRIM owner and a PR corporations-registry
+      entity. The registry record itself is authoritative; binding it to a CRIM
+      owner **by name** is inference, and that is what this tier describes — a
+      name collision, a company that merged or re-registered, or an entity the
+      mirror has not reached yet all produce a wrong or missing link. The key is
+      suffix-preserving on purpose (F1's owner_key strips LLC/INC/CORP, which is
+      the token that separates two registry entities), so DANCO BUILDERS CORP and
+      INC stay distinct. Three passes, in descending strength: exact key
+      equality; token-sorted, for the rotated owner strings CRIM's export
+      produces ("REY LLC 119 MATIENZO HATO"); and a trigram tail accepted **only**
+      when independently corroborated, because similarity alone does not separate
+      a real typo from a different company at the same score. More than one
+      candidate is recorded as ambiguous and never resolved by guessing. Reaches
+      only the corporate slice — individuals and SUCESION estates have no
+      registry record at all, so this can never describe most CRIM owners.
+    upgrade_path: >-
+      Re-run once prism.sync.rcp finishes the full ~560K walk (the rate is only
+      as complete as the mirror). Beyond that, the ceiling is name-based joining
+      itself: a registry-published catastro or a shared official identifier
+      would make the link authoritative rather than inferred.
+
+  crim.rce_status_history:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11c slowly-changing dimension over registry status. The status values are
+      the Departamento de Estado's own, but which CRIM owner they attach to is
+      F11b's name-based inference, so the row is only as sound as that link. The
+      sharper limit is the observation window: the registry publishes current
+      state and overwrites it, so PRISM only sees a change if it polled on both
+      sides of it. An absence of transitions therefore means "not observed
+      between polls", never "nothing changed" — and a company that dissolved and
+      was revived between two polls leaves no trace at all. Terminal statuses are
+      a deliberate strict subset of the registry's own isStatusTerminal flag
+      (CONVERSIÓN and ENMENDADA are excluded — an amended or converted company is
+      still alive).
+    upgrade_path: >-
+      Shorten the polling interval on the matched set, or ingest the registry's
+      filing-transaction history if it ever becomes reachable without owner/admin
+      auth, which would give real effective dates instead of observation dates.
+
+  crim.rce_addresses:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11b normalization of the address blocks the corporations registry
+      publishes per entity. The addresses are transcribed faithfully, but their
+      *meaning* is what makes this proxy: a shared address is evidence, never an
+      identity claim. Resident-agent and law-firm offices host hundreds of
+      unrelated entities, so co-occupancy only carries signal at low frequency —
+      hence the entity_count and is_agent_office flag on
+      crim.rce_address_entities (>10 entities). The registry's free-text city is
+      resolved to a canonical municipio only on an exact folded name match
+      (~92% of address rows); barrios, urbanizaciones, and mainland cities are
+      left unresolved rather than guessed at.
+    upgrade_path: >-
+      Geocode the unresolved ~8% to place them spatially instead of by name, which
+      would also let a registered address be tied to a barrio rather than only a
+      municipio.
+
+  crim.control_cluster_summary:
+    method: proxy
+    confidence_tier: proxy
+    assumptions: >-
+      F11d control clusters: registry entities sharing 2 or more named
+      officers/incorporators (crim.rce_person), one further inferential step
+      past F11b's already-proxy name match. People appearing on more than 10
+      mirrored entities (crim.rce_person_entities.is_frequent_filer) are
+      excluded as a clustering signal — professional filers, not principals,
+      mirroring the address layer's agent-office threshold. The MIN_SHARED_PEOPLE
+      floor of 2 is load-bearing, not a tuning knob: requiring only 1 shared
+      person produced a 2,317-entity connected component and one cluster
+      spanning 106 CRIM owner_keys, because a single shared officer (an
+      accountant, a secondary officer on an unrelated board) bridges otherwise-
+      unrelated corporate families under naive transitive closure. Shared
+      officers is strong evidence of common control, never proof — the same two
+      people can legitimately co-found unrelated ventures, so `spans_multiple_owners`
+      is a lead worth checking, not an ownership claim.
+    upgrade_path: >-
+      A person-level normalization pass (nickname/initial expansion) would
+      catch same-person pairs the exact name key currently splits — the
+      conservative failure direction, so left as-is until there's a use case
+      pulling on it. Re-run as the F11a registry mirror grows.
+
+  sync.aee_circuit:
+    method: aggregate of sync.aee_feeders (one row per circuit)
+    confidence_tier: authoritative
+    assumptions: >-
+      Per-feeder-circuit rollup of the authoritative conductor geometry (collected
+      geom + total length), a coarser helper for substation/barrio assignment.
+      Rebuilt from sync.aee_feeders on every feeders-load, so it carries that
+      table's tier.
+    upgrade_path: null
+
+  graph.feeder_substation:
+    method: spatial join (conductor within 50 m of a substation point)
+    confidence_tier: modeled
+    assumptions: >-
+      Each feeder circuit assigned to the substation its conductors physically
+      emanate from — a cross-dataset spatial join (HIFLD substation points x PREPA
+      conductors), since substations carry no circuit code. The conductors touch
+      their source substation at ~0 m, so the link is strong, but crossing two
+      independently-sourced datasets makes it Modeled, not Authoritative. 1,297
+      of 1,340 circuits reach a substation within 50 m; the other 43 are left
+      unassigned, never guessed. Per-row confidence 0.8-0.9 by touch distance
+      (the assignment is capped at 50 m, so the 0.6 fallback tier is unreached).
+    upgrade_path: >-
+      A PREPA substation-to-feeder ownership table would make this an exact key
+      join instead of a spatial inference.
+
+  graph.feeder_barrio:
+    method: measured conductor-in-barrio length (ST_Intersection)
+    confidence_tier: modeled
+    assumptions: >-
+      Circuit -> barrio weighted by the conductor length physically inside each
+      barrio (ST_Intersection of feeder segments with Census barrio polygons) -
+      the measured service footprint the Voronoi proxy only approximates. PRISM
+      computation over two Authoritative geometries, hence Modeled.
+    upgrade_path: null
+
+  graph.feeder_service:
+    method: rollup of feeder_substation x feeder_barrio
+    confidence_tier: modeled
+    assumptions: >-
+      Substation -> barrio, the measured analogue of the Voronoi POWERS edge: a
+      substation powers a barrio when its circuits' conductors run through it,
+      weighted by total conductor length. Covers 900 of 901 barrios (all but uninhabited Isla de Mona). Against the
+      proxy it agrees on the primary substation for only ~49% of barrios - where
+      they differ the conductor evidence favors this table (the proxy picks by
+      Voronoi-cell centroid, this by physical wire). Kept SEPARATE from POWERS;
+      folding it in is a gated step because it ripples through downstream_summary,
+      resilience, and economy.
+    upgrade_path: >-
+      Gated swap: replace the Voronoi POWERS edges with these, lifting
+      graph.relationships (and everything downstream) out of the Proxy tier.
+
+  sync.aee_feeders:
+    method: authoritative mirror (PREPA/AEE distribution feeder network)
+    confidence_tier: authoritative
+    assumptions: >-
+      The real distribution feeder network from PREPA's GE Smallworld GIS,
+      486,725 conductor segments with NODE1_ID/NODE2_ID topology, voltage,
+      overhead/underground, and circuit id — the measured geometry behind
+      PRISM's Voronoi feeder proxy. Keyed on the Smallworld G3E_FID (globally
+      unique, verified across the full mirror). Loaded from the data/raw chunks,
+      never straight off the network. voltage_kv is kept as the source string
+      ('7.62/13.20'), not parsed to a number.
+    upgrade_path: >-
+      Building the substation->feeder->barrio assignment from this topology
+      replaces the Voronoi/voltage-hierarchy proxy in graph.relationships with
+      measured feeder routing, lifting FEEDS/POWERS and everything downstream
+      of them from Proxy toward Authoritative.
+
+  sync.aee_shed_feeders:
+    method: authoritative mirror (PREPA/AEE Manual Load Shedding FeatureServer)
+    confidence_tier: authoritative
+    assumptions: >-
+      PREPA's own manual load-shedding plan: 792 distribution feeders with the
+      polygons they serve, the shed STAGE (1-3 or CRITICAL STAGE), customer
+      count, and live STATUS. Authoritative because it is the operator's own
+      published plan, not a PRISM inference. Two source caveats travel with it:
+      MW is unreliable per the dashboard's own labeling (CLIENTS is the solid
+      consequence metric), and the polygons are service areas, not the feeder
+      conductor geometry. 20 of the 792 source polygons are invalid as published
+      (nested shells) and are repaired with ST_MakeValid on load — the data/raw
+      mirror keeps the source exactly as PREPA published it. Loaded from those
+      mirrors, never straight off the network, so a vanished dashboard cannot
+      erase what PRISM holds.
+    upgrade_path: >-
+      Manual_Load_Shedding_Base_Data carries the real 486,725-segment
+      distribution network with NODE1_ID/NODE2_ID topology — mirroring and
+      loading that replaces PRISM's Voronoi feeder proxy with measured
+      geometry and lifts the feeder layer's tier.
+
+  sync.aee_shed_history:
+    method: append-only snapshot series
+    confidence_tier: authoritative
+    assumptions: >-
+      One row per (snapshot, feeder), banked every time the source's
+      lastEditDate advances (~30 min). This is the only record of a shed
+      EVENT over time — PREPA publishes current state and overwrites it, so a
+      shedding episode is unrecoverable once it ends unless PRISM banked it.
+      Coverage starts 2026-07-18; there is no backfill before that date and
+      gaps exist whenever the poller was not running. Interpret a missing
+      interval as "not observed", never as "no shedding".
+    upgrade_path: >-
+      A worker cron on the same cadence as the other live feeds would close
+      the observation gaps and make the series continuous.
+
+  ocpr.contracts:
+    method: authoritative mirror (Oficina del Contralor register)
+    confidence_tier: authoritative
+    assumptions: >-
+      F11e — Puerto Rico's official government-contract register, mirrored
+      whole (2012→today, 1.14M contracts). The amounts, dates, agencies and
+      contractor names are the Contralor's own record, not a PRISM estimate.
+      One caveat travels with every amount: a contract with multiple
+      contractors carries the FULL amount against each of them in the source,
+      so summing by contractor over-counts. PRISM marks such rows shared
+      rather than dividing a number the register never divided.
+    upgrade_path: >-
+      Per-contractor allocations exist only inside the contract PDFs
+      (lazy-fetchable by document GUID); parsing them would let the shared
+      amounts be split for real instead of flagged.
+
+  ocpr.government_keys:
+    method: normalized-name set (contracting entities + public-body prefixes)
+    confidence_tier: modeled
+    assumptions: >-
+      F11e — which owner keys are public bodies, used to default the
+      contractor ranking to private landowners. Data-driven core: every
+      distinct OCPR contracting entity_name run through normalize_owner()
+      (375 agencies, exact). Prefix sweep on top (DEPARTAMENTO, AUTORIDAD,
+      MUNICIPIO, ADMINISTRACION, …) for public bodies that only ever appear
+      as a contractor — that part is a heuristic and can misfile a private
+      firm whose name opens with a government-sounding word.
+    upgrade_path: >-
+      Once the F11a corporations-registry mirror lands, a registry class
+      lookup replaces the prefix heuristic with the entity's declared type.
+
+  ocpr.owner_contract_footprint:
+    method: exact join on normalized owner name
+    confidence_tier: proxy
+    assumptions: >-
+      F11e — joins OCPR contractors to CRIM owners on
+      normalize_owner(name) = owner_key. The join is on a NAME, never an
+      identifier: two unrelated entities sharing a normalized name would
+      merge, and one entity spelled two ways would split. 21,699 of 345,488
+      distinct contractors (6.3%) match a CRIM owner. A no-match is reported
+      as a no-match, never as a guess.
+    upgrade_path: >-
+      F11b's owner→registry matcher gives each side a registration index;
+      joining on that instead of on the name removes the merge/split risk.
 
   crim.parcel_proposed_address:
     method: tiered (census_forward_geocode | nearest_state_road+barrio+municipio)
@@ -548,6 +855,20 @@ tables:
       Accumulate an append-only history table (mirrors the PREPA/LUMA pattern)
       for real hydrographs instead of a latest-only snapshot.
 
+  sync.climate_normals:
+    method: measured
+    confidence_tier: authoritative
+    assumptions: >-
+      Monthly 1991-2020 climate normals (temperature, precipitation, rain-day
+      counts) for a curated set of 19 PR GHCN stations, from NOAA NCEI's Access
+      Data Service — NOAA is the climate-normals authority. Static 30-year
+      baseline, not a live feed; refreshed on a monthly cron mainly so a fresh
+      deploy isn't empty.
+    upgrade_path: >-
+      A full PR station inventory (NCEI's search API returns aggregations, not
+      a station list, so this is a curated subset) would tighten per-municipio
+      nearest-station distance.
+
   resilience.telecom_scores:
     method: proxy
     confidence_tier: proxy
@@ -621,7 +942,7 @@ assumptions:
       - optimize.intervention_catalog.v3
     assumptions: >-
       National default outage-cost figure (0.822 kW/person x $5/kWh x 33.6 hr/yr
-      x 17.29 NPV factor = $2,389/person 30yr). Not PR-specific.
+      x 19.60 NPV factor = $2,707/person 30yr). Not PR-specific.
     upgrade_path: Commission a PR-specific VOLL study (PREB/LUMA outage-cost data).
 
   - key: discount_rate
@@ -630,9 +951,13 @@ assumptions:
     unit: fraction/yr
     confidence_tier: estimated
     used_by:
+      - economy.substation_exposure
       - optimize.intervention_catalog.v2
       - corridor.routes
-    assumptions: Standard public-infrastructure discount rate (3%/yr, 30-yr horizon).
+    assumptions: >-
+      Standard public-infrastructure discount rate (3%/yr, 30-yr horizon).
+      F10b (2026-07-10): reconciled economy.substation_exposure onto this
+      same rate — it previously ran its own undocumented 4%/yr NPV factor.
     upgrade_path: Use PR Treasury / OMB's official discount rate if one is published.
 
   - key: outage_hours_per_year

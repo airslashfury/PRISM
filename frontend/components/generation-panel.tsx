@@ -21,23 +21,31 @@ import { SkeletonStats } from "@/components/query-state";
 import { useGeneration } from "@/lib/hooks";
 import { cn, fmtInt, fmtNum } from "@/lib/utils";
 import type { GridSnapshot } from "@/lib/api";
+import { useLocale, useMessages } from "@/lib/i18n/context";
+import { intlTag } from "@/lib/i18n/locales";
+import type { Messages } from "@/lib/i18n/dictionaries/en";
 
 /** Each fuel category the PREPA/Genera feed reports, with an "element" icon,
  *  a dashboard color, and a display label. Keys match dataByFuel fuel names. */
 type FuelDef = { label: string; icon: ComponentType<{ className?: string; style?: React.CSSProperties }>; rgb: string };
-const FUEL: Record<string, FuelDef> = {
-  LNG:    { label: "Natural gas", icon: Flame,    rgb: "56,189,248" },   // sky
-  Coal:   { label: "Coal",        icon: Mountain, rgb: "148,163,184" },  // slate
-  Bunker: { label: "Bunker fuel", icon: Fuel,     rgb: "245,158,11" },   // amber
-  Diesel: { label: "Diesel",      icon: Fuel,     rgb: "251,113,133" },  // rose
-  Renew:  { label: "Renewables",  icon: Leaf,     rgb: "52,211,153" },   // emerald
-};
-const FUEL_FALLBACK: FuelDef = { label: "Other", icon: Zap, rgb: "100,116,139" };
-const fuelDef = (k: string): FuelDef => FUEL[k] ?? { ...FUEL_FALLBACK, label: k };
+function fuelMap(t: Messages["generationPanel"]["fuel"]): Record<string, FuelDef> {
+  return {
+    LNG:    { label: t.lng,    icon: Flame,    rgb: "56,189,248" },   // sky
+    Coal:   { label: t.coal,   icon: Mountain, rgb: "148,163,184" },  // slate
+    Bunker: { label: t.bunker, icon: Fuel,     rgb: "245,158,11" },   // amber
+    Diesel: { label: t.diesel, icon: Fuel,     rgb: "251,113,133" },  // rose
+    Renew:  { label: t.renew,  icon: Leaf,     rgb: "52,211,153" },   // emerald
+  };
+}
 
 /** Live PREPA / Genera grid command center. Supply-side authoritative data;
  *  online/offline is inferred from MW. Designed to read at a glance. */
 export function GenerationPanel() {
+  const t = useMessages().generationPanel;
+  const { locale } = useLocale();
+  const tag = intlTag(locale);
+  const FUEL = fuelMap(t.fuel);
+  const fuelDef = (k: string): FuelDef => FUEL[k] ?? { label: k, icon: Zap, rgb: "100,116,139" };
   const { data, isLoading } = useGeneration();
   const [showPlants, setShowPlants] = useState(false);
 
@@ -71,11 +79,11 @@ export function GenerationPanel() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
           </span>
-          <h2 className="text-sm font-semibold">Grid command center</h2>
+          <h2 className="text-sm font-semibold">{t.title}</h2>
           <ProvenanceBadge table="sync.generation_status" />
         </div>
         <span className="text-xs text-muted-foreground">
-          PREPA · Genera · {asOf ? asOf.toLocaleString() : "—"}
+          PREPA · Genera · {asOf ? asOf.toLocaleString(tag) : "—"}
         </span>
       </div>
 
@@ -87,23 +95,23 @@ export function GenerationPanel() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Kpi
               icon={Zap}
-              label="Generation now"
-              value={fmtInt(sys.generation_mw)}
+              label={t.generationNow}
+              value={fmtInt(sys.generation_mw, tag)}
               unit="MW"
               accent="text-primary"
             />
             <Kpi
               icon={Gauge}
-              label="Available capacity"
-              value={fmtInt(sys.available_capacity_mw)}
+              label={t.availableCapacity}
+              value={fmtInt(sys.available_capacity_mw, tag)}
               unit="MW"
             />
             <Kpi
               icon={Activity}
-              label="Reserve margin"
-              value={headroom != null ? `+${fmtInt(headroom)}` : "—"}
+              label={t.reserveMargin}
+              value={headroom != null ? `+${fmtInt(headroom, tag)}` : "—"}
               unit="MW"
-              sub={marginPct != null ? `${(marginPct * 100).toFixed(0)}% headroom` : undefined}
+              sub={marginPct != null ? t.headroomPct((marginPct * 100).toFixed(0)) : undefined}
               accent={
                 marginPct != null && marginPct < 0.1
                   ? "text-red-400"
@@ -114,10 +122,10 @@ export function GenerationPanel() {
             />
             <Kpi
               icon={Activity}
-              label="Frequency"
-              value={fmtNum(sys.frequency_hz, 1)}
+              label={t.frequency}
+              value={fmtNum(sys.frequency_hz, 1, tag)}
               unit="Hz"
-              sub={`${fmtInt(data.online)}/${fmtInt(data.total_plants)} units on`}
+              sub={t.unitsOn(fmtInt(data.online, tag), fmtInt(data.total_plants, tag))}
               accent={
                 sys.frequency_hz != null && Math.abs(sys.frequency_hz - 60) > 0.15
                   ? "text-amber-400"
@@ -131,9 +139,9 @@ export function GenerationPanel() {
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  What&apos;s powering the island
+                  {t.poweringIsland}
                 </span>
-                <span className="text-[11px] text-muted-foreground">% of generation</span>
+                <span className="text-[11px] text-muted-foreground">{t.pctOfGeneration}</span>
               </div>
               {/* stacked share bar */}
               <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/40">
@@ -166,38 +174,42 @@ export function GenerationPanel() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-border/60 bg-background/30 p-3">
               <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Renewable generation
+                {t.renewableGeneration}
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <Renewable icon={Sun} label="Solar" mw={sys.solar_mw} rgb="250,204,21" />
-                <Renewable icon={Wind} label="Wind" mw={sys.wind_mw} rgb="45,212,191" />
-                <Renewable icon={Droplets} label="Hydro" mw={sys.hydro_mw} rgb="96,165,250" />
+                <Renewable icon={Sun} label={t.solar} mw={sys.solar_mw} rgb="250,204,21" tag={tag} />
+                <Renewable icon={Wind} label={t.wind} mw={sys.wind_mw} rgb="45,212,191" tag={tag} />
+                <Renewable icon={Droplets} label={t.hydro} mw={sys.hydro_mw} rgb="96,165,250" tag={tag} />
               </div>
               {sys.renewable_mw != null && (
                 <div className="mt-2 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
-                  {fmtNum(sys.renewable_mw, 1)} MW renewable ·{" "}
                   {sys.generation_mw
-                    ? `${((sys.renewable_mw / sys.generation_mw) * 100).toFixed(1)}% of grid`
-                    : ""}
+                    ? t.renewableMwOfGrid(
+                        fmtNum(sys.renewable_mw, 1, tag),
+                        ((sys.renewable_mw / sys.generation_mw) * 100).toFixed(1),
+                      )
+                    : t.renewableMwOnly(fmtNum(sys.renewable_mw, 1, tag))}
                 </div>
               )}
             </div>
 
             <div className="rounded-lg border border-border/60 bg-background/30 p-3">
               <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Who is generating
+                {t.whoIsGenerating}
               </div>
               <OperatorSplit sys={sys} />
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <MiniStat
-                  label="Spinning reserve"
+                  label={t.spinningReserve}
                   value={sys.spinning_reserve_mw}
-                  hint="ready in seconds"
+                  hint={t.spinningReserveHint}
+                  tag={tag}
                 />
                 <MiniStat
-                  label="Operational reserve"
+                  label={t.operationalReserve}
                   value={sys.operational_reserve_mw}
-                  hint="ready in minutes"
+                  hint={t.operationalReserveHint}
+                  tag={tag}
                 />
               </div>
             </div>
@@ -212,7 +224,7 @@ export function GenerationPanel() {
               <ChevronDown
                 className={cn("h-4 w-4 transition-transform", showPlants && "rotate-180")}
               />
-              Per-plant output ({fmtInt(data.online)} of {fmtInt(data.total_plants)} generating)
+              {t.perPlantOutput(fmtInt(data.online, tag), fmtInt(data.total_plants, tag))}
             </button>
             {showPlants && (
               <div className="mt-1 max-h-64 overflow-y-auto pr-1">
@@ -228,7 +240,7 @@ export function GenerationPanel() {
                           <span className="ml-1.5 text-muted-foreground">{p.plant_type}</span>
                         </td>
                         <td className="py-1.5 text-right tnum">
-                          {fmtNum(p.site_total_mw, 1)} MW
+                          {fmtNum(p.site_total_mw, 1, tag)} MW
                         </td>
                         <td className="py-1.5 pl-3 text-right">
                           <span
@@ -247,7 +259,7 @@ export function GenerationPanel() {
                                   : "bg-muted-foreground/50",
                               )}
                             />
-                            {p.status}
+                            {p.status === "online" ? t.plantStatus.online : p.status === "offline" ? t.plantStatus.offline : p.status}
                           </span>
                         </td>
                       </tr>
@@ -261,9 +273,7 @@ export function GenerationPanel() {
       )}
 
       <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
-        Live supply-side data from PREPA / Genera — what plants are generating now, not which
-        substation feeds whom. Online/offline is inferred from megawatts (the feed has no explicit
-        status field).
+        {t.footnote}
       </p>
     </Card>
   );
@@ -303,22 +313,25 @@ function Renewable({
   label,
   mw,
   rgb,
+  tag,
 }: {
   icon: ComponentType<{ className?: string; style?: React.CSSProperties }>;
   label: string;
   mw: number | null;
   rgb: string;
+  tag: string;
 }) {
   return (
     <div className="text-center">
       <Icon className="mx-auto h-4 w-4" style={{ color: `rgb(${rgb})` }} />
-      <div className="mt-1 text-sm font-semibold tnum">{mw != null ? fmtNum(mw, 1) : "—"}</div>
+      <div className="mt-1 text-sm font-semibold tnum">{mw != null ? fmtNum(mw, 1, tag) : "—"}</div>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
     </div>
   );
 }
 
 function OperatorSplit({ sys }: { sys: GridSnapshot }) {
+  const t = useMessages().generationPanel;
   const prepa = sys.prepa_pct;
   const ppoa = sys.ppoa_pct;
   if (prepa == null && ppoa == null) {
@@ -333,11 +346,11 @@ function OperatorSplit({ sys }: { sys: GridSnapshot }) {
       <div className="mt-2 flex justify-between text-xs">
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full" style={{ background: "rgb(34,211,238)" }} />
-          PREPA <span className="tnum text-muted-foreground">{prepa?.toFixed(0)}%</span>
+          {t.prepa} <span className="tnum text-muted-foreground">{prepa?.toFixed(0)}%</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full" style={{ background: "rgb(167,139,250)" }} />
-          Private (PPOA) <span className="tnum text-muted-foreground">{ppoa?.toFixed(0)}%</span>
+          {t.privatePpoa} <span className="tnum text-muted-foreground">{ppoa?.toFixed(0)}%</span>
         </span>
       </div>
     </>
@@ -348,16 +361,18 @@ function MiniStat({
   label,
   value,
   hint,
+  tag,
 }: {
   label: string;
   value: number | null;
   hint: string;
+  tag: string;
 }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="text-sm font-semibold tnum">
-        {value != null ? `${fmtInt(value)} MW` : "—"}
+        {value != null ? `${fmtInt(value, tag)} MW` : "—"}
       </div>
       <div className="text-[10px] text-muted-foreground/70">{hint}</div>
     </div>

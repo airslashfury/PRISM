@@ -51,7 +51,7 @@ These replace national-default constants currently used as placeholders:
 |---|---|
 | **SAIDI / SAIFI per feeder** (or per region) | Flat 33.6 outage-hours/yr national default |
 | Historical outage / restoration records by feeder (post-Maria, Fiona, Apr-2024 blackout) | Hand-curated municipio-level backtest ground truth |
-| Any **value-of-lost-load (VOLL)** or outage-cost study for PR | $5/kWh national default ($2,389/person 30-yr) |
+| Any **value-of-lost-load (VOLL)** or outage-cost study for PR | $5/kWh national default ($2,707/person 30-yr) |
 
 The outage/restoration history is also what would let us validate PRISM's hazard model against real
 events at the feeder level instead of the coarse municipio level we use now.

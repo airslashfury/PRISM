@@ -8,10 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
-
-_SESSION = requests.Session()
-_SESSION.headers["User-Agent"] = "PRISM-mirror/0.1 (data sovereignty)"
+from prism.sync import http as prism_http
 
 # Bounding box of Puerto Rico + US Virgin Islands in WGS84
 PR_BBOX = {"xmin": -67.35, "ymin": 17.85, "xmax": -65.15, "ymax": 18.65}
@@ -55,9 +52,11 @@ def query_layer(
 
     while True:
         params = {**base_params, "resultOffset": offset}
-        r = _SESSION.get(base, params=params, timeout=timeout)
-        r.raise_for_status()
-        data = r.json()
+        # A dropped page mid-walk used to abort the whole pull (F14d).
+        data = prism_http.fetch_json(
+            base, source="arcgis_mirror", params=params,
+            policy=prism_http.RetryPolicy(attempts=4, read_timeout=float(timeout)),
+        )
 
         if "error" in data:
             raise RuntimeError(f"ArcGIS error: {data['error']}")

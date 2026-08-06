@@ -130,27 +130,27 @@ def test_svi_lookup_no_match(engine):
     assert "error" in result
 
 
-def test_address_lookup(engine):
-    from prism.ask.tools import address_lookup
+def test_barrio_lookup(engine):
+    from prism.ask.tools import barrio_lookup
 
-    result = address_lookup(engine, query="Playa")
+    result = barrio_lookup(engine, query="Playa")
     assert "civic_card" in result
     assert result["civic_card"]["barrio_name"] is not None
     assert len(result["map_points"]) == 1
     assert "flood_exposure" in result["confidence_tiers"]
 
 
-def test_address_lookup_no_match(engine):
-    from prism.ask.tools import address_lookup
+def test_barrio_lookup_no_match(engine):
+    from prism.ask.tools import barrio_lookup
 
-    result = address_lookup(engine, query="zzzznotreal")
+    result = barrio_lookup(engine, query="zzzznotreal")
     assert "error" in result
 
 
-def test_address_lookup_empty(engine):
-    from prism.ask.tools import address_lookup
+def test_barrio_lookup_empty(engine):
+    from prism.ask.tools import barrio_lookup
 
-    result = address_lookup(engine, query="   ")
+    result = barrio_lookup(engine, query="   ")
     assert "error" in result
 
 
@@ -203,7 +203,7 @@ def test_answer_query_routes_and_answers(engine, monkeypatch):
             )
         return Completion(
             text="The highest-risk substation under Cat-3 is shown in the data, a Modeled figure.",
-            tier="sonnet", model="claude-sonnet-4-6", backend="anthropic",
+            tier="sonnet", model="claude-sonnet-5", backend="anthropic",
         )
 
     monkeypatch.setattr("prism.llm.complete", fake_complete)
@@ -230,7 +230,7 @@ def test_answer_query_tool_error_is_handled(engine, monkeypatch):
                 tier="haiku", model="claude-haiku-4-5", backend="anthropic",
             )
         return Completion(
-            text="That entity could not be found.", tier="sonnet", model="claude-sonnet-4-6", backend="anthropic",
+            text="That entity could not be found.", tier="sonnet", model="claude-sonnet-5", backend="anthropic",
         )
 
     monkeypatch.setattr("prism.llm.complete", fake_complete)
@@ -469,7 +469,7 @@ def test_whats_new_tool(engine):
     assert isinstance(result["stale_count"], int)
     assert isinstance(result["changes"], list)
     for c in result["changes"]:
-        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim", "storm"}
+        assert c["kind"] in {"sync", "rescore", "rank", "quake", "crim", "storm", "registry", "pull"}
         assert c["headline"]
     for f in result["feeds"]:
         assert isinstance(f["stale"], bool)

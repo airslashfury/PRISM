@@ -5,6 +5,7 @@ import "./globals.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Providers } from "./providers";
 import { cn } from "@/lib/utils";
+import { getServerLocale } from "@/lib/i18n/server";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
@@ -33,14 +34,15 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = getServerLocale();
   return (
     <html
-      lang="en"
+      lang={locale}
       className={cn("dark", inter.variable, jetbrainsMono.variable)}
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background font-sans">
-        <Providers>{children}</Providers>
+        <Providers initialLocale={locale}>{children}</Providers>
       </body>
     </html>
   );
